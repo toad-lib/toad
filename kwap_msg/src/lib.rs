@@ -45,6 +45,7 @@ extern crate alloc as std_alloc;
 ///
 /// Depends on crate feature `alloc` and `#[global_allocator]` (if your crate is `#[no_std]`).
 #[cfg(feature = "alloc")]
+#[cfg_attr(any(feature = "docs", docsrs), doc(cfg(feature = "alloc")))]
 pub mod alloc;
 
 /// Fixed capacity representations of raw CoAP messages.

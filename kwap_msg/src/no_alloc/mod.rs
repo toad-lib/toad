@@ -9,7 +9,6 @@ pub mod opt;
 pub use opt::*;
 
 #[doc = include_str!("../../docs/no_alloc/Message.md")]
-#[cfg_attr(any(feature = "docs", docsrs), doc(cfg(feature = "alloc")))]
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> {
   /// see [`Id`] for details
