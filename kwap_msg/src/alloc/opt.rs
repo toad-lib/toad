@@ -1,5 +1,6 @@
 use std_alloc::vec::Vec;
 
+use crate::no_alloc::{opt_header, opt_len_or_delta};
 pub use crate::no_alloc::opt::{EnumerateOptNumbers, EnumerateOptNumbersIter, GetOptDelta, OptDelta, OptNumber};
 use crate::parsing::*;
 
@@ -73,4 +74,52 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for OptValue {
       Ok(OptValue(data))
     }
   }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parse_opt_value() {
+      let val_1byte: [u8; 2] = [0b00000001, 2];
+      let val_1byte = OptValue::try_consume_bytes(val_1byte).unwrap();
+      assert_eq!(val_1byte, OptValue(vec![2]));
+
+      let data13bytes = core::iter::repeat(1u8).take(13).collect::<Vec<_>>();
+      let val_13bytes = [[0b00001101u8, 0b00000000].as_ref(), &data13bytes].concat();
+      let val_13bytes = OptValue::try_consume_bytes(val_13bytes).unwrap();
+      assert_eq!(val_13bytes, OptValue(data13bytes));
+
+      let data270bytes = core::iter::repeat(1u8).take(270).collect::<Vec<_>>();
+      let val_270bytes = [[0b00001110u8, 0b00000000, 0b00000001].as_ref(), &data270bytes].concat();
+      let val_270bytes = OptValue::try_consume_bytes(val_270bytes).unwrap();
+      assert_eq!(val_270bytes, OptValue(data270bytes));
+
+      let errs = [[0b00000001u8].as_ref(),           // len is 1 but no data following
+                  [0b00001101u8].as_ref(),           // len value is 13, but no data following
+                  [0b00001110, 0b00000001].as_ref(), // len value is 14 but only 1 byte following
+                  [].as_ref()];
+
+      errs.into_iter().for_each(|iter| {
+                        let del = OptValue::try_consume_bytes(iter.to_vec());
+                        assert_eq!(del, Err(OptParseError::UnexpectedEndOfStream))
+                      });
+    }
+
+    #[test]
+    fn parse_opt() {
+      let opt_bytes: [u8; 2] = [0b00000001, 0b00000001];
+      let opt = Opt::try_consume_bytes(opt_bytes).unwrap();
+      assert_eq!(opt,
+                 Opt { delta: OptDelta(0),
+                       value: OptValue(vec![1]) });
+
+      let opt_bytes: [u8; 5] = [0b00000001, 0b00000001, 0b00010001, 0b00000011, 0b11111111];
+      let opt = Vec::<Opt>::try_consume_bytes(opt_bytes).unwrap();
+      assert_eq!(opt,
+                 vec![Opt { delta: OptDelta(0),
+                            value: OptValue(vec![1]) },
+                      Opt { delta: OptDelta(1),
+                            value: OptValue(vec![3]) },]);
+    }
 }

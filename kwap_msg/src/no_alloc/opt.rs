@@ -80,6 +80,46 @@ impl<T: IntoIterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<T> for Op
   }
 }
 
+/// Peek at the first byte of a byte iterable and interpret as an Option header.
+///
+/// This converts the iterator into a Peekable and looks at bytes0.
+/// Checks if byte 0 is a Payload marker, indicating all options have been read.
+pub(crate) fn opt_header<I: IntoIterator<Item = u8>>(bytes: I)
+                                                     -> Result<(u8, impl Iterator<Item = u8>), OptParseError> {
+  let mut bytes = bytes.into_iter().peekable();
+  let opt_header = bytes.peek().copied().ok_or(OptParseError::UnexpectedEndOfStream)?;
+
+  if let 0b11111111 = opt_header {
+    // This isn't an option, it's the payload!
+    Err(OptParseError::OptionsExhausted)?
+  }
+
+  Ok((opt_header, bytes))
+}
+
+#[doc = include_str!("../../docs/parsing/opt_len_or_delta.md")]
+pub(crate) fn opt_len_or_delta(head: u8,
+                               bytes: &mut impl Iterator<Item = u8>,
+                               reserved_err: OptParseError)
+                               -> Result<u16, OptParseError> {
+  if head == 15 {
+    Err(reserved_err)?
+  }
+
+  match head {
+    | 13 => {
+      let n = OptParseError::try_next(bytes)?;
+      Ok((n as u16) + 13)
+    },
+    | 14 => bytes.take(2)
+                 .collect::<arrayvec::ArrayVec<_, 2>>()
+                 .into_inner()
+                 .map(|array| u16::from_be_bytes(array) + 269)
+                 .map_err(|_| OptParseError::UnexpectedEndOfStream),
+    | _ => Ok(head as u16),
+  }
+}
+
 impl<T: IntoIterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<T> for OptValue<OPT_CAP> {
   type Error = OptParseError;
 
