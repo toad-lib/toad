@@ -40,13 +40,18 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-/// Build on `no_alloc`, but in structures with buffers, replaces the fixed-capacity stack-allocated buffers with
-/// dynamically growable structures that depend on a `#[global_allocator]` and crate feature `alloc`.
+/// Identical to [`crate::no_alloc`], but replaces all fixed-capacity stack-allocated buffers with
+/// dynamically growable structures.
+///
+/// Depends on crate feature `alloc` and `#[global_allocator]` (if your crate is `#[no_std]`).
 #[cfg(feature = "alloc")]
 pub mod alloc;
 
-/// Fixed capacity structures that are always available.
+/// Fixed capacity representations of raw CoAP messages.
 pub mod no_alloc;
 
-/// TODO
+#[doc(hidden)]
 pub mod parsing;
+
+#[doc(inline)]
+pub use parsing::TryFromBytes;

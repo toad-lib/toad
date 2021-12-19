@@ -12,11 +12,11 @@ and does not compute or store the Option Number.
 To get Option [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
 
 ## `alloc` / no-`alloc`
-When crate feature `alloc` is enabled, you can use [`opt_alloc::Opt`] or just `opt::Opt`, which uses heap allocation
-for data storage.
-
-When `alloc` is disabled, you must use [`opt_fixed::Opt`] or just `opt::Opt`, which instead has a fixed capacity and
+When crate feature `alloc` is enabled, you can use [`crate::alloc::Opt`], which uses heap allocation
+for data storage, or [`crate::no_alloc::Opt`], which instead has a fixed capacity and
 uses stack allocation for data storage.
+
+When `alloc` is disabled, you must use [`crate::no_alloc::Opt`].
 
 # Related
 - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)

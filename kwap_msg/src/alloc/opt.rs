@@ -25,6 +25,7 @@ impl GetOptDelta for Opt {
 /// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct OptValue(pub Vec<u8>);
+
 impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Vec<Opt> {
   type Error = OptParseError;
 

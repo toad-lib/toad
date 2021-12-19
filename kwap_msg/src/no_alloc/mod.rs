@@ -188,7 +188,7 @@ impl Code {
   ///
   /// This is to avoid unnecessary heap allocation,
   /// you can create a `String` with `FromIterator::<String>::from_iter`,
-  /// or if the `alloc` feature of `kwap` is enabled there is a [`ToString`] implementation provided for Code.
+  /// or if the `alloc` feature of `kwap` is enabled there is a `ToString` implementation provided for Code.
   /// ```
   /// use kwap_msg::no_alloc::Code;
   ///
@@ -212,5 +212,82 @@ impl From<u8> for Code {
     let detail = b & 0b0011111;
 
     Code { class, detail }
+  }
+}
+
+impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes
+  for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
+{
+  type Error = MessageParseError;
+
+  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter();
+
+    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
+
+    if tkl.0 > 8 {
+      Err(Self::Error::InvalidTokenLength(tkl.0 as u8))?;
+    }
+
+    let code: Code = Self::Error::try_next(&mut bytes)?.into();
+    let id: Id = Id::try_consume_bytes(&mut bytes)?;
+    let token = Token::try_consume_bytes(bytes.by_ref().take(tkl.0 as usize))?;
+    let opts = ArrayVec::<Opt<OPT_CAP>, N_OPTS>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
+    let mut payload_bytes = ArrayVec::new();
+    bytes.try_for_each(|b| {
+           payload_bytes.try_push(b)
+                        .map_err(|_| Self::Error::PayloadTooLong(PAYLOAD_CAP))
+         })?;
+
+    let payload = Payload(payload_bytes);
+
+    Ok(Message { tkl,
+                 id,
+                 ty,
+                 ver,
+                 code,
+                 token,
+                 opts,
+                 payload })
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn parse_byte1() {
+    let byte = 0b_01_10_0011u8;
+    let byte = Byte1::from(byte);
+    assert_eq!(byte,
+               Byte1 { ver: Version(1),
+                       ty: Type(2),
+                       tkl: TokenLength(3) })
+  }
+
+  #[test]
+  fn parse_id() {
+    let id_bytes = 34u16.to_be_bytes();
+    let id = Id::try_consume_bytes(id_bytes).unwrap();
+    assert_eq!(id, Id(34));
+  }
+
+  #[test]
+  fn parse_code() {
+    let byte = 0b_01_000101u8;
+    let code = Code::from(byte);
+    assert_eq!(code, Code { class: 2, detail: 5 })
+  }
+
+  #[test]
+  fn parse_token() {
+    let valid_a: [u8; 1] = [0b_00000001u8];
+    let valid_a = Token::try_consume_bytes(valid_a).unwrap();
+    assert_eq!(valid_a, Token(1));
+
+    let valid_b: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 1];
+    let valid_b = Token::try_consume_bytes(valid_b).unwrap();
+    assert_eq!(valid_a, valid_b);
   }
 }
