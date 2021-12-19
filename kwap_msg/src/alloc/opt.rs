@@ -1,7 +1,10 @@
-  use super::*;
+use std_alloc::vec::Vec;
 
+use crate::parsing::*;
+pub use crate::no_alloc::opt::{OptDelta, OptNumber, GetOptDelta, EnumerateOptNumbers, EnumerateOptNumbersIter};
+
+#[doc = include_str!("../../docs/no_alloc/opt/Opt.md")]
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-#[doc = opt_docs!()]
 pub struct Opt {
   /// See [`OptDelta`]
   pub delta: OptDelta,
@@ -9,10 +12,17 @@ pub struct Opt {
   pub value: OptValue,
 }
 
-  #[doc = value_docs!()]
-  #[derive(Clone, PartialEq, PartialOrd, Debug)]
-  pub struct OptValue(pub Vec<u8>);
+impl GetOptDelta for Opt {
+  fn get_delta(&self) -> OptDelta {self.delta}
+}
 
+/// Option Value
+/// 
+/// # Related
+/// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
+/// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
+pub struct OptValue(pub Vec<u8>);
 impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Vec<Opt> {
   type Error = OptParseError;
 
@@ -44,12 +54,13 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Opt {
     Ok(Opt{delta, value})
   }
 }
+
 impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for OptValue {
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
     let mut bytes = bytes.into_iter();
-    let first_byte = try_next(&mut bytes)?;
+    let first_byte = Self::Error::try_next(&mut bytes)?;
     let len = first_byte & 0b00001111;
     let len = opt_len_or_delta(len, &mut bytes, OptParseError::ValueLengthReservedValue(15))?;
 

@@ -38,10 +38,15 @@
 #![deny(missing_docs)]
 
 #[cfg(feature = "alloc")]
-extern crate alloc;
+extern crate alloc as std_alloc;
 
-/// Message structures
-pub mod msg;
+/// Build on `no_alloc`, but in structures with buffers, replaces the fixed-capacity stack-allocated buffers with
+/// dynamically growable structures that depend on a `#[global_allocator]` and crate feature `alloc`.
+#[cfg(feature = "alloc")]
+pub mod alloc;
 
-#[doc(inline)]
-pub use msg::*;
+/// Fixed capacity structures that are always available.
+pub mod no_alloc;
+
+/// TODO
+pub mod parsing;
