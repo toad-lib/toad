@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+
 use crate::parsing::*;
 
 #[doc = include_str!("../../docs/no_alloc/opt/Opt.md")]
@@ -11,11 +12,13 @@ pub struct Opt<const CAP: usize> {
 }
 
 impl<const CAP: usize> GetOptDelta for Opt<CAP> {
-  fn get_delta(&self) -> OptDelta {self.delta}
+  fn get_delta(&self) -> OptDelta {
+    self.delta
+  }
 }
 
 /// Option Value
-/// 
+///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 /// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
@@ -46,11 +49,13 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for OptDelta {
 /// Trait for getting the delta from either heap or heapless Opts
 pub trait GetOptDelta {
   /// ```
-  /// use kwap_msg::alloc::{Opt, OptDelta, OptValue, GetOptDelta};
-  /// use kwap_msg::no_alloc;
+  /// use kwap_msg::{alloc::{GetOptDelta, Opt, OptDelta, OptValue},
+  ///                no_alloc};
   ///
-  /// let heaped = Opt {delta: OptDelta(1), value: OptValue(vec![])};
-  /// let stackd = no_alloc::Opt::<128> {delta: OptDelta(1), value: no_alloc::OptValue(arrayvec::ArrayVec::new())};
+  /// let heaped = Opt { delta: OptDelta(1),
+  ///                    value: OptValue(vec![]) };
+  /// let stackd = no_alloc::Opt::<128> { delta: OptDelta(1),
+  ///                                     value: no_alloc::OptValue(arrayvec::ArrayVec::new()) };
   ///
   /// assert_eq!(heaped.get_delta(), stackd.get_delta());
   /// ```
@@ -60,19 +65,21 @@ pub trait GetOptDelta {
 /// Creates an iterator which gives the current opt's number as well as the option.
 ///
 /// The iterator returned yields pairs `(i, val)`, where `i` is the [`OptNumber`] and `val` is the Opt returned by the iterator.
-pub trait EnumerateOptNumbers<T: GetOptDelta>: Iterator<Item = T> where Self: Sized {
+pub trait EnumerateOptNumbers<T: GetOptDelta>: Iterator<Item = T>
+  where Self: Sized
+{
   /// Creates an iterator which gives the current Opt along with its Number.
   ///
   /// ```
   /// use kwap_msg::alloc::*;
   ///
-  /// let opt_a = Opt {delta: OptDelta(12), value: OptValue(Vec::new())};
-  /// let opt_b = Opt {delta: OptDelta(2), value: OptValue(Vec::new())};
+  /// let opt_a = Opt { delta: OptDelta(12),
+  ///                   value: OptValue(Vec::new()) };
+  /// let opt_b = Opt { delta: OptDelta(2),
+  ///                   value: OptValue(Vec::new()) };
   /// let opts = vec![opt_a.clone(), opt_b.clone()];
   ///
-  /// let opt_ns = opts.into_iter()
-  ///                  .enumerate_option_numbers()
-  ///                  .collect::<Vec<_>>();
+  /// let opt_ns = opts.into_iter().enumerate_option_numbers().collect::<Vec<_>>();
   ///
   /// assert_eq!(opt_ns, vec![(OptNumber(12), opt_a), (OptNumber(14), opt_b)])
   /// ```
@@ -81,10 +88,7 @@ pub trait EnumerateOptNumbers<T: GetOptDelta>: Iterator<Item = T> where Self: Si
 
 impl<T: GetOptDelta, I: Iterator<Item = T>> EnumerateOptNumbers<T> for I {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self> {
-    EnumerateOptNumbersIter {
-      number: 0,
-      iter: self,
-    }
+    EnumerateOptNumbersIter { number: 0, iter: self }
   }
 }
 
@@ -112,5 +116,5 @@ impl<T: GetOptDelta, I: Iterator<Item = T>> Iterator for EnumerateOptNumbersIter
     } else {
       None
     }
- }
+  }
 }

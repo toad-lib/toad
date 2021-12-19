@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+
 use crate::parsing::*;
 
 #[doc(hidden)]
@@ -71,15 +72,21 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Id {
 /// 01 00 0000
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub(crate) struct Byte1 {pub(crate) ver: Version, pub(crate) ty: Type, pub(crate) tkl: TokenLength}
+pub(crate) struct Byte1 {
+  pub(crate) ver: Version,
+  pub(crate) ty: Type,
+  pub(crate) tkl: TokenLength,
+}
 
 impl From<u8> for Byte1 {
   fn from(b: u8) -> Self {
-    let ver = b >> 6;        // bits 0 & 1
-    let ty  = b >> 4 & 0b11; // bits 2 & 3
-    let tkl = b & 0b1111u8;  // last 4 bits
+    let ver = b >> 6; // bits 0 & 1
+    let ty = b >> 4 & 0b11; // bits 2 & 3
+    let tkl = b & 0b1111u8; // last 4 bits
 
-    Byte1 {ver: Version(ver), ty: Type(ty), tkl: TokenLength(tkl)}
+    Byte1 { ver: Version(ver),
+            ty: Type(ty),
+            tkl: TokenLength(tkl) }
   }
 }
 
@@ -90,7 +97,6 @@ impl From<u8> for Byte1 {
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Version(pub u8);
-
 
 /// Message type:
 /// - Confirmable; "Please let me know when you received this"
@@ -132,16 +138,15 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Token {
   fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
     let bytes = bytes.into_iter().collect::<ArrayVec<_, 8>>();
 
-    let mut array_u64: [u8; 8] = [0,0,0,0,0,0,0,0];
+    let mut array_u64: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
 
     // pad the front with zeroes and copy values to array
-    core::iter::repeat(0u8)
-        .take(8 - bytes.len())
-        .chain(bytes.into_iter())
-        .enumerate()
-        .for_each(|(ix, b)| {
-          array_u64[ix] = b;
-        });
+    core::iter::repeat(0u8).take(8 - bytes.len())
+                           .chain(bytes.into_iter())
+                           .enumerate()
+                           .for_each(|(ix, b)| {
+                             array_u64[ix] = b;
+                           });
 
     Ok(Token(u64::from_be_bytes(array_u64)))
   }
@@ -153,7 +158,7 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Token {
 /// # Examples
 /// ```
 /// use kwap_msg::no_alloc::Code;
-/// assert_eq!(Code {class: 2, detail: 5}.to_string(), "2.05".to_string())
+/// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
 /// ```
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
@@ -187,14 +192,17 @@ impl Code {
   /// ```
   /// use kwap_msg::no_alloc::Code;
   ///
-  /// let code = Code {class: 2, detail: 5};
+  /// let code = Code { class: 2, detail: 5 };
   /// let chars = code.to_human();
   /// let string = String::from_iter(chars);
   /// assert_eq!(string, "2.05".to_string());
   /// ```
   pub fn to_human(&self) -> [char; 4] {
     let to_char = |d: u8| char::from_digit(d.into(), 10).unwrap();
-    [to_char(self.class), '.', to_char(self.detail / 10), to_char(self.detail % 10)]
+    [to_char(self.class),
+     '.',
+     to_char(self.detail / 10),
+     to_char(self.detail % 10)]
   }
 }
 
@@ -203,6 +211,6 @@ impl From<u8> for Code {
     let class = b >> 5;
     let detail = b & 0b0011111;
 
-    Code {class, detail}
+    Code { class, detail }
   }
 }

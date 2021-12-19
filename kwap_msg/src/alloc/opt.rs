@@ -1,7 +1,7 @@
 use std_alloc::vec::Vec;
 
+pub use crate::no_alloc::opt::{EnumerateOptNumbers, EnumerateOptNumbersIter, GetOptDelta, OptDelta, OptNumber};
 use crate::parsing::*;
-pub use crate::no_alloc::opt::{OptDelta, OptNumber, GetOptDelta, EnumerateOptNumbers, EnumerateOptNumbersIter};
 
 #[doc = include_str!("../../docs/no_alloc/opt/Opt.md")]
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
@@ -13,11 +13,13 @@ pub struct Opt {
 }
 
 impl GetOptDelta for Opt {
-  fn get_delta(&self) -> OptDelta {self.delta}
+  fn get_delta(&self) -> OptDelta {
+    self.delta
+  }
 }
 
 /// Option Value
-/// 
+///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 /// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
@@ -31,18 +33,17 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Vec<Opt> {
     let mut opts = Vec::new();
 
     loop {
-        match Opt::try_consume_bytes(bytes.by_ref()) {
-          Ok(opt) => {
-            opts.push(opt);
-          },
-          Err(OptParseError::OptionsExhausted) => break Ok(opts),
-          Err(e) => break Err(e),
-        }
+      match Opt::try_consume_bytes(bytes.by_ref()) {
+        | Ok(opt) => {
+          opts.push(opt);
+        },
+        | Err(OptParseError::OptionsExhausted) => break Ok(opts),
+        | Err(e) => break Err(e),
+      }
     }
   }
 }
 impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Opt {
-
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
@@ -51,7 +52,7 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Opt {
     // NOTE: Delta **MUST** be consumed before Value. see comment on `opt_len_or_delta` for more info
     let delta = OptDelta::try_consume_bytes(&mut bytes)?;
     let value = OptValue::try_consume_bytes(&mut [opt_header].into_iter().chain(bytes))?;
-    Ok(Opt{delta, value})
+    Ok(Opt { delta, value })
   }
 }
 

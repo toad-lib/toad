@@ -1,9 +1,8 @@
-use std_alloc::{vec::Vec, string::{String, ToString}};
+use std_alloc::{string::{String, ToString},
+                vec::Vec};
 
-use crate::*;
-use crate::parsing::*;
-use crate::no_alloc::Byte1;
-pub use crate::no_alloc::{Code, Id, Type, Token, TokenLength, Version};
+pub use crate::no_alloc::{Code, Id, Token, TokenLength, Type, Version};
+use crate::{no_alloc::Byte1, parsing::*, *};
 
 #[doc(hidden)]
 pub mod opt;
@@ -48,7 +47,7 @@ impl TryFromBytes for Message {
   fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
     let mut bytes = bytes.into_iter();
 
-    let Byte1 {tkl, ty, ver} = Self::Error::try_next(&mut bytes)?.into();
+    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
     if tkl.0 > 8 {
       Err(Self::Error::InvalidTokenLength(tkl.0 as u8))?;
@@ -60,7 +59,14 @@ impl TryFromBytes for Message {
     let opts = Vec::<Opt>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let payload = Payload(bytes.collect());
 
-    Ok(Message {tkl, id, ty, ver, code, token, opts, payload})
+    Ok(Message { tkl,
+                 id,
+                 ty,
+                 ver,
+                 code,
+                 token,
+                 opts,
+                 payload })
   }
 }
 
