@@ -2,6 +2,10 @@ use arrayvec::ArrayVec;
 
 use crate::parsing::*;
 
+pub(crate) mod impl_from_bytes;
+pub(crate) mod impl_get_size;
+pub(crate) mod impl_to_bytes;
+
 #[doc(hidden)]
 pub mod opt;
 
@@ -47,17 +51,6 @@ pub struct Payload<const PAYLOAD_CAP: usize>(pub ArrayVec<u8, PAYLOAD_CAP>);
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Id(pub u16);
 
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Id {
-  type Error = MessageParseError;
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let bytes = bytes.into_iter().take(2).collect::<ArrayVec<_, 2>>();
-    bytes.into_inner()
-         .map(|bs| u16::from_be_bytes(bs))
-         .map(Id)
-         .map_err(|_| MessageParseError::UnexpectedEndOfStream)
-  }
-}
-
 /// Struct representing the first byte of a message.
 ///
 /// ```text
@@ -75,18 +68,6 @@ pub(crate) struct Byte1 {
   pub(crate) ver: Version,
   pub(crate) ty: Type,
   pub(crate) tkl: TokenLength,
-}
-
-impl From<u8> for Byte1 {
-  fn from(b: u8) -> Self {
-    let ver = b >> 6; // bits 0 & 1
-    let ty = b >> 4 & 0b11; // bits 2 & 3
-    let tkl = b & 0b1111u8; // last 4 bits
-
-    Byte1 { ver: Version(ver),
-            ty: Type(ty),
-            tkl: TokenLength(tkl) }
-  }
 }
 
 /// Version of the CoAP protocol that the message adheres to.
@@ -128,28 +109,6 @@ pub struct TokenLength(pub u8);
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub u64);
-
-/// # PANICS
-/// Panics when iterator passed to this implementation contains > 8 bytes.
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Token {
-  type Error = MessageParseError;
-
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let bytes = bytes.into_iter().collect::<ArrayVec<_, 8>>();
-
-    let mut array_u64: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
-
-    // pad the front with zeroes and copy values to array
-    core::iter::repeat(0u8).take(8 - bytes.len())
-                           .chain(bytes.into_iter())
-                           .enumerate()
-                           .for_each(|(ix, b)| {
-                             array_u64[ix] = b;
-                           });
-
-    Ok(Token(u64::from_be_bytes(array_u64)))
-  }
-}
 
 /// Low-level representation of the code of a message.
 /// Identifying it as a request or response
@@ -205,88 +164,30 @@ impl Code {
   }
 }
 
-impl From<u8> for Code {
-  fn from(b: u8) -> Self {
-    let class = b >> 5;
-    let detail = b & 0b0011111;
-
-    Code { class, detail }
-  }
-}
-
-impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes
-  for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
-{
-  type Error = MessageParseError;
-
-  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter();
-
-    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
-
-    if tkl.0 > 8 {
-      Err(Self::Error::InvalidTokenLength(tkl.0 as u8))?;
-    }
-
-    let code: Code = Self::Error::try_next(&mut bytes)?.into();
-    let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(bytes.by_ref().take(tkl.0 as usize))?;
-    let opts = ArrayVec::<Opt<OPT_CAP>, N_OPTS>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
-    let mut payload_bytes = ArrayVec::new();
-    bytes.try_for_each(|b| {
-           payload_bytes.try_push(b)
-                        .map_err(|_| Self::Error::PayloadTooLong(PAYLOAD_CAP))
-         })?;
-
-    let payload = Payload(payload_bytes);
-
-    Ok(Message { tkl,
-                 id,
-                 ty,
-                 ver,
-                 code,
-                 token,
-                 opts,
-                 payload })
-  }
-}
-
 #[cfg(test)]
-mod tests {
-  use super::*;
+pub(self) fn test_msg() -> (Message<13, 1, 16>, Vec<u8>) {
+  let header: [u8; 4] = 0b01_00_0001_01000101_0000000000000001u32.to_be_bytes();
+  let token: [u8; 1] = [254u8];
+  let content_format: &[u8] = b"application/json";
+  let options: [&[u8]; 2] = [&[0b_1100_1101u8, 0b00000011u8], content_format];
+  let payload: [&[u8]; 2] = [&[0b_11111111u8], b"hello, world!"];
+  let bytes = [header.as_ref(),
+               token.as_ref(),
+               options.concat().as_ref(),
+               payload.concat().as_ref()].concat();
 
-  #[test]
-  fn parse_byte1() {
-    let byte = 0b_01_10_0011u8;
-    let byte = Byte1::from(byte);
-    assert_eq!(byte,
-               Byte1 { ver: Version(1),
-                       ty: Type(2),
-                       tkl: TokenLength(3) })
-  }
+  let mut opts = ArrayVec::new();
+  let opt = Opt::<16> { delta: OptDelta(12),
+                        value: OptValue(content_format.iter().copied().collect()) };
+  opts.push(opt);
 
-  #[test]
-  fn parse_id() {
-    let id_bytes = 34u16.to_be_bytes();
-    let id = Id::try_consume_bytes(id_bytes).unwrap();
-    assert_eq!(id, Id(34));
-  }
-
-  #[test]
-  fn parse_code() {
-    let byte = 0b_01_000101u8;
-    let code = Code::from(byte);
-    assert_eq!(code, Code { class: 2, detail: 5 })
-  }
-
-  #[test]
-  fn parse_token() {
-    let valid_a: [u8; 1] = [0b_00000001u8];
-    let valid_a = Token::try_consume_bytes(valid_a).unwrap();
-    assert_eq!(valid_a, Token(1));
-
-    let valid_b: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 1];
-    let valid_b = Token::try_consume_bytes(valid_b).unwrap();
-    assert_eq!(valid_a, valid_b);
-  }
+  let msg = Message::<13, 1, 16> { id: Id(1),
+                                   ty: Type(0),
+                                   ver: Version(1),
+                                   token: Token(254),
+                                   tkl: TokenLength(1),
+                                   opts,
+                                   code: Code { class: 2, detail: 5 },
+                                   payload: Payload(b"hello, world!".into_iter().copied().collect()) };
+  (msg, bytes)
 }

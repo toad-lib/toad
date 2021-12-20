@@ -56,3 +56,9 @@ pub mod parsing;
 
 #[doc(inline)]
 pub use parsing::TryFromBytes;
+
+#[doc(hidden)]
+pub mod to_bytes;
+
+#[doc(hidden)]
+pub mod get_size;
