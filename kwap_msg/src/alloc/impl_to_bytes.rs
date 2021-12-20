@@ -2,6 +2,7 @@ use arrayvec::ArrayVec;
 use std_alloc::vec::Vec;
 
 use super::*;
+use crate::get_size::GetSize;
 use crate::no_alloc::impl_to_bytes::opt_len_or_delta;
 
 // TODO(orion): Shame about all this duplicated code :thinking:
@@ -14,37 +15,47 @@ impl Into<Vec<u8>> for Message {
     let code: u8 = self.code.into();
     let id: [u8; 2] = self.id.into();
     let token: ArrayVec<u8, 8> = self.token.into();
-    let opts: Vec<u8> = self.opts
-                            .into_iter()
-                            .map(|o| -> Vec<u8> { o.into() })
-                            .flatten()
-                            .collect();
 
-    let bytes: Vec<u8> = core::iter::once(byte1).chain(core::iter::once(code))
-                                                .chain(id)
-                                                .chain(token)
-                                                .chain(opts)
-                                                .chain(core::iter::once(0b11111111))
-                                                .chain(self.payload.0.iter().copied())
-                                                .collect();
+let size = self.get_size();
+    let mut bytes = Vec::<u8>::with_capacity(size);
+    bytes.push(byte1);
+    bytes.push(code);
+    bytes.extend(id);
+    bytes.extend(token);
+    self.opts
+        .into_iter()
+        .for_each(|o| o.extend_bytes(&mut bytes));
+    bytes.push(0b11111111);
+    bytes.extend(self.payload.0);
 
     bytes
   }
 }
 
-impl Into<Vec<u8>> for Opt {
-  fn into(self) -> Vec<u8> {
+impl Opt {
+  fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
     let (del, del_bytes) = opt_len_or_delta(self.delta.0);
     let (len, len_bytes) = opt_len_or_delta(self.value.0.len() as u16);
     let del = del << 4;
 
     let header = del | len;
 
-    let bytes = core::iter::once(header).chain(del_bytes.unwrap_or_default())
-                                        .chain(len_bytes.unwrap_or_default())
-                                        .chain(self.value.0)
-                                        .collect();
+    bytes.extend(core::iter::once(header));
+    if let Some(del_bytes) = del_bytes {
+      bytes.extend(del_bytes);
+    }
+    if let Some(len_bytes) = len_bytes {
+      bytes.extend(len_bytes);
+    }
 
+    bytes.extend(self.value.0);
+  }
+}
+
+impl Into<Vec<u8>> for Opt {
+  fn into(self) -> Vec<u8> {
+    let mut bytes = Vec::<u8>::with_capacity(self.get_size());
+    self.extend_bytes(&mut bytes);
     bytes
   }
 }

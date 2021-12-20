@@ -11,6 +11,7 @@ pub mod opt;
 pub use opt::*;
 
 mod impl_to_bytes;
+mod impl_get_size;
 
 /// Low-level representation of the message payload
 ///

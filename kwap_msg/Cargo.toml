@@ -12,6 +12,18 @@ no_std = []
 test = []
 docs = []
 
+[[bench]]
+name = "to_bytes"
+harness = false
+
+[[bench]]
+name = "to_bytes_profile"
+harness = false
+
 [dependencies]
-coap-lite = "0.7"
 arrayvec = "0.7"
+
+[dev-dependencies]
+itertools = "0.10"
+criterion = "0.3"
+coap-lite = "0.7"

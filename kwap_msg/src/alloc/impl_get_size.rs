@@ -1,8 +1,8 @@
 use super::*;
 use crate::get_size::*;
 
-impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> GetSize
-  for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
+impl GetSize
+  for Message
 {
   fn get_size(&self) -> usize {
     let header_size = 4;
@@ -15,7 +15,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> GetSiz
   }
 }
 
-impl<const OPT_CAP: usize> GetSize for Opt<OPT_CAP> {
+impl GetSize for Opt {
   fn get_size(&self) -> usize {
     let header_size = 1;
     let delta_size = match self.delta.0 {
