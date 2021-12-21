@@ -2,8 +2,7 @@ use arrayvec::ArrayVec;
 use std_alloc::vec::Vec;
 
 use super::*;
-use crate::get_size::GetSize;
-use crate::no_alloc::impl_to_bytes::opt_len_or_delta;
+use crate::{get_size::GetSize, no_alloc::impl_to_bytes::opt_len_or_delta};
 
 // TODO(orion): Shame about all this duplicated code :thinking:
 
@@ -16,15 +15,13 @@ impl Into<Vec<u8>> for Message {
     let id: [u8; 2] = self.id.into();
     let token: ArrayVec<u8, 8> = self.token.into();
 
-let size = self.get_size();
+    let size = self.get_size();
     let mut bytes = Vec::<u8>::with_capacity(size);
     bytes.push(byte1);
     bytes.push(code);
     bytes.extend(id);
     bytes.extend(token);
-    self.opts
-        .into_iter()
-        .for_each(|o| o.extend_bytes(&mut bytes));
+    self.opts.into_iter().for_each(|o| o.extend_bytes(&mut bytes));
     bytes.push(0b11111111);
     bytes.extend(self.payload.0);
 

@@ -1,9 +1,7 @@
 use super::*;
 use crate::get_size::*;
 
-impl GetSize
-  for Message
-{
+impl GetSize for Message {
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;

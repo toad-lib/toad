@@ -10,8 +10,8 @@ pub mod opt;
 #[doc(inline)]
 pub use opt::*;
 
-mod impl_to_bytes;
 mod impl_get_size;
+mod impl_to_bytes;
 
 /// Low-level representation of the message payload
 ///
