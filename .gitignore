@@ -2,4 +2,4 @@ debug/
 target/
 **/*.pdb
 **/*.rs.bk
-**/criterion/data/
+**/flamegraph.svg
