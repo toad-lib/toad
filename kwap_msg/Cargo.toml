@@ -39,10 +39,10 @@ harness = false
 
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
-arrayvec = {version = "0.7", default_features = false}
-heapless = {version = "0.7", default_features = false}
 
 [dev-dependencies]
 itertools = "0.10"
 criterion = "0.3"
 coap-lite = "0.7"
+arrayvec = {version = "0.7", default_features = false}
+heapless = {version = "0.7", default_features = false}
