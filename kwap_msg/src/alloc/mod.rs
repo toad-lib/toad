@@ -47,8 +47,8 @@ pub struct Message {
 impl TryFromBytes for Message {
   type Error = MessageParseError;
 
-  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter();
+  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter().map(|&b| b);
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
@@ -58,7 +58,7 @@ impl TryFromBytes for Message {
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(bytes.by_ref().take(tkl.0 as usize))?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl.0 as usize))?;
     let opts = Vec::<Opt>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let payload = Payload(bytes.collect());
 

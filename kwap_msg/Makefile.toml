@@ -1,1 +1,11 @@
 extend = "../Makefile.toml"
+
+[tasks.bench]
+install_crate = "cargo-criterion"
+command = "cargo"
+args = ["criterion"]
+
+[tasks.flame]
+install_crate = ["cargo-criterion", "cargo-flamegraph"]
+command = "cargo"
+args = ["flamegraph", "--bench", "profile", "--", "--bench"]

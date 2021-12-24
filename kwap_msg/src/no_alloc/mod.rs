@@ -1,4 +1,4 @@
-use arrayvec::ArrayVec;
+use tinyvec::ArrayVec;
 
 use crate::parsing::*;
 
@@ -28,7 +28,7 @@ pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP:
   /// see [`Code`] for details
   pub code: Code,
   /// see [`opt::Opt`] for details
-  pub opts: ArrayVec<opt::Opt<OPT_CAP>, N_OPTS>,
+  pub opts: ArrayVec<[opt::Opt<OPT_CAP>; N_OPTS]>,
   /// See [`Payload`]
   pub payload: Payload<PAYLOAD_CAP>,
 }
@@ -41,7 +41,7 @@ pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP:
 /// # Related
 /// - [RFC7252#section-5.5 Payloads and Representations](https://datatracker.ietf.org/doc/html/rfc7252#section-5.5)
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct Payload<const PAYLOAD_CAP: usize>(pub ArrayVec<u8, PAYLOAD_CAP>);
+pub struct Payload<const PAYLOAD_CAP: usize>(pub ArrayVec<[u8; PAYLOAD_CAP]>);
 
 /// Uniquely identifies a single message that may be retransmitted.
 ///

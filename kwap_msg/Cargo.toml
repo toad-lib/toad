@@ -2,6 +2,17 @@
 name = "kwap-msg"
 version = "0.1.0"
 edition = "2021"
+description = "Low-level CoAP message parsing & serialization"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/kwap/kwap_msg"
+repository = "https://github.com/clov-coffee/kwap/kwap_msg"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [features]
 default = ["alloc"]
@@ -15,11 +26,21 @@ name = "to_bytes"
 harness = false
 
 [[bench]]
-name = "to_bytes_profile"
+name = "from_bytes"
+harness = false
+
+[[bench]]
+name = "profile"
+harness = false
+
+[[bench]]
+name = "collections"
 harness = false
 
 [dependencies]
-arrayvec = "0.7"
+tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
+arrayvec = {version = "0.7", default_features = false}
+heapless = {version = "0.7", default_features = false}
 
 [dev-dependencies]
 itertools = "0.10"

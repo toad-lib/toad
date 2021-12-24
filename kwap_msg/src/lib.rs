@@ -70,3 +70,5 @@ pub use to_bytes::TryIntoBytes;
 pub mod get_size;
 #[doc(inline)]
 pub use get_size::GetSize;
+
+pub(crate) mod is_full;

@@ -5,17 +5,27 @@ pub trait TryFromBytes: Sized {
 
   /// Try to convert from some sequence of bytes `T`
   /// into `Self`
-  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error>;
+  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error>;
 }
 
 /// Trait adding the ability for a _piece_ of a data structure to parse itself by mutating an iterator over bytes.
-pub(crate) trait TryConsumeBytes<T>: Sized {
+pub(crate) trait TryConsumeBytes<I: Iterator<Item = u8>>: Sized {
   /// Error type yielded if conversion fails
   type Error;
 
   /// Try to convert from some sequence of bytes `T`
   /// into `Self`
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error>;
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error>;
+}
+
+/// Similar to `TryConsumeBytes` except that the number of bytes to consume is determined by the caller.
+pub(crate) trait TryConsumeNBytes<I: Iterator<Item = u8>>: Sized {
+  /// Error type yielded if conversion fails
+  type Error;
+
+  /// Try to convert from some sequence of bytes `T`
+  /// into `Self`
+  fn try_consume_n_bytes(n: usize, bytes: &mut I) -> Result<Self, Self::Error>;
 }
 
 /// Errors encounterable while parsing an option from bytes
@@ -42,7 +52,7 @@ pub enum OptParseError {
 }
 
 impl OptParseError {
-  pub(super) fn try_next<I>(iter: &mut impl Iterator<Item = I>) -> Result<I, Self> {
+  pub(super) fn try_next<I>(mut iter: impl Iterator<Item = I>) -> Result<I, Self> {
     iter.next().ok_or(Self::UnexpectedEndOfStream)
   }
 }

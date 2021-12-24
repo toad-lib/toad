@@ -27,15 +27,14 @@ impl GetOptDelta for Opt {
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct OptValue(pub Vec<u8>);
 
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Vec<Opt> {
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Vec<Opt> {
   type Error = OptParseError;
 
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter();
-    let mut opts = Vec::new();
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let mut opts = Vec::with_capacity(32);
 
     loop {
-      match Opt::try_consume_bytes(bytes.by_ref()) {
+      match Opt::try_consume_bytes(bytes) {
         | Ok(opt) => {
           opts.push(opt);
         },
@@ -45,38 +44,33 @@ impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Vec<Opt> {
     }
   }
 }
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Opt {
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Opt {
   type Error = OptParseError;
 
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let (opt_header, mut bytes) = opt_header(bytes)?;
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let opt_header = opt_header(bytes.by_ref())?;
 
     // NOTE: Delta **MUST** be consumed before Value. see comment on `opt_len_or_delta` for more info
-    let delta = OptDelta::try_consume_bytes(&mut bytes)?;
-    let value = OptValue::try_consume_bytes(&mut [opt_header].into_iter().chain(bytes))?;
+    let delta = OptDelta::try_consume_bytes(&mut core::iter::once(opt_header).chain(bytes.by_ref()))?;
+    let len = opt_header & 0b00001111;
+    let len = opt_len_or_delta(len, bytes.by_ref(), OptParseError::ValueLengthReservedValue(15))?;
+    let value = OptValue::try_consume_n_bytes(len as usize, bytes)?;
     Ok(Opt { delta, value })
   }
 }
 
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for OptValue {
+impl<I: Iterator<Item = u8>> TryConsumeNBytes<I> for OptValue {
   type Error = OptParseError;
 
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter();
-    let first_byte = Self::Error::try_next(&mut bytes)?;
-    let len = first_byte & 0b00001111;
-    let len = opt_len_or_delta(len, &mut bytes, OptParseError::ValueLengthReservedValue(15))?;
+  fn try_consume_n_bytes(n: usize, bytes: &mut I) -> Result<Self, Self::Error> {
+    let mut data = Vec::<u8>::with_capacity(n as usize);
+    data.extend(&mut bytes.take(n));
 
-    let data: Vec<u8> = bytes.take(len as usize).collect();
-    if data.len() < len as usize {
-      Err(OptParseError::UnexpectedEndOfStream)
-    } else {
-      Ok(OptValue(data))
-    }
+    Ok(OptValue(data))
   }
 }
 
-#[cfg(test)]
+#[cfg(never)]
 mod tests {
   use super::*;
   #[test]

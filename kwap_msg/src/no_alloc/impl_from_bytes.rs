@@ -1,12 +1,13 @@
 use super::*;
+use crate::is_full::IsFull;
 
 impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes
   for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
 {
   type Error = MessageParseError;
 
-  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter();
+  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter().map(|&b| b);
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
@@ -16,13 +17,13 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(bytes.by_ref().take(tkl.0 as usize))?;
-    let opts = ArrayVec::<Opt<OPT_CAP>, N_OPTS>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl.0 as usize))?;
+    let opts = ArrayVec::<[Opt<OPT_CAP>; N_OPTS]>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let mut payload_bytes = ArrayVec::new();
-    bytes.try_for_each(|b| {
-           payload_bytes.try_push(b)
-                        .map_err(|_| Self::Error::PayloadTooLong(PAYLOAD_CAP))
-         })?;
+    for byte in bytes {
+      payload_bytes.try_push(byte)
+                   .ok_or_else(|| Self::Error::PayloadTooLong(PAYLOAD_CAP))?;
+    }
 
     let payload = Payload(payload_bytes);
 
@@ -48,36 +49,31 @@ impl From<u8> for Byte1 {
   }
 }
 
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Id {
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Id {
   type Error = MessageParseError;
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let bytes = bytes.into_iter().take(2).collect::<ArrayVec<_, 2>>();
-    bytes.into_inner()
-         .map(|bs| u16::from_be_bytes(bs))
-         .map(Id)
-         .map_err(|_| MessageParseError::UnexpectedEndOfStream)
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let taken_bytes = bytes.take(2).collect::<ArrayVec<[_; 2]>>();
+    if taken_bytes.is_full() {
+      Ok(taken_bytes.into_inner()).map(|bs| Id(u16::from_be_bytes(bs)))
+    } else {
+      Err(MessageParseError::UnexpectedEndOfStream)
+    }
   }
 }
 
-/// # PANICS
-/// Panics when iterator passed to this implementation contains > 8 bytes.
-impl<T: IntoIterator<Item = u8>> TryConsumeBytes<T> for Token {
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
   type Error = MessageParseError;
 
-  fn try_consume_bytes(bytes: T) -> Result<Self, Self::Error> {
-    let bytes = bytes.into_iter().collect::<ArrayVec<_, 8>>();
-
-    let mut array_u64: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let bytes = bytes.into_iter().collect::<ArrayVec<[_; 8]>>();
 
     // pad the front with zeroes and copy values to array
-    core::iter::repeat(0u8).take(8 - bytes.len())
-                           .chain(bytes.into_iter())
-                           .enumerate()
-                           .for_each(|(ix, b)| {
-                             array_u64[ix] = b;
-                           });
+    let bytes_u64 = core::iter::repeat(0u8).take(8 - bytes.len())
+                                           .chain(bytes.into_iter())
+                                           .collect::<ArrayVec<[u8; 8]>>()
+                                           .into_inner();
 
-    Ok(Token(u64::from_be_bytes(array_u64)))
+    Ok(Token(u64::from_be_bytes(bytes_u64)))
   }
 }
 
@@ -90,7 +86,7 @@ impl From<u8> for Code {
   }
 }
 
-#[cfg(test)]
+#[cfg(never)]
 mod tests {
   use super::*;
 

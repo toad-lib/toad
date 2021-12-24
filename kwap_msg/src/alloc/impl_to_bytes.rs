@@ -1,22 +1,41 @@
-use arrayvec::ArrayVec;
 use std_alloc::vec::Vec;
+use tinyvec::ArrayVec;
 
 use super::*;
 use crate::{get_size::GetSize, no_alloc::impl_to_bytes::opt_len_or_delta};
 
-// TODO(orion): Shame about all this duplicated code :thinking:
-
 impl Into<Vec<u8>> for Message {
   fn into(self) -> Vec<u8> {
-    let byte1: u8 = Byte1 { tkl: self.tkl,
-                            ver: self.ver,
-                            ty: self.ty }.into();
-    let code: u8 = self.code.into();
-    let id: [u8; 2] = self.id.into();
-    let token: ArrayVec<u8, 8> = self.token.into();
+    #[inline(never)]
+    fn mk_byte_1(tkl: TokenLength, ty: Type, ver: Version) -> u8 {
+      Byte1 { tkl, ver, ty }.into()
+    }
+    #[inline(never)]
+    fn mk_code(code: Code) -> u8 {
+      code.into()
+    }
+    #[inline(never)]
+    fn mk_id(id: Id) -> [u8; 2] {
+      id.into()
+    }
+
+    #[inline(never)]
+    fn mk_token(token: Token) -> ArrayVec<[u8; 8]> {
+      token.into()
+    }
 
     let size = self.get_size();
-    let mut bytes = Vec::<u8>::with_capacity(size);
+    #[inline(never)]
+    fn alloc_bytes(size: usize) -> Vec<u8> {
+      Vec::<u8>::with_capacity(size)
+    }
+
+    let byte1: u8 = mk_byte_1(self.tkl, self.ty, self.ver);
+    let code: u8 = mk_code(self.code);
+    let id: [u8; 2] = mk_id(self.id);
+    let token: ArrayVec<[u8; 8]> = mk_token(self.token);
+
+    let mut bytes = alloc_bytes(size);
     bytes.push(byte1);
     bytes.push(code);
     bytes.extend(id);
