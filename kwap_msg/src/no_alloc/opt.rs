@@ -56,8 +56,7 @@ impl<I: Iterator<Item = u8>, const N_OPTS: usize, const OPT_CAP: usize> TryConsu
     loop {
       match Opt::<OPT_CAP>::try_consume_bytes(bytes.by_ref()) {
         | Ok(opt) => {
-          opts.try_push(opt)
-              .ok_or_else(|| OptParseError::TooManyOptions(N_OPTS))?;
+          opts.try_push(opt).ok_or(OptParseError::TooManyOptions(N_OPTS))?;
         },
         | Err(OptParseError::OptionsExhausted) => break Ok(opts),
         | Err(e) => break Err(e),
@@ -88,7 +87,7 @@ pub(crate) fn opt_header<I: Iterator<Item = u8>>(bytes: I) -> Result<u8, OptPars
 
   if let 0b11111111 = opt_header {
     // This isn't an option, it's the payload!
-    Err(OptParseError::OptionsExhausted)?
+    return Err(OptParseError::OptionsExhausted)
   }
 
   Ok(opt_header)
@@ -100,7 +99,7 @@ pub(crate) fn opt_len_or_delta(head: u8,
                                reserved_err: OptParseError)
                                -> Result<u16, OptParseError> {
   if head == 15 {
-    Err(reserved_err)?
+    return Err(reserved_err)
   }
 
   match head {
@@ -129,8 +128,8 @@ impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<I> for OptVal
     let len = opt_len_or_delta(len, bytes.by_ref(), OptParseError::ValueLengthReservedValue(15))? as usize;
 
     if len > OPT_CAP {
-      Err(OptParseError::OptionValueTooLong { capacity: OPT_CAP,
-                                              actual: len })?
+      return Err(OptParseError::OptionValueTooLong { capacity: OPT_CAP,
+                                              actual: len })
     }
 
     let data: ArrayVec<[u8; OPT_CAP]> = bytes.take(len).collect();

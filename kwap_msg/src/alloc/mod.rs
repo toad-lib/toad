@@ -48,12 +48,12 @@ impl TryFromBytes for Message {
   type Error = MessageParseError;
 
   fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter().map(|&b| b);
+    let mut bytes = bytes.into_iter().copied();
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
     if tkl.0 > 8 {
-      Err(Self::Error::InvalidTokenLength(tkl.0 as u8))?;
+      return Err(Self::Error::InvalidTokenLength(tkl.0 as u8));
     }
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();

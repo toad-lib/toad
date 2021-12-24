@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use kwap_msg::{alloc::*, no_alloc, TryFromBytes};
 
 #[path = "bench_input.rs"]

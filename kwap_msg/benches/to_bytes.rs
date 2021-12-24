@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use kwap_msg::{alloc::*, no_alloc, TryIntoBytes};
+use kwap_msg::{TryIntoBytes};
 
 #[path = "bench_input.rs"]
 mod bench_input;
@@ -71,7 +71,7 @@ fn message_to_bytes(c: &mut Criterion) {
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()), inp, |b, inp| {
            b.iter_batched(|| inp.get_alloc_message(),
-                          |msg| Into::<Vec<u8>>::into(msg),
+                          Into::<Vec<u8>>::into,
                           BatchSize::SmallInput)
          });
 

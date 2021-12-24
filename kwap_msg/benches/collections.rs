@@ -1,16 +1,19 @@
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+
+// Benchmarking various heapless/no-alloc collections alongside std's Vec and arrays
+// Results observed: heapless is slower than arrayvec is slower than tinyvec (esp. `chain`)
 
 fn collections(c: &mut Criterion) {
   c.bench_function("array::alloc", |b| b.iter(|| [0u8; 2048]));
   c.bench_function("alloc::vec::Vec::alloc", |b| {
      b.iter(|| std::vec::Vec::<u8>::with_capacity(2048))
    });
-  c.bench_function("heapless::Vec::alloc", |b| b.iter(|| heapless::Vec::<u8, 2048>::new()));
+  c.bench_function("heapless::Vec::alloc", |b| b.iter(heapless::Vec::<u8, 2048>::new));
   c.bench_function("arrayvec::ArrayVec::alloc", |b| {
-     b.iter(|| arrayvec::ArrayVec::<u8, 2048>::new())
+     b.iter(arrayvec::ArrayVec::<u8, 2048>::new)
    });
   c.bench_function("tinyvec::ArrayVec::alloc", |b| {
-     b.iter(|| tinyvec::ArrayVec::<[u8; 2048]>::new())
+     b.iter(tinyvec::ArrayVec::<[u8; 2048]>::new)
    });
   c.bench_function("std::vec::Vec::push", |b| {
      b.iter_batched(|| std::vec::Vec::<u8>::with_capacity(2048),
@@ -18,17 +21,17 @@ fn collections(c: &mut Criterion) {
                     BatchSize::SmallInput)
    });
   c.bench_function("heapless::Vec::push", |b| {
-     b.iter_batched(|| heapless::Vec::<u8, 2048>::new(),
+     b.iter_batched(heapless::Vec::<u8, 2048>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });
   c.bench_function("arrayvec::ArrayVec::push", |b| {
-     b.iter_batched(|| arrayvec::ArrayVec::<u8, 2048>::new(),
+     b.iter_batched(arrayvec::ArrayVec::<u8, 2048>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });
   c.bench_function("tinyvec::ArrayVec::push", |b| {
-     b.iter_batched(|| tinyvec::ArrayVec::<[u8; 2048]>::new(),
+     b.iter_batched(tinyvec::ArrayVec::<[u8; 2048]>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });

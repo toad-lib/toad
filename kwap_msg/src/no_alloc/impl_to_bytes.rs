@@ -16,7 +16,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryInt
   fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<[u8; CAP]>, Self::Error> {
     let size: usize = self.get_size();
     if CAP < size {
-      Err(Self::Error::TooLong { capacity: CAP, size })?
+      return Err(Self::Error::TooLong { capacity: CAP, size })
     }
 
     let mut bytes = ArrayVec::<[u8; CAP]>::new();
@@ -38,7 +38,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryInt
       opt.extend_bytes(&mut bytes);
     }
 
-    if self.payload.0.len() > 0 {
+    if !self.payload.0.is_empty() {
       bytes.push(0b11111111);
       bytes.extend(self.payload.0);
     }

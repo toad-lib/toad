@@ -23,7 +23,7 @@ fn profile(c: &mut Criterion) {
                      &inp,
                      |b, inp| {
                        b.iter_batched(|| into::<_, Message>(inp),
-                                      |msg| into::<_, Vec<u8>>(msg),
+                                      into::<_, Vec<u8>>,
                                       BatchSize::SmallInput)
                      });
   c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "kwap_msg/no_alloc"),
@@ -45,7 +45,7 @@ fn profile(c: &mut Criterion) {
                      |b, bytes| b.iter(|| NoAllocMessage::try_from_bytes(bytes)));
   c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "coap_lite"),
                      &bytes,
-                     |b, bytes| b.iter(|| coap_lite::Packet::from_bytes(&bytes)));
+                     |b, bytes| b.iter(|| coap_lite::Packet::from_bytes(bytes)));
 }
 
 criterion_group! {
