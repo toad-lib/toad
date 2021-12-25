@@ -2,14 +2,14 @@ use kwap_msg::{alloc::*, no_alloc};
 use tinyvec::ArrayVec;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
-pub struct BenchInput {
+pub struct TestInput {
   pub tkl: u8,
   pub n_opts: usize,
   pub opt_size: usize,
   pub payload_size: usize,
 }
 
-impl BenchInput {
+impl TestInput {
   pub fn get_bytes(&self) -> Vec<u8> {
     self.get_alloc_message().into()
   }
@@ -24,7 +24,7 @@ impl BenchInput {
   }
 }
 
-impl<'a> Into<Message> for &'a BenchInput {
+impl<'a> Into<Message> for &'a TestInput {
   fn into(self) -> Message {
     let opts: Vec<Opt> = (0..self.n_opts).map(|n| Opt { delta: OptDelta(n as _),
                                                         value: OptValue(core::iter::repeat(1).take(self.opt_size)
@@ -48,7 +48,7 @@ impl<'a> Into<Message> for &'a BenchInput {
   }
 }
 
-impl<'a, const P: usize, const N: usize, const O: usize> Into<no_alloc::Message<P, N, O>> for &'a BenchInput {
+impl<'a, const P: usize, const N: usize, const O: usize> Into<no_alloc::Message<P, N, O>> for &'a TestInput {
   fn into(self) -> no_alloc::Message<P, N, O> {
     let opts: ArrayVec<[_; N]> =
       (0..self.n_opts).map(|n| no_alloc::Opt { delta: OptDelta(n as _),

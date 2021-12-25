@@ -220,4 +220,20 @@ mod tests {
                        assert_eqb_iter!(actual, expected)
                      });
   }
+
+  #[test]
+  fn no_payload_marker() {
+    let msg = Message::<0, 0, 0> {
+        id: Id(0),
+        ty: Type(0),
+        ver: Default::default(),
+        code: Code {class: 2, detail: 5},
+        tkl: TokenLength(0),
+        token: Token(Default::default()),
+        opts: Default::default(),
+        payload: Payload(Default::default()),
+    };
+
+    assert_ne!(msg.try_into_bytes::<20>().unwrap().last(), Some(&0b11111111));
+  }
 }

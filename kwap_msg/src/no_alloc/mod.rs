@@ -78,18 +78,22 @@ pub(crate) struct Byte1 {
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Version(pub u8);
 
+impl Default for Version {
+  fn default() -> Self {Version(1)}
+}
+
 /// Message type:
-/// - Confirmable; "Please let me know when you received this"
-/// - Acknowledgement; "I got your message!"
-/// - Non-confirmable; "I don't care if this gets to you"
-/// - Reset; ""
+/// - 0 Confirmable; "Please let me know when you received this"
+/// - 1 Acknowledgement; "I got your message!"
+/// - 2 Non-confirmable; "I don't care if this gets to you"
+/// - 3 Reset; ""
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Type(pub u8);
 
 /// Length (in bytes) of the [`Token`]. Tokens are between 0 and 8 bytes in length.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct TokenLength(pub u8);
 
 /// Message token for matching requests to responses
@@ -107,7 +111,7 @@ pub struct TokenLength(pub u8);
 /// the coap spec, but is interpreted by this library as an 8 byte unsigned integer in network byte order.
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub u64);
 
 /// Low-level representation of the code of a message.
