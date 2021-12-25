@@ -89,11 +89,11 @@ impl Default for Version {
 /// - 3 Reset; ""
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Type(pub u8);
 
 /// Length (in bytes) of the [`Token`]. Tokens are between 0 and 8 bytes in length.
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct TokenLength(pub u8);
 
 /// Message token for matching requests to responses
@@ -111,7 +111,7 @@ pub struct TokenLength(pub u8);
 /// the coap spec, but is interpreted by this library as an 8 byte unsigned integer in network byte order.
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Default, Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub u64);
 
 /// Low-level representation of the code of a message.
