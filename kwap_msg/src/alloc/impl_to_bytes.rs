@@ -22,8 +22,8 @@ impl From<Message> for Vec<u8> {
     bytes.extend(token);
     msg.opts.into_iter().for_each(|o| o.extend_bytes(&mut bytes));
     if !msg.payload.0.is_empty() {
-        bytes.push(0b11111111);
-        bytes.extend(msg.payload.0);
+      bytes.push(0b11111111);
+      bytes.extend(msg.payload.0);
     }
 
     bytes
@@ -104,16 +104,14 @@ mod tests {
 
   #[test]
   fn no_payload_marker() {
-    let msg = Message {
-        id: Id(0),
-        ty: Type(0),
-        ver: Default::default(),
-        code: Code {class: 2, detail: 5},
-        tkl: TokenLength(0),
-        token: Token(Default::default()),
-        opts: Default::default(),
-        payload: Payload(Default::default()),
-    };
+    let msg = Message { id: Id(0),
+                        ty: Type(0),
+                        ver: Default::default(),
+                        code: Code { class: 2, detail: 5 },
+                        tkl: TokenLength(0),
+                        token: Token(Default::default()),
+                        opts: Default::default(),
+                        payload: Payload(Default::default()) };
 
     assert_ne!(Vec::<u8>::from(msg).last(), Some(&0b11111111));
   }

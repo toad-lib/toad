@@ -1,6 +1,6 @@
 use tinyvec::ArrayVec;
 
-use crate::{is_full::IsFull, parsing::*};
+use crate::{is_full::IsFull, from_bytes::*};
 
 #[doc = include_str!("../../docs/no_alloc/opt/Opt.md")]
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default)]

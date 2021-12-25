@@ -1,4 +1,5 @@
 use super::*;
+use crate::from_bytes::*;
 use crate::is_full::IsFull;
 
 impl<'a, const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes<&'a u8>

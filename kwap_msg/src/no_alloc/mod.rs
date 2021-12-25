@@ -1,7 +1,5 @@
 use tinyvec::ArrayVec;
 
-use crate::parsing::*;
-
 pub(crate) mod impl_from_bytes;
 pub(crate) mod impl_get_size;
 pub(crate) mod impl_to_bytes;
@@ -79,7 +77,9 @@ pub(crate) struct Byte1 {
 pub struct Version(pub u8);
 
 impl Default for Version {
-  fn default() -> Self {Version(1)}
+  fn default() -> Self {
+    Version(1)
+  }
 }
 
 /// Message type:

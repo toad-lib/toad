@@ -55,20 +55,17 @@ pub mod alloc;
 pub mod no_alloc;
 
 #[doc(hidden)]
-pub mod parsing;
-
-#[doc(inline)]
-pub use parsing::TryFromBytes;
-
+pub mod from_bytes;
+#[doc(hidden)]
+pub mod get_size;
 #[doc(hidden)]
 pub mod to_bytes;
 
 #[doc(inline)]
-pub use to_bytes::TryIntoBytes;
-
-#[doc(hidden)]
-pub mod get_size;
+pub use from_bytes::TryFromBytes;
 #[doc(inline)]
 pub use get_size::GetSize;
+#[doc(inline)]
+pub use to_bytes::TryIntoBytes;
 
 pub(crate) mod is_full;
