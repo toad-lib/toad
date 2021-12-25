@@ -4,10 +4,10 @@ use crate::is_full::IsFull;
 impl<'a, const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes<&'a u8>
   for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
 {
-    type Error =  MessageParseError;
-    fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
-      Self::try_from_bytes(bytes.into_iter().copied())
-    }
+  type Error = MessageParseError;
+  fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
+    Self::try_from_bytes(bytes.into_iter().copied())
+  }
 }
 
 impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes<u8>
