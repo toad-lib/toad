@@ -16,7 +16,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryInt
   fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<[u8; CAP]>, Self::Error> {
     let size: usize = self.get_size();
     if CAP < size {
-      return Err(Self::Error::TooLong { capacity: CAP, size })
+      return Err(Self::Error::TooLong { capacity: CAP, size });
     }
 
     let mut bytes = ArrayVec::<[u8; CAP]>::new();
@@ -157,19 +157,19 @@ mod tests {
     // shouldn't panic when message larger than capacity
     let (m, _) = super::super::test_msg();
     let actual = m.try_into_bytes::<8>().unwrap_err();
-    assert_eq!(actual, MessageToBytesError::TooLong { capacity: 8, size: 21 });
+    assert_eq!(actual, MessageToBytesError::TooLong { capacity: 8, size: 37 });
   }
 
   #[test]
   fn token() {
     let token = Token(12);
     let expected = vec![12u8];
-    let actual: ArrayVec<u8, 8> = token.into();
+    let actual: ArrayVec<[u8; 8]> = token.into();
     assert_eqb_iter!(actual, expected);
 
     let token = Token(0b11110000_11110000_11110000_11110000_11110000_11110000_11110000_11110000);
     let expected = core::iter::repeat(0b11110000u8).take(8).collect::<Vec<_>>();
-    let actual: ArrayVec<u8, 8> = token.into();
+    let actual: ArrayVec<[u8; 8]> = token.into();
     assert_eqb_iter!(actual, expected);
   }
 

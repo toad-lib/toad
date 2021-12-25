@@ -44,11 +44,19 @@ pub struct Message {
   pub payload: Payload,
 }
 
-impl TryFromBytes for Message {
+impl<'a> TryFromBytes<&'a u8> for Message {
   type Error = MessageParseError;
 
-  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter().copied();
+  fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
+    Self::try_from_bytes(bytes.into_iter().copied())
+  }
+}
+
+impl TryFromBytes<u8> for Message {
+  type Error = MessageParseError;
+
+  fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter();
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 

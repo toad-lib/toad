@@ -1,13 +1,22 @@
 use super::*;
 use crate::is_full::IsFull;
 
-impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes
+impl<'a, const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes<&'a u8>
+  for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
+{
+    type Error =  MessageParseError;
+    fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
+      Self::try_from_bytes(bytes.into_iter().copied())
+    }
+}
+
+impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFromBytes<u8>
   for Message<PAYLOAD_CAP, N_OPTS, OPT_CAP>
 {
   type Error = MessageParseError;
 
-  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error> {
-    let mut bytes = bytes.into_iter().copied();
+  fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter();
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
@@ -21,8 +30,9 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
     let opts = ArrayVec::<[Opt<OPT_CAP>; N_OPTS]>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let mut payload_bytes = ArrayVec::new();
     for byte in bytes {
-      payload_bytes.try_push(byte)
-                   .ok_or_else(|| Self::Error::PayloadTooLong(PAYLOAD_CAP))?;
+      if let Some(_) = payload_bytes.try_push(byte) {
+        return Err(Self::Error::PayloadTooLong(PAYLOAD_CAP));
+      }
     }
 
     let payload = Payload(payload_bytes);
@@ -86,14 +96,14 @@ impl From<u8> for Code {
   }
 }
 
-#[cfg(never)]
+#[cfg(test)]
 mod tests {
   use super::*;
 
   #[test]
   fn parse_msg() {
     let (expect, msg) = super::super::test_msg();
-    assert_eq!(Message::<13, 1, 16>::try_from_bytes(msg).unwrap(), expect)
+    assert_eq!(Message::<13, 1, 16>::try_from_bytes(&msg).unwrap(), expect)
   }
 
   #[test]
@@ -109,7 +119,7 @@ mod tests {
   #[test]
   fn parse_id() {
     let id_bytes = 34u16.to_be_bytes();
-    let id = Id::try_consume_bytes(id_bytes).unwrap();
+    let id = Id::try_consume_bytes(&mut id_bytes.iter().copied()).unwrap();
     assert_eq!(id, Id(34));
   }
 
@@ -123,11 +133,11 @@ mod tests {
   #[test]
   fn parse_token() {
     let valid_a: [u8; 1] = [0b_00000001u8];
-    let valid_a = Token::try_consume_bytes(valid_a).unwrap();
+    let valid_a = Token::try_consume_bytes(&mut valid_a.iter().copied()).unwrap();
     assert_eq!(valid_a, Token(1));
 
     let valid_b: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 1];
-    let valid_b = Token::try_consume_bytes(valid_b).unwrap();
+    let valid_b = Token::try_consume_bytes(&mut valid_b.iter().copied()).unwrap();
     assert_eq!(valid_a, valid_b);
   }
 }

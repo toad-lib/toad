@@ -56,7 +56,9 @@ impl<I: Iterator<Item = u8>, const N_OPTS: usize, const OPT_CAP: usize> TryConsu
     loop {
       match Opt::<OPT_CAP>::try_consume_bytes(bytes.by_ref()) {
         | Ok(opt) => {
-          opts.try_push(opt).ok_or(OptParseError::TooManyOptions(N_OPTS))?;
+          if let Some(_) = opts.try_push(opt) {
+            return Err(OptParseError::TooManyOptions(N_OPTS));
+          }
         },
         | Err(OptParseError::OptionsExhausted) => break Ok(opts),
         | Err(e) => break Err(e),
@@ -71,9 +73,11 @@ impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<I> for Opt<OP
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
     let opt_header = opt_header(bytes.by_ref())?;
 
-    // NOTE: Delta **MUST** be consumed before Value. see comment on `opt_len_or_delta` for more info
-    let delta = OptDelta::try_consume_bytes(bytes.by_ref())?;
-    let value = OptValue::<OPT_CAP>::try_consume_bytes(&mut [opt_header].into_iter().chain(bytes))?;
+    let delta = OptDelta::try_consume_bytes(&mut core::iter::once(opt_header).chain(bytes.by_ref()))?;
+
+    let len = opt_header & 0b00001111;
+    let len = opt_len_or_delta(len, bytes.by_ref(), OptParseError::ValueLengthReservedValue(15))?;
+    let value = OptValue::<OPT_CAP>::try_consume_n_bytes(len as usize, bytes.by_ref())?;
     Ok(Opt { delta, value })
   }
 }
@@ -87,7 +91,7 @@ pub(crate) fn opt_header<I: Iterator<Item = u8>>(bytes: I) -> Result<u8, OptPars
 
   if let 0b11111111 = opt_header {
     // This isn't an option, it's the payload!
-    return Err(OptParseError::OptionsExhausted)
+    return Err(OptParseError::OptionsExhausted);
   }
 
   Ok(opt_header)
@@ -99,7 +103,7 @@ pub(crate) fn opt_len_or_delta(head: u8,
                                reserved_err: OptParseError)
                                -> Result<u16, OptParseError> {
   if head == 15 {
-    return Err(reserved_err)
+    return Err(reserved_err);
   }
 
   match head {
@@ -119,21 +123,17 @@ pub(crate) fn opt_len_or_delta(head: u8,
   }
 }
 
-impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<I> for OptValue<OPT_CAP> {
+impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeNBytes<I> for OptValue<OPT_CAP> {
   type Error = OptParseError;
 
-  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let first_byte = Self::Error::try_next(bytes.by_ref())?;
-    let len = first_byte & 0b00001111;
-    let len = opt_len_or_delta(len, bytes.by_ref(), OptParseError::ValueLengthReservedValue(15))? as usize;
-
-    if len > OPT_CAP {
+  fn try_consume_n_bytes(n: usize, bytes: &mut I) -> Result<Self, Self::Error> {
+    if n > OPT_CAP {
       return Err(OptParseError::OptionValueTooLong { capacity: OPT_CAP,
-                                              actual: len })
+                                                     actual: n });
     }
 
-    let data: ArrayVec<[u8; OPT_CAP]> = bytes.take(len).collect();
-    if data.len() < len {
+    let data: ArrayVec<[u8; OPT_CAP]> = bytes.take(n).collect();
+    if data.len() < n {
       Err(OptParseError::UnexpectedEndOfStream)
     } else {
       Ok(OptValue(data))
@@ -150,7 +150,7 @@ pub trait GetOptDelta {
   /// let heaped = Opt { delta: OptDelta(1),
   ///                    value: OptValue(vec![]) };
   /// let stackd = no_alloc::Opt::<128> { delta: OptDelta(1),
-  ///                                     value: no_alloc::OptValue(arrayvec::ArrayVec::new()) };
+  ///                                     value: no_alloc::OptValue(tinyvec::ArrayVec::new()) };
   ///
   /// assert_eq!(heaped.get_delta(), stackd.get_delta());
   /// ```
@@ -214,57 +214,55 @@ impl<T: GetOptDelta, I: Iterator<Item = T>> Iterator for EnumerateOptNumbersIter
   }
 }
 
-#[cfg(never)]
+#[cfg(test)]
 mod tests {
   use super::*;
 
   #[test]
   fn parse_opt_delta() {
-    let del_4bit = [0b00010000u8];
-    let del_4bit = OptDelta::try_consume_bytes(del_4bit).unwrap();
+    let mut del_4bit = [0b00010000u8].into_iter();
+    let del_4bit = OptDelta::try_consume_bytes(&mut del_4bit).unwrap();
     assert_eq!(del_4bit, OptDelta(1));
 
-    let del_1byte = [0b11010000u8, 0b00000000];
-    let del_1byte = OptDelta::try_consume_bytes(del_1byte).unwrap();
+    let mut del_1byte = [0b11010000u8, 0b00000000].into_iter();
+    let del_1byte = OptDelta::try_consume_bytes(&mut del_1byte).unwrap();
     assert_eq!(del_1byte, OptDelta(13));
 
-    let del_2bytes = [[0b11100000u8].as_ref(), u16::to_be_bytes(12076).as_ref()].concat();
-    let del_2bytes = OptDelta::try_consume_bytes(del_2bytes).unwrap();
+    let mut del_2bytes = [[0b11100000u8].as_ref(), u16::to_be_bytes(12076).as_ref()].concat()
+                                                                                    .into_iter();
+    let del_2bytes = OptDelta::try_consume_bytes(&mut del_2bytes).unwrap();
     assert_eq!(del_2bytes, OptDelta(12345));
 
-    let errs = [[0b11010000u8].as_ref(),           // delta is 13 but no byte following
-                [0b11100000, 0b00000001].as_ref(), // delta is 14 but only 1 byte following
-                [].as_ref()];
+    let errs = [[0b11010000u8].as_ref().into_iter(),             // delta is 13 but no byte following
+                [0b11100000u8, 0b00000001].as_ref().into_iter(), // delta is 14 but only 1 byte following
+                [].as_ref().into_iter()];
 
     errs.into_iter().for_each(|iter| {
-                      let del = OptDelta::try_consume_bytes(iter.to_vec());
+                      let del = OptDelta::try_consume_bytes(&mut iter.copied());
                       assert_eq!(del, Err(OptParseError::UnexpectedEndOfStream))
                     });
   }
   #[test]
   fn parse_opt_value() {
-    let val_1byte: [u8; 2] = [0b00000001, 2];
-    let val_1byte: OptValue<1> = OptValue::try_consume_bytes(val_1byte).unwrap();
+    let mut val_1byte = [2].into_iter();
+    let val_1byte: OptValue<1> = OptValue::try_consume_n_bytes(1, &mut val_1byte).unwrap();
     assert_eq!(val_1byte, OptValue([2].into_iter().collect()));
 
     let data13bytes = core::iter::repeat(1u8).take(13).collect::<Vec<_>>();
-    let val_13bytes = [[0b00001101u8, 0b00000000].as_ref(), &data13bytes].concat();
-    let val_13bytes: OptValue<13> = OptValue::try_consume_bytes(val_13bytes).unwrap();
+    let mut val_13bytes = data13bytes.iter().copied();
+    let val_13bytes: OptValue<13> = OptValue::try_consume_n_bytes(13, &mut val_13bytes).unwrap();
     assert_eq!(val_13bytes, OptValue(data13bytes.into_iter().collect()));
 
     let data270bytes = core::iter::repeat(1u8).take(270).collect::<Vec<_>>();
-    let val_270bytes = [[0b00001110u8, 0b00000000, 0b00000001].as_ref(), &data270bytes].concat();
-    let val_270bytes: OptValue<270> = OptValue::try_consume_bytes(val_270bytes).unwrap();
+    let mut val_270bytes = data270bytes.iter().copied();
+    let val_270bytes: OptValue<270> = OptValue::try_consume_n_bytes(270, &mut val_270bytes).unwrap();
     assert_eq!(val_270bytes, OptValue::<270>(data270bytes.into_iter().collect()));
 
-    let errs = [[1].as_ref(),          // len is 1 but no data following
-                [13].as_ref(),         // len value is 13, but no data following
-                [14, 1].as_ref(),      // len value is 14 but only 1 byte following
-                [3, 1, 1, 1].as_ref(), // len is > capacity
-                [].as_ref()];
+    let errs = [(2, [1].as_ref()), // len is 2 but not enough bytes
+                (3, [].as_ref())]; // len is 3, which is larger than capacity
 
-    errs.into_iter().for_each(|iter| {
-                      let del = OptValue::<2>::try_consume_bytes(iter.into_iter().copied());
+    errs.into_iter().for_each(|(n, iter)| {
+                      let del = OptValue::<2>::try_consume_n_bytes(n, &mut iter.into_iter().copied());
                       assert!(matches!(del,
                                        Err(OptParseError::UnexpectedEndOfStream
                                            | OptParseError::OptionValueTooLong { .. })))
@@ -273,19 +271,20 @@ mod tests {
 
   #[test]
   fn parse_opt() {
-    let opt_bytes: [u8; 2] = [0b00000001, 0b00000001];
-    let opt = Opt::<1>::try_consume_bytes(opt_bytes).unwrap();
+    use core::iter::once;
+    let mut opt_bytes = [0b00000001, 0b00000001].into_iter();
+    let opt = Opt::<1>::try_consume_bytes(&mut opt_bytes).unwrap();
     assert_eq!(opt,
                Opt { delta: OptDelta(0),
                      value: OptValue::<1>(vec![1].into_iter().collect()) });
 
-    let opt_bytes: [u8; 5] = [0b00000001, 0b00000001, 0b00010001, 0b00000011, 0b11111111];
-    let opt = ArrayVec::<Opt<1>, 2>::try_consume_bytes(opt_bytes).unwrap();
+    let mut opt_bytes = [0b00000001, 0b00000001, 0b00010001, 0b00000011, 0b11111111].into_iter();
+    let opt = ArrayVec::<[Opt<1>; 2]>::try_consume_bytes(&mut opt_bytes).unwrap();
     assert_eq!(opt,
                vec![Opt { delta: OptDelta(0),
-                          value: OptValue::<1>(vec![1].into_iter().collect()) },
+                          value: OptValue::<1>(once(1).collect()) },
                     Opt { delta: OptDelta(1),
-                          value: OptValue::<1>(vec![3].into_iter().collect()) },].into_iter()
-                                                                                 .collect::<ArrayVec<_, 2>>());
+                          value: OptValue::<1>(once(3).collect()) },].into_iter()
+                                                                     .collect::<ArrayVec<[_; 2]>>());
   }
 }

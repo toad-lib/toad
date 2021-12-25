@@ -1,11 +1,11 @@
 /// Trait for converting a sequence of bytes into some data structure
-pub trait TryFromBytes: Sized {
+pub trait TryFromBytes<T>: Sized {
   /// Error type yielded if conversion fails
   type Error;
 
   /// Try to convert from some sequence of bytes `T`
   /// into `Self`
-  fn try_from_bytes<'a, T: IntoIterator<Item = &'a u8>>(bytes: T) -> Result<Self, Self::Error>;
+  fn try_from_bytes<I: IntoIterator<Item = T>>(bytes: I) -> Result<Self, Self::Error>;
 }
 
 /// Trait adding the ability for a _piece_ of a data structure to parse itself by mutating an iterator over bytes.

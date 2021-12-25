@@ -21,11 +21,7 @@ fn profile(c: &mut Criterion) {
 
   c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "kwap_msg/alloc"),
                      &inp,
-                     |b, inp| {
-                       b.iter_batched(|| into::<_, Message>(inp),
-                                      into::<_, Vec<u8>>,
-                                      BatchSize::SmallInput)
-                     });
+                     |b, inp| b.iter_batched(|| into::<_, Message>(inp), into::<_, Vec<u8>>, BatchSize::SmallInput));
   c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "kwap_msg/no_alloc"),
                      &inp,
                      |b, inp| {
