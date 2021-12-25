@@ -1,32 +1,30 @@
-use arrayvec::ArrayVec;
 use std_alloc::vec::Vec;
+use tinyvec::ArrayVec;
 
 use super::*;
-use crate::get_size::GetSize;
-use crate::no_alloc::impl_to_bytes::opt_len_or_delta;
+use crate::{get_size::GetSize, no_alloc::impl_to_bytes::opt_len_or_delta};
 
-// TODO(orion): Shame about all this duplicated code :thinking:
+impl From<Message> for Vec<u8> {
+  fn from(msg: Message) -> Vec<u8> {
+    let byte1: u8 = Byte1 { tkl: msg.tkl,
+                            ver: msg.ver,
+                            ty: msg.ty }.into();
+    let code: u8 = msg.code.into();
+    let id: [u8; 2] = msg.id.into();
+    let token: ArrayVec<[u8; 8]> = msg.token.into();
 
-impl Into<Vec<u8>> for Message {
-  fn into(self) -> Vec<u8> {
-    let byte1: u8 = Byte1 { tkl: self.tkl,
-                            ver: self.ver,
-                            ty: self.ty }.into();
-    let code: u8 = self.code.into();
-    let id: [u8; 2] = self.id.into();
-    let token: ArrayVec<u8, 8> = self.token.into();
-
-let size = self.get_size();
+    let size = msg.get_size();
     let mut bytes = Vec::<u8>::with_capacity(size);
+
     bytes.push(byte1);
     bytes.push(code);
     bytes.extend(id);
     bytes.extend(token);
-    self.opts
-        .into_iter()
-        .for_each(|o| o.extend_bytes(&mut bytes));
-    bytes.push(0b11111111);
-    bytes.extend(self.payload.0);
+    msg.opts.into_iter().for_each(|o| o.extend_bytes(&mut bytes));
+    if !msg.payload.0.is_empty() {
+        bytes.push(0b11111111);
+        bytes.extend(msg.payload.0);
+    }
 
     bytes
   }
@@ -52,10 +50,10 @@ impl Opt {
   }
 }
 
-impl Into<Vec<u8>> for Opt {
-  fn into(self) -> Vec<u8> {
-    let mut bytes = Vec::<u8>::with_capacity(self.get_size());
-    self.extend_bytes(&mut bytes);
+impl From<Opt> for Vec<u8> {
+  fn from(opt: Opt) -> Vec<u8> {
+    let mut bytes = Vec::<u8>::with_capacity(opt.get_size());
+    opt.extend_bytes(&mut bytes);
     bytes
   }
 }
@@ -102,5 +100,21 @@ mod tests {
                        let actual: Vec<u8> = opt.into();
                        assert_eqb_iter!(actual, expected)
                      });
+  }
+
+  #[test]
+  fn no_payload_marker() {
+    let msg = Message {
+        id: Id(0),
+        ty: Type(0),
+        ver: Default::default(),
+        code: Code {class: 2, detail: 5},
+        tkl: TokenLength(0),
+        token: Token(Default::default()),
+        opts: Default::default(),
+        payload: Payload(Default::default()),
+    };
+
+    assert_ne!(Vec::<u8>::from(msg).last(), Some(&0b11111111));
   }
 }

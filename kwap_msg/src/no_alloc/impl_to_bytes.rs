@@ -1,5 +1,3 @@
-use arrayvec::ArrayVec;
-
 use super::*;
 use crate::{get_size::*, to_bytes::*};
 
@@ -15,41 +13,45 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryInt
 {
   type Error = MessageToBytesError;
 
-  fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<u8, CAP>, Self::Error> {
+  fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<[u8; CAP]>, Self::Error> {
     let size: usize = self.get_size();
     if CAP < size {
-      Err(Self::Error::TooLong { capacity: CAP, size })?
+      return Err(Self::Error::TooLong { capacity: CAP, size });
     }
+
+    let mut bytes = ArrayVec::<[u8; CAP]>::new();
 
     let byte1: u8 = Byte1 { tkl: self.tkl,
                             ver: self.ver,
                             ty: self.ty }.into();
     let code: u8 = self.code.into();
     let id: [u8; 2] = self.id.into();
-    let token: ArrayVec<u8, 8> = self.token.into();
-    let mut opts = ArrayVec::<u8, CAP>::new();
-    self.opts.into_iter().try_for_each(|o| {
-                            let bs = o.try_into_bytes::<CAP>()?;
-                            bs.into_iter().for_each(|b| opts.push(b));
-                            Ok(())
-                          })?;
+    let token: ArrayVec<[u8; 8]> = self.token.into();
 
-    let bytes: ArrayVec<u8, CAP> = core::iter::once(byte1).chain(core::iter::once(code))
-                                                          .chain(id)
-                                                          .chain(token)
-                                                          .chain(opts)
-                                                          .chain(core::iter::once(0b11111111))
-                                                          .chain(self.payload.0.iter().copied())
-                                                          .collect();
+    bytes.push(byte1);
+    bytes.push(code);
+
+    bytes.extend(id);
+    bytes.extend(token);
+
+    for opt in self.opts.into_iter() {
+      opt.extend_bytes(&mut bytes);
+    }
+
+    if !self.payload.0.is_empty() {
+      bytes.push(0b11111111);
+      bytes.extend(self.payload.0);
+    }
 
     Ok(bytes)
   }
 }
 
-pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<u8, 2>>) {
+pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<[u8; 2]>>) {
   match val {
     | n if n >= 269 => {
-      let bytes = ArrayVec::from((n - 269).to_be_bytes());
+      let mut bytes = ArrayVec::new();
+      bytes.extend((n - 269).to_be_bytes());
       (14, Some(bytes))
     },
     | n if n >= 13 => {
@@ -61,29 +63,40 @@ pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<u8, 2>>) {
   }
 }
 
-impl Into<ArrayVec<u8, 8>> for Token {
-  fn into(self) -> ArrayVec<u8, 8> {
-    ArrayVec::from(self.0.to_be_bytes()).into_iter()
-                                        .filter(|&b| b != 0)
-                                        .collect()
+impl Into<ArrayVec<[u8; 8]>> for Token {
+  fn into(self) -> ArrayVec<[u8; 8]> {
+    self.0.to_be_bytes().into_iter().filter(|&b| b != 0).collect()
   }
 }
 
-impl<const OPT_CAP: usize> TryIntoBytes for Opt<OPT_CAP> {
-  type Error = MessageToBytesError;
-
-  fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<u8, CAP>, Self::Error> {
+impl<const OPT_CAP: usize> Opt<OPT_CAP> {
+  fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
     let (del, del_bytes) = opt_len_or_delta(self.delta.0);
     let (len, len_bytes) = opt_len_or_delta(self.value.0.len() as u16);
     let del = del << 4;
 
     let header = del | len;
 
-    let bytes = core::iter::once(header).chain(del_bytes.unwrap_or_default())
-                                        .chain(len_bytes.unwrap_or_default())
-                                        .chain(self.value.0)
-                                        .collect();
+    bytes.extend(Some(header));
 
+    if let Some(bs) = del_bytes {
+      bytes.extend(bs);
+    }
+
+    if let Some(bs) = len_bytes {
+      bytes.extend(bs);
+    }
+
+    bytes.extend(self.value.0);
+  }
+}
+
+impl<const OPT_CAP: usize> TryIntoBytes for Opt<OPT_CAP> {
+  type Error = MessageToBytesError;
+
+  fn try_into_bytes<const CAP: usize>(self) -> Result<ArrayVec<[u8; CAP]>, Self::Error> {
+    let mut bytes = ArrayVec::<[u8; CAP]>::new();
+    self.extend_bytes(&mut bytes);
     Ok(bytes)
   }
 }
@@ -144,19 +157,19 @@ mod tests {
     // shouldn't panic when message larger than capacity
     let (m, _) = super::super::test_msg();
     let actual = m.try_into_bytes::<8>().unwrap_err();
-    assert_eq!(actual, MessageToBytesError::TooLong { capacity: 8, size: 21 });
+    assert_eq!(actual, MessageToBytesError::TooLong { capacity: 8, size: 37 });
   }
 
   #[test]
   fn token() {
     let token = Token(12);
     let expected = vec![12u8];
-    let actual: ArrayVec<u8, 8> = token.into();
+    let actual: ArrayVec<[u8; 8]> = token.into();
     assert_eqb_iter!(actual, expected);
 
     let token = Token(0b11110000_11110000_11110000_11110000_11110000_11110000_11110000_11110000);
     let expected = core::iter::repeat(0b11110000u8).take(8).collect::<Vec<_>>();
-    let actual: ArrayVec<u8, 8> = token.into();
+    let actual: ArrayVec<[u8; 8]> = token.into();
     assert_eqb_iter!(actual, expected);
   }
 
@@ -206,5 +219,21 @@ mod tests {
                        let actual = opt.try_into_bytes::<400>().unwrap();
                        assert_eqb_iter!(actual, expected)
                      });
+  }
+
+  #[test]
+  fn no_payload_marker() {
+    let msg = Message::<0, 0, 0> {
+        id: Id(0),
+        ty: Type(0),
+        ver: Default::default(),
+        code: Code {class: 2, detail: 5},
+        tkl: TokenLength(0),
+        token: Token(Default::default()),
+        opts: Default::default(),
+        payload: Payload(Default::default()),
+    };
+
+    assert_ne!(msg.try_into_bytes::<20>().unwrap().last(), Some(&0b11111111));
   }
 }

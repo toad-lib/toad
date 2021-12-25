@@ -2,3 +2,5 @@ debug/
 target/
 **/*.pdb
 **/*.rs.bk
+**/flamegraph*.svg
+**/perf.data*

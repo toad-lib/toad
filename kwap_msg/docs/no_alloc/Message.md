@@ -7,7 +7,7 @@ To convert an iterator of bytes into a Message, there is a provided trait [`crat
 use kwap_msg::TryFromBytes;
 use kwap_msg::alloc::*;
 use kwap_msg::no_alloc;
-# use arrayvec::ArrayVec;
+# use tinyvec::ArrayVec;
 
 # //                       version  token len  code (2.05 Content)
 # //                       |        |          /

@@ -10,8 +10,8 @@ pub mod opt;
 #[doc(inline)]
 pub use opt::*;
 
-mod impl_to_bytes;
 mod impl_get_size;
+mod impl_to_bytes;
 
 /// Low-level representation of the message payload
 ///
@@ -44,21 +44,29 @@ pub struct Message {
   pub payload: Payload,
 }
 
-impl TryFromBytes for Message {
+impl<'a> TryFromBytes<&'a u8> for Message {
   type Error = MessageParseError;
 
-  fn try_from_bytes<T: IntoIterator<Item = u8>>(bytes: T) -> Result<Self, Self::Error> {
+  fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
+    Self::try_from_bytes(bytes.into_iter().copied())
+  }
+}
+
+impl TryFromBytes<u8> for Message {
+  type Error = MessageParseError;
+
+  fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
     let mut bytes = bytes.into_iter();
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
     if tkl.0 > 8 {
-      Err(Self::Error::InvalidTokenLength(tkl.0 as u8))?;
+      return Err(Self::Error::InvalidTokenLength(tkl.0 as u8));
     }
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(bytes.by_ref().take(tkl.0 as usize))?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl.0 as usize))?;
     let opts = Vec::<Opt>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let payload = Payload(bytes.collect());
 

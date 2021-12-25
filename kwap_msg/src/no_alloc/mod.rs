@@ -1,4 +1,4 @@
-use arrayvec::ArrayVec;
+use tinyvec::ArrayVec;
 
 use crate::parsing::*;
 
@@ -28,7 +28,7 @@ pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP:
   /// see [`Code`] for details
   pub code: Code,
   /// see [`opt::Opt`] for details
-  pub opts: ArrayVec<opt::Opt<OPT_CAP>, N_OPTS>,
+  pub opts: ArrayVec<[opt::Opt<OPT_CAP>; N_OPTS]>,
   /// See [`Payload`]
   pub payload: Payload<PAYLOAD_CAP>,
 }
@@ -41,7 +41,7 @@ pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP:
 /// # Related
 /// - [RFC7252#section-5.5 Payloads and Representations](https://datatracker.ietf.org/doc/html/rfc7252#section-5.5)
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct Payload<const PAYLOAD_CAP: usize>(pub ArrayVec<u8, PAYLOAD_CAP>);
+pub struct Payload<const PAYLOAD_CAP: usize>(pub ArrayVec<[u8; PAYLOAD_CAP]>);
 
 /// Uniquely identifies a single message that may be retransmitted.
 ///
@@ -78,11 +78,15 @@ pub(crate) struct Byte1 {
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Version(pub u8);
 
+impl Default for Version {
+  fn default() -> Self {Version(1)}
+}
+
 /// Message type:
-/// - Confirmable; "Please let me know when you received this"
-/// - Acknowledgement; "I got your message!"
-/// - Non-confirmable; "I don't care if this gets to you"
-/// - Reset; ""
+/// - 0 Confirmable; "Please let me know when you received this"
+/// - 1 Acknowledgement; "I got your message!"
+/// - 2 Non-confirmable; "I don't care if this gets to you"
+/// - 3 Reset; ""
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]

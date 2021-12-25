@@ -1,2 +1,5 @@
 [workspace]
 members = ["kwap*"]
+
+[profile.bench]
+debug = true
