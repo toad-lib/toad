@@ -1,8 +1,8 @@
 use std_alloc::vec::Vec;
 
 pub use crate::no_alloc::opt::{EnumerateOptNumbers, EnumerateOptNumbersIter, GetOptDelta, OptDelta, OptNumber};
-use crate::{no_alloc::{opt_header, opt_len_or_delta},
-            from_bytes::*};
+use crate::{from_bytes::*,
+            no_alloc::{opt_header, opt_len_or_delta}};
 
 #[doc = include_str!("../../docs/no_alloc/opt/Opt.md")]
 #[derive(Clone, PartialEq, PartialOrd, Debug)]

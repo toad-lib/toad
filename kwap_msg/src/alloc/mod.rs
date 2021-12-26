@@ -2,7 +2,7 @@ use std_alloc::{string::{String, ToString},
                 vec::Vec};
 
 pub use crate::no_alloc::{Code, Id, Token, TokenLength, Type, Version};
-use crate::{no_alloc::Byte1, from_bytes::*};
+use crate::{from_bytes::*, no_alloc::Byte1};
 
 #[doc(hidden)]
 pub mod opt;
