@@ -6,7 +6,7 @@
 //!
 //! If you're a library user, you probably want `req`/`resp` instead!
 
-#![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.2")]
+#![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.3")]
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
  *
