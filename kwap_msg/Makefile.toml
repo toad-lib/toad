@@ -6,6 +6,6 @@ command = "cargo"
 args = ["criterion"]
 
 [tasks.flame]
-install_crate = ["cargo-criterion", "cargo-flamegraph"]
+install_crate = "cargo-flamegraph"
 command = "cargo"
 args = ["flamegraph", "--bench", "profile", "--", "--bench"]
