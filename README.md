@@ -1,14 +1,15 @@
 # kwap
-An extensible multi-platform rusty implementation of CoAP
+A CoAP implementation that strives to power client- and server-side CoAP in any language & any environment.
 
-## What does this solve?
- - support multi-role M2M communication (endpoints must act as both client & server)
- - make coap _accessible_
- - make async _optional_
- - make alloc & std _optional_
- - provide a system that can be easily _extended_
+## Goals
+ - make coap accessible & approachable to those unfamiliar
+ - headless CoAP core that can be used by frontends in any language (via JNI/C ABI/WASM)
+ - support multi-role M2M communication (coap Endpoints must be able to act as both client & server)
+ - optional async support
+ - make alloc & std _completely optional_
 
-## Under the hood
+## Big picture ideas
+ - `kwap_msg` for pulling messages off the wire
  - asynchronous event-driven architecture:
    - `fn on(srv: &Server, e: Event, f: fn(&Server, Event) -> Event) -> ()`
    - `Nop`
