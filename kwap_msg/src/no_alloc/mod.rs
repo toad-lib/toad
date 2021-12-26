@@ -19,8 +19,6 @@ pub struct Message<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP:
   pub ty: Type,
   /// see [`Version`] for details
   pub ver: Version,
-  /// see [`TokenLength`] for details
-  pub tkl: TokenLength,
   /// see [`Token`] for details
   pub token: Token,
   /// see [`Code`] for details
@@ -65,7 +63,7 @@ pub struct Id(pub u16);
 pub(crate) struct Byte1 {
   pub(crate) ver: Version,
   pub(crate) ty: Type,
-  pub(crate) tkl: TokenLength,
+  pub(crate) tkl: u8,
 }
 
 /// Version of the CoAP protocol that the message adheres to.
@@ -84,17 +82,13 @@ impl Default for Version {
 
 /// Message type:
 /// - 0 Confirmable; "Please let me know when you received this"
-/// - 1 Acknowledgement; "I got your message!"
-/// - 2 Non-confirmable; "I don't care if this gets to you"
+/// - 1 Non-confirmable; "I don't care if this gets to you"
+/// - 2 Acknowledgement; "I got your message!"
 /// - 3 Reset; ""
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Type(pub u8);
-
-/// Length (in bytes) of the [`Token`]. Tokens are between 0 and 8 bytes in length.
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct TokenLength(pub u8);
 
 /// Message token for matching requests to responses
 ///
@@ -112,7 +106,7 @@ pub struct TokenLength(pub u8);
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Token(pub u64);
+pub struct Token(pub ArrayVec<[u8; 8]>);
 
 /// Low-level representation of the code of a message.
 /// Identifying it as a request or response
@@ -188,8 +182,7 @@ pub(self) fn test_msg() -> (Message<13, 1, 16>, Vec<u8>) {
   let msg = Message::<13, 1, 16> { id: Id(1),
                                    ty: Type(0),
                                    ver: Version(1),
-                                   token: Token(254),
-                                   tkl: TokenLength(1),
+                                   token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                                    opts,
                                    code: Code { class: 2, detail: 5 },
                                    payload: Payload(b"hello, world!".into_iter().copied().collect()) };

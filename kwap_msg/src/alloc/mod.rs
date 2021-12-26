@@ -1,7 +1,7 @@
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 
-pub use crate::no_alloc::{Code, Id, Token, TokenLength, Type, Version};
+pub use crate::no_alloc::{Code, Id, Token, Type, Version};
 use crate::{from_bytes::*, no_alloc::Byte1};
 
 #[doc(hidden)]
@@ -32,8 +32,6 @@ pub struct Message {
   pub ty: Type,
   /// see [`Version`] for details
   pub ver: Version,
-  /// see [`TokenLength`] for details
-  pub tkl: TokenLength,
   /// see [`Token`] for details
   pub token: Token,
   /// see [`Code`] for details
@@ -60,18 +58,17 @@ impl TryFromBytes<u8> for Message {
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
-    if tkl.0 > 8 {
-      return Err(Self::Error::InvalidTokenLength(tkl.0 as u8));
+    if tkl > 8 {
+      return Err(Self::Error::InvalidTokenLength(tkl));
     }
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl.0 as usize))?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl as usize))?;
     let opts = Vec::<Opt>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let payload = Payload(bytes.collect());
 
-    Ok(Message { tkl,
-                 id,
+    Ok(Message { id,
                  ty,
                  ver,
                  code,
@@ -107,8 +104,7 @@ pub(self) fn test_msg() -> (Message, Vec<u8>) {
   let msg = Message { id: Id(1),
                       ty: Type(0),
                       ver: Version(1),
-                      token: Token(254),
-                      tkl: TokenLength(1),
+                      token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                       opts,
                       code: Code { class: 2, detail: 5 },
                       payload: Payload(b"hello, world!".into_iter().copied().collect()) };

@@ -6,7 +6,7 @@ impl GetSize for Message {
     let header_size = 4;
     let payload_marker_size = 1;
     let payload_size = self.payload.0.len();
-    let token_size = self.tkl.0 as usize;
+    let token_size = self.token.0.len();
     let opts_size: usize = self.opts.iter().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
