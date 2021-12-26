@@ -1,9 +1,12 @@
 //! Low-level representation of CoAP messages.
 //!
 //! Performs comparably&#42; to the `Packet` structure in [`coap_lite`](https://github.com/martindisch/coap-lite)
+//!
 //! &#42; _(benchmark data available for [this library](./criterion/reports/kwap_msg_to_bytes/index.html) as well as [coap_lite](./criterion/reports/coap_lite_to_bytes/index.html))_
 //!
 //! If you're a library user, you probably want `req`/`resp` instead!
+
+#![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.0")]
 
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
