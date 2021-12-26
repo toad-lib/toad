@@ -37,7 +37,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
 
     let payload = Payload(payload_bytes);
 
-    Ok(Message {                id,
+    Ok(Message { id,
                  ty,
                  ver,
                  code,

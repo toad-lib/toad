@@ -1,6 +1,6 @@
 use std::{fmt::Debug,
           net::UdpSocket,
-          sync::{Barrier, Arc},
+          sync::{Arc, Barrier},
           thread::{self, JoinHandle, Thread}};
 
 use kwap_msg::{alloc as msg, TryFromBytes};
@@ -15,7 +15,11 @@ fn main() {
   sock.connect("0.0.0.0:5683").unwrap();
   println!("client: 🔌 connected to server");
 
-  let bytes = loop {if let Ok(bytes) = sock.send(&Vec::<u8>::from(get_hello())) {break bytes;}};
+  let bytes = loop {
+    if let Ok(bytes) = sock.send(&Vec::<u8>::from(get_hello())) {
+      break bytes;
+    }
+  };
   println!("client: 📨 sent GET /hello {} bytes", bytes);
   println!("client: 📭 waiting for response...");
 
@@ -27,7 +31,7 @@ fn main() {
            rep.code.to_string(),
            String::from_utf8(rep.payload.0.clone()).unwrap());
 
-  loop{}
+  loop {}
 }
 
 fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {

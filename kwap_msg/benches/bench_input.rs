@@ -32,7 +32,7 @@ impl<'a> Into<Message> for &'a TestInput {
                                          .collect();
 
     let token = core::iter::repeat(1u8).take(self.tkl as _)
-                                              .collect::<tinyvec::ArrayVec<[_; 8]>>();
+                                       .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     Message { id: Id(1),
               ty: Type(0),
@@ -53,7 +53,7 @@ impl<'a, const P: usize, const N: usize, const O: usize> Into<no_alloc::Message<
                       .collect();
 
     let token = core::iter::repeat(1u8).take(self.tkl as _)
-                                              .collect::<tinyvec::ArrayVec<[_; 8]>>();
+                                       .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     no_alloc::Message { id: Id(1),
                         ty: Type(0),
