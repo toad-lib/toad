@@ -31,17 +31,14 @@ impl<'a> Into<Message> for &'a TestInput {
                                                                                              .collect()) })
                                          .collect();
 
-    let token: [u8; 8] = core::iter::repeat(0).take((8 - self.tkl) as _)
+    let token = core::iter::repeat(0).take((8 - self.tkl) as _)
                                               .chain(core::iter::repeat(1u8).take(self.tkl as _))
-                                              .collect::<arrayvec::ArrayVec<_, 8>>()
-                                              .into_inner()
-                                              .unwrap();
+                                              .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     Message { id: Id(1),
               ty: Type(0),
               ver: Version(0),
-              tkl: TokenLength(self.tkl),
-              token: Token(u64::from_be_bytes(token)),
+              token: Token(token),
               code: Code { class: 2, detail: 5 },
               opts,
               payload: Payload(core::iter::repeat(1u8).take(self.payload_size).collect()) }
@@ -56,17 +53,14 @@ impl<'a, const P: usize, const N: usize, const O: usize> Into<no_alloc::Message<
                                                                                               .collect()) })
                       .collect();
 
-    let token: [u8; 8] = core::iter::repeat(0).take((8 - self.tkl) as _)
+    let token = core::iter::repeat(0).take((8 - self.tkl) as _)
                                               .chain(core::iter::repeat(1u8).take(self.tkl as _))
-                                              .collect::<arrayvec::ArrayVec<_, 8>>()
-                                              .into_inner()
-                                              .unwrap();
+                                              .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     no_alloc::Message { id: Id(1),
                         ty: Type(0),
                         ver: Version(0),
-                        tkl: TokenLength(self.tkl),
-                        token: Token(u64::from_be_bytes(token)),
+                        token: Token(token),
                         code: Code { class: 2, detail: 5 },
                         opts,
                         payload: no_alloc::Payload(core::iter::repeat(1u8).take(self.payload_size).collect()) }

@@ -1,17 +1,15 @@
 use std_alloc::vec::Vec;
-use tinyvec::ArrayVec;
 
 use super::*;
 use crate::{get_size::GetSize, no_alloc::impl_to_bytes::opt_len_or_delta};
 
 impl From<Message> for Vec<u8> {
   fn from(msg: Message) -> Vec<u8> {
-    let byte1: u8 = Byte1 { tkl: msg.tkl,
+    let byte1: u8 = Byte1 { tkl: msg.token.0.len() as u8,
                             ver: msg.ver,
                             ty: msg.ty }.into();
     let code: u8 = msg.code.into();
     let id: [u8; 2] = msg.id.into();
-    let token: ArrayVec<[u8; 8]> = msg.token.into();
 
     let size = msg.get_size();
     let mut bytes = Vec::<u8>::with_capacity(size);
@@ -19,7 +17,7 @@ impl From<Message> for Vec<u8> {
     bytes.push(byte1);
     bytes.push(code);
     bytes.extend(id);
-    bytes.extend(token);
+    bytes.extend(msg.token.0);
     msg.opts.into_iter().for_each(|o| o.extend_bytes(&mut bytes));
     if !msg.payload.0.is_empty() {
       bytes.push(0b11111111);
@@ -108,7 +106,6 @@ mod tests {
                         ty: Type(0),
                         ver: Default::default(),
                         code: Code { class: 2, detail: 5 },
-                        tkl: TokenLength(0),
                         token: Token(Default::default()),
                         opts: Default::default(),
                         payload: Payload(Default::default()) };

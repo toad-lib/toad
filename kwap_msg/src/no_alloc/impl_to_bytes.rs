@@ -21,12 +21,12 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryInt
 
     let mut bytes = ArrayVec::<[u8; CAP]>::new();
 
-    let byte1: u8 = Byte1 { tkl: self.tkl,
+    let byte1: u8 = Byte1 { tkl: self.token.0.len() as u8,
                             ver: self.ver,
                             ty: self.ty }.into();
     let code: u8 = self.code.into();
     let id: [u8; 2] = self.id.into();
-    let token: ArrayVec<[u8; 8]> = self.token.into();
+    let token: ArrayVec<[u8; 8]> = self.token.0;
 
     bytes.push(byte1);
     bytes.push(code);
@@ -60,12 +60,6 @@ pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<[u8; 2]>>) {
       (13, Some(bytes))
     },
     | n => (n as u8, None),
-  }
-}
-
-impl Into<ArrayVec<[u8; 8]>> for Token {
-  fn into(self) -> ArrayVec<[u8; 8]> {
-    self.0.to_be_bytes().into_iter().filter(|&b| b != 0).collect()
   }
 }
 
@@ -105,7 +99,7 @@ impl Into<u8> for Byte1 {
   fn into(self) -> u8 {
     let ver = self.ver.0 << 6;
     let ty = self.ty.0 << 4;
-    let tkl = self.tkl.0;
+    let tkl = self.tkl;
 
     ver | ty | tkl
   }
@@ -161,23 +155,10 @@ mod tests {
   }
 
   #[test]
-  fn token() {
-    let token = Token(12);
-    let expected = vec![12u8];
-    let actual: ArrayVec<[u8; 8]> = token.into();
-    assert_eqb_iter!(actual, expected);
-
-    let token = Token(0b11110000_11110000_11110000_11110000_11110000_11110000_11110000_11110000);
-    let expected = core::iter::repeat(0b11110000u8).take(8).collect::<Vec<_>>();
-    let actual: ArrayVec<[u8; 8]> = token.into();
-    assert_eqb_iter!(actual, expected);
-  }
-
-  #[test]
   fn byte_1() {
     let byte = Byte1 { ver: Version(1),
                        ty: Type(2),
-                       tkl: TokenLength(3) };
+                       tkl: 3 };
     let actual: u8 = byte.into();
     let expected = 0b_01_10_0011u8;
     assert_eqb!(actual, expected)
@@ -227,7 +208,6 @@ mod tests {
                                    ty: Type(0),
                                    ver: Default::default(),
                                    code: Code { class: 2, detail: 5 },
-                                   tkl: TokenLength(0),
                                    token: Token(Default::default()),
                                    opts: Default::default(),
                                    payload: Payload(Default::default()) };

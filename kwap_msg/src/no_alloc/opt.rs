@@ -17,6 +17,12 @@ impl<const CAP: usize> GetOptDelta for Opt<CAP> {
   }
 }
 
+impl<'a, const CAP: usize> GetOptDelta for &'a Opt<CAP> {
+  fn get_delta(&self) -> OptDelta {
+    self.delta
+  }
+}
+
 /// Option Value
 ///
 /// # Related
@@ -86,15 +92,15 @@ impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<I> for Opt<OP
 ///
 /// This converts the iterator into a Peekable and looks at bytes0.
 /// Checks if byte 0 is a Payload marker, indicating all options have been read.
-pub(crate) fn opt_header<I: Iterator<Item = u8>>(bytes: I) -> Result<u8, OptParseError> {
-  let opt_header = OptParseError::try_next(bytes)?;
+pub(crate) fn opt_header<I: Iterator<Item = u8>>(mut bytes: I) -> Result<u8, OptParseError> {
+  let opt_header = bytes.next();
 
-  if let 0b11111111 = opt_header {
+  if let Some(0b11111111) | None = opt_header {
     // This isn't an option, it's the payload!
     return Err(OptParseError::OptionsExhausted);
   }
 
-  Ok(opt_header)
+  Ok(opt_header.unwrap())
 }
 
 #[doc = include_str!("../../docs/parsing/opt_len_or_delta.md")]

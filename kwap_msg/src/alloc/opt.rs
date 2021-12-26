@@ -19,6 +19,12 @@ impl GetOptDelta for Opt {
   }
 }
 
+impl<'a> GetOptDelta for &'a Opt {
+  fn get_delta(&self) -> OptDelta {
+    self.delta
+  }
+}
+
 /// Option Value
 ///
 /// # Related

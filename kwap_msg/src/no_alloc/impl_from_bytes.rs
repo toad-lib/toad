@@ -20,13 +20,13 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
 
     let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
 
-    if tkl.0 > 8 {
-      return Err(Self::Error::InvalidTokenLength(tkl.0 as u8));
+    if tkl > 8 {
+      return Err(Self::Error::InvalidTokenLength(tkl));
     }
 
     let code: Code = Self::Error::try_next(&mut bytes)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
-    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl.0 as usize))?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl as usize))?;
     let opts = ArrayVec::<[Opt<OPT_CAP>; N_OPTS]>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let mut payload_bytes = ArrayVec::new();
     for byte in bytes {
@@ -37,8 +37,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
 
     let payload = Payload(payload_bytes);
 
-    Ok(Message { tkl,
-                 id,
+    Ok(Message {                id,
                  ty,
                  ver,
                  code,
@@ -55,7 +54,7 @@ impl From<u8> for Byte1 {
 
     Byte1 { ver: Version(ver),
             ty: Type(ty),
-            tkl: TokenLength(tkl) }
+            tkl }
   }
 }
 
@@ -75,15 +74,9 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
   type Error = MessageParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let bytes = bytes.into_iter().collect::<ArrayVec<[_; 8]>>();
+    let token = bytes.into_iter().collect::<ArrayVec<[_; 8]>>();
 
-    // pad the front with zeroes and copy values to array
-    let bytes_u64 = core::iter::repeat(0u8).take(8 - bytes.len())
-                                           .chain(bytes.into_iter())
-                                           .collect::<ArrayVec<[u8; 8]>>()
-                                           .into_inner();
-
-    Ok(Token(u64::from_be_bytes(bytes_u64)))
+    Ok(Token(token))
   }
 }
 
@@ -113,7 +106,7 @@ mod tests {
     assert_eq!(byte,
                Byte1 { ver: Version(1),
                        ty: Type(2),
-                       tkl: TokenLength(3) })
+                       tkl: 3 })
   }
 
   #[test]
@@ -134,10 +127,6 @@ mod tests {
   fn parse_token() {
     let valid_a: [u8; 1] = [0b_00000001u8];
     let valid_a = Token::try_consume_bytes(&mut valid_a.iter().copied()).unwrap();
-    assert_eq!(valid_a, Token(1));
-
-    let valid_b: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 1];
-    let valid_b = Token::try_consume_bytes(&mut valid_b.iter().copied()).unwrap();
-    assert_eq!(valid_a, valid_b);
+    assert_eq!(valid_a, Token(tinyvec::array_vec!([u8; 8] => 1)));
   }
 }
