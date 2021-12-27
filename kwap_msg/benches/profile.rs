@@ -3,7 +3,7 @@ use kwap_msg::{alloc::*, no_alloc, TryFromBytes, TryIntoBytes};
 
 #[path = "bench_input.rs"]
 mod bench_input;
-use bench_input::BenchInput;
+use bench_input::TestInput;
 
 fn into<A: Into<B>, B>(a: A) -> B {
   a.into()
@@ -11,10 +11,10 @@ fn into<A: Into<B>, B>(a: A) -> B {
 
 fn profile(c: &mut Criterion) {
   type NoAllocMessage = no_alloc::Message<1024, 16, 128>;
-  let inp = BenchInput { tkl: 8,
-                         n_opts: 16,
-                         opt_size: 128,
-                         payload_size: 1024 };
+  let inp = TestInput { tkl: 8,
+                        n_opts: 16,
+                        opt_size: 128,
+                        payload_size: 1024 };
 
   let bytes: Vec<u8> = into::<_, Message>(&inp).into();
   let coap_lite_packet = coap_lite::Packet::from_bytes(&bytes).unwrap();
