@@ -46,7 +46,7 @@ jobs:
     - name: 'update Cargo.lock'
       run: 'cargo check'
 
-    - run: 'git add -A; git commit --no-edit'
+    - run: 'git add -A; git commit --amend --no-edit'
 
     - env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
