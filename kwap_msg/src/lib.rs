@@ -9,9 +9,12 @@
 //! `alloc::Message` can be much easier to use and performs comparably to `no_alloc`, however it does require:
 //! `std` or [a global allocator](https://doc.rust-lang.org/std/alloc/index.html)
 //!
-//! ## `kwap_msg::Message` vs `coap_lite::Packet`
-//! Benchmarks are available comparing `kwap_msg::alloc::Message`, `kwap_msg::no_alloc::Message` and `coap_lite::Packet`.
+//! ## Performance
+//! This crate uses `criterion` to measure performance of the heaped & heapless implementations in this crate as well as `coap_lite::Packet`.
 //!
+//! In general, `kwap_msg::alloc::Message` is faster than coap_lite, which is much faster than `no_alloc::Message`.
+//!
+//! Benchmarks:
 //! ### Serializing to bytes
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
 //!
