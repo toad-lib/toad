@@ -16,7 +16,7 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
-//! [![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)]()
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
 //!
 //! ### Deserializing from bytes
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
