@@ -1,11 +1,13 @@
-name: 'publish'
+name: 'kwap_msg(publish)'
 
 on:
   push:
     tags: ['*']
+    paths:
+       - 'kwap_msg'
 
 jobs:
-  publish:
+  publish_kwap_msg:
     runs-on: 'ubuntu-latest'
     steps:
     - uses: 'actions/checkout@v2'
