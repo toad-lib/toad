@@ -1,11 +1,6 @@
 use tinyvec::ArrayVec;
 
-#[doc(inline)]
-pub use crate::from_bytes::*;
-#[doc(inline)]
-pub use crate::GetSize;
-#[doc(inline)]
-pub use crate::TryIntoBytes;
+pub use crate::{from_bytes::*, GetSize, TryIntoBytes};
 
 pub(crate) mod impl_from_bytes;
 pub(crate) mod impl_get_size;
