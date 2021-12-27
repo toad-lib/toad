@@ -16,7 +16,7 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
-//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
+//! [![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)]()
 //!
 //! ### Deserializing from bytes
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
@@ -63,11 +63,23 @@ extern crate alloc as std_alloc;
 /// dynamically growable structures.
 ///
 /// Depends on crate feature `alloc` and `#[global_allocator]` (if your crate is `#[no_std]`).
+///
+/// Usable as the crate root, e.g.
+///
+/// ```
+/// use kwap_msg::alloc as msg;
+/// ```
 #[cfg(feature = "alloc")]
 #[cfg_attr(any(feature = "docs", docsrs), doc(cfg(feature = "alloc")))]
 pub mod alloc;
 
-/// Fixed capacity representations of raw CoAP messages.
+/// Fixed capacity representations of raw CoAP messages
+///
+/// Usable as the crate root, e.g.
+///
+/// ```
+/// use kwap_msg::no_alloc as msg;
+/// ```
 pub mod no_alloc;
 
 #[doc(hidden)]
@@ -78,7 +90,7 @@ pub mod get_size;
 pub mod to_bytes;
 
 #[doc(inline)]
-pub use from_bytes::TryFromBytes;
+pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
 #[doc(inline)]
 pub use get_size::GetSize;
 #[doc(inline)]
