@@ -37,13 +37,16 @@ jobs:
     # - update CHANGELOG,
     # - create version tag
     # - create version commits
-    - run: 'npx standard-version'
+    - run: |
+      npx standard-version \
+        --tag-prefix kwap-msg@ \
+        --releaseCommitMessageFormat 'chore(release): kwap_msg@{{currentTag}}'
       working-directory: 'kwap_msg'
 
     - name: 'update Cargo.lock'
       run: 'cargo check'
 
-    - run: 'git add -A; git commit --no-edit -m ''chore: bump kwap-msg'''
+    - run: 'git add -A; git commit --no-edit'
 
     - env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
