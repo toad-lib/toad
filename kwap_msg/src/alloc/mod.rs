@@ -1,7 +1,7 @@
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 
-use crate::no_alloc::Byte1;
+use crate::{from_bytes::TryConsumeBytes, no_alloc::Byte1};
 pub use crate::{no_alloc::{Code, Id, Token, Type, Version},
                 GetSize,
                 MessageParseError,
