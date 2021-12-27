@@ -13,10 +13,10 @@
 //! Benchmarks are available comparing `kwap_msg::alloc::Message`, `kwap_msg::no_alloc::Message` and `coap_lite::Packet`.
 //!
 //! ### Serializing to bytes
-//! ![chart](../docs/to_bytes.svg)
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/improve_msg_readme/kwap_msg/docs/from_bytes.svg)
 //!
 //! ### Deserializing from bytes
-//! ![chart](../docs/from_bytes.svg)
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/improve_msg_readme/kwap_msg/docs/to_bytes.svg)
 
 
 #![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.4")]
