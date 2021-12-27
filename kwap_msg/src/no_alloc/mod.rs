@@ -1,5 +1,7 @@
 use tinyvec::ArrayVec;
 
+pub use crate::{from_bytes::*, GetSize, TryIntoBytes};
+
 pub(crate) mod impl_from_bytes;
 pub(crate) mod impl_get_size;
 pub(crate) mod impl_to_bytes;

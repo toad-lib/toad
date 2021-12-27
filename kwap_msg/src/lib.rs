@@ -59,15 +59,26 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-/// Identical to [`crate::no_alloc`], but replaces all fixed-capacity stack-allocated buffers with
-/// dynamically growable structures.
+/// Crate root for **allocating** CoAP messages
 ///
-/// Depends on crate feature `alloc` and `#[global_allocator]` (if your crate is `#[no_std]`).
+/// Depends on crate feature `alloc` and either `std` or a `#[global_allocator]`!
+///
+/// ```
+/// use kwap_msg::alloc as msg;
+/// use msg::{Message, TryFromBytes};
+/// ```
 #[cfg(feature = "alloc")]
 #[cfg_attr(any(feature = "docs", docsrs), doc(cfg(feature = "alloc")))]
 pub mod alloc;
 
-/// Fixed capacity representations of raw CoAP messages.
+/// Crate root for **non-allocating** CoAP messages
+///
+/// `no_alloc` is always available, even when crate feature `alloc` is enabled.
+///
+/// ```
+/// use kwap_msg::no_alloc as msg;
+/// use msg::{Message, TryFromBytes};
+/// ```
 pub mod no_alloc;
 
 #[doc(hidden)]
@@ -78,7 +89,7 @@ pub mod get_size;
 pub mod to_bytes;
 
 #[doc(inline)]
-pub use from_bytes::TryFromBytes;
+pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
 #[doc(inline)]
 pub use get_size::GetSize;
 #[doc(inline)]
