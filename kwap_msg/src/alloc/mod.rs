@@ -1,14 +1,13 @@
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 
-#[doc(inline)]
-pub use crate::from_bytes::*;
 use crate::no_alloc::Byte1;
-pub use crate::no_alloc::{Code, Id, Token, Type, Version};
-#[doc(inline)]
-pub use crate::GetSize;
-#[doc(inline)]
-pub use crate::TryIntoBytes;
+pub use crate::{no_alloc::{Code, Id, Token, Type, Version},
+                GetSize,
+                MessageParseError,
+                OptParseError,
+                TryFromBytes,
+                TryIntoBytes};
 
 #[doc(hidden)]
 pub mod opt;
