@@ -18,7 +18,6 @@
 //! ### Deserializing from bytes
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/improve_msg_readme/kwap_msg/docs/to_bytes.svg)
 
-
 #![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.4")]
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
