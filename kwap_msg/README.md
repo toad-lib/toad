@@ -4,13 +4,25 @@
 
 # kwap-msg
 
+## kwap_msg
 Low-level representation of CoAP messages.
 
-Performs comparably&#42; to the `Packet` structure in [`coap_lite`](https://github.com/martindisch/coap-lite)
+### `alloc` vs `no_alloc`
+kwap_msg implements CoAP messages as either backed by:
+- `alloc`: dynamically growable heap-allocated buffers
+- `no_alloc`: static stack-allocated buffers
 
-&#42; _(benchmark data available for [this library](./criterion/reports/kwap_msg_to_bytes/index.html) as well as [coap_lite](./criterion/reports/coap_lite_to_bytes/index.html))_
+`alloc::Message` can be much easier to use and performs comparably to `no_alloc`, however it does require:
+`std` or [a global allocator](https://doc.rust-lang.org/std/alloc/index.html)
 
-If you're a library user, you probably want `req`/`resp` instead!
+### `kwap_msg::Message` vs `coap_lite::Packet`
+Benchmarks are available comparing `kwap_msg::alloc::Message`, `kwap_msg::no_alloc::Message` and `coap_lite::Packet`.
+
+#### Serializing to bytes
+![chart](../docs/to_bytes.svg)
+
+#### Deserializing from bytes
+![chart](../docs/from_bytes.svg)
 
 ## License
 
