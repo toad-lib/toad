@@ -46,48 +46,12 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
                  payload })
   }
 }
-impl From<u8> for Byte1 {
-  fn from(b: u8) -> Self {
-    let ver = b >> 6; // bits 0 & 1
-    let ty = b >> 4 & 0b11; // bits 2 & 3
-    let tkl = b & 0b1111u8; // last 4 bits
 
-    Byte1 { ver: Version(ver),
-            ty: Type(ty),
-            tkl }
-  }
-}
 
-impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Id {
-  type Error = MessageParseError;
-  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let taken_bytes = bytes.take(2).collect::<ArrayVec<[_; 2]>>();
-    if taken_bytes.is_full() {
-      Ok(taken_bytes.into_inner()).map(|bs| Id(u16::from_be_bytes(bs)))
-    } else {
-      Err(MessageParseError::UnexpectedEndOfStream)
-    }
-  }
-}
 
-impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
-  type Error = MessageParseError;
 
-  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let token = bytes.into_iter().collect::<ArrayVec<[_; 8]>>();
 
-    Ok(Token(token))
-  }
-}
 
-impl From<u8> for Code {
-  fn from(b: u8) -> Self {
-    let class = b >> 5;
-    let detail = b & 0b0011111;
-
-    Code { class, detail }
-  }
-}
 
 #[cfg(test)]
 mod tests {

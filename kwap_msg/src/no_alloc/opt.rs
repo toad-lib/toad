@@ -31,26 +31,6 @@ impl<'a, const CAP: usize> GetOptDelta for &'a Opt<CAP> {
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct OptValue<const CAP: usize>(pub ArrayVec<[u8; CAP]>);
 
-#[doc = include_str!("../../docs/no_alloc/opt/OptDelta.md")]
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
-pub struct OptDelta(pub u16);
-
-#[doc = include_str!("../../docs/no_alloc/opt/OptNumber.md")]
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct OptNumber(pub u32);
-
-impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
-  type Error = OptParseError;
-
-  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let first_byte = Self::Error::try_next(bytes.by_ref())?;
-    let delta = first_byte >> 4;
-    let delta = opt_len_or_delta(delta, bytes, OptParseError::OptionDeltaReservedValue(15))?;
-
-    Ok(OptDelta(delta))
-  }
-}
-
 impl<I: Iterator<Item = u8>, const N_OPTS: usize, const OPT_CAP: usize> TryConsumeBytes<I>
   for ArrayVec<[Opt<OPT_CAP>; N_OPTS]>
 {
@@ -88,47 +68,6 @@ impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeBytes<I> for Opt<OP
   }
 }
 
-/// Peek at the first byte of a byte iterable and interpret as an Option header.
-///
-/// This converts the iterator into a Peekable and looks at bytes0.
-/// Checks if byte 0 is a Payload marker, indicating all options have been read.
-pub(crate) fn opt_header<I: Iterator<Item = u8>>(mut bytes: I) -> Result<u8, OptParseError> {
-  let opt_header = bytes.next();
-
-  if let Some(0b11111111) | None = opt_header {
-    // This isn't an option, it's the payload!
-    return Err(OptParseError::OptionsExhausted);
-  }
-
-  Ok(opt_header.unwrap())
-}
-
-#[doc = include_str!("../../docs/parsing/opt_len_or_delta.md")]
-pub(crate) fn opt_len_or_delta(head: u8,
-                               bytes: impl Iterator<Item = u8>,
-                               reserved_err: OptParseError)
-                               -> Result<u16, OptParseError> {
-  if head == 15 {
-    return Err(reserved_err);
-  }
-
-  match head {
-    | 13 => {
-      let n = OptParseError::try_next(bytes)?;
-      Ok((n as u16) + 13)
-    },
-    | 14 => {
-      let taken_bytes = bytes.take(2).collect::<tinyvec::ArrayVec<[u8; 2]>>();
-      if taken_bytes.is_full() {
-        Ok(u16::from_be_bytes(taken_bytes.into_inner()) + 269)
-      } else {
-        Err(OptParseError::UnexpectedEndOfStream)
-      }
-    },
-    | _ => Ok(head as u16),
-  }
-}
-
 impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeNBytes<I> for OptValue<OPT_CAP> {
   type Error = OptParseError;
 
@@ -147,78 +86,9 @@ impl<I: Iterator<Item = u8>, const OPT_CAP: usize> TryConsumeNBytes<I> for OptVa
   }
 }
 
-/// Trait for getting the delta from either heap or heapless Opts
-pub trait GetOptDelta {
-  /// ```
-  /// use kwap_msg::{alloc::{GetOptDelta, Opt, OptDelta, OptValue},
-  ///                no_alloc};
-  ///
-  /// let heaped = Opt { delta: OptDelta(1),
-  ///                    value: OptValue(vec![]) };
-  /// let stackd = no_alloc::Opt::<128> { delta: OptDelta(1),
-  ///                                     value: no_alloc::OptValue(tinyvec::ArrayVec::new()) };
-  ///
-  /// assert_eq!(heaped.get_delta(), stackd.get_delta());
-  /// ```
-  fn get_delta(&self) -> OptDelta;
-}
 
-/// Creates an iterator which gives the current opt's number as well as the option.
-///
-/// The iterator returned yields pairs `(i, val)`, where `i` is the [`OptNumber`] and `val` is the Opt returned by the iterator.
-pub trait EnumerateOptNumbers<T: GetOptDelta>: Iterator<Item = T>
-  where Self: Sized
-{
-  /// Creates an iterator which gives the current Opt along with its Number.
-  ///
-  /// ```
-  /// use kwap_msg::alloc::*;
-  ///
-  /// let opt_a = Opt { delta: OptDelta(12),
-  ///                   value: OptValue(Vec::new()) };
-  /// let opt_b = Opt { delta: OptDelta(2),
-  ///                   value: OptValue(Vec::new()) };
-  /// let opts = vec![opt_a.clone(), opt_b.clone()];
-  ///
-  /// let opt_ns = opts.into_iter().enumerate_option_numbers().collect::<Vec<_>>();
-  ///
-  /// assert_eq!(opt_ns, vec![(OptNumber(12), opt_a), (OptNumber(14), opt_b)])
-  /// ```
-  fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self>;
-}
 
-impl<T: GetOptDelta, I: Iterator<Item = T>> EnumerateOptNumbers<T> for I {
-  fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self> {
-    EnumerateOptNumbersIter { number: 0, iter: self }
-  }
-}
 
-/// Iterator yielded by [`EnumerateOptNumbers`], wrapping an Iterator
-/// over [`Opt`]s.
-///
-/// Invoking [`Iterator::next`] on this struct will advance the
-/// inner iterator, and add the delta of the new opt to its running sum of deltas.
-///
-/// This running sum is the Number of the newly iterated Opt.
-#[derive(Clone, Debug)]
-pub struct EnumerateOptNumbersIter<T: GetOptDelta, I: Iterator<Item = T>> {
-  number: u32,
-  iter: I,
-}
-
-/// impl Iterator for EnumerateOptNumbersIter
-impl<T: GetOptDelta, I: Iterator<Item = T>> Iterator for EnumerateOptNumbersIter<T, I> {
-  type Item = (OptNumber, T);
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if let Some(next) = self.iter.next() {
-      self.number += u32::from(next.get_delta().0);
-      Some((OptNumber(self.number), next))
-    } else {
-      None
-    }
-  }
-}
 
 #[cfg(test)]
 mod tests {

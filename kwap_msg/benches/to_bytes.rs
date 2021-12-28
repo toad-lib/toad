@@ -4,6 +4,7 @@ use kwap_msg::TryIntoBytes;
 #[path = "bench_input.rs"]
 mod bench_input;
 use bench_input::TestInput;
+use tinyvec::ArrayVec;
 
 fn message_to_bytes(c: &mut Criterion) {
   let mut group = c.benchmark_group("msg/to_bytes");
@@ -70,14 +71,14 @@ fn message_to_bytes(c: &mut Criterion) {
     let bytes = inp.get_bytes();
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()), inp, |b, inp| {
-           b.iter_batched(|| inp.get_alloc_message(), Into::<Vec<u8>>::into, BatchSize::SmallInput)
+           b.iter_batched(|| inp.get_alloc_message(), |m| m.try_into_bytes::<Vec<_>>().unwrap(), BatchSize::SmallInput)
          });
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
                            inp,
                            |b, inp| {
                              b.iter_batched(|| inp.get_no_alloc_message::<4096, 32, 512>(),
-                                            |msg| msg.try_into_bytes::<20608>(),
+                                            |msg| msg.try_into_bytes::<ArrayVec<[u8; 20608]>>(),
                                             BatchSize::SmallInput)
                            });
 

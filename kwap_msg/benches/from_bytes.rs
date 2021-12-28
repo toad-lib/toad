@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use kwap_msg::{alloc::*, no_alloc, TryFromBytes};
+use kwap_msg::*;
 
 #[path = "bench_input.rs"]
 mod bench_input;
@@ -66,18 +66,18 @@ fn message_from_bytes(c: &mut Criterion) {
                                 opt_size: 512,
                                 payload_size: 4096 },];
 
-  type NoAllocMessage = no_alloc::Message<4096, 32, 512>;
+  type ArrayMessage = ArrayVecMessage<4096, 32, 512>;
 
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()),
                            &bytes,
-                           |b, bytes| b.iter(|| Message::try_from_bytes(bytes)));
+                           |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
                            &bytes,
-                           |b, bytes| b.iter(|| NoAllocMessage::try_from_bytes(bytes)));
+                           |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));
 
     group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()), &bytes, |b, bytes| {
            b.iter(|| coap_lite::Packet::from_bytes(bytes))

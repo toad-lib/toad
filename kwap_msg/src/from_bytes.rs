@@ -1,3 +1,7 @@
+use tinyvec::ArrayVec;
+
+use crate::*;
+
 /// Trait for converting a sequence of bytes into some data structure
 pub trait TryFromBytes<T>: Sized {
   /// Error type yielded if conversion fails
@@ -9,7 +13,8 @@ pub trait TryFromBytes<T>: Sized {
 }
 
 /// Trait adding the ability for a _piece_ of a data structure to parse itself by mutating an iterator over bytes.
-pub(crate) trait TryConsumeBytes<I: Iterator<Item = u8>>: Sized {
+pub(crate) trait TryConsumeBytes<I: Iterator<Item = u8>>: Sized
+  {
   /// Error type yielded if conversion fails
   type Error;
 
@@ -76,5 +81,100 @@ pub enum MessageParseError {
 impl MessageParseError {
   pub(super) fn try_next<I>(iter: &mut impl Iterator<Item = I>) -> Result<I, Self> {
     iter.next().ok_or(Self::UnexpectedEndOfStream)
+  }
+}
+
+impl From<u8> for Byte1 {
+  fn from(b: u8) -> Self {
+    let ver = b >> 6; // bits 0 & 1
+    let ty = b >> 4 & 0b11; // bits 2 & 3
+    let tkl = b & 0b1111u8; // last 4 bits
+
+    Byte1 { ver: Version(ver),
+            ty: Type(ty),
+            tkl }
+  }
+}
+
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Id {
+  type Error = MessageParseError;
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let taken_bytes = bytes.take(2).collect::<ArrayVec<[_; 2]>>();
+    if taken_bytes.is_full() {
+      Ok(taken_bytes.into_inner()).map(|bs| Id(u16::from_be_bytes(bs)))
+    } else {
+      Err(MessageParseError::UnexpectedEndOfStream)
+    }
+  }
+}
+impl From<u8> for Code {
+  fn from(b: u8) -> Self {
+    let class = b >> 5;
+    let detail = b & 0b0011111;
+
+    Code { class, detail }
+  }
+}
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
+  type Error = MessageParseError;
+
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let token = bytes.into_iter().collect::<ArrayVec<[_; 8]>>();
+
+    Ok(Token(token))
+  }
+}
+impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
+  type Error = OptParseError;
+
+  fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
+    let first_byte = Self::Error::try_next(bytes.by_ref())?;
+    let delta = first_byte >> 4;
+    let delta = opt_len_or_delta(delta, bytes, OptParseError::OptionDeltaReservedValue(15))?;
+
+    Ok(OptDelta(delta))
+  }
+}
+
+impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>  where
+    for<'b> &'b P: IntoIterator<Item = &'b u8>,
+    for<'b> &'b O: IntoIterator<Item = &'b u8>,
+    for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>,{
+  type Error = MessageParseError;
+
+  fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
+    Self::try_from_bytes(bytes.into_iter().copied())
+  }
+}
+
+impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>  where
+    for<'b> &'b P: IntoIterator<Item = &'b u8>,
+    for<'b> &'b O: IntoIterator<Item = &'b u8>,
+    for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>,{
+  type Error = MessageParseError;
+
+  fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
+    let mut bytes = bytes.into_iter();
+
+    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
+
+    if tkl > 8 {
+      return Err(Self::Error::InvalidTokenLength(tkl));
+    }
+
+    let code: Code = Self::Error::try_next(&mut bytes)?.into();
+    let id: Id = Id::try_consume_bytes(&mut bytes)?;
+    let token = Token::try_consume_bytes(&mut bytes.by_ref().take(tkl as usize))?;
+    let opts = Os::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
+    let payload = Payload(bytes.collect());
+
+    Ok(Message { id,
+                 ty,
+                 ver,
+                 code,
+                 token,
+                 opts,
+                 payload,
+                 __optc: Default::default() })
   }
 }
