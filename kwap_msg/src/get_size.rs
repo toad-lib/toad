@@ -1,15 +1,31 @@
 use crate::*;
 
 /// Get the runtime size (in bytes) of a struct
+///
+/// ## Note
+/// For collections this just yields the number of elements ([`Vec::len`], [`tinyvec::ArrayVec::len`]),
+/// and when the collection is over [`u8`]s,
+/// then `get_size` represents the number of bytes in the collection.
 pub trait GetSize {
   /// Get the runtime size (in bytes) of a struct
   ///
-  /// For collections this is always equivalent to calling
-  /// an inherent `len` method.
+  /// For collections this is always equivalent to calling an inherent `len` method.
+  ///
+  /// ```
+  /// use kwap_msg::GetSize;
+  ///
+  /// assert_eq!(vec![1u8, 2].get_size(), 2)
+  /// ```
   fn get_size(&self) -> usize;
 
   /// Check if the runtime size is zero
-  fn is_empty(&self) -> bool {
+  ///
+  /// ```
+  /// use kwap_msg::GetSize;
+  ///
+  /// assert!(vec![].size_is_zero())
+  /// ```
+  fn size_is_zero(&self) -> bool {
     self.get_size() == 0
   }
 }
