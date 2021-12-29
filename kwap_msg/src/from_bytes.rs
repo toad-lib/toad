@@ -83,6 +83,32 @@ impl MessageParseError {
   }
 }
 
+#[doc = include_str!("../docs/parsing/opt_len_or_delta.md")]
+pub(crate) fn parse_opt_len_or_delta(head: u8,
+                                     bytes: impl Iterator<Item = u8>,
+                                     reserved_err: OptParseError)
+                                     -> Result<u16, OptParseError> {
+  if head == 15 {
+    return Err(reserved_err);
+  }
+
+  match head {
+    | 13 => {
+      let n = OptParseError::try_next(bytes)?;
+      Ok((n as u16) + 13)
+    },
+    | 14 => {
+      let taken_bytes = bytes.take(2).collect::<tinyvec::ArrayVec<[u8; 2]>>();
+      if taken_bytes.is_full() {
+        Ok(u16::from_be_bytes(taken_bytes.into_inner()) + 269)
+      } else {
+        Err(OptParseError::UnexpectedEndOfStream)
+      }
+    },
+    | _ => Ok(head as u16),
+  }
+}
+
 impl From<u8> for Byte1 {
   fn from(b: u8) -> Self {
     let ver = b >> 6; // bits 0 & 1
@@ -129,7 +155,7 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
     let first_byte = Self::Error::try_next(bytes.by_ref())?;
     let delta = first_byte >> 4;
-    let delta = opt_len_or_delta(delta, bytes, OptParseError::OptionDeltaReservedValue(15))?;
+    let delta = parse_opt_len_or_delta(delta, bytes, OptParseError::OptionDeltaReservedValue(15))?;
 
     Ok(OptDelta(delta))
   }
@@ -177,5 +203,47 @@ impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<
                  opts,
                  payload,
                  __optc: Default::default() })
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn parse_msg() {
+    let (expect, msg) = crate::test_msg();
+    assert_eq!(VecMessage::try_from_bytes(&msg).unwrap(), expect)
+  }
+
+  #[test]
+  fn parse_byte1() {
+    let byte = 0b_01_10_0011u8;
+    let byte = Byte1::from(byte);
+    assert_eq!(byte,
+               Byte1 { ver: Version(1),
+                       ty: Type(2),
+                       tkl: 3 })
+  }
+
+  #[test]
+  fn parse_id() {
+    let id_bytes = 34u16.to_be_bytes();
+    let id = Id::try_consume_bytes(&mut id_bytes.iter().copied()).unwrap();
+    assert_eq!(id, Id(34));
+  }
+
+  #[test]
+  fn parse_code() {
+    let byte = 0b_01_000101u8;
+    let code = Code::from(byte);
+    assert_eq!(code, Code { class: 2, detail: 5 })
+  }
+
+  #[test]
+  fn parse_token() {
+    let valid_a: [u8; 1] = [0b_00000001u8];
+    let valid_a = Token::try_consume_bytes(&mut valid_a.iter().copied()).unwrap();
+    assert_eq!(valid_a, Token(tinyvec::array_vec!([u8; 8] => 1)));
   }
 }

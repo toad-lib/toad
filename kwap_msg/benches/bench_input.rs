@@ -36,7 +36,7 @@ impl<'a> From<&'a TestInput> for VecMessage {
 
     VecMessage { id: Id(1),
                  ty: Type(0),
-                 ver: Version(0),
+                 ver: Default::default(),
                  token: Token(token),
                  code: Code { class: 2, detail: 5 },
                  opts,
@@ -57,7 +57,7 @@ impl<'a, const P: usize, const N: usize, const O: usize> From<&'a TestInput> for
 
     ArrayVecMessage { id: Id(1),
                       ty: Type(0),
-                      ver: Version(0),
+                      ver: Default::default(),
                       token: Token(token),
                       code: Code { class: 2, detail: 5 },
                       opts,

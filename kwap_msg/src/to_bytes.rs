@@ -114,29 +114,6 @@ pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<[u8; 2]>>) {
   }
 }
 
-impl<C: Collection<u8>> Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
-{
-  fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
-    let (del, del_bytes) = opt_len_or_delta(self.delta.0);
-    let (len, len_bytes) = opt_len_or_delta(self.value.0.get_size() as u16);
-    let del = del << 4;
-
-    let header = del | len;
-
-    bytes.extend(Some(header));
-
-    if let Some(bs) = del_bytes {
-      bytes.extend(bs);
-    }
-
-    if let Some(bs) = len_bytes {
-      bytes.extend(bs);
-    }
-
-    bytes.extend(self.value.0);
-  }
-}
-
 impl Into<[u8; 2]> for Id {
   fn into(self) -> [u8; 2] {
     self.0.to_be_bytes()
@@ -160,4 +137,97 @@ impl Into<u8> for Code {
 
     class | detail
   }
+}
+
+#[cfg(test)]
+mod tests {
+   use super::*;
+
+macro_rules! assert_eqb {
+  ($actual:expr, $expected:expr) => {
+    if $actual != $expected {
+      panic!("expected {:08b} to equal {:08b}", $actual, $expected)
+    }
+  };
+}
+
+macro_rules! assert_eqb_iter {
+  ($actual:expr, $expected:expr) => {
+    if $actual.iter().ne($expected.iter()) {
+      panic!("expected {:?} to equal {:?}",
+             $actual.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>(),
+             $expected.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>())
+    }
+  };
+}
+
+#[test]
+fn msg() {
+  let (msg, expected) = test_msg();
+  let actual: Vec<u8> = msg.try_into_bytes().unwrap();
+  assert_eqb_iter!(actual, expected);
+}
+
+  #[test]
+  fn byte_1() {
+    let byte = Byte1 { ver: Version(1),
+                       ty: Type(2),
+                       tkl: 3 };
+    let actual: u8 = byte.into();
+    let expected = 0b_01_10_0011u8;
+    assert_eqb!(actual, expected)
+  }
+
+  #[test]
+  fn code() {
+    let code = Code { class: 2, detail: 5 };
+    let actual: u8 = code.into();
+    let expected = 0b_010_00101u8;
+    assert_eqb!(actual, expected)
+  }
+
+  #[test]
+  fn id() {
+    let id = Id(16);
+    let actual = u16::from_be_bytes(id.into());
+    assert_eqb!(actual, 16)
+  }
+
+#[test]
+fn opt() {
+  use core::iter::repeat;
+  let cases: [(u16, Vec<u8>, Vec<u8>); 4] = [(24,
+                                              repeat(1).take(100).collect(),
+                                              [[0b1101_1101u8, 24 - 13, 100 - 13].as_ref(),
+                                               repeat(1).take(100).collect::<Vec<u8>>().as_ref()].concat()),
+                                             (1, vec![1], vec![0b0001_0001, 1]),
+                                             (24, vec![1], vec![0b1101_0001, 11, 1]),
+                                             (24,
+                                              repeat(1).take(300).collect(),
+                                              [[0b1101_1110, 24 - 13].as_ref(),
+                                               (300u16 - 269).to_be_bytes().as_ref(),
+                                               repeat(1).take(300).collect::<Vec<u8>>().as_ref()].concat())];
+
+  cases.into_iter().for_each(|(delta, values, expected)| {
+                     let opt = Opt::<Vec<u8>> { delta: OptDelta(delta),
+                                                value: OptValue(values.into_iter().collect()) };
+                     let mut actual = Vec::<u8>::new();
+                     opt.extend_bytes(&mut actual);
+                     assert_eqb_iter!(actual, expected)
+                   });
+}
+
+#[test]
+fn no_payload_marker() {
+  let msg = VecMessage { id: Id(0),
+                         ty: Type(0),
+                         ver: Default::default(),
+                         code: Code { class: 2, detail: 5 },
+                         token: Token(Default::default()),
+                         opts: Default::default(),
+                         payload: Payload(Default::default()),
+                         __optc: Default::default() };
+
+  assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(), Some(&0b11111111));
+}
 }

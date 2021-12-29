@@ -343,8 +343,9 @@ impl ToString for Code {
   }
 }
 
-#[cfg(never)]
-pub(self) fn test_msg() -> (Message, Vec<u8>) {
+// NOTE: duplicated in tests/common
+#[cfg(test)]
+pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
   let header: [u8; 4] = 0b01_00_0001_01000101_0000000000000001u32.to_be_bytes();
   let token: [u8; 1] = [254u8];
   let content_format: &[u8] = b"application/json";
@@ -360,12 +361,13 @@ pub(self) fn test_msg() -> (Message, Vec<u8>) {
                   value: OptValue(content_format.iter().copied().collect()) };
   opts.push(opt);
 
-  let msg = Message { id: Id(1),
-                      ty: Type(0),
-                      ver: Version(1),
-                      token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-                      opts,
-                      code: Code { class: 2, detail: 5 },
-                      payload: Payload(b"hello, world!".into_iter().copied().collect()) };
+  let msg = VecMessage { id: Id(1),
+                         ty: Type(0),
+                         ver: Version(1),
+                         token: Token(tinyvec::array_vec!([u8; 8] => 254)),
+                         opts,
+                         code: Code { class: 2, detail: 5 },
+                         payload: Payload(b"hello, world!".into_iter().copied().collect()),
+                         __optc: Default::default() };
   (msg, bytes)
 }
