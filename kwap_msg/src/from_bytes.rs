@@ -13,8 +13,7 @@ pub trait TryFromBytes<T>: Sized {
 }
 
 /// Trait adding the ability for a _piece_ of a data structure to parse itself by mutating an iterator over bytes.
-pub(crate) trait TryConsumeBytes<I: Iterator<Item = u8>>: Sized
-  {
+pub(crate) trait TryConsumeBytes<I: Iterator<Item = u8>>: Sized {
   /// Error type yielded if conversion fails
   type Error;
 
@@ -136,10 +135,11 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   }
 }
 
-impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>  where
-    for<'b> &'b P: IntoIterator<Item = &'b u8>,
-    for<'b> &'b O: IntoIterator<Item = &'b u8>,
-    for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>,{
+impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
+  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
+        for<'b> &'b O: IntoIterator<Item = &'b u8>,
+        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+{
   type Error = MessageParseError;
 
   fn try_from_bytes<I: IntoIterator<Item = &'a u8>>(bytes: I) -> Result<Self, Self::Error> {
@@ -147,10 +147,11 @@ impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBy
   }
 }
 
-impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>  where
-    for<'b> &'b P: IntoIterator<Item = &'b u8>,
-    for<'b> &'b O: IntoIterator<Item = &'b u8>,
-    for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>,{
+impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
+  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
+        for<'b> &'b O: IntoIterator<Item = &'b u8>,
+        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+{
   type Error = MessageParseError;
 
   fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {

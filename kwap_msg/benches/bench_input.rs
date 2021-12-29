@@ -27,21 +27,21 @@ impl TestInput {
 impl<'a> From<&'a TestInput> for VecMessage {
   fn from(inp: &'a TestInput) -> VecMessage {
     let opts: Vec<_> = (0..inp.n_opts).map(|n| Opt { delta: OptDelta(n as _),
-                                                        value: OptValue(core::iter::repeat(1).take(inp.opt_size)
-                                                                                             .collect()) })
-                                         .collect();
+                                                     value: OptValue(core::iter::repeat(1).take(inp.opt_size)
+                                                                                          .collect()) })
+                                      .collect();
 
     let token = core::iter::repeat(1u8).take(inp.tkl as _)
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     VecMessage { id: Id(1),
-              ty: Type(0),
-              ver: Version(0),
-              token: Token(token),
-              code: Code { class: 2, detail: 5 },
-              opts,
-              __optc: Default::default(),
-              payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
+                 ty: Type(0),
+                 ver: Version(0),
+                 token: Token(token),
+                 code: Code { class: 2, detail: 5 },
+                 opts,
+                 __optc: Default::default(),
+                 payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }
 
@@ -49,20 +49,19 @@ impl<'a, const P: usize, const N: usize, const O: usize> From<&'a TestInput> for
   fn from(inp: &'a TestInput) -> ArrayVecMessage<P, N, O> {
     let opts: ArrayVec<[_; N]> =
       (0..inp.n_opts).map(|n| Opt::<_> { delta: OptDelta(n as _),
-                                               value: OptValue::<_>(core::iter::repeat(1).take(inp.opt_size)
-                                                                                              .collect()) })
-                      .collect();
+                                         value: OptValue::<_>(core::iter::repeat(1).take(inp.opt_size).collect()) })
+                     .collect();
 
     let token = core::iter::repeat(1u8).take(inp.tkl as _)
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     ArrayVecMessage { id: Id(1),
-                        ty: Type(0),
-                        ver: Version(0),
-                        token: Token(token),
-                        code: Code { class: 2, detail: 5 },
-                        opts,
-                        __optc: Default::default(),
-                        payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
+                      ty: Type(0),
+                      ver: Version(0),
+                      token: Token(token),
+                      code: Code { class: 2, detail: 5 },
+                      opts,
+                      __optc: Default::default(),
+                      payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }

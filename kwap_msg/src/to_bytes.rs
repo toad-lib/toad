@@ -7,7 +7,7 @@ pub trait TryIntoBytes {
   type Error;
 
   /// Try to convert into a collection of bytes
-  /// 
+  ///
   /// ```
   /// use kwap_msg::TryIntoBytes;
   ///
@@ -42,7 +42,8 @@ pub trait TryIntoBytes {
   ///
   /// let bytes: Vec<u8> = vec_message.try_into_bytes().unwrap();
   /// ```
-  fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error> where for<'a> &'a C: IntoIterator<Item = &'a u8>;
+  fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error>
+    where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 }
 
 /// Errors encounterable serializing to bytes
@@ -53,22 +54,22 @@ pub enum MessageToBytesError {
 }
 
 impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryIntoBytes for Message<P, O, Os>
-where
-    for<'b> &'b P: IntoIterator<Item = &'b u8>,
-    for<'b> &'b O: IntoIterator<Item = &'b u8>,
-    for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>,
-    {
+  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
+        for<'b> &'b O: IntoIterator<Item = &'b u8>,
+        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+{
   type Error = MessageToBytesError;
 
-  fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error> where for<'a> &'a C: IntoIterator<Item = &'a u8>{
+  fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error>
+    where for<'a> &'a C: IntoIterator<Item = &'a u8>
+  {
     let mut bytes = C::reserve(1024);
     let size: usize = self.get_size();
 
     if let Some(max) = bytes.max_size() {
       if max < size {
-      return Err(Self::Error::TooLong { capacity: max,
-                                        size });
-    }
+        return Err(Self::Error::TooLong { capacity: max, size });
+      }
     }
 
     let byte1: u8 = Byte1 { tkl: self.token.0.len() as u8,
@@ -113,7 +114,8 @@ pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<[u8; 2]>>) {
   }
 }
 
-impl<C: Collection<u8>> Opt<C>  where for<'b> &'b C: IntoIterator<Item = &'b u8>{
+impl<C: Collection<u8>> Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
+{
   fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
     let (del, del_bytes) = opt_len_or_delta(self.delta.0);
     let (len, len_bytes) = opt_len_or_delta(self.value.0.get_size() as u16);

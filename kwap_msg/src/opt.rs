@@ -1,24 +1,24 @@
-use crate::{GetSize, from_bytes::*, Collection};
+use crate::{from_bytes::*, Collection, GetSize};
 
 /// Low-level representation of a freshly parsed CoAP Option
-/// 
+///
 /// Both requests and responses may include a list of one or more
 /// options. For example, the URI in a request is transported in several
 /// options, and metadata that would be carried in an HTTP header in HTTP
 /// is supplied as options as well.
-/// 
+///
 /// ## Option Numbers
 /// This struct just stores data parsed directly from the message on the wire,
 /// and does not compute or store the Option Number.
-/// 
+///
 /// To get Option [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
-/// 
+///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 /// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default)]
-pub struct Opt<C: Collection<u8>> 
-where for<'a> &'a C: IntoIterator<Item = &'a u8>
+pub struct Opt<C: Collection<u8>>
+  where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   /// See [`OptDelta`]
   pub delta: OptDelta,
@@ -28,28 +28,28 @@ where for<'a> &'a C: IntoIterator<Item = &'a u8>
 
 /// The "Option Delta" is the difference between this Option's Number
 /// and the previous Option's number.
-/// 
+///
 /// This is just used to compute the Option Number, identifying which
 /// Option is being set (e.g. Content-Format has a Number of 12)
-/// 
+///
 /// To use this to get Option Numbers, see [`EnumerateOptNumbers`].
-/// 
+///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct OptDelta(pub u16);
 
 /// The Option number identifies which Option is being set (e.g. Content-Format has a Number of 12)
-/// 
+///
 /// Because Option Numbers are only able to be computed in the context of other options, in order to
 /// get Option Numbers you must have a collection of [`Opt`]s.
-/// 
+///
 /// Then you can use the provided [`EnumerateOptNumbers`] iterator extension to enumerate over options
 /// with their numbers.
-/// 
+///
 /// <details>
 /// <summary>Click to see table of Option Numbers defined in the original CoAP RFC</summary>
-/// 
+///
 /// ```text
 /// +--------+------------------+-----------+
 /// | Number | Name             | Reference |
@@ -77,7 +77,7 @@ pub struct OptDelta(pub u16);
 /// +--------+------------------+-----------+
 /// ```
 /// </details>
-/// 
+///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 /// - [RFC7252#section-5.4.6 Option Numbers](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4.6)
@@ -90,9 +90,7 @@ pub struct OptNumber(pub u32);
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 /// - [RFC7252#section-5.4 Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.4)
 #[derive(Default, Clone, PartialEq, PartialOrd, Debug)]
-pub struct OptValue<C: Collection<u8>>(pub C)
-  where for<'a> &'a C: IntoIterator<Item = &'a u8>
-  ;
+pub struct OptValue<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
 /// Peek at the first byte of a byte iterable and interpret as an Option header.
 ///
@@ -137,9 +135,8 @@ pub(crate) fn opt_len_or_delta(head: u8,
 
 impl<OptCollection: Collection<Opt<C>>, I: Iterator<Item = u8>, C: 'static + Collection<u8>> TryConsumeBytes<I>
   for OptCollection
-where for<'a> &'a OptCollection: IntoIterator<Item = &'a Opt<C>>,
-for<'a> &'a C: IntoIterator<Item = &'a u8>
-
+  where for<'a> &'a OptCollection: IntoIterator<Item = &'a Opt<C>>,
+        for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   type Error = OptParseError;
 
@@ -162,8 +159,9 @@ for<'a> &'a C: IntoIterator<Item = &'a u8>
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeBytes<I> for Opt<C> 
-where for<'a> &'a C: IntoIterator<Item = &'a u8>{
+impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeBytes<I> for Opt<C>
+  where for<'a> &'a C: IntoIterator<Item = &'a u8>
+{
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
@@ -178,7 +176,9 @@ where for<'a> &'a C: IntoIterator<Item = &'a u8>{
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeNBytes<I> for OptValue<C> where for<'a> &'a C: IntoIterator<Item = &'a u8>{
+impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeNBytes<I> for OptValue<C>
+  where for<'a> &'a C: IntoIterator<Item = &'a u8>
+{
   type Error = OptParseError;
 
   fn try_consume_n_bytes(n: usize, bytes: &mut I) -> Result<Self, Self::Error> {
@@ -217,13 +217,17 @@ pub trait EnumerateOptNumbers<T>
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self>;
 }
 
-impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I where for<'a> &'a C: IntoIterator<Item = &'a u8>{
+impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I
+  where for<'a> &'a C: IntoIterator<Item = &'a u8>
+{
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<Opt<C>, Self> {
     EnumerateOptNumbersIter { number: 0, iter: self }
   }
 }
 
-impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I where for<'b> &'b C: IntoIterator<Item = &'b u8>{
+impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I
+  where for<'b> &'b C: IntoIterator<Item = &'b u8>
+{
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<&'a Opt<C>, Self> {
     EnumerateOptNumbersIter { number: 0, iter: self }
   }
@@ -242,25 +246,29 @@ pub struct EnumerateOptNumbersIter<T, I: Iterator<Item = T>> {
   iter: I,
 }
 
-impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I> where for<'a> &'a C: IntoIterator<Item = &'a u8>{
+impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I>
+  where for<'a> &'a C: IntoIterator<Item = &'a u8>
+{
   type Item = (OptNumber, Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {
     self.iter.next().map(|opt| {
-      self.number += opt.delta.0 as u32;
-      (OptNumber(self.number), opt)
-    })
+                      self.number += opt.delta.0 as u32;
+                      (OptNumber(self.number), opt)
+                    })
   }
 }
 
-impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I> where for<'b> &'b C: IntoIterator<Item = &'b u8>{
+impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I>
+  where for<'b> &'b C: IntoIterator<Item = &'b u8>
+{
   type Item = (OptNumber, &'a Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {
     self.iter.next().map(|opt| {
-      self.number += opt.delta.0 as u32;
-      (OptNumber(self.number), opt)
-    })
+                      self.number += opt.delta.0 as u32;
+                      (OptNumber(self.number), opt)
+                    })
   }
 }
 

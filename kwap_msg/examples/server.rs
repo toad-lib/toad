@@ -3,7 +3,7 @@ use std::{fmt::Debug,
           sync::{Arc, Barrier},
           thread::{self, JoinHandle}};
 
-use kwap_msg::{EnumerateOptNumbers, TryFromBytes, VecMessage as Message, TryIntoBytes};
+use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes, VecMessage as Message};
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));
@@ -76,7 +76,8 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
 
         println!("server: 📨 got {} {}, sending {}", method, path, rep.code.to_string());
 
-        sock.send_to(&rep.try_into_bytes::<Vec<_>>().unwrap(), addr).map_err(err)?;
+        sock.send_to(&rep.try_into_bytes::<Vec<_>>().unwrap(), addr)
+            .map_err(err)?;
       }
     }();
 

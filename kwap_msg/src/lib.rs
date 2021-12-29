@@ -75,9 +75,10 @@ pub use to_bytes::TryIntoBytes;
 #[doc(hidden)]
 pub mod is_full;
 #[doc(inline)]
-pub use is_full::{Reserve};
+pub use is_full::Reserve;
 #[cfg(feature = "alloc")]
-use std_alloc::{vec::Vec, string::{String, ToString}};
+use std_alloc::{string::{String, ToString},
+                vec::Vec};
 use tinyvec::ArrayVec;
 
 #[doc(hidden)]
@@ -116,16 +117,14 @@ pub use opt::*;
 /// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires a `Collection`.
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
-pub trait Collection<T>:
-  Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
-    where for<'a> &'a Self: IntoIterator<Item = &'a T>
+pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+  where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
 
 #[cfg(feature = "alloc")]
-impl<T> Collection<T> for Vec<T> { }
-impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> { }
-
+impl<T> Collection<T> for Vec<T> {}
+impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> {}
 
 /// Low-level representation of the message payload
 ///
@@ -142,13 +141,14 @@ pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<I
 pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
 /// Message that uses static fixed-capacity stack-allocating byte buffers
-pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> = Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
+pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
+  Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
 /// Low-level representation of a message
 /// that has been parsed from a byte array
-/// 
+///
 /// To convert an iterator of bytes into a Message, there is a provided trait [`crate::TryFromBytes`].
-/// 
+///
 /// ```
 /// use kwap_msg::TryFromBytes;
 /// use kwap_msg::*;
@@ -164,7 +164,7 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// # let payload: [&[u8]; 2] = [&[0b_11111111u8], b"hello, world!"];
 /// let packet: Vec<u8> = /* bytes! */
 /// # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
-/// 
+///
 /// // `VecMessage` uses `Vec` as the backing structure for byte buffers
 /// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
 /// # let opt = Opt {
@@ -174,7 +174,7 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// let mut opts_expected = /* create expected options */
 /// # Vec::new();
 /// # opts_expected.push(opt);
-/// 
+///
 /// let expected = VecMessage {
 ///   id: Id(1),
 ///   ty: Type(0),
@@ -185,16 +185,17 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///   payload: Payload(b"hello, world!".to_vec()),
 ///   __optc: Default::default(),
 /// };
-/// 
+///
 /// assert_eq!(msg, expected);
 /// ```
-/// 
+///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opts: Collection<Opt<OptC>>>
-where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
-    for<'a> &'a OptC: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptC>>{
+  where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
+        for<'a> &'a OptC: IntoIterator<Item = &'a u8>,
+        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptC>>
+{
   /// see [`Id`] for details
   pub id: Id,
   /// see [`Type`] for details
