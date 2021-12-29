@@ -114,26 +114,26 @@ pub(crate) fn opt_len_or_delta(val: u16) -> (u8, Option<ArrayVec<[u8; 2]>>) {
   }
 }
 
-impl Into<[u8; 2]> for Id {
-  fn into(self) -> [u8; 2] {
-    self.0.to_be_bytes()
+impl From<Id> for [u8; 2] {
+  fn from(id: Id) -> [u8; 2] {
+    id.0.to_be_bytes()
   }
 }
 
-impl Into<u8> for Byte1 {
-  fn into(self) -> u8 {
-    let ver = self.ver.0 << 6;
-    let ty = self.ty.0 << 4;
-    let tkl = self.tkl;
+impl From<Byte1> for u8 {
+  fn from(b: Byte1) -> u8 {
+    let ver = b.ver.0 << 6;
+    let ty = b.ty.0 << 4;
+    let tkl = b.tkl;
 
     ver | ty | tkl
   }
 }
 
-impl Into<u8> for Code {
-  fn into(self) -> u8 {
-    let class = self.class << 5;
-    let detail = self.detail;
+impl From<Code> for u8 {
+  fn from(code: Code) -> u8 {
+    let class = code.class << 5;
+    let detail = code.detail;
 
     class | detail
   }

@@ -1,4 +1,4 @@
-use crate::{from_bytes::*, Collection, GetSize};
+use crate::{from_bytes::*, Collection};
 
 /// Low-level representation of a freshly parsed CoAP Option
 ///
