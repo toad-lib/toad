@@ -62,7 +62,7 @@ impl<I: Iterator<Item = u8>, const N_OPTS: usize, const OPT_CAP: usize> TryConsu
     loop {
       match Opt::<OPT_CAP>::try_consume_bytes(bytes.by_ref()) {
         | Ok(opt) => {
-          if let Some(_) = opts.try_push(opt) {
+          if opts.try_push(opt).is_some() {
             return Err(OptParseError::TooManyOptions(N_OPTS));
           }
         },

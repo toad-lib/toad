@@ -30,7 +30,7 @@ impl<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> TryFro
     let opts = ArrayVec::<[Opt<OPT_CAP>; N_OPTS]>::try_consume_bytes(&mut bytes).map_err(Self::Error::OptParseError)?;
     let mut payload_bytes = ArrayVec::new();
     for byte in bytes {
-      if let Some(_) = payload_bytes.try_push(byte) {
+      if payload_bytes.try_push(byte).is_some() {
         return Err(Self::Error::PayloadTooLong(PAYLOAD_CAP));
       }
     }
