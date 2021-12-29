@@ -16,22 +16,22 @@ fn collections(c: &mut Criterion) {
      b.iter(tinyvec::ArrayVec::<[u8; 2048]>::new)
    });
   c.bench_function("std::vec::Vec::push", |b| {
-     b.iter_batched(|| std::vec::Vec::<u8>::with_capacity(2048),
+     b.iter_batched(|| std::vec::Vec::<u8>::with_capacity(16),
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });
   c.bench_function("heapless::Vec::push", |b| {
-     b.iter_batched(heapless::Vec::<u8, 2048>::new,
+     b.iter_batched(heapless::Vec::<u8, 16>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });
   c.bench_function("arrayvec::ArrayVec::push", |b| {
-     b.iter_batched(arrayvec::ArrayVec::<u8, 2048>::new,
+     b.iter_batched(arrayvec::ArrayVec::<u8, 16>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });
   c.bench_function("tinyvec::ArrayVec::push", |b| {
-     b.iter_batched(tinyvec::ArrayVec::<[u8; 2048]>::new,
+     b.iter_batched(tinyvec::ArrayVec::<[u8; 16]>::new,
                     |mut vec| vec.push(255),
                     BatchSize::SmallInput)
    });

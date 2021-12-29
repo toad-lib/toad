@@ -22,6 +22,10 @@ test = []
 docs = []
 
 [[bench]]
+name = "some_vs_once"
+harness = false
+
+[[bench]]
 name = "to_bytes"
 harness = false
 

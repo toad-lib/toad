@@ -63,7 +63,7 @@ impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryIntoBytes 
   fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error>
     where for<'a> &'a C: IntoIterator<Item = &'a u8>
   {
-    let mut bytes = C::reserve(1024);
+    let mut bytes = C::reserve(self.get_size());
     let size: usize = self.get_size();
 
     if let Some(max) = bytes.max_size() {

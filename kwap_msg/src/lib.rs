@@ -1,18 +1,31 @@
 //! # kwap_msg
 //! Low-level representation of CoAP messages.
 //!
-//! ## `alloc` vs `no_alloc`
-//! kwap_msg implements CoAP messages as either backed by:
-//! - `alloc`: dynamically growable heap-allocated buffers
-//! - `no_alloc`: static stack-allocated buffers
+//! ## Collections
+//! `kwap_msg` exports `Message`, representing a CoAP message very close to the actual
+//! byte layout.
 //!
-//! `alloc::Message` can be much easier to use and performs comparably to `no_alloc`, however it does require:
-//! `std` or [a global allocator](https://doc.rust-lang.org/std/alloc/index.html)
+//! `Message` does not require an allocator and has no opinions about what kind of collection
+//! it uses internally. Message is generic over the collections it needs and uses a `Collection` trait
+//! to capture its idea of what makes a collection useful, meaning that you may use a provided implementation (for `Vec` or `tinyvec::ArrayVec`)
+//! or provide your own collection (see the [custom collections example](https://github.com/clov-coffee/kwap/blob/main/kwap_msg/examples/custom_collections.rs))
+//!
+//! It may look a little ugly, but a core goal of `kwap` is to be platform- and alloc-agnostic.
+//!
+//! ```rust
+//! //      Message Payload byte buffer
+//! //      |
+//! //      |        Option Value byte buffer
+//! //      |        |
+//! //      |        |        Collection of options in the message
+//! //      vvvvvvv  vvvvvvv  vvvvvvvvvvvvvvvvv
+//! Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>
+//! ```
 //!
 //! ## Performance
 //! This crate uses `criterion` to measure performance of the heaped & heapless implementations in this crate as well as `coap_lite::Packet`.
 //!
-//! In general, `kwap_msg::alloc::Message` is faster than coap_lite, which is much faster than `no_alloc::Message`.
+//! In general, `kwap_msg::VecMessage` is faster than coap_lite, which is much faster than `kwap_msg::ArrayVecMessage`.
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
