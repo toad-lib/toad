@@ -18,15 +18,27 @@ pub trait GetSize {
   /// ```
   fn get_size(&self) -> usize;
 
+  /// Get the max size that this data structure can acommodate.
+  ///
+  /// By default, this returns `None` and can be left unimplemented for dynamic collections.
+  ///
+  /// However, for fixed-size collections this method must be implemented.
+  fn max_size(&self) -> Option<usize>;
+
   /// Check if the runtime size is zero
   ///
   /// ```
   /// use kwap_msg::GetSize;
   ///
-  /// assert!(vec![].size_is_zero())
+  /// assert!(Vec::<u8>::new().size_is_zero())
   /// ```
   fn size_is_zero(&self) -> bool {
     self.get_size() == 0
+  }
+
+  /// Is there no room left in this collection?
+  fn is_full(&self) -> bool {
+    self.max_size().map(|max| self.get_size() >= max).unwrap_or(false)
   }
 }
 
@@ -35,11 +47,17 @@ impl<T> GetSize for std_alloc::vec::Vec<T> {
   fn get_size(&self) -> usize {
     self.len()
   }
+
+  fn max_size(&self) -> Option<usize> { None }
 }
 
 impl<A: tinyvec::Array> GetSize for tinyvec::ArrayVec<A> {
   fn get_size(&self) -> usize {
     self.len()
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    Some(A::CAPACITY)
   }
 }
 
@@ -55,6 +73,10 @@ impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> GetSize for M
     let opts_size: usize = (&self.opts).into_iter().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    None
   }
 }
 
@@ -75,5 +97,9 @@ impl<C: Collection<u8>> GetSize for Opt<C> where
     };
 
     header_size + delta_size + value_len_size + self.value.0.get_size()
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    None
   }
 }

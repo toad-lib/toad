@@ -61,11 +61,14 @@ where
   type Error = MessageToBytesError;
 
   fn try_into_bytes<C: Collection<u8>>(self) -> Result<C, Self::Error> where for<'a> &'a C: IntoIterator<Item = &'a u8>{
-    let mut bytes = C::with_capacity(1024);
+    let mut bytes = C::reserve(1024);
     let size: usize = self.get_size();
-    if bytes.max_capacity() < size {
-      return Err(Self::Error::TooLong { capacity: bytes.max_capacity(),
+
+    if let Some(max) = bytes.max_size() {
+      if max < size {
+      return Err(Self::Error::TooLong { capacity: max,
                                         size });
+    }
     }
 
     let byte1: u8 = Byte1 { tkl: self.token.0.len() as u8,
@@ -85,7 +88,7 @@ where
       opt.extend_bytes(&mut bytes);
     }
 
-    if !self.payload.0.is_empty() {
+    if !self.payload.0.size_is_zero() {
       bytes.extend(Some(0b11111111));
       bytes.extend(self.payload.0);
     }

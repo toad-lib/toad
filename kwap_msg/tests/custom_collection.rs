@@ -2,7 +2,7 @@ use kwap_msg::*;
 use std::fmt::Debug;
 
 #[test]
-fn msg_works() {
+fn linked_list_works() {
   type Msg = Message<List<u8>, List<u8>, List<Opt<List<u8>>>>;
   let msg = Msg {
     code: Code {class: 2, detail: 5},
@@ -16,6 +16,59 @@ fn msg_works() {
   };
   let bytes = msg.try_into_bytes::<List<u8>>().unwrap();
   let _roundtrip = Msg::try_from_bytes(bytes).unwrap();
+}
+
+#[test]
+fn heapless_works() {
+  type Msg = Message<HeaplessVec<u8, 16>, HeaplessVec<u8, 32>, HeaplessVec<Opt<HeaplessVec<u8, 32>>, 1>>;
+  let msg = Msg {
+    code: Code {class: 2, detail: 5},
+    ty: Type(0),
+    ver: Default::default(),
+    id: Id(0),
+    opts: Default::default(),
+    payload: Payload(Default::default()),
+    token: Token(Default::default())
+    , __optc: Default::default()
+  };
+  let bytes = msg.try_into_bytes::<List<u8>>().unwrap();
+  let _roundtrip = Msg::try_from_bytes(bytes).unwrap();
+}
+
+#[derive(Default)]
+struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
+impl<T: Default, const N: usize> kwap_msg::Collection<T> for HeaplessVec<T, N> {}
+impl<T: Default, const N: usize> Reserve for HeaplessVec<T, N> {}
+impl<T: Default, const N: usize> GetSize for HeaplessVec<T, N> {
+  fn get_size(&self) -> usize { self.0.len() }
+  fn max_size(&self) -> Option<usize> { Some(N) }
+}
+impl<T: Default, const N: usize> Extend<T> for HeaplessVec<T, N> {
+  fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+    self.0.extend(iter);
+  }
+}
+
+impl<T: Default, const N: usize> FromIterator<T> for HeaplessVec<T, N> {
+  fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+    Self(heapless::Vec::from_iter(iter))
+  }
+}
+impl<T: Default, const N: usize> IntoIterator for HeaplessVec<T, N> {
+  type Item = T;
+  type IntoIter = <heapless::Vec<T, N> as IntoIterator>::IntoIter;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+impl<'a, T: Default, const N: usize> IntoIterator for &'a HeaplessVec<T, N> {
+  type Item = &'a T;
+  type IntoIter = core::slice::Iter<'a, T>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.iter()
+  }
 }
 
 #[derive(Clone, Debug)]
@@ -34,9 +87,11 @@ impl<T: Debug + Clone> kwap_msg::GetSize for List<T> {
   fn get_size(&self) -> usize {
     self.into_iter().count()
   }
+
+  fn max_size(&self) -> Option<usize> { None }
 }
 
-impl<T: Debug + Clone> kwap_msg::Capacity for List<T> {}
+impl<T: Debug + Clone> kwap_msg::Reserve for List<T> {}
 
 impl<T: Debug + Clone> List<T> {
   pub fn cons(self, t: T) -> Self {

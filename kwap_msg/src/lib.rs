@@ -21,7 +21,6 @@
 //! ### Deserializing from bytes
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
 
-#![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.6")]
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
  *
@@ -50,6 +49,7 @@
  * - Because UDP is a "connectionless" protocol, it offers no guarantee of "conversation" between traditional client and server roles. All the UDP transport layer gives you is a method to listen for messages thrown at you, and to throw messages at someone. Owing to this, CoAP machines are expected to perform both client and server roles (or more accurately, _sender_ and _receiver_ roles)
  * - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
  */
+#![doc(html_root_url = "https://docs.rs/kwap-msg/0.1.6")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -58,44 +58,6 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
-
-/// A high-level encapsulation of a collection that can be exposed to (and extended by) users
-///
-/// This allows opt-in or -out of allocating data structures.
-pub trait Collection<T>:
-  Default + GetSize + Capacity + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
-    where for<'a> &'a Self: IntoIterator<Item = &'a T>
-{
-}
-
-#[cfg(feature = "alloc")]
-impl<T> Collection<T> for Vec<T> { }
-impl<A: tinyvec::Array<Item = T>, T: 'static> Collection<T> for tinyvec::ArrayVec<A> { }
-
-/*
-/// Crate root for **allocating** CoAP messages
-///
-/// Depends on crate feature `alloc` and either `std` or a `#[global_allocator]`!
-///
-/// ```
-/// use kwap_msg::alloc as msg;
-/// use msg::{Message, TryFromBytes};
-/// ```
-#[cfg(feature = "alloc")]
-#[cfg_attr(any(feature = "docs", docsrs), doc(cfg(feature = "alloc")))]
-pub mod alloc;
-
-/// Crate root for **non-allocating** CoAP messages
-///
-/// `no_alloc` is always available, even when crate feature `alloc` is enabled.
-///
-/// ```
-/// use kwap_msg::no_alloc as msg;
-/// use msg::{Message, TryFromBytes};
-/// ```
-pub mod no_alloc;
-*/
-
 #[doc(hidden)]
 pub mod from_bytes;
 #[doc(hidden)]
@@ -113,7 +75,7 @@ pub use to_bytes::TryIntoBytes;
 #[doc(hidden)]
 pub mod is_full;
 #[doc(inline)]
-pub use is_full::{Capacity, IsFull};
+pub use is_full::{Reserve};
 #[cfg(feature = "alloc")]
 use std_alloc::{vec::Vec, string::{String, ToString}};
 use tinyvec::ArrayVec;
@@ -123,6 +85,47 @@ pub mod opt;
 
 #[doc(inline)]
 pub use opt::*;
+
+/// Any collection may be used to store bytes in CoAP Messages :)
+///
+/// # Provided implementations
+/// - [`Vec`]
+/// - [`tinyvec::ArrayVec`]
+///
+/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase
+/// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
+/// are notably worse than `tinyvec`.
+///
+/// `tinyvec` also has the added bonus of being 100% unsafe-code-free, meaning if you choose `tinyvec` you eliminate the
+/// possibility of memory defects and UB.
+///
+/// # Requirements
+/// - `Default` for creating the collection
+/// - `Extend` for mutating and adding onto the collection (1 or more elements)
+/// - `Reserve` for reserving space ahead of time
+/// - `GetSize` for bound checks, empty checks, and accessing the length
+/// - `FromIterator` for collecting into the collection
+/// - `IntoIterator` for:
+///    - iterating and destroying the collection
+///    - for iterating over references to items in the collection
+///
+/// # Stupid `where` clause
+/// `where for<'a> &'a Self: IntoIterator<Item = &'a T>` is necessary to fold in the idea
+/// of "A reference (of any arbitrary lifetime `'a`) to a Collection must support iterating over references (`'a`) of its elements."
+///
+/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires a `Collection`.
+///
+/// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
+pub trait Collection<T>:
+  Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+    where for<'a> &'a Self: IntoIterator<Item = &'a T>
+{
+}
+
+#[cfg(feature = "alloc")]
+impl<T> Collection<T> for Vec<T> { }
+impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> { }
+
 
 /// Low-level representation of the message payload
 ///
@@ -134,14 +137,59 @@ pub use opt::*;
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
-///
+/// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
 pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
-///
+/// Message that uses static fixed-capacity stack-allocating byte buffers
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> = Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
-#[doc = include_str!("../docs/no_alloc/Message.md")]
+/// Low-level representation of a message
+/// that has been parsed from a byte array
+/// 
+/// To convert an iterator of bytes into a Message, there is a provided trait [`crate::TryFromBytes`].
+/// 
+/// ```
+/// use kwap_msg::TryFromBytes;
+/// use kwap_msg::*;
+/// # //                       version  token len  code (2.05 Content)
+/// # //                       |        |          /
+/// # //                       |  type  |         /  message ID
+/// # //                       |  |     |        |   |
+/// # //                       vv vv vvvv vvvvvvvv vvvvvvvvvvvvvvvv
+/// # let header: [u8; 4] = 0b_01_00_0001_01000101_0000000000000001u32.to_be_bytes();
+/// # let token: [u8; 1] = [254u8];
+/// # let content_format: &[u8] = b"application/json";
+/// # let options: [&[u8]; 2] = [&[0b_1100_1101u8, 0b00000011u8], content_format];
+/// # let payload: [&[u8]; 2] = [&[0b_11111111u8], b"hello, world!"];
+/// let packet: Vec<u8> = /* bytes! */
+/// # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
+/// 
+/// // `VecMessage` uses `Vec` as the backing structure for byte buffers
+/// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
+/// # let opt = Opt {
+/// #   delta: OptDelta(12),
+/// #   value: OptValue(content_format.iter().map(|u| *u).collect()),
+/// # };
+/// let mut opts_expected = /* create expected options */
+/// # Vec::new();
+/// # opts_expected.push(opt);
+/// 
+/// let expected = VecMessage {
+///   id: Id(1),
+///   ty: Type(0),
+///   ver: Version(1),
+///   token: Token(tinyvec::array_vec!([u8; 8] => 254)),
+///   opts: opts_expected,
+///   code: Code {class: 2, detail: 5},
+///   payload: Payload(b"hello, world!".to_vec()),
+///   __optc: Default::default(),
+/// };
+/// 
+/// assert_eq!(msg, expected);
+/// ```
+/// 
+/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opts: Collection<Opt<OptC>>>
 where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,

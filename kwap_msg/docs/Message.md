@@ -19,8 +19,8 @@ use kwap_msg::*;
 let packet: Vec<u8> = /* bytes! */
 # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
 
-// Heap allocated version from `kwap_msg::alloc`
-let msg = Message::try_from_bytes(packet.clone()).unwrap();
+// `VecMessage` uses `Vec` as the backing structure for byte buffers
+let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
 # let opt = Opt {
 #   delta: OptDelta(12),
 #   value: OptValue(content_format.iter().map(|u| *u).collect()),
