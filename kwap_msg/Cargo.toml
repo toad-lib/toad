@@ -1,6 +1,6 @@
 [package]
 name = "kwap-msg"
-version = "0.1.7"
+version = "0.1.6"
 edition = "2021"
 description = "Low-level CoAP message parsing & serialization"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
@@ -20,6 +20,10 @@ alloc = ["no_std"]
 no_std = []
 test = []
 docs = []
+
+[[bench]]
+name = "some_vs_once"
+harness = false
 
 [[bench]]
 name = "to_bytes"

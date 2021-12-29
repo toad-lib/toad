@@ -1,10 +1,9 @@
 use std::{fmt::Debug,
           net::UdpSocket,
           sync::{Arc, Barrier},
-          thread::{self, JoinHandle, Thread}};
+          thread::{self, JoinHandle}};
 
-use kwap_msg::{alloc as msg, TryFromBytes};
-use msg::{EnumerateOptNumbers, Message};
+use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes, VecMessage as Message};
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));
@@ -16,7 +15,7 @@ fn main() {
   println!("client: 🔌 connected to server");
 
   let bytes = loop {
-    if let Ok(bytes) = sock.send(&Vec::<u8>::from(get_hello())) {
+    if let Ok(bytes) = sock.send(&get_hello().try_into_bytes::<Vec<_>>().unwrap()) {
       break bytes;
     }
   };
@@ -77,7 +76,8 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
 
         println!("server: 📨 got {} {}, sending {}", method, path, rep.code.to_string());
 
-        sock.send_to(&Vec::<u8>::from(rep), addr).map_err(err)?;
+        sock.send_to(&rep.try_into_bytes::<Vec<_>>().unwrap(), addr)
+            .map_err(err)?;
       }
     }();
 
@@ -88,9 +88,10 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
 }
 
 fn get_hello() -> Message {
-  use msg::*;
+  use kwap_msg::*;
   Message { id: Id(1),
             ty: Type(0),
+            __optc: Default::default(),
             ver: Default::default(),
             token: Token(Default::default()),
             code: Code { class: 0, detail: 1 }, // GET
@@ -99,22 +100,24 @@ fn get_hello() -> Message {
             payload: Payload(Vec::new()) }
 }
 
-fn ok_hello(token: msg::Token) -> Message {
-  use msg::*;
+fn ok_hello(token: kwap_msg::Token) -> Message {
+  use kwap_msg::*;
   Message { id: Id(1),
             ty: Type(2), // ACK
             ver: Default::default(),
+            __optc: Default::default(),
             token,
             code: Code { class: 2, detail: 5 }, // 2.05 OK
             opts: Vec::new(),
             payload: Payload("hi there!".as_bytes().to_vec()) }
 }
 
-fn not_found(token: msg::Token) -> Message {
-  use msg::*;
+fn not_found(token: kwap_msg::Token) -> Message {
+  use kwap_msg::*;
   Message { id: Id(1),
             ty: Type(2), // ACK
             ver: Default::default(),
+            __optc: Default::default(),
             token,
             code: Code { class: 4, detail: 4 }, // 4.04 NOT FOUND
             opts: Vec::new(),

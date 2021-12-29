@@ -5,10 +5,7 @@ To convert an iterator of bytes into a Message, there is a provided trait [`crat
 
 ```
 use kwap_msg::TryFromBytes;
-use kwap_msg::alloc::*;
-use kwap_msg::no_alloc;
-# use tinyvec::ArrayVec;
-
+use kwap_msg::*;
 # //                       version  token len  code (2.05 Content)
 # //                       |        |          /
 # //                       |  type  |         /  message ID
@@ -22,8 +19,8 @@ use kwap_msg::no_alloc;
 let packet: Vec<u8> = /* bytes! */
 # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
 
-// Heap allocated version from `kwap_msg::alloc`
-let msg = Message::try_from_bytes(packet.clone()).unwrap();
+// `VecMessage` uses `Vec` as the backing structure for byte buffers
+let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
 # let opt = Opt {
 #   delta: OptDelta(12),
 #   value: OptValue(content_format.iter().map(|u| *u).collect()),
@@ -32,7 +29,7 @@ let mut opts_expected = /* create expected options */
 # Vec::new();
 # opts_expected.push(opt);
 
-let expected = Message {
+let expected = VecMessage {
   id: Id(1),
   ty: Type(0),
   ver: Version(1),
@@ -40,32 +37,7 @@ let expected = Message {
   opts: opts_expected,
   code: Code {class: 2, detail: 5},
   payload: Payload(b"hello, world!".to_vec()),
-};
-
-assert_eq!(msg, expected);
-
-// Stack allocated version from `kwap_msg::no_alloc`
-// respective capacities are:
-// - the size of the message payload buffer (13)
-// - number of options (1)
-// - size of option value buffers (16)
-let msg = no_alloc::Message::<13, 1, 16>::try_from_bytes(packet).unwrap();
-# let opt = no_alloc::Opt::<16> {
-#   delta: OptDelta(12),
-#   value: no_alloc::OptValue(content_format.iter().copied().collect()),
-# };
-let mut opts_expected = /* create expected options */
-# ArrayVec::new();
-# opts_expected.push(opt);
-
-let expected = no_alloc::Message::<13, 1, 16> {
-  id: Id(1),
-  ty: Type(0),
-  ver: Version(1),
-  token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-  opts: opts_expected,
-  code: Code {class: 2, detail: 5},
-  payload: no_alloc::Payload(b"hello, world!".into_iter().copied().collect()),
+  __optc: Default::default(),
 };
 
 assert_eq!(msg, expected);
