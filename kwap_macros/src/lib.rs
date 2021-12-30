@@ -46,26 +46,30 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
   let DocSection(section_literal) = parse_macro_input!(input as DocSection);
 
   let sec = section_literal.value();
+  let docstring = gen_docstring(sec, RFC7252);
+
+  LitStr::new(&docstring, section_literal.span()).to_token_stream().into()
+}
+
+fn gen_docstring(sec: String, rfc: &'static str) -> String {
 
   // Match {beginning of line}{section number} then capture everything until beginning of next section
   let section_rx =
-    Regex::new(format!(r"(?sm)^{}\.\s+(.*?)\n\d", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|_| {
-                                                                                      panic!("Section {} invalid", sec)
+    Regex::new(format!(r"(?s){}\.\s+(.*?)(\n\d|$)", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|e| {
+                                                                                      panic!("Section {} invalid: {:?}", sec, e)
                                                                                     });
-  let rfc_section = section_rx.captures_iter(RFC7252)
+  let rfc_section = section_rx.captures_iter(rfc)
                               .next()
                               .unwrap_or_else(|| panic!("Section {} not found", sec))
                               .get(1)
                               .unwrap_or_else(|| panic!("Section {} is empty", sec))
                               .as_str();
 
-  // remove leading spaces + separate first line (title of section) from the rest (section body)
-  let mut lines = rfc_section.split('\n')
-                             .map(|s| Regex::new(r"^ +").unwrap().replace(s, ""));
-  let line1 = lines.next().unwrap_or_else(|| panic!("Section {} is empty", sec));
-  let rest = lines.collect::<Vec<_>>().join("\n");
+  let mut lines = trim_leading_ws(rfc_section);
+  let line1 = lines.drain(0..1).next().unwrap_or_else(|| panic!("Section {} is empty", sec));
+  let rest = lines.join("\n");
 
-  let docstring = format!(
+  format!(
                           r"# {title}
 [_generated from RFC7252 section {section}_](https://datatracker.ietf.org/doc/html/rfc7252#section-{section})
 
@@ -73,6 +77,90 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
                           title = line1,
                           section = sec,
                           body = rest
-  );
-  LitStr::new(&docstring, section_literal.span()).to_token_stream().into()
+  )
+}
+
+/// the RFC is formatted with 3-space indents in section bodies, with some addl
+/// indentation on some text.
+///
+/// This strips all leading whitespaces, except within code fences (&#96;&#96;&#96;), where it just trims the 3-space indent.
+///
+/// Returns the input string split by newlines
+fn trim_leading_ws(text: &str) -> Vec<String> {
+  #[derive(Clone, Copy)]
+  enum TrimStart {
+    Yes,
+    InCodeFence,
+  }
+
+  let trim_start = Regex::new(r"^ +").unwrap();
+  let trim_indent = Regex::new(r"^   ").unwrap();
+
+  text.split('\n')
+                             .fold((Vec::<String>::new(), TrimStart::Yes), |(mut lines, strip), s| {
+                                 let trimmed = trim_start.replace(s, "").to_string();
+                                 let dedented = trim_indent.replace(s, "").to_string();
+
+                                 let is_fence = trimmed.starts_with("```");
+
+                                 match (is_fence, strip) {
+                                   (false, TrimStart::Yes) => {
+                                     lines.push(trimmed);
+                                     (lines, strip)
+                                   },
+                                   (false, TrimStart::InCodeFence) => {
+                                     lines.push(dedented);
+                                     (lines, strip)
+                                   },
+                                   (true, TrimStart::Yes) => {
+                                     lines.push(trimmed);
+                                     (lines, TrimStart::InCodeFence)
+                                   },
+                                   (true, TrimStart::InCodeFence) => {
+                                     lines.push(trimmed);
+                                     (lines, TrimStart::Yes)
+                                   },
+                                 }
+                             }).0
+
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn rfcdoc_works() {
+    let rfc = r"1. Foo
+   bar baz quux
+
+   ```text
+   dingus bar
+     foo
+   ```
+2. Bar
+   bingus
+   o fart
+   o poo";
+    // preserves whitespace, finds end of section that is not last
+    assert_eq!(
+        gen_docstring("1".into(), rfc), r"# Foo
+[_generated from RFC7252 section 1_](https://datatracker.ietf.org/doc/html/rfc7252#section-1)
+
+bar baz quux
+
+```text
+dingus bar
+  foo
+```");
+
+    // finds end of section that is last
+    assert_eq!(
+        gen_docstring("2".into(), rfc), r"# Bar
+[_generated from RFC7252 section 2_](https://datatracker.ietf.org/doc/html/rfc7252#section-2)
+
+bingus
+o fart
+o poo");
+  }
 }
