@@ -4,7 +4,6 @@
 
 # kwap-msg
 
-## kwap_msg
 Low-level representation of CoAP messages.
 
 The most notable item in `kwap_msg` is `Message`;
@@ -60,10 +59,16 @@ In general, `kwap_msg::VecMessage` performs identically to coap_lite (+/- 5%), a
 
 Benchmarks:
 #### Serializing to bytes
+<details><summary>**Click to expand chart**</summary>
+
 ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
+</details>
 
 #### Deserializing from bytes
+<details><summary>**Click to expand chart**</summary>
+
 ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
+</details>
 
 ## License
 

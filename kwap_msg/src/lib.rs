@@ -1,4 +1,3 @@
-//! # kwap_msg
 //! Low-level representation of CoAP messages.
 //!
 //! The most notable item in `kwap_msg` is `Message`;
@@ -54,10 +53,16 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
+//! <details><summary><b>Click to expand chart</b></summary>
+//!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
+//! </details>
 //!
 //! ### Deserializing from bytes
+//! <details><summary><b>Click to expand chart</b></summary>
+//!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
+//! </details>
 
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
@@ -114,6 +119,7 @@ pub use to_bytes::TryIntoBytes;
 pub mod is_full;
 #[doc(inline)]
 pub use is_full::Reserve;
+use kwap_macros::rfc_7252_doc;
 #[cfg(feature = "alloc")]
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
@@ -164,13 +170,7 @@ pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<
 impl<T> Collection<T> for Vec<T> {}
 impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> {}
 
-/// Low-level representation of the message payload
-///
-/// Both requests and responses may include a payload, depending on the
-/// Method or Response Code, respectively.
-///
-/// # Related
-/// - [RFC7252#section-5.5 Payloads and Representations](https://datatracker.ietf.org/doc/html/rfc7252#section-5.5)
+#[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
@@ -182,10 +182,24 @@ pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
   Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
-/// Low-level representation of a message
-/// that has been parsed from a byte array
+/// # `Message` struct
+/// Low-level representation of a message that has been parsed from the raw binary format.
 ///
-/// To convert an iterator of bytes into a Message, there is a provided trait [`crate::TryFromBytes`].
+/// Note that `Message` is generic over 3 [`Collection`]s:
+///  - `PayloadC`: the byte buffer used to store the message's [`Payload`]
+///  - `OptC`: byte buffer used to store [`Opt`]ion values ([`OptValue`])
+///  - `Opts`: collection of [`Opt`]ions in the message
+///
+/// Messages support both serializing to bytes and from bytes, by using the provided [`TryFromBytes`] and [`TryIntoBytes`] traits.
+///
+/// <details>
+/// <summary><b>RFC7252 - CoAP Messaging Model</b></summary>
+#[doc = concat!("\n#", rfc_7252_doc!("2.1"))]
+/// </details>
+/// <details>
+/// <summary><b>RFC7252 - CoAP Message Binary Format</b></summary>
+#[doc = concat!("\n#", rfc_7252_doc!("3"))]
+/// </details>
 ///
 /// ```
 /// use kwap_msg::TryFromBytes;
@@ -226,8 +240,6 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///
 /// assert_eq!(msg, expected);
 /// ```
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opts: Collection<Opt<OptC>>>
   where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
@@ -271,7 +283,13 @@ pub(crate) struct Byte1 {
   pub(crate) tkl: u8,
 }
 
-/// Uniquely identifies a single message that may be retransmitted.
+/// # Message ID
+///
+/// 16-bit unsigned integer in network byte order.  Used to
+/// detect message duplication and to match messages of type
+/// Acknowledgement/Reset to messages of type Confirmable/Non-
+/// confirmable.  The rules for generating a Message ID and matching
+/// messages are defined in RFC7252 Section 4
 ///
 /// For a little more context and the difference between [`Id`] and [`Token`], see [`Token`].
 ///
@@ -291,7 +309,7 @@ pub struct Type(pub u8);
 
 /// Version of the CoAP protocol that the message adheres to.
 ///
-/// As far as this project is concerned, this will always be 1. (But will not _always_ be 1)
+/// Right now, this will always be 1, but may support additional values in the future.
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
@@ -303,16 +321,19 @@ impl Default for Version {
   }
 }
 
-/// Low-level representation of the code of a message.
-/// Identifying it as a request or response
+#[doc = rfc_7252_doc!("12.1")]
+/// <details><summary><b>RFC7252 Section 12.1.1 Method Codes</b></summary>
+#[doc = concat!("\n#", rfc_7252_doc!("12.1.1"))]
+/// </details>
+/// <details><summary><b>RFC7252 Section 12.1.2 Response Codes</b></summary>
+#[doc = concat!("\n#", rfc_7252_doc!("12.1.2"))]
+/// </details>
 ///
 /// # Examples
 /// ```
 /// use kwap_msg::Code;
 /// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
 /// ```
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Code {
   /// The "class" of message codes identify it as a request or response, and provides the class of response status:
@@ -357,21 +378,7 @@ impl Code {
   }
 }
 
-/// Message token for matching requests to responses
-///
-/// Note that this is different from [`Id`],
-/// which uniquely identifies a message that may be retransmitted.
-///
-/// For example, Client may send a confirmable message with id 1 and token 321
-/// to Server multiple times,
-/// then Server confirms and sends a response
-/// with a different id (because it's a different message),
-/// but token 321 (so the client knows which request the response is responding to)
-///
-/// Note that the format of the token is not necessarily an integer according to
-/// the coap spec, but is interpreted by this library as an 8 byte unsigned integer in network byte order.
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
+#[doc = rfc_7252_doc!("5.3.1")]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
 
@@ -381,7 +388,6 @@ impl ToString for Code {
   }
 }
 
-// NOTE: duplicated in tests/common
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
   let header: [u8; 4] = 0b01_00_0001_01000101_0000000000000001u32.to_be_bytes();
