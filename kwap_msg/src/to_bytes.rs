@@ -130,15 +130,6 @@ impl From<Byte1> for u8 {
   }
 }
 
-impl From<Code> for u8 {
-  fn from(code: Code) -> u8 {
-    let class = code.class << 5;
-    let detail = code.detail;
-
-    class | detail
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
