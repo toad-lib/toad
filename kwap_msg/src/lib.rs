@@ -53,13 +53,13 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
-//! <details><summary>**Click to expand chart**</summary>
+//! <details><summary><b>Click to expand chart</b></summary>
 //!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
 //! </details>
 //!
 //! ### Deserializing from bytes
-//! <details><summary>**Click to expand chart**</summary>
+//! <details><summary><b>Click to expand chart</b></summary>
 //!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
 //! </details>
@@ -193,11 +193,11 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// Messages support both serializing to bytes and from bytes, by using the provided [`TryFromBytes`] and [`TryIntoBytes`] traits.
 ///
 /// <details>
-/// <summary>**RFC7252 - CoAP Messaging Model**</summary>
+/// <summary><b>RFC7252 - CoAP Messaging Model</b></summary>
 #[doc = concat!("\n#", rfc_7252_doc!("2.1"))]
 /// </details>
 /// <details>
-/// <summary>**RFC7252 - CoAP Message Binary Format**</summary>
+/// <summary><b>RFC7252 - CoAP Message Binary Format</b></summary>
 #[doc = concat!("\n#", rfc_7252_doc!("3"))]
 /// </details>
 ///
@@ -322,10 +322,10 @@ impl Default for Version {
 }
 
 #[doc = rfc_7252_doc!("12.1")]
-/// <details><summary>**RFC7252 Section 12.1.1 Method Codes**</summary>
+/// <details><summary><b>RFC7252 Section 12.1.1 Method Codes</b></summary>
 #[doc = concat!("\n#", rfc_7252_doc!("12.1.1"))]
 /// </details>
-/// <details><summary>**RFC7252 Section 12.1.2 Response Codes**</summary>
+/// <details><summary><b>RFC7252 Section 12.1.2 Response Codes</b></summary>
 #[doc = concat!("\n#", rfc_7252_doc!("12.1.2"))]
 /// </details>
 ///
