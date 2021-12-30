@@ -1,7 +1,7 @@
 //! # kwap_macros
 //! Macros used by `kwap` for boilerplate reduction
 
-#![doc(html_root_url = "https://docs.rs/kwap-macros/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/kwap-macros/0.1.1")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
