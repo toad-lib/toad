@@ -1,4 +1,3 @@
-//! # kwap_msg
 //! Low-level representation of CoAP messages.
 //!
 //! The most notable item in `kwap_msg` is `Message`;
@@ -54,10 +53,16 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
+//! <details><summary>**Click to expand chart**</summary>
+//!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
+//! </details>
 //!
 //! ### Deserializing from bytes
+//! <details><summary>**Click to expand chart**</summary>
+//!
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
+//! </details>
 
 /* TODO: make user-facing `kwap` crate and put this there
  * # `kwap`
@@ -114,11 +119,11 @@ pub use to_bytes::TryIntoBytes;
 pub mod is_full;
 #[doc(inline)]
 pub use is_full::Reserve;
+use kwap_macros::rfc_7252_doc;
 #[cfg(feature = "alloc")]
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 use tinyvec::ArrayVec;
-use kwap_macros::rfc_7252_doc;
 
 #[doc(hidden)]
 pub mod opt;
@@ -188,13 +193,11 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// Messages support both serializing to bytes and from bytes, by using the provided [`TryFromBytes`] and [`TryIntoBytes`] traits.
 ///
 /// <details>
-/// <summary>RFC7252 - CoAP Messaging Model</summary>
-///
+/// <summary>**RFC7252 - CoAP Messaging Model**</summary>
 #[doc = rfc_7252_doc!("2.1")]
 /// </details>
 /// <details>
-/// <summary>RFC7252 - CoAP Message Binary Format</summary>
-///
+/// <summary>**RFC7252 - CoAP Message Binary Format**</summary>
 #[doc = rfc_7252_doc!("3")]
 /// </details>
 ///
@@ -280,7 +283,9 @@ pub(crate) struct Byte1 {
   pub(crate) tkl: u8,
 }
 
-/// Message ID:  16-bit unsigned integer in network byte order.  Used to
+/// # Message ID
+///
+/// 16-bit unsigned integer in network byte order.  Used to
 /// detect message duplication and to match messages of type
 /// Acknowledgement/Reset to messages of type Confirmable/Non-
 /// confirmable.  The rules for generating a Message ID and matching
@@ -317,12 +322,10 @@ impl Default for Version {
 }
 
 #[doc = rfc_7252_doc!("12.1")]
-/// <details><summary>RFC7252 Section 12.1.1 Method Codes</summary>
-///
+/// <details><summary>**RFC7252 Section 12.1.1 Method Codes**</summary>
 #[doc = concat!("#", rfc_7252_doc!("12.1.1"))]
 /// </details>
-/// <details><summary>RFC7252 Section 12.1.2 Response Codes</summary>
-///
+/// <details><summary>**RFC7252 Section 12.1.2 Response Codes**</summary>
 #[doc = concat!("#", rfc_7252_doc!("12.1.2"))]
 /// </details>
 ///

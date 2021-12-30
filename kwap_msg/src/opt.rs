@@ -1,9 +1,9 @@
-use crate::{from_bytes::*, Collection};
 use kwap_macros::rfc_7252_doc;
 
+use crate::{from_bytes::*, Collection};
+
 #[doc = rfc_7252_doc!("5.4")]
-/// <details><summary>RFC7252 Section 3.1 Option binary format</summary>
-///
+/// <details><summary>**RFC7252 Section 3.1 Option binary format**</summary>
 #[doc = concat!("#", rfc_7252_doc!("3.1"))]
 /// </details>
 ///
@@ -63,8 +63,7 @@ impl<C: Collection<u8>> Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
 pub struct OptDelta(pub u16);
 
 #[doc = rfc_7252_doc!("5.4.6")]
-/// <details><summary>RFC7252 Section 12.2 Core CoAP Option Numbers</summary>
-///
+/// <details><summary>**RFC7252 Section 12.2 Core CoAP Option Numbers**</summary>
 #[doc = concat!("#", rfc_7252_doc!("12.2"))]
 /// </details>
 ///
