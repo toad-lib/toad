@@ -22,7 +22,7 @@ pub struct Rep {}
 macro_rules! code {
   ($section:literal $c:literal . $d:literal $name:ident) => {
     #[doc = rfc_7252_doc!($section)]
-    pub const $name: kwap_msg::Code = kwap_msg::Code {class: $c, detail: $d};
+    pub const $name: kwap_msg::Code = kwap_msg::Code { class: $c, detail: $d };
   };
 }
 

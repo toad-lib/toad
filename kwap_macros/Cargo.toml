@@ -16,6 +16,7 @@ maintenance = { status = "actively-developed" }
 
 [lib]
 proc_macro = true
+path = "./src/lib.rs"
 
 [dependencies]
 syn = "1.0"

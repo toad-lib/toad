@@ -11,13 +11,13 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
 use regex::Regex;
-use syn::{parse_macro_input, parse::Parse, LitStr};
+use syn::{parse::Parse, parse_macro_input, LitStr};
 
 struct DocSection(LitStr);
 
 impl Parse for DocSection {
   fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-      Ok(Self(input.parse::<LitStr>()?))
+    Ok(Self(input.parse::<LitStr>()?))
   }
 }
 
@@ -33,17 +33,27 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
 
   // Match {beginning of line}{section number} then capture everything until beginning of next section
   let section_rx = Regex::new(format!(r"(?sm)^{}\.\s+(.*?)\n\d", sec.replace(".", "\\.")).as_str()).expect(&format!("Section {} invalid", sec));
-  let rfc_section = section_rx.captures_iter(RFC7252).next().expect(&format!("Section {} not found", sec)).get(1).expect(&format!("Section {} is empty", sec)).as_str();
+  let rfc_section = section_rx.captures_iter(RFC7252)
+                              .next()
+                              .expect(&format!("Section {} not found", sec))
+                              .get(1)
+                              .expect(&format!("Section {} is empty", sec))
+                              .as_str();
 
   // remove leading spaces + separate first line (title of section) from the rest (section body)
-  let mut lines = rfc_section.split('\n').map(|s| Regex::new(r"^ +").unwrap().replace(s, ""));
+  let mut lines = rfc_section.split('\n')
+                             .map(|s| Regex::new(r"^ +").unwrap().replace(s, ""));
   let line1 = lines.next().unwrap();
   let rest = lines.collect::<Vec<_>>().join("\n");
 
   let docstring = format!(
-      r"# {title}
+                          r"# {title}
 [_generated from RFC7252 section {section}_](https://datatracker.ietf.org/doc/html/rfc7252#section-{section})
 
-{body}", title = line1, section = sec, body = rest);
+{body}",
+                          title = line1,
+                          section = sec,
+                          body = rest
+  );
   LitStr::new(&docstring, section_literal.span()).to_token_stream().into()
 }
