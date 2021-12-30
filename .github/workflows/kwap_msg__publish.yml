@@ -3,8 +3,7 @@ name: 'kwap_msg(publish)'
 on:
   push:
     tags: ['*']
-    paths:
-       - 'kwap_msg'
+    paths: ['kwap_msg/**']
 
 jobs:
   publish_kwap_msg:
