@@ -23,6 +23,7 @@
 //! //! Note: both of these type aliases are exported by `kwap_msg` for convenience.
 //!
 //! use tinyvec::ArrayVec;
+//! use kwap_msg::{Message, Opt};
 //!
 //! //                        Message Payload byte buffer
 //! //                        |
@@ -35,12 +36,12 @@
 //! // Used like: `ArrayVecMessage<1024, 256, 16>`; a message that can store a payload up to 1024 bytes, and up to 16 options each with up to a 256 byte value.
 //! type ArrayVecMessage<
 //!        const PAYLOAD_SIZE: usize,
-//!        const OPT_SIZE,
-//!        const NUM_OPTS,
+//!        const OPT_SIZE: usize,
+//!        const NUM_OPTS: usize,
 //!      > = Message<
 //!            ArrayVec<[u8; PAYLOAD_SIZE]>,
 //!            ArrayVec<[u8; OPT_SIZE]>,
-//!            ArrayVec<[Opt<ArrayVec<[u8; OPT_SIZE]>>; N_OPTS]>,
+//!            ArrayVec<[Opt<ArrayVec<[u8; OPT_SIZE]>>; NUM_OPTS]>,
 //!          >;
 //! ```
 //!
