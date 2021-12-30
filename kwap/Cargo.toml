@@ -1,0 +1,32 @@
+[package]
+name = "kwap"
+version = "0.1.0"
+edition = "2021"
+description = "Reliable cross-platform CoAP server runtime"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/kwap/kwap_msg"
+repository = "https://github.com/clov-coffee/kwap/kwap_msg"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["alloc"]
+alloc = ["no_std"]
+no_std = []
+test = []
+docs = []
+
+# TODO
+# [[bench]]
+# name = "TODO"
+# harness = false
+
+[dependencies]
+kwap-macros = "0.1.6"
+
+[dev-dependencies]

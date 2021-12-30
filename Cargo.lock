@@ -270,6 +270,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "kwap"
+version = "0.1.0"
+dependencies = [
+ "kwap-macros 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "kwap-macros"
 version = "0.1.6"
 dependencies = [

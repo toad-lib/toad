@@ -60,6 +60,14 @@ jobs:
           --releaseCommitMessageFormat 'chore(release): kwap_macros@{{currentTag}}'
       working-directory: 'kwap_macros'
 
+    - name: 'bump kwap'
+      if: steps.package_changed.outputs.kwap == 'true'
+      run: |
+        npx standard-version \
+          --tag-prefix kwap@ \
+          --releaseCommitMessageFormat 'chore(release): kwap@{{currentTag}}'
+      working-directory: 'kwap'
+
     - name: 'update Cargo.lock'
       run: 'cargo check'
 
