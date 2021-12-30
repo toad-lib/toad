@@ -21,7 +21,7 @@ impl Parse for DocSection {
   }
 }
 
-const RFC7252: &'static str = include_str!("./rfc7252.txt");
+const RFC7252: &str = include_str!("./rfc7252.txt");
 
 /// Give me a section of RFC7252 (e.g. `5.9.1.1` no trailing dot)
 /// and I will scrape the rfc for that section then yield an inline `#[doc]` attribute containing that section.
@@ -32,18 +32,21 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
   let sec = section_literal.value();
 
   // Match {beginning of line}{section number} then capture everything until beginning of next section
-  let section_rx = Regex::new(format!(r"(?sm)^{}\.\s+(.*?)\n\d", sec.replace(".", "\\.")).as_str()).expect(&format!("Section {} invalid", sec));
+  let section_rx =
+    Regex::new(format!(r"(?sm)^{}\.\s+(.*?)\n\d", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|_| {
+                                                                                      panic!("Section {} invalid", sec)
+                                                                                    });
   let rfc_section = section_rx.captures_iter(RFC7252)
                               .next()
-                              .expect(&format!("Section {} not found", sec))
+                              .unwrap_or_else(|| panic!("Section {} not found", sec))
                               .get(1)
-                              .expect(&format!("Section {} is empty", sec))
+                              .unwrap_or_else(|| panic!("Section {} is empty", sec))
                               .as_str();
 
   // remove leading spaces + separate first line (title of section) from the rest (section body)
   let mut lines = rfc_section.split('\n')
                              .map(|s| Regex::new(r"^ +").unwrap().replace(s, ""));
-  let line1 = lines.next().unwrap();
+  let line1 = lines.next().unwrap_or_else(|| panic!("Section {} is empty", sec));
   let rest = lines.collect::<Vec<_>>().join("\n");
 
   let docstring = format!(
