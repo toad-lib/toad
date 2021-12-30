@@ -3,7 +3,7 @@ name: 'kwap_msg(bump)'
 on:
   push:
     branches: [ 'main' ]
-    path: ['kwap_msg']
+    path: ['kwap_msg/**']
 
 jobs:
   kwap_msg__bump:
