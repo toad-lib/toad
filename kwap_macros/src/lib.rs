@@ -25,6 +25,23 @@ const RFC7252: &str = include_str!("./rfc7252.txt");
 
 /// Give me a section of RFC7252 (e.g. `5.9.1.1` no trailing dot)
 /// and I will scrape the rfc for that section then yield an inline `#[doc]` attribute containing that section.
+///
+/// ```
+/// use kwap_macros::rfc_7252_doc;
+///
+/// #[doc = rfc_7252_doc!("5.9.1.1")]
+/// // Expands to:
+/// /// # 2.04 Changed
+/// /// [_generated from RFC7252 section 5.9.1.1_](<link to section at ietf.org>)
+/// ///
+/// /// This Response Code is like HTTP 204 "No Content" but only used in
+/// /// response to POST and PUT requests.  The payload returned with the
+/// /// response, if any, is a representation of the action result.
+/// ///
+/// /// This response is not cacheable.  However, a cache MUST mark any
+/// /// stored response for the changed resource as not fresh.
+/// struct Foo;
+/// ```
 #[proc_macro]
 pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
   let DocSection(section_literal) = parse_macro_input!(input as DocSection);
