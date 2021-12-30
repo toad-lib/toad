@@ -118,6 +118,7 @@ pub use is_full::Reserve;
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 use tinyvec::ArrayVec;
+use kwap_macros::rfc_7252_doc;
 
 #[doc(hidden)]
 pub mod opt;
@@ -164,13 +165,7 @@ pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<
 impl<T> Collection<T> for Vec<T> {}
 impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> {}
 
-/// Low-level representation of the message payload
-///
-/// Both requests and responses may include a payload, depending on the
-/// Method or Response Code, respectively.
-///
-/// # Related
-/// - [RFC7252#section-5.5 Payloads and Representations](https://datatracker.ietf.org/doc/html/rfc7252#section-5.5)
+#[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
@@ -182,6 +177,7 @@ pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
   Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
+#[doc = rfc_7252_doc!("5.5")]
 /// Low-level representation of a message
 /// that has been parsed from a byte array
 ///
