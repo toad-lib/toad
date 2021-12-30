@@ -317,11 +317,11 @@ impl Default for Version {
 }
 
 #[doc = rfc_7252_doc!("12.1")]
-/// <details><summary>Method Codes</summary>
+/// <details><summary>RFC7252 Section 12.1.1 Method Codes</summary>
 ///
 #[doc = concat!("#", rfc_7252_doc!("12.1.1"))]
 /// </details>
-/// <details><summary>Method Codes</summary>
+/// <details><summary>RFC7252 Section 12.1.2 Response Codes</summary>
 ///
 #[doc = concat!("#", rfc_7252_doc!("12.1.2"))]
 /// </details>
