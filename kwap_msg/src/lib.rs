@@ -331,8 +331,6 @@ impl Default for Version {
 /// use kwap_msg::Code;
 /// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
 /// ```
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Code {
   /// The "class" of message codes identify it as a request or response, and provides the class of response status:
@@ -377,21 +375,7 @@ impl Code {
   }
 }
 
-/// Message token for matching requests to responses
-///
-/// Note that this is different from [`Id`],
-/// which uniquely identifies a message that may be retransmitted.
-///
-/// For example, Client may send a confirmable message with id 1 and token 321
-/// to Server multiple times,
-/// then Server confirms and sends a response
-/// with a different id (because it's a different message),
-/// but token 321 (so the client knows which request the response is responding to)
-///
-/// Note that the format of the token is not necessarily an integer according to
-/// the coap spec, but is interpreted by this library as an 8 byte unsigned integer in network byte order.
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
+#[doc = rfc_7252_doc!("5.3.1")]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
 
@@ -401,7 +385,6 @@ impl ToString for Code {
   }
 }
 
-// NOTE: duplicated in tests/common
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
   let header: [u8; 4] = 0b01_00_0001_01000101_0000000000000001u32.to_be_bytes();
