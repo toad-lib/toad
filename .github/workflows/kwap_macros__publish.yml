@@ -22,3 +22,4 @@ jobs:
     - env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
       run: 'cargo publish'
+      working-directory: 'kwap_macros'
