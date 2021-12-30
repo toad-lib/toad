@@ -101,35 +101,36 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
+
+#[doc(hidden)]
+pub mod code;
 #[doc(hidden)]
 pub mod from_bytes;
 #[doc(hidden)]
 pub mod get_size;
 #[doc(hidden)]
+pub mod is_full;
+#[doc(hidden)]
+pub mod opt;
+#[doc(hidden)]
 pub mod to_bytes;
 
+#[doc(inline)]
+pub use code::*;
 #[doc(inline)]
 pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
 #[doc(inline)]
 pub use get_size::GetSize;
 #[doc(inline)]
-pub use to_bytes::TryIntoBytes;
-
-#[doc(hidden)]
-pub mod is_full;
-#[doc(inline)]
 pub use is_full::Reserve;
 use kwap_macros::rfc_7252_doc;
-#[cfg(feature = "alloc")]
-use std_alloc::{string::{String, ToString},
-                vec::Vec};
-use tinyvec::ArrayVec;
-
-#[doc(hidden)]
-pub mod opt;
-
 #[doc(inline)]
 pub use opt::*;
+#[cfg(feature = "alloc")]
+use std_alloc::vec::Vec;
+use tinyvec::ArrayVec;
+#[doc(inline)]
+pub use to_bytes::TryIntoBytes;
 
 /// Any collection may be used to store bytes in CoAP Messages :)
 ///
@@ -320,73 +321,9 @@ impl Default for Version {
     Version(1)
   }
 }
-
-#[doc = rfc_7252_doc!("12.1")]
-/// <details><summary><b>RFC7252 Section 12.1.1 Method Codes</b></summary>
-#[doc = concat!("\n#", rfc_7252_doc!("12.1.1"))]
-/// </details>
-/// <details><summary><b>RFC7252 Section 12.1.2 Response Codes</b></summary>
-#[doc = concat!("\n#", rfc_7252_doc!("12.1.2"))]
-/// </details>
-///
-/// # Examples
-/// ```
-/// use kwap_msg::Code;
-/// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
-/// ```
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Code {
-  /// The "class" of message codes identify it as a request or response, and provides the class of response status:
-  ///
-  /// |class|meaning|
-  /// |---|---|
-  /// |`0`|Message is a request|
-  /// |`2`|Message is a success response|
-  /// |`4`|Message is a client error response|
-  /// |`5`|Message is a server error response|
-  pub class: u8,
-
-  /// 2-digit integer (range `[0, 32)`) that provides granular information about the response status.
-  ///
-  /// Will always be `0` for requests.
-  pub detail: u8,
-}
-
-impl Code {
-  /// Get the human string representation of a message code
-  ///
-  /// # Returns
-  /// A `char` array
-  ///
-  /// This is to avoid unnecessary heap allocation,
-  /// you can create a `String` with `FromIterator::<String>::from_iter`,
-  /// or if the `alloc` feature of `kwap` is enabled there is a `ToString` implementation provided for Code.
-  /// ```
-  /// use kwap_msg::Code;
-  ///
-  /// let code = Code { class: 2, detail: 5 };
-  /// let chars = code.to_human();
-  /// let string = String::from_iter(chars);
-  /// assert_eq!(string, "2.05".to_string());
-  /// ```
-  pub fn to_human(&self) -> [char; 4] {
-    let to_char = |d: u8| char::from_digit(d.into(), 10).unwrap();
-    [to_char(self.class),
-     '.',
-     to_char(self.detail / 10),
-     to_char(self.detail % 10)]
-  }
-}
-
 #[doc = rfc_7252_doc!("5.3.1")]
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
-
-impl ToString for Code {
-  fn to_string(&self) -> String {
-    String::from_iter(self.to_human())
-  }
-}
 
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
@@ -414,4 +351,28 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                          payload: Payload(b"hello, world!".into_iter().copied().collect()),
                          __optc: Default::default() };
   (msg, bytes)
+}
+
+
+#[cfg(test)]
+pub(crate) mod tests {
+  #[macro_export]
+  macro_rules! assert_eqb {
+    ($actual:expr, $expected:expr) => {
+      if $actual != $expected {
+        panic!("expected {:08b} to equal {:08b}", $actual, $expected)
+      }
+    };
+  }
+
+  #[macro_export]
+  macro_rules! assert_eqb_iter {
+    ($actual:expr, $expected:expr) => {
+      if $actual.iter().ne($expected.iter()) {
+        panic!("expected {:?} to equal {:?}",
+               $actual.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>(),
+               $expected.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>())
+      }
+    };
+  }
 }

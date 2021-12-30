@@ -132,14 +132,7 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Id {
     }
   }
 }
-impl From<u8> for Code {
-  fn from(b: u8) -> Self {
-    let class = b >> 5;
-    let detail = b & 0b0011111;
 
-    Code { class, detail }
-  }
-}
 impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
   type Error = MessageParseError;
 
@@ -231,13 +224,6 @@ mod tests {
     let id_bytes = 34u16.to_be_bytes();
     let id = Id::try_consume_bytes(&mut id_bytes.iter().copied()).unwrap();
     assert_eq!(id, Id(34));
-  }
-
-  #[test]
-  fn parse_code() {
-    let byte = 0b_01_000101u8;
-    let code = Code::from(byte);
-    assert_eq!(code, Code { class: 2, detail: 5 })
   }
 
   #[test]
