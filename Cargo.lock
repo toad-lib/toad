@@ -291,14 +291,14 @@ dependencies = [
 
 [[package]]
 name = "kwap-msg"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "arrayvec",
  "coap-lite",
  "criterion",
  "heapless",
  "itertools",
- "kwap-macros 0.1.6",
+ "kwap-macros 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinyvec",
 ]
 
