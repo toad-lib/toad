@@ -4,7 +4,7 @@ use crate::{from_bytes::*, Collection};
 
 #[doc = rfc_7252_doc!("5.4")]
 /// <details><summary>**RFC7252 Section 3.1 Option binary format**</summary>
-#[doc = concat!("#", rfc_7252_doc!("3.1"))]
+#[doc = concat!("\n#", rfc_7252_doc!("3.1"))]
 /// </details>
 ///
 /// # `Opt` struct
@@ -64,7 +64,7 @@ pub struct OptDelta(pub u16);
 
 #[doc = rfc_7252_doc!("5.4.6")]
 /// <details><summary>**RFC7252 Section 12.2 Core CoAP Option Numbers**</summary>
-#[doc = concat!("#", rfc_7252_doc!("12.2"))]
+#[doc = concat!("\n#", rfc_7252_doc!("12.2"))]
 /// </details>
 ///
 /// # `OptNumber` struct
