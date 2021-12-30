@@ -118,6 +118,7 @@ pub use is_full::Reserve;
 use std_alloc::{string::{String, ToString},
                 vec::Vec};
 use tinyvec::ArrayVec;
+use kwap_macros::rfc_7252_doc;
 
 #[doc(hidden)]
 pub mod opt;
@@ -164,13 +165,7 @@ pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<
 impl<T> Collection<T> for Vec<T> {}
 impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> {}
 
-/// Low-level representation of the message payload
-///
-/// Both requests and responses may include a payload, depending on the
-/// Method or Response Code, respectively.
-///
-/// # Related
-/// - [RFC7252#section-5.5 Payloads and Representations](https://datatracker.ietf.org/doc/html/rfc7252#section-5.5)
+#[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
@@ -182,10 +177,26 @@ pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
   Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
-/// Low-level representation of a message
-/// that has been parsed from a byte array
+/// # `Message` struct
+/// Low-level representation of a message that has been parsed from the raw binary format.
 ///
-/// To convert an iterator of bytes into a Message, there is a provided trait [`crate::TryFromBytes`].
+/// Note that `Message` is generic over 3 [`Collection`]s:
+///  - `PayloadC`: the byte buffer used to store the message's [`Payload`]
+///  - `OptC`: byte buffer used to store [`Opt`]ion values ([`OptValue`])
+///  - `Opts`: collection of [`Opt`]ions in the message
+///
+/// Messages support both serializing to bytes and from bytes, by using the provided [`TryFromBytes`] and [`TryIntoBytes`] traits.
+///
+/// <details>
+/// <summary>RFC7252 - CoAP Messaging Model</summary>
+///
+#[doc = rfc_7252_doc!("2.1")]
+/// </details>
+/// <details>
+/// <summary>RFC7252 - CoAP Message Binary Format</summary>
+///
+#[doc = rfc_7252_doc!("3")]
+/// </details>
 ///
 /// ```
 /// use kwap_msg::TryFromBytes;
@@ -226,8 +237,6 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///
 /// assert_eq!(msg, expected);
 /// ```
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opts: Collection<Opt<OptC>>>
   where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
@@ -271,7 +280,11 @@ pub(crate) struct Byte1 {
   pub(crate) tkl: u8,
 }
 
-/// Uniquely identifies a single message that may be retransmitted.
+/// Message ID:  16-bit unsigned integer in network byte order.  Used to
+/// detect message duplication and to match messages of type
+/// Acknowledgement/Reset to messages of type Confirmable/Non-
+/// confirmable.  The rules for generating a Message ID and matching
+/// messages are defined in RFC7252 Section 4
 ///
 /// For a little more context and the difference between [`Id`] and [`Token`], see [`Token`].
 ///
@@ -291,7 +304,7 @@ pub struct Type(pub u8);
 
 /// Version of the CoAP protocol that the message adheres to.
 ///
-/// As far as this project is concerned, this will always be 1. (But will not _always_ be 1)
+/// Right now, this will always be 1, but may support additional values in the future.
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
@@ -303,8 +316,15 @@ impl Default for Version {
   }
 }
 
-/// Low-level representation of the code of a message.
-/// Identifying it as a request or response
+#[doc = rfc_7252_doc!("12.1")]
+/// <details><summary>Method Codes</summary>
+///
+#[doc = concat!("#", rfc_7252_doc!("12.1.1"))]
+/// </details>
+/// <details><summary>Method Codes</summary>
+///
+#[doc = concat!("#", rfc_7252_doc!("12.1.2"))]
+/// </details>
 ///
 /// # Examples
 /// ```
