@@ -41,7 +41,7 @@ impl Code {
   /// let content = Code::new(2, 05);
   /// ```
   pub fn new(class: u8, detail: u8) -> Self {
-    Self {class, detail}
+    Self { class, detail }
   }
 
   /// Get the human string representation of a message code
@@ -95,8 +95,8 @@ impl From<Code> for u8 {
 
 #[cfg(test)]
 mod tests {
-  use crate::assert_eqb;
   use super::*;
+  use crate::assert_eqb;
 
   #[test]
   fn parse_code() {

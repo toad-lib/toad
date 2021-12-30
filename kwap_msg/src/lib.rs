@@ -353,7 +353,6 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
   (msg, bytes)
 }
 
-
 #[cfg(test)]
 pub(crate) mod tests {
   #[macro_export]
