@@ -1031,6 +1031,7 @@ Table of Contents
    as in Table 1.  "*" means that the combination is not used in normal
    operation but only to elicit a Reset message ("CoAP ping").
 
+   ```text
                    +----------+-----+-----+-----+-----+
                    |          | CON | NON | ACK | RST |
                    +----------+-----+-----+-----+-----+
@@ -1040,6 +1041,7 @@ Table of Contents
                    +----------+-----+-----+-----+-----+
 
                       Table 1: Usage of Message Types
+   ```
 
 4.4.  Message Correlation
 
@@ -1209,6 +1211,7 @@ Table of Contents
 
    Message transmission is controlled by the following parameters:
 
+   ```text
                    +-------------------+---------------+
                    | name              | default value |
                    +-------------------+---------------+
@@ -1221,6 +1224,7 @@ Table of Contents
                    +-------------------+---------------+
 
                      Table 2: CoAP Protocol Parameters
+   ```
 
 4.8.1.  Changing the Parameters
 
@@ -1364,6 +1368,7 @@ Table of Contents
    Table 3 lists the derived parameters introduced in this subsection
    with their default values.
 
+   ```text
                    +-------------------+---------------+
                    | name              | default value |
                    +-------------------+---------------+
@@ -1377,6 +1382,7 @@ Table of Contents
                    +-------------------+---------------+
 
                    Table 3: Derived Protocol Parameters
+   ```
 
 5.  Request/Response Semantics
 
@@ -2412,6 +2418,7 @@ Table of Contents
    only has a meaning for options that are Safe-to-Forward (not marked
    Unsafe), the column is filled with a dash for UnSafe options.
 
+   ```text
    +-----+---+---+---+---+----------------+--------+--------+----------+
    | No. | C | U | N | R | Name           | Format | Length | Default  |
    +-----+---+---+---+---+----------------+--------+--------+----------+
@@ -2437,6 +2444,7 @@ Table of Contents
              C=Critical, U=Unsafe, N=NoCacheKey, R=Repeatable
 
                              Table 4: Options
+   ```
 
 5.10.1.  Uri-Host, Uri-Port, Uri-Path, and Uri-Query
 
@@ -4033,6 +4041,7 @@ Table of Contents
    All Code values are assigned by sub-registries according to the
    following ranges:
 
+   ```text
    0.00      Indicates an Empty message (see Section 4.1).
 
    0.01-0.31 Indicates a request.  Values in this range are assigned by
@@ -4045,6 +4054,7 @@ Table of Contents
              Section 12.1.2).
 
    6.00-7.31 Reserved
+   ```
 
 12.1.1.  Method Codes
 
@@ -4056,6 +4066,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
                        +------+--------+-----------+
                        | Code | Name   | Reference |
                        +------+--------+-----------+
@@ -4066,6 +4077,7 @@ Table of Contents
                        +------+--------+-----------+
 
                         Table 5: CoAP Method Codes
+   ```
 
    All other Method Codes are Unassigned.
 
@@ -4091,6 +4103,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
             +------+------------------------------+-----------+
             | Code | Description                  | Reference |
             +------+------------------------------+-----------+
@@ -4118,6 +4131,7 @@ Table of Contents
             +------+------------------------------+-----------+
 
                        Table 6: CoAP Response Codes
+   ```
 
    The Response Codes 3.00-3.31 are Reserved for future use.  All other
    Response Codes are Unassigned.
@@ -4162,6 +4176,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
                  +--------+------------------+-----------+
                  | Number | Name             | Reference |
                  +--------+------------------+-----------+
@@ -4188,6 +4203,7 @@ Table of Contents
                  +--------+------------------+-----------+
 
                        Table 7: CoAP Option Numbers
+   ```
 
    The IANA policy for future additions to this sub-registry is split
    into three tiers as follows.  The range of 0..255 is reserved for
@@ -4201,6 +4217,7 @@ Table of Contents
    meant for vendor-specific use of any kind and MUST NOT be used in
    operational deployments.
 
+   ```text
           +-------------+---------------------------------------+
           |       Range | Registration Procedures               |
           +-------------+---------------------------------------+
@@ -4211,6 +4228,7 @@ Table of Contents
           +-------------+---------------------------------------+
 
            Table 8: CoAP Option Numbers: Registration Procedures
+   ```
 
    The documentation of an Option Number should specify the semantics of
    an option with that number, including the following properties:
@@ -4262,6 +4280,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
    +--------------------------+----------+----+------------------------+
    | Media type               | Encoding | ID | Reference              |
    +--------------------------+----------+----+------------------------+
@@ -4275,6 +4294,7 @@ Table of Contents
    +--------------------------+----------+----+------------------------+
 
                        Table 9: CoAP Content-Formats
+   ```
 
    The identifiers between 65000 and 65535 inclusive are reserved for
    experiments.  They are not meant for vendor-specific use of any kind
@@ -4290,6 +4310,7 @@ Table of Contents
    Come First Served" as described in [RFC5226].  This is summarized in
    the following table.
 
+   ```text
           +-------------+---------------------------------------+
           |       Range | Registration Procedures               |
           +-------------+---------------------------------------+
@@ -4300,6 +4321,7 @@ Table of Contents
           +-------------+---------------------------------------+
 
           Table 10: CoAP Content-Formats: Registration Procedures
+   ```
 
    In machine-to-machine applications, it is not expected that generic
    Internet media types such as text/plain, application/xml or
