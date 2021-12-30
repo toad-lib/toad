@@ -1,5 +1,5 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-msg.svg)](https://crates.io/crates/kwap-msg)
-[![docs.rs](https://docs.rs/kwap-msg/badge.svg)](https://docs.rs/kwap-msg/latest)
+[![crates.io](https://img.shields.io/crates/v/kwap-macros.svg)](https://crates.io/crates/kwap-macros)
+[![docs.rs](https://docs.rs/kwap-macros/badge.svg)](https://docs.rs/kwap-macros/latest)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
 # kwap-macros
