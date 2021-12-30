@@ -291,27 +291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwap-msg"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62e1ae27b08fc2fe1e922907ad123e7776b38bc946278b47a61c4d2c4479b184"
-dependencies = [
- "tinyvec",
-]
-
-[[package]]
-name = "kwap-reqresp"
-version = "0.1.0"
-dependencies = [
- "coap-lite",
- "criterion",
- "itertools",
- "kwap-macros",
- "kwap-msg 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tinyvec",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
