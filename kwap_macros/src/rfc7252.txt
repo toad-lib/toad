@@ -4041,6 +4041,7 @@ Table of Contents
    All Code values are assigned by sub-registries according to the
    following ranges:
 
+   ```text
    0.00      Indicates an Empty message (see Section 4.1).
 
    0.01-0.31 Indicates a request.  Values in this range are assigned by
@@ -4053,6 +4054,7 @@ Table of Contents
              Section 12.1.2).
 
    6.00-7.31 Reserved
+   ```
 
 12.1.1.  Method Codes
 
