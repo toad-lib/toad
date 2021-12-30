@@ -1,4 +1,3 @@
-//! # kwap_macros
 //! Macros used by `kwap` for boilerplate reduction
 
 #![doc(html_root_url = "https://docs.rs/kwap-macros/0.1.1")]

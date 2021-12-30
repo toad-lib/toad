@@ -4,7 +4,6 @@
 
 # kwap-macros
 
-## kwap_macros
 Macros used by `kwap` for boilerplate reduction
 
 ## License
