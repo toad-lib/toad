@@ -32,10 +32,6 @@ jobs:
     - uses: 'actions/setup-node@v1'
       with: { node-version: '14' }
 
-    # running `standard-version` will:
-    # - update CHANGELOG,
-    # - create version tag
-    # - create version commits
     - uses: dorny/paths-filter@v2
       id: package_changed
       with:
@@ -43,14 +39,21 @@ jobs:
           kwap-msg: ['kwap_msg/**']
           kwap-macros: ['kwap_macros/**']
 
-    - if: steps.package_changed.outputs.kwap-msg == 'true'
+    # running `standard-version` will:
+    # - update CHANGELOG,
+    # - create version tag
+    # - create version commits
+
+    - name: 'bump kwap-msg'
+      if: steps.package_changed.outputs.kwap-msg == 'true'
       run: |
         npx standard-version \
           --tag-prefix kwap_msg@ \
           --releaseCommitMessageFormat 'chore(release): kwap_msg@{{currentTag}}'
       working-directory: 'kwap_msg'
 
-    - if: steps.package_changed.outputs.kwap-macros == 'true'
+    - name: 'bump kwap-macros'
+      if: steps.package_changed.outputs.kwap-macros == 'true'
       run: |
         npx standard-version \
           --tag-prefix kwap_macros@ \
