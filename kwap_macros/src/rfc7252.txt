@@ -412,6 +412,7 @@ Table of Contents
    single protocol, with messaging and request/response as just features
    of the CoAP header.
 
+   ```text
                         +----------------------+
                         |      Application     |
                         +----------------------+
@@ -425,6 +426,7 @@ Table of Contents
                         +----------------------+
 
                     Figure 1: Abstract Layering of CoAP
+   ```
 
 2.1.  Messaging Model
 
@@ -450,6 +452,7 @@ Table of Contents
    replies with a Reset message (RST) instead of an Acknowledgement
    (ACK).
 
+   ```text
                         Client              Server
                            |                  |
                            |   CON [0x7d34]   |
@@ -458,6 +461,7 @@ Table of Contents
                            |   ACK [0x7d34]   |
                            |<-----------------+
                            |                  |
+   ```
 
                   Figure 2: Reliable Message Transmission
 
@@ -468,6 +472,7 @@ Table of Contents
    0x01a0); see Figure 3.  When a recipient is not able to process a
    Non-confirmable message, it may reply with a Reset message (RST).
 
+   ```text
                         Client              Server
                            |                  |
                            |   NON [0x01a0]   |
@@ -475,6 +480,7 @@ Table of Contents
                            |                  |
 
                  Figure 3: Unreliable Message Transmission
+   ```
 
    See Section 4 for details of CoAP messages.
 
@@ -509,6 +515,7 @@ Table of Contents
    with piggybacked response are shown in Figure 4, one successful, one
    resulting in a 4.04 (Not Found) response.
 
+   ```text
         Client              Server       Client              Server
            |                  |             |                  |
            |   CON [0xbc90]   |             |   CON [0xbc91]   |
@@ -524,6 +531,7 @@ Table of Contents
            |                  |             |                  |
 
            Figure 4: Two GET Requests with Piggybacked Responses
+   ```
 
    If the server is not able to respond immediately to a request carried
    in a Confirmable message, it simply responds with an Empty
@@ -533,6 +541,7 @@ Table of Contents
    by the client).  This is called a "separate response", as illustrated
    in Figure 5 and described in more detail in Section 5.2.2.
 
+   ```text
                         Client              Server
                            |                  |
                            |   CON [0x7a10]   |
@@ -556,12 +565,14 @@ Table of Contents
                            |                  |
 
              Figure 5: A GET Request with a Separate Response
+   ```
 
    If a request is sent in a Non-confirmable message, then the response
    is sent using a new Non-confirmable message, although the server may
    instead send a Confirmable message.  This type of exchange is
    illustrated in Figure 6.
 
+   ```text
                         Client              Server
                            |                  |
                            |   NON [0x7a11]   |
@@ -577,6 +588,7 @@ Table of Contents
                            |                  |
 
        Figure 6: A Request and a Response Carried in Non-confirmable
+   ```
                                  Messages
 
    CoAP makes use of GET, PUT, POST, and DELETE methods in a similar
@@ -650,6 +662,7 @@ Table of Contents
    Options in Type-Length-Value (TLV) format, optionally followed by a
    payload that takes up the rest of the datagram.
 
+   ```text
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -663,6 +676,7 @@ Table of Contents
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
                          Figure 7: Message Format
+   ```
 
    The fields in the header are defined as follows:
 
@@ -745,6 +759,7 @@ Table of Contents
    (Section 12.2).  See Section 5.4 for the semantics of the options
    defined in this document.
 
+   ```text
      0   1   2   3   4   5   6   7
    +---------------+---------------+
    |               |               |
@@ -769,6 +784,7 @@ Table of Contents
    +-------------------------------+
 
                           Figure 8: Option Format
+   ```
 
    The fields in an option are defined as follows:
 
@@ -1015,6 +1031,7 @@ Table of Contents
    as in Table 1.  "*" means that the combination is not used in normal
    operation but only to elicit a Reset message ("CoAP ping").
 
+   ```text
                    +----------+-----+-----+-----+-----+
                    |          | CON | NON | ACK | RST |
                    +----------+-----+-----+-----+-----+
@@ -1024,6 +1041,7 @@ Table of Contents
                    +----------+-----+-----+-----+-----+
 
                       Table 1: Usage of Message Types
+   ```
 
 4.4.  Message Correlation
 
@@ -1193,6 +1211,7 @@ Table of Contents
 
    Message transmission is controlled by the following parameters:
 
+   ```text
                    +-------------------+---------------+
                    | name              | default value |
                    +-------------------+---------------+
@@ -1205,6 +1224,7 @@ Table of Contents
                    +-------------------+---------------+
 
                      Table 2: CoAP Protocol Parameters
+   ```
 
 4.8.1.  Changing the Parameters
 
@@ -1348,6 +1368,7 @@ Table of Contents
    Table 3 lists the derived parameters introduced in this subsection
    with their default values.
 
+   ```text
                    +-------------------+---------------+
                    | name              | default value |
                    +-------------------+---------------+
@@ -1361,6 +1382,7 @@ Table of Contents
                    +-------------------+---------------+
 
                    Table 3: Derived Protocol Parameters
+   ```
 
 5.  Request/Response Semantics
 
@@ -1409,6 +1431,7 @@ Table of Contents
    header are maintained in the CoAP Response Code Registry
    (Section 12.1.2).
 
+   ```text
                               0
                               0 1 2 3 4 5 6 7
                              +-+-+-+-+-+-+-+-+
@@ -1416,6 +1439,7 @@ Table of Contents
                              +-+-+-+-+-+-+-+-+
 
                   Figure 9: Structure of a Response Code
+   ```
 
    The upper three bits of the 8-bit Response Code number define the
    class of response.  The lower five bits do not have any
@@ -1794,21 +1818,25 @@ Table of Contents
    all other bit combinations mean that it indeed is a Cache-Key.  These
    classes of options are explained in the next sections.
 
+   ```text
                        0   1   2   3   4   5   6   7
                      +---+---+---+---+---+---+---+---+
                      |           | NoCacheKey| U | C |
                      +---+---+---+---+---+---+---+---+
 
           Figure 10: Option Number Mask (Least Significant Byte)
+   ```
 
    An endpoint may use an equivalent of the C code in Figure 11 to
    derive the characteristics of an option number "onum".
 
+   ```text
    Critical = (onum & 1);
    UnSafe = (onum & 2);
    NoCacheKey = ((onum & 0x1e) == 0x1c);
 
        Figure 11: Determining Characteristics from an Option Number
+   ```
 
    The option numbers for the options defined in this document are
    listed in the "CoAP Option Numbers" registry (Section 12.2).
@@ -2390,6 +2418,7 @@ Table of Contents
    only has a meaning for options that are Safe-to-Forward (not marked
    Unsafe), the column is filled with a dash for UnSafe options.
 
+   ```text
    +-----+---+---+---+---+----------------+--------+--------+----------+
    | No. | C | U | N | R | Name           | Format | Length | Default  |
    +-----+---+---+---+---+----------------+--------+--------+----------+
@@ -2415,6 +2444,7 @@ Table of Contents
              C=Critical, U=Unsafe, N=NoCacheKey, R=Repeatable
 
                              Table 4: Options
+   ```
 
 5.10.1.  Uri-Host, Uri-Port, Uri-Path, and Uri-Query
 
@@ -2990,10 +3020,12 @@ Table of Contents
    value" in Figure 12, where "cardinal", "SP", and "DQUOTE" are defined
    as in [RFC6690].
 
+   ```text
       ct-value =  cardinal
                /  DQUOTE cardinal *( 1*SP cardinal ) DQUOTE
 
                                  Figure 12
+   ```
 
 8.  Multicast CoAP
 
@@ -3194,6 +3226,7 @@ Table of Contents
    added features to deal with the unreliable nature of the UDP
    transport.
 
+   ```text
                          +----------------------+
                          |      Application     |
                          +----------------------+
@@ -3210,6 +3243,7 @@ Table of Contents
                          +----------------------+
 
              Figure 13: Abstract Layering of DTLS-Secured CoAP
+   ```
 
    In some constrained nodes (limited flash and/or RAM) and networks
    (limited bandwidth or high scalability requirements), and depending
@@ -3333,6 +3367,7 @@ Table of Contents
       in Figure 14 with at least the values listed will be present in
       the DTLS handshake.
 
+   ```text
    Extension: elliptic_curves
     Type: elliptic_curves (0x000a)
     Length: 4
@@ -3356,6 +3391,7 @@ Table of Contents
 
                   Figure 14: DTLS Extensions Present for
                     TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8
+   ```
 
 9.1.3.2.1.  Provisioning
 
@@ -3928,6 +3964,7 @@ Table of Contents
    response added by the server (if any) might then just be interpreted
    as added payload.
 
+   ```text
                                    1  1  1  1  1  1
      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -3945,6 +3982,7 @@ Table of Contents
    +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
      Figure 15: DNS Header ([RFC1035], Section 4.1.1) vs. CoAP Message
+   ```
 
    In general, for any pair of protocols, one of the protocols can very
    well have been designed in a way that enables an attacker to cause
@@ -4003,6 +4041,7 @@ Table of Contents
    All Code values are assigned by sub-registries according to the
    following ranges:
 
+   ```text
    0.00      Indicates an Empty message (see Section 4.1).
 
    0.01-0.31 Indicates a request.  Values in this range are assigned by
@@ -4015,6 +4054,7 @@ Table of Contents
              Section 12.1.2).
 
    6.00-7.31 Reserved
+   ```
 
 12.1.1.  Method Codes
 
@@ -4026,6 +4066,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
                        +------+--------+-----------+
                        | Code | Name   | Reference |
                        +------+--------+-----------+
@@ -4036,6 +4077,7 @@ Table of Contents
                        +------+--------+-----------+
 
                         Table 5: CoAP Method Codes
+   ```
 
    All other Method Codes are Unassigned.
 
@@ -4061,6 +4103,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
             +------+------------------------------+-----------+
             | Code | Description                  | Reference |
             +------+------------------------------+-----------+
@@ -4088,6 +4131,7 @@ Table of Contents
             +------+------------------------------+-----------+
 
                        Table 6: CoAP Response Codes
+   ```
 
    The Response Codes 3.00-3.31 are Reserved for future use.  All other
    Response Codes are Unassigned.
@@ -4132,6 +4176,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
                  +--------+------------------+-----------+
                  | Number | Name             | Reference |
                  +--------+------------------+-----------+
@@ -4158,6 +4203,7 @@ Table of Contents
                  +--------+------------------+-----------+
 
                        Table 7: CoAP Option Numbers
+   ```
 
    The IANA policy for future additions to this sub-registry is split
    into three tiers as follows.  The range of 0..255 is reserved for
@@ -4171,6 +4217,7 @@ Table of Contents
    meant for vendor-specific use of any kind and MUST NOT be used in
    operational deployments.
 
+   ```text
           +-------------+---------------------------------------+
           |       Range | Registration Procedures               |
           +-------------+---------------------------------------+
@@ -4181,6 +4228,7 @@ Table of Contents
           +-------------+---------------------------------------+
 
            Table 8: CoAP Option Numbers: Registration Procedures
+   ```
 
    The documentation of an Option Number should specify the semantics of
    an option with that number, including the following properties:
@@ -4232,6 +4280,7 @@ Table of Contents
 
    Initial entries in this sub-registry are as follows:
 
+   ```text
    +--------------------------+----------+----+------------------------+
    | Media type               | Encoding | ID | Reference              |
    +--------------------------+----------+----+------------------------+
@@ -4245,6 +4294,7 @@ Table of Contents
    +--------------------------+----------+----+------------------------+
 
                        Table 9: CoAP Content-Formats
+   ```
 
    The identifiers between 65000 and 65535 inclusive are reserved for
    experiments.  They are not meant for vendor-specific use of any kind
@@ -4260,6 +4310,7 @@ Table of Contents
    Come First Served" as described in [RFC5226].  This is summarized in
    the following table.
 
+   ```text
           +-------------+---------------------------------------+
           |       Range | Registration Procedures               |
           +-------------+---------------------------------------+
@@ -4270,6 +4321,7 @@ Table of Contents
           +-------------+---------------------------------------+
 
           Table 10: CoAP Content-Formats: Registration Procedures
+   ```
 
    In machine-to-machine applications, it is not expected that generic
    Internet media types such as text/plain, application/xml or
