@@ -1,0 +1,32 @@
+[package]
+name = "kwap-reqresp"
+version = "0.1.0"
+edition = "2021"
+description = ""
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/kwap/kwap_reqresp"
+repository = "https://github.com/clov-coffee/kwap/kwap_reqresp"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["alloc"]
+alloc = ["no_std"]
+no_std = []
+test = []
+docs = []
+
+[dependencies]
+kwap-macros = {path = "../kwap_macros"}
+kwap-msg = {version = "0.2"}
+tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
+
+[dev-dependencies]
+itertools = "0.10"
+criterion = "0.3"
+coap-lite = "0.7"

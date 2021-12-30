@@ -1,0 +1,25 @@
+name: 'kwap_reqresp(publish)'
+
+on:
+  push:
+    tags: ['*']
+    paths:
+       - 'kwap_reqresp'
+
+jobs:
+  publish_kwap_reqresp:
+    runs-on: 'ubuntu-latest'
+    steps:
+    - uses: 'actions/checkout@v2'
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.rustup
+          ~/.cargo
+          target
+        key: ${{ runner.os }}-cargo
+
+    - env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+      run: 'cargo publish'
