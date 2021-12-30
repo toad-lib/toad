@@ -40,7 +40,7 @@ impl Code {
   ///
   /// let content = Code::new(2, 05);
   /// ```
-  pub fn new(class: u8, detail: u8) -> Self {
+  pub const fn new(class: u8, detail: u8) -> Self {
     Self { class, detail }
   }
 
