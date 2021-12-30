@@ -54,7 +54,7 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
 fn gen_docstring(sec: String, rfc: &'static str) -> String {
   // Match {beginning of line}{section number} then capture everything until beginning of next section
   let section_rx =
-    Regex::new(format!(r"(?s){}\.\s+(.*?)(\n\d|$)", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|e| {
+    Regex::new(format!(r"(?s)\n{}\.\s+(.*?)(\n\d|$)", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|e| {
                                                                                       panic!("Section {} invalid: {:?}", sec, e)
                                                                                     });
   let rfc_section = section_rx.captures_iter(rfc)
@@ -132,13 +132,28 @@ mod tests {
 
   #[test]
   fn rfcdoc_works() {
-    let rfc = r"1. Foo
+    let rfc = r"
+Table of Contents
+
+   1.  Foo . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+     1.1.  Bingus .  . . . . . . . . . . . . . . . . . . . . . . . . . 2
+     1.2.  Terminology . . . . . . . . . . . . . . . . . . . . . . . . 3
+   2.  Bar . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+
+1. Foo
    bar baz quux
 
    ```text
    dingus bar
      foo
    ```
+1.1.    Bingus
+   lorem ipsum frisky gypsum
+
+1.2. Terminology
+   Bat: tool used for baseball
+   Code: if (name === 'Jerry') {throw new Error('get out jerry!!1');}
+
 2. Bar
    bingus
    o fart
