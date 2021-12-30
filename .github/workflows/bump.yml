@@ -1,12 +1,11 @@
-name: 'kwap_msg(bump)'
+name: 'bump'
 
 on:
   push:
     branches: [ 'main' ]
-    path: ['kwap_msg/**']
 
 jobs:
-  kwap_msg__bump:
+  bump:
     if: |
          !startsWith(github.event.head_commit.message, 'bump')
          && !startsWith(github.event.head_commit.message, 'ci')
@@ -33,26 +32,43 @@ jobs:
     - uses: 'actions/setup-node@v1'
       with: { node-version: '14' }
 
-    # run `standard-version`
+    # running `standard-version` will:
     # - update CHANGELOG,
     # - create version tag
     # - create version commits
-    - run: |
+    - uses: dorny/paths-filter@v2
+      id: package_changed
+      with:
+        filters: |
+          kwap-msg: ['kwap_msg/**']
+          kwap-macros: ['kwap_macros/**']
+
+    - if: steps.package_changed.outputs.kwap-msg == 'true'
+      run: |
         npx standard-version \
-          --tag-prefix kwap-msg@ \
+          --tag-prefix kwap_msg@ \
           --releaseCommitMessageFormat 'chore(release): kwap_msg@{{currentTag}}'
       working-directory: 'kwap_msg'
+
+    - if: steps.package_changed.outputs.kwap-macros == 'true'
+      run: |
+        npx standard-version \
+          --tag-prefix kwap_macros@ \
+          --releaseCommitMessageFormat 'chore(release): kwap_macros@{{currentTag}}'
+      working-directory: 'kwap_macros'
 
     - name: 'update Cargo.lock'
       run: 'cargo check'
 
-    - run: 'git add -A; git commit --amend --no-edit'
+    - run: |
+        git add -A
+        git commit --amend --no-edit
 
     - env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: 'git push'
 
-    # triggers kwap_msg(publish)
+    # publish will be triggered by new tags
     - env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: 'git push --tags'

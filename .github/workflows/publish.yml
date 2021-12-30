@@ -1,12 +1,11 @@
-name: 'kwap_msg(publish)'
+name: 'publish'
 
 on:
   push:
     tags: ['*']
-    paths: ['kwap_msg/**']
 
 jobs:
-  publish_kwap_msg:
+  publish:
     runs-on: 'ubuntu-latest'
     steps:
     - uses: 'actions/checkout@v2'
@@ -19,7 +18,14 @@ jobs:
           target
         key: ${{ runner.os }}-cargo
 
-    - env:
+    - if: startsWith(github.ref, 'refs/tags/kwap_msg@')
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+      run: 'cargo publish'
+      working-directory: 'kwap_msg'
+
+    - if: startsWith(github.ref, 'refs/tags/kwap_macros@')
+      env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
       run: 'cargo publish'
       working-directory: 'kwap_macros'
