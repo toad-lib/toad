@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.2.4 (2021-12-30)
+
+
+### Features
+
+* **msg:** add Code::new ([#28](https://github.com/clov-coffee/kwap/issues/28)) ([47c1ce7](https://github.com/clov-coffee/kwap/commit/47c1ce7c0867052aec9ddba041335a2b763202c4))
+
 ### 0.2.3 (2021-12-30)
 
 ### 0.2.2 (2021-12-30)
