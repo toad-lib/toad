@@ -12,7 +12,7 @@
 //! `Message` does not require an allocator and has no opinions about what kind of collection
 //! it uses internally to store these values.
 //!
-//! It solves this problem by being generic over the collections it needs and uses a `Collection` trait
+//! It solves this problem by being generic over the collections it needs and uses an `Array` trait
 //! to capture its idea of what makes a collection useful.
 //!
 //! This means that you may use a provided implementation (for `Vec` or `tinyvec::ArrayVec`)
@@ -28,7 +28,7 @@
 //! //                        |
 //! //                        |        Option Value byte buffer
 //! //                        |        |
-//! //                        |        |        Collection of options in the message
+//! //                        |        |        Array of options in the message
 //! //                        vvvvvvv  vvvvvvv  vvvvvvvvvvvvvvvvv
 //! type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 //!
@@ -64,34 +64,6 @@
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
 //! </details>
 
-/* TODO: make user-facing `kwap` crate and put this there
- * # `kwap`
- *
- * `kwap` is a Rust CoAP implementation that aims to be:
- * - Platform-independent
- * - Extensible
- * - Approachable
- *
- * ## CoAP
- * CoAP is an application-level network protocol that copies the semantics of HTTP
- * to an environment conducive to **constrained** devices. (weak hardware, small battery capacity, etc.)
- *
- * This means that you can write and run two-way RESTful communication
- * between devices very similarly to the networking semantics you are
- * most likely very familiar with.
- *
- * ### Similarities to HTTP
- * CoAP has the same verbs and many of the same semantics as HTTP;
- * - GET, POST, PUT, DELETE
- * - Headers (renamed to [Options](https://datatracker.ietf.org/doc/html/rfc7252#section-5.10))
- * - Data format independent (via the [Content-Format](https://datatracker.ietf.org/doc/html/rfc7252#section-12.3) Option)
- * - [Response status codes](https://datatracker.ietf.org/doc/html/rfc7252#section-5.9)
- *
- * ### Differences from HTTP
- * - CoAP customarily sits on top of UDP (however the standard is [in the process of being adapted](https://tools.ietf.org/id/draft-ietf-core-coap-tcp-tls-11.html) to also run on TCP, like HTTP)
- * - Because UDP is a "connectionless" protocol, it offers no guarantee of "conversation" between traditional client and server roles. All the UDP transport layer gives you is a method to listen for messages thrown at you, and to throw messages at someone. Owing to this, CoAP machines are expected to perform both client and server roles (or more accurately, _sender_ and _receiver_ roles)
- * - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
- */
 #![doc(html_root_url = "https://docs.rs/kwap-msg/0.2.5")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
@@ -107,10 +79,6 @@ pub mod code;
 #[doc(hidden)]
 pub mod from_bytes;
 #[doc(hidden)]
-pub mod get_size;
-#[doc(hidden)]
-pub mod is_full;
-#[doc(hidden)]
 pub mod opt;
 #[doc(hidden)]
 pub mod to_bytes;
@@ -119,10 +87,7 @@ pub mod to_bytes;
 pub use code::*;
 #[doc(inline)]
 pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
-#[doc(inline)]
-pub use get_size::GetSize;
-#[doc(inline)]
-pub use is_full::Reserve;
+use kwap_common::{Array, GetSize};
 use kwap_macros::rfc_7252_doc;
 #[doc(inline)]
 pub use opt::*;
@@ -132,48 +97,9 @@ use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
 
-/// Any collection may be used to store bytes in CoAP Messages :)
-///
-/// # Provided implementations
-/// - [`Vec`]
-/// - [`tinyvec::ArrayVec`]
-///
-/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase
-/// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
-/// are notably worse than `tinyvec`.
-///
-/// `tinyvec` also has the added bonus of being 100% unsafe-code-free, meaning if you choose `tinyvec` you eliminate the
-/// possibility of memory defects and UB.
-///
-/// # Requirements
-/// - `Default` for creating the collection
-/// - `Extend` for mutating and adding onto the collection (1 or more elements)
-/// - `Reserve` for reserving space ahead of time
-/// - `GetSize` for bound checks, empty checks, and accessing the length
-/// - `FromIterator` for collecting into the collection
-/// - `IntoIterator` for:
-///    - iterating and destroying the collection
-///    - for iterating over references to items in the collection
-///
-/// # Stupid `where` clause
-/// `where for<'a> &'a Self: IntoIterator<Item = &'a T>` is necessary to fold in the idea
-/// of "A reference (of any arbitrary lifetime `'a`) to a Collection must support iterating over references (`'a`) of its elements."
-///
-/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires a `Collection`.
-///
-/// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
-pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
-  where for<'a> &'a Self: IntoIterator<Item = &'a T>
-{
-}
-
-#[cfg(feature = "alloc")]
-impl<T> Collection<T> for Vec<T> {}
-impl<A: tinyvec::Array<Item = T>, T> Collection<T> for tinyvec::ArrayVec<A> {}
-
 #[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct Payload<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
+pub struct Payload<C: Array<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
@@ -186,7 +112,7 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// # `Message` struct
 /// Low-level representation of a message that has been parsed from the raw binary format.
 ///
-/// Note that `Message` is generic over 3 [`Collection`]s:
+/// Note that `Message` is generic over 3 [`Array`]s:
 ///  - `PayloadC`: the byte buffer used to store the message's [`Payload`]
 ///  - `OptC`: byte buffer used to store [`Opt`]ion values ([`OptValue`])
 ///  - `Opts`: collection of [`Opt`]ions in the message
@@ -242,7 +168,7 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// assert_eq!(msg, expected);
 /// ```
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opts: Collection<Opt<OptC>>>
+pub struct Message<PayloadC: Array<u8>, OptC: Array<u8> + 'static, Opts: Array<Opt<OptC>>>
   where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
         for<'a> &'a OptC: IntoIterator<Item = &'a u8>,
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptC>>
@@ -263,6 +189,26 @@ pub struct Message<PayloadC: Collection<u8>, OptC: Collection<u8> + 'static, Opt
   pub payload: Payload<PayloadC>,
   /// empty field using the Opt internal byte collection type
   pub __optc: core::marker::PhantomData<OptC>,
+}
+
+impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> GetSize for Message<P, O, Os>
+  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
+        for<'b> &'b O: IntoIterator<Item = &'b u8>,
+        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+{
+  fn get_size(&self) -> usize {
+    let header_size = 4;
+    let payload_marker_size = 1;
+    let payload_size = self.payload.0.get_size();
+    let token_size = self.token.0.len();
+    let opts_size: usize = (&self.opts).into_iter().map(|o| o.get_size()).sum();
+
+    header_size + payload_marker_size + payload_size + token_size + opts_size
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    None
+  }
 }
 
 /// Struct representing the first byte of a message.

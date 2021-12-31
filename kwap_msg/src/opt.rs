@@ -1,6 +1,7 @@
+use kwap_common::{Array, GetSize};
 use kwap_macros::rfc_7252_doc;
 
-use crate::{from_bytes::*, Collection};
+use crate::from_bytes::*;
 
 #[doc = rfc_7252_doc!("5.4")]
 /// <details><summary><b>RFC7252 Section 3.1 Option binary format</b></summary>
@@ -16,7 +17,7 @@ use crate::{from_bytes::*, Collection};
 ///
 /// To get [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default)]
-pub struct Opt<C: Collection<u8>>
+pub struct Opt<C: Array<u8>>
   where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   /// See [`OptDelta`]
@@ -25,7 +26,31 @@ pub struct Opt<C: Collection<u8>>
   pub value: OptValue<C>,
 }
 
-impl<C: Collection<u8>> Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
+impl<C: Array<u8>> GetSize for Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
+{
+  fn get_size(&self) -> usize {
+    let header_size = 1;
+    let delta_size = match self.delta.0 {
+      | n if n >= 269 => 2,
+      | n if n >= 13 => 1,
+      | _ => 0,
+    };
+
+    let value_len_size = match self.value.0.get_size() {
+      | n if n >= 269 => 2,
+      | n if n >= 13 => 1,
+      | _ => 0,
+    };
+
+    header_size + delta_size + value_len_size + self.value.0.get_size()
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    None
+  }
+}
+
+impl<C: Array<u8>> Opt<C> where for<'b> &'b C: IntoIterator<Item = &'b u8>
 {
   /// Given a collection to [`Extend`] and an Opt, add that Opt's bytes to the collection.
   pub fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
@@ -75,7 +100,7 @@ pub struct OptNumber(pub u32);
 
 #[doc = rfc_7252_doc!("3.2")]
 #[derive(Default, Clone, PartialEq, PartialOrd, Debug)]
-pub struct OptValue<C: Collection<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
+pub struct OptValue<C: Array<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 
 /// Peek at the first byte of a byte iterable and interpret as an Option header.
 ///
@@ -92,15 +117,14 @@ pub(crate) fn opt_header<I: Iterator<Item = u8>>(mut bytes: I) -> Result<u8, Opt
   Ok(opt_header.unwrap())
 }
 
-impl<OptCollection: Collection<Opt<C>>, I: Iterator<Item = u8>, C: 'static + Collection<u8>> TryConsumeBytes<I>
-  for OptCollection
-  where for<'a> &'a OptCollection: IntoIterator<Item = &'a Opt<C>>,
+impl<OptArray: Array<Opt<C>>, I: Iterator<Item = u8>, C: 'static + Array<u8>> TryConsumeBytes<I> for OptArray
+  where for<'a> &'a OptArray: IntoIterator<Item = &'a Opt<C>>,
         for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
-    let mut opts = OptCollection::default();
+    let mut opts = OptArray::default();
 
     loop {
       match Opt::try_consume_bytes(bytes) {
@@ -118,7 +142,7 @@ impl<OptCollection: Collection<Opt<C>>, I: Iterator<Item = u8>, C: 'static + Col
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeBytes<I> for Opt<C>
+impl<I: Iterator<Item = u8>, C: Array<u8>> TryConsumeBytes<I> for Opt<C>
   where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   type Error = OptParseError;
@@ -135,7 +159,7 @@ impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeBytes<I> for Opt<C>
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Collection<u8>> TryConsumeNBytes<I> for OptValue<C>
+impl<I: Iterator<Item = u8>, C: Array<u8>> TryConsumeNBytes<I> for OptValue<C>
   where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   type Error = OptParseError;
@@ -176,7 +200,7 @@ pub trait EnumerateOptNumbers<T>
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self>;
 }
 
-impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I
+impl<C: Array<u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I
   where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<Opt<C>, Self> {
@@ -184,7 +208,7 @@ impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> 
   }
 }
 
-impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I
+impl<'a, C: Array<u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I
   where for<'b> &'b C: IntoIterator<Item = &'b u8>
 {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<&'a Opt<C>, Self> {
@@ -205,7 +229,7 @@ pub struct EnumerateOptNumbersIter<T, I: Iterator<Item = T>> {
   iter: I,
 }
 
-impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I>
+impl<C: Array<u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I>
   where for<'a> &'a C: IntoIterator<Item = &'a u8>
 {
   type Item = (OptNumber, Opt<C>);
@@ -218,7 +242,7 @@ impl<C: Collection<u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNum
   }
 }
 
-impl<'a, C: Collection<u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I>
+impl<'a, C: Array<u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I>
   where for<'b> &'b C: IntoIterator<Item = &'b u8>
 {
   type Item = (OptNumber, &'a Opt<C>);
