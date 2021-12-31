@@ -50,7 +50,7 @@ jobs:
       if: steps.package_changed.outputs.kwap-msg == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap_msg@ \
+          --tag-prefix kwap-msg@ \
           --releaseCommitMessageFormat 'chore(release): kwap-msg@{{currentTag}}'
       working-directory: 'kwap_msg'
 
@@ -58,7 +58,7 @@ jobs:
       if: steps.package_changed.outputs.kwap-macros == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap_macros@ \
+          --tag-prefix kwap-macros@ \
           --releaseCommitMessageFormat 'chore(release): kwap-macros@{{currentTag}}'
       working-directory: 'kwap_macros'
 
