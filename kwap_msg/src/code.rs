@@ -1,4 +1,5 @@
 use kwap_macros::rfc_7252_doc;
+#[cfg(feature = "alloc")]
 use std_alloc::string::{String, ToString};
 
 #[doc = rfc_7252_doc!("12.1")]
