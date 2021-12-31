@@ -114,7 +114,11 @@ pub mod is_full;
 pub mod opt;
 #[doc(hidden)]
 pub mod to_bytes;
+#[doc(hidden)]
+pub mod insert;
 
+#[doc(inline)]
+pub use insert::*;
 #[doc(inline)]
 pub use code::*;
 #[doc(inline)]
@@ -162,7 +166,7 @@ pub use to_bytes::TryIntoBytes;
 /// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires a `Collection`.
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
-pub trait Collection<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+pub trait Collection<T>: Default + core::ops::Index<usize, Output = T> + core::ops::IndexMut<usize> + Insert<T> + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
   where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
