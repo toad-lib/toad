@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.4.0 (2021-12-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **common:** add index bounds to array (#36)
+
+### Features
+
+* **common:** add index bounds to array ([#36](https://github.com/clov-coffee/kwap/issues/36)) ([4198930](https://github.com/clov-coffee/kwap/commit/419893098eb526307b22f414f5d4399256f716d2))
+
 ## 0.3.0 (2021-12-31)
 
 
