@@ -35,11 +35,3 @@ extern crate alloc as std_alloc;
 
 /// CoAP response messages
 pub mod resp;
-
-/* TODO
-#[doc(hidden)]
-pub mod opt;
-
-#[doc(inline)]
-pub use opt::*;
-*/
