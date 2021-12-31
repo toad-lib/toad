@@ -9,6 +9,7 @@
 
 extern crate alloc;
 use alloc::vec::Vec;
+use core::ops::{Index, IndexMut};
 
 /// An ordered collection of some type `T`.
 ///
@@ -41,7 +42,14 @@ use alloc::vec::Vec;
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
 pub trait Array<T>:
-  Default + Insert<T> + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+  Default
+  + Index<usize, Output = T>
+  + IndexMut<usize>
+  + GetSize
+  + Reserve
+  + Extend<T>
+  + FromIterator<T>
+  + IntoIterator<Item = T>
   where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
