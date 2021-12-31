@@ -1,3 +1,7 @@
+/// Response codes
+pub mod code;
+
+/* TODO
 use crate::Opt;
 use core::mem::MaybeUninit;
 
@@ -5,9 +9,6 @@ use kwap_msg::{Collection as C, Message, EnumerateOptNumbers, OptValue, OptDelta
 use tinyvec::ArrayVec;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
-
-/// Response codes
-pub mod code;
 
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 #[cfg(feature = "alloc")]
@@ -50,3 +51,4 @@ impl<Bytes: C<u8>, OptBytes: C<u8> + 'static, LLOpts: C<kwap_msg::Opt<OptBytes>>
       None
   }
 }
+*/
