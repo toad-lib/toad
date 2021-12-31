@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "kwap-common"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "tinyvec",
 ]
