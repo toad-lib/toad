@@ -40,7 +40,8 @@ use alloc::vec::Vec;
 /// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires an `Array`.
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
-pub trait Array<T>: Default + Insert<T> + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+pub trait Array<T>:
+  Default + Insert<T> + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
   where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
@@ -147,12 +148,12 @@ impl<A: tinyvec::Array> Reserve for tinyvec::ArrayVec<A> {}
 /// ```
 /// use kwap_common::Insert;
 ///
-/// let mut nums = vec![1,2,3];
+/// let mut nums = vec![1, 2, 3];
 /// Insert::push(&mut nums, 4);
-/// assert_eq!(nums, vec![1,2,3,4]);
+/// assert_eq!(nums, vec![1, 2, 3, 4]);
 ///
 /// nums.insert_at(0, 0);
-/// assert_eq!(nums, vec![0,1,2,3,4]);
+/// assert_eq!(nums, vec![0, 1, 2, 3, 4]);
 /// ```
 pub trait Insert<T>: GetSize {
   /// Insert a value at a particular index of a collection.
