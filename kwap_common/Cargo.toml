@@ -1,0 +1,18 @@
+[package]
+name = "kwap-common"
+version = "0.2.5"
+edition = "2021"
+description = "Common structs and abstractions used by kwap"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/kwap/kwap_common"
+repository = "https://github.com/clov-coffee/kwap/kwap_common"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
