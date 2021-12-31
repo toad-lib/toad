@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.2.5 (2021-12-30)
+
+
+### Bug Fixes
+
+* **msg:** make Code::new a const fn ([#29](https://github.com/clov-coffee/kwap/issues/29)) ([e0f22cf](https://github.com/clov-coffee/kwap/commit/e0f22cf0663b9ba7a4617f3fa4efbaf82856d155))
+
 ### 0.2.4 (2021-12-30)
 
 
