@@ -51,7 +51,7 @@ jobs:
       run: |
         npx standard-version \
           --tag-prefix kwap_msg@ \
-          --releaseCommitMessageFormat 'chore(release): kwap_msg@{{currentTag}}'
+          --releaseCommitMessageFormat 'chore(release): kwap-msg@{{currentTag}}'
       working-directory: 'kwap_msg'
 
     - name: 'bump kwap-macros'
@@ -59,7 +59,7 @@ jobs:
       run: |
         npx standard-version \
           --tag-prefix kwap_macros@ \
-          --releaseCommitMessageFormat 'chore(release): kwap_macros@{{currentTag}}'
+          --releaseCommitMessageFormat 'chore(release): kwap-macros@{{currentTag}}'
       working-directory: 'kwap_macros'
 
     - name: 'bump kwap'
@@ -76,7 +76,7 @@ jobs:
         npx standard-version \
           --tag-prefix kwap-common@ \
           --releaseCommitMessageFormat 'chore(release): kwap-common@{{currentTag}}'
-      working-directory: 'kwap-common'
+      working-directory: 'kwap_common'
 
     - name: 'update Cargo.lock'
       run: 'cargo check'
