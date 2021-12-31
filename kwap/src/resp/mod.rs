@@ -32,7 +32,16 @@ impl<Bytes: C<u8>, OptBytes: C<u8> + 'static, LLOpts: C<kwap_msg::Opt<OptBytes>>
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>> {
 
   /// Add a custom option to the response
-  pub fn add_option<V: AsRef<[u8]>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+  pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+      let exist_ix = (&self.opts).into_iter().enumerate().find_map(|(ix, o)| if o.number.0 == number {Some(ix)} else {None});
+
+      if let Some(exist_ix) = exist_ix {
+        // add indexmut to array
+        let mut exist = &mut self.opts[exist_ix];
+        exist.value = OptValue(value.into_iter().collect());
+        return None
+      }
+
       let n_opts = self.opts.get_size() + 1;
       let no_room = self.opts.max_size().map(|max| max < n_opts).unwrap_or(false);
 
@@ -42,7 +51,7 @@ impl<Bytes: C<u8>, OptBytes: C<u8> + 'static, LLOpts: C<kwap_msg::Opt<OptBytes>>
 
       let opt = Opt::<_> {
         number: OptNumber(number),
-        value: OptValue(value.as_ref().iter().copied().collect()),
+        value: OptValue(value.into_iter().collect()),
       };
 
       self.opts.extend(Some(opt));
