@@ -43,6 +43,7 @@ use core::ops::{Index, IndexMut};
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
 pub trait Array<T>:
   Default
+  + Insert<T>
   + Index<usize, Output = T>
   + IndexMut<usize>
   + GetSize
