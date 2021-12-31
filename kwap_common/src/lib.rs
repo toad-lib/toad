@@ -40,7 +40,7 @@ use alloc::vec::Vec;
 /// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires an `Array`.
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
-pub trait Array<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
+pub trait Array<T>: Default + Insert<T> + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
   where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
@@ -85,6 +85,14 @@ pub trait GetSize {
   }
 
   /// Is there no room left in this collection?
+  ///
+  /// ```
+  /// use kwap_common::GetSize;
+  ///
+  /// let array = tinyvec::ArrayVec::<[u8; 2]>::from([1, 2]);
+  ///
+  /// assert!(array.is_full())
+  /// ```
   fn is_full(&self) -> bool {
     self.max_size().map(|max| self.get_size() >= max).unwrap_or(false)
   }
@@ -133,3 +141,45 @@ impl<T> Reserve for Vec<T> {
 }
 
 impl<A: tinyvec::Array> Reserve for tinyvec::ArrayVec<A> {}
+
+/// Insert items into collections
+///
+/// ```
+/// use kwap_common::Insert;
+///
+/// let mut nums = vec![1,2,3];
+/// Insert::push(&mut nums, 4);
+/// assert_eq!(nums, vec![1,2,3,4]);
+///
+/// nums.insert_at(0, 0);
+/// assert_eq!(nums, vec![0,1,2,3,4]);
+/// ```
+pub trait Insert<T>: GetSize {
+  /// Insert a value at a particular index of a collection.
+  fn insert_at(&mut self, index: usize, value: T);
+
+  /// Add a value to the end of a collection.
+  fn push(&mut self, value: T) {
+    self.insert_at(self.get_size(), value)
+  }
+}
+
+impl<T> Insert<T> for Vec<T> {
+  fn insert_at(&mut self, index: usize, value: T) {
+    self.insert(index, value);
+  }
+
+  fn push(&mut self, value: T) {
+    self.push(value)
+  }
+}
+
+impl<A: tinyvec::Array> Insert<A::Item> for tinyvec::ArrayVec<A> {
+  fn insert_at(&mut self, index: usize, value: A::Item) {
+    self.insert(index, value);
+  }
+
+  fn push(&mut self, value: A::Item) {
+    self.push(value)
+  }
+}
