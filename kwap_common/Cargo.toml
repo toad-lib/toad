@@ -1,6 +1,6 @@
 [package]
 name = "kwap-common"
-version = "0.2.6"
+version = "0.4.0"
 edition = "2021"
 description = "Common structs and abstractions used by kwap"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
