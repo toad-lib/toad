@@ -35,9 +35,9 @@ use alloc::vec::Vec;
 ///
 /// # Stupid `where` clause
 /// `where for<'a> &'a Self: IntoIterator<Item = &'a T>` is necessary to fold in the idea
-/// of "A reference (of any arbitrary lifetime `'a`) to a Collection must support iterating over references (`'a`) of its elements."
+/// of "A reference (of any arbitrary lifetime `'a`) to an Array must support iterating over references (`'a`) of its elements."
 ///
-/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires a `Collection`.
+/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires an `Array`.
 ///
 /// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
 pub trait Array<T>: Default + GetSize + Reserve + Extend<T> + FromIterator<T> + IntoIterator<Item = T>
