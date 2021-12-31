@@ -1,5 +1,6 @@
 use collection_heapless_vec::HeaplessVec;
 use collection_list::List;
+use kwap_common::{Array, GetSize, Reserve};
 use kwap_msg::*;
 
 fn main() {
@@ -29,10 +30,10 @@ fn main() {
 }
 
 pub(crate) mod collection_heapless_vec {
-  use kwap_msg::*;
+  use super::*;
   #[derive(Default)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
-  impl<T: Default, const N: usize> kwap_msg::Collection<T> for HeaplessVec<T, N> {}
+  impl<T: Default, const N: usize> Array<T> for HeaplessVec<T, N> {}
   impl<T: Default, const N: usize> Reserve for HeaplessVec<T, N> {}
   impl<T: Default, const N: usize> GetSize for HeaplessVec<T, N> {
     fn get_size(&self) -> usize {
@@ -75,6 +76,8 @@ mod collection_list {
   use std::fmt::Debug;
 
   use kwap_msg::*;
+
+  use super::*;
   #[derive(Clone, Debug)]
   pub enum List<T: Debug + Clone> {
     Cons(T, Box<List<T>>),
@@ -87,9 +90,9 @@ mod collection_list {
     }
   }
 
-  impl<T: Debug + Clone> kwap_msg::Collection<T> for List<T> {}
+  impl<T: Debug + Clone> Array<T> for List<T> {}
 
-  impl<T: Debug + Clone> kwap_msg::GetSize for List<T> {
+  impl<T: Debug + Clone> GetSize for List<T> {
     fn get_size(&self) -> usize {
       self.into_iter().count()
     }
@@ -99,7 +102,7 @@ mod collection_list {
     }
   }
 
-  impl<T: Debug + Clone> kwap_msg::Reserve for List<T> {}
+  impl<T: Debug + Clone> Reserve for List<T> {}
 
   impl<T: Debug + Clone> List<T> {
     pub fn cons(self, t: T) -> Self {

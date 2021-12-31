@@ -1,6 +1,6 @@
 [package]
 name = "kwap-msg"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 description = "Low-level CoAP message parsing & serialization"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
@@ -44,6 +44,7 @@ harness = false
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
 kwap-macros = "0.1.6"
+kwap-common = "0.2.6"
 
 [dev-dependencies]
 itertools = "0.10"

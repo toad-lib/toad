@@ -154,7 +154,7 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   }
 }
 
-impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
+impl<'a, P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
   where for<'b> &'b P: IntoIterator<Item = &'b u8>,
         for<'b> &'b O: IntoIterator<Item = &'b u8>,
         for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
@@ -166,7 +166,7 @@ impl<'a, P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBy
   }
 }
 
-impl<P: Collection<u8>, O: Collection<u8>, Os: Collection<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
+impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
   where for<'b> &'b P: IntoIterator<Item = &'b u8>,
         for<'b> &'b O: IntoIterator<Item = &'b u8>,
         for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
