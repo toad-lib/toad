@@ -64,7 +64,7 @@
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
 //! </details>
 
-#![doc(html_root_url = "https://docs.rs/kwap-msg/0.2.6")]
+#![doc(html_root_url = "https://docs.rs/kwap-msg/0.3.0")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -160,7 +160,7 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///
 /// let expected = VecMessage {
 ///   id: Id(1),
-///   ty: Type(0),
+///   ty: Type::Con,
 ///   ver: Version(1),
 ///   token: Token(tinyvec::array_vec!([u8; 8] => 254)),
 ///   opts: opts_expected,
@@ -248,15 +248,37 @@ pub(crate) struct Byte1 {
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Id(pub u16);
 
-/// Message type:
-/// - 0 Confirmable; "Please let me know when you received this"
-/// - 1 Non-confirmable; "I don't care if this gets to you"
-/// - 2 Acknowledgement; "I got your message!"
-/// - 3 Reset; ""
+/// Indicates if this message is of
+/// type Confirmable (0), Non-confirmable (1), Acknowledgement (2), or Reset (3).
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Type(pub u8);
+#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
+pub enum Type {
+  /// Some messages do not require an acknowledgement.  This is
+  /// particularly true for messages that are repeated regularly for
+  /// application requirements, such as repeated readings from a sensor.
+  Non,
+  /// Some messages require an acknowledgement.  These messages are
+  /// called "Confirmable".  When no packets are lost, each Confirmable
+  /// message elicits exactly one return message of type Acknowledgement
+  /// or type Reset.
+  Con,
+  /// An Acknowledgement message acknowledges that a specific
+  /// Confirmable message arrived.  By itself, an Acknowledgement
+  /// message does not indicate success or failure of any request
+  /// encapsulated in the Confirmable message, but the Acknowledgement
+  /// message may also carry a Piggybacked Response.
+  Ack,
+  /// A Reset message indicates that a specific message (Confirmable or
+  /// Non-confirmable) was received, but some context is missing to
+  /// properly process it.  This condition is usually caused when the
+  /// receiving node has rebooted and has forgotten some state that
+  /// would be required to interpret the message.  Provoking a Reset
+  /// message (e.g., by sending an Empty Confirmable message) is also
+  /// useful as an inexpensive check of the liveness of an endpoint
+  /// ("CoAP ping").
+  Reset,
+}
 
 /// Version of the CoAP protocol that the message adheres to.
 ///
@@ -293,7 +315,7 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
   opts.push(opt);
 
   let msg = VecMessage { id: Id(1),
-                         ty: Type(0),
+                         ty: Type::Con,
                          ver: Version(1),
                          token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                          opts,
