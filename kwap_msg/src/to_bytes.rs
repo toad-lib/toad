@@ -125,10 +125,10 @@ impl From<Type> for u8 {
   fn from(t: Type) -> u8 {
     use Type::*;
     match t {
-      Con => 0,
-      Non => 1,
-      Ack => 2,
-      Reset => 3,
+      | Con => 0,
+      | Non => 1,
+      | Ack => 2,
+      | Reset => 3,
     }
   }
 }

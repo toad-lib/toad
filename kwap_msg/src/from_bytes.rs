@@ -117,11 +117,11 @@ impl TryFrom<u8> for Type {
 
   fn try_from(b: u8) -> Result<Self, Self::Error> {
     match b {
-      0 => Ok(Type::Con),
-      1 => Ok(Type::Non),
-      2 => Ok(Type::Ack),
-      3 => Ok(Type::Reset),
-      _ => Err(MessageParseError::InvalidType(b)),
+      | 0 => Ok(Type::Con),
+      | 1 => Ok(Type::Non),
+      | 2 => Ok(Type::Ack),
+      | 3 => Ok(Type::Reset),
+      | _ => Err(MessageParseError::InvalidType(b)),
     }
   }
 }
@@ -135,8 +135,8 @@ impl TryFrom<u8> for Byte1 {
     let tkl = b & 0b1111u8; // last 4 bits
 
     Ok(Byte1 { ver: Version(ver),
-            ty: Type::try_from(ty)?,
-            tkl })
+               ty: Type::try_from(ty)?,
+               tkl })
   }
 }
 
