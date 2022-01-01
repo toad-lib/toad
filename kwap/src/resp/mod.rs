@@ -1,8 +1,7 @@
 use crate::Opt;
-use core::mem::MaybeUninit;
 
-use kwap_msg::{Collection as C, Message, EnumerateOptNumbers, OptValue, OptDelta, OptNumber};
-use tinyvec::ArrayVec;
+use kwap_common::Array;
+use kwap_msg::{Message, OptValue, OptDelta, OptNumber, Payload, Id};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 
@@ -15,7 +14,7 @@ pub type VecResp = Resp<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>, Vec<Opt<V
 
 /// TODO: ser/de support
 #[derive(Clone, Debug)]
-pub struct Resp<Bytes: C<u8>, OptBytes: C<u8> + 'static, LowLevelOpts: C<kwap_msg::Opt<OptBytes>>, Opts: C<Opt<OptBytes>>>
+pub struct Resp<Bytes: Array<u8>, OptBytes: Array<u8> + 'static, LowLevelOpts: Array<kwap_msg::Opt<OptBytes>>, Opts: Array<Opt<OptBytes>>>
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a LowLevelOpts: IntoIterator<Item = &'a kwap_msg::Opt<OptBytes>>,
@@ -25,13 +24,37 @@ pub struct Resp<Bytes: C<u8>, OptBytes: C<u8> + 'static, LowLevelOpts: C<kwap_ms
   opts: Opts,
 }
 
-impl<Bytes: C<u8>, OptBytes: C<u8> + 'static, LLOpts: C<kwap_msg::Opt<OptBytes>>, Opts: C<Opt<OptBytes>>> Resp<Bytes, OptBytes, LLOpts, Opts>
+impl<Bytes: Array<u8>, OptBytes: Array<u8> + 'static, LLOpts: Array<kwap_msg::Opt<OptBytes>>, Opts: Array<Opt<OptBytes>>> Resp<Bytes, OptBytes, LLOpts, Opts>
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a LLOpts: IntoIterator<Item = &'a kwap_msg::Opt<OptBytes>>,
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>> {
 
+  /// Create a new response for a given request
+  ///
+  /// TODO: replace msg with Request type
+  pub fn new_for_request(req: &kwap_msg::Message<Bytes, OptBytes, LLOpts>) -> Self {
+    let msg = Message::<Bytes, OptBytes, LLOpts> {
+      ty: req.ty,
+      id: Id::generate(),
+      opts: LLOpts::default(),
+      code: code::CONTENT,
+      ver: Default::default,
+      payload: Payload(Default::default()),
+      token: req.token.clone(),
+      __optc: Default::default(),
+    };
+
+    Self {
+      msg,
+      opts: Opts::reserve(msg.opts.get_size()),
+    }
+  }
+
   /// Add a custom option to the response
+  ///
+  /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
+  /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
       let exist_ix = (&self.opts).into_iter().enumerate().find_map(|(ix, o)| if o.number.0 == number {Some(ix)} else {None});
 
