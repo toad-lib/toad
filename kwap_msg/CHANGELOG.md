@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.3.0 (2022-01-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **msg:** make message type an enum (#38)
+
+### Features
+
+* **msg:** make message type an enum ([#38](https://github.com/clov-coffee/kwap/issues/38)) ([91c77b6](https://github.com/clov-coffee/kwap/commit/91c77b659a8066ca6c34dbe9e5b3df7abfe2d028))
+
 ### 0.2.7 (2022-01-01)
 
 
