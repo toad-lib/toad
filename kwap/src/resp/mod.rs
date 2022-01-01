@@ -35,11 +35,19 @@ impl<Bytes: Array<u8>, OptBytes: Array<u8> + 'static, LLOpts: Array<kwap_msg::Op
   /// TODO: replace msg with Request type
   pub fn new_for_request(req: &kwap_msg::Message<Bytes, OptBytes, LLOpts>) -> Self {
     let msg = Message::<Bytes, OptBytes, LLOpts> {
-      ty: req.ty,
-      id: Id::generate(),
+      ty: if req.ty == Type::Con {
+            Type::Ack
+          } else if req.ty == Type::Non {
+            Type::Non
+          },
+      id: if req.ty == Type::Con {
+            req.id
+          } else {
+            crate::generate_id()
+          },
       opts: LLOpts::default(),
       code: code::CONTENT,
-      ver: Default::default,
+      ver: Default::default(),
       payload: Payload(Default::default()),
       token: req.token.clone(),
       __optc: Default::default(),

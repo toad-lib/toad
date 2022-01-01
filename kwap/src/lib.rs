@@ -41,3 +41,15 @@ pub mod opt;
 
 #[doc(inline)]
 pub use opt::*;
+
+static mut ID: u16 = 0;
+
+fn generate_id() -> kwap_msg::Id {
+  // TEMPORARY
+  // TODO: replace with long-living Client or Endpoint structure
+  #[allow(unsafe_code)]
+  unsafe {
+    ID = ID + 1;
+    kwap_msg::Id(ID)
+  }
+}
