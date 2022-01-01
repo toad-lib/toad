@@ -3,7 +3,7 @@ use kwap_common::{Array, GetSize, Reserve};
 use kwap_msg::*;
 
 fn main() {
-  type StackMsg = Message<HeaplessVec<u8, 16>, HeaplessVec<u8, 32>, HeaplessVec<Opt<HeaplessVec<u8, 32>>, 1>>;
+  type StackMsg = Message<HeaplessVec<u8, 1>, HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
   let stack_msg = StackMsg { code: Code { class: 2, detail: 5 },
                              ty: Type(0),
                              ver: Default::default(),
@@ -12,8 +12,15 @@ fn main() {
                              payload: Payload(Default::default()),
                              token: Token(Default::default()),
                              __optc: Default::default() };
-  let bytes = stack_msg.try_into_bytes::<HeaplessVec<u8, 128>>().unwrap();
-  let _roundtrip = StackMsg::try_from_bytes(bytes).unwrap();
+  println!("created {}b message using heapless::Vec", stack_msg.get_size());
+
+  let bytes = stack_msg.clone().try_into_bytes::<HeaplessVec<u8, 5>>().unwrap();
+  println!("message -> bytes success!");
+
+  let roundtrip = StackMsg::try_from_bytes(bytes).unwrap();
+  println!("bytes -> message success!");
+
+  assert_eq!(roundtrip, stack_msg);
 }
 
 pub(crate) mod collection_heapless_vec {
@@ -23,7 +30,7 @@ pub(crate) mod collection_heapless_vec {
   use kwap_common::Insert;
 
   use super::*;
-  #[derive(Default)]
+  #[derive(Debug, Default, PartialEq, Clone)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
   impl<T: Default, const N: usize> Array<T> for HeaplessVec<T, N> {}
 
