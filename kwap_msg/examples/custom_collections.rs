@@ -28,12 +28,16 @@ pub(crate) mod collection_heapless_vec {
   impl<T: Default, const N: usize> Array<T> for HeaplessVec<T, N> {}
 
   impl<T: Default, const N: usize> Insert<T> for HeaplessVec<T, N> {
+    // we can use the default implementation of Insert::push because `insert` invokes push for us
+
     fn insert_at(&mut self, index: usize, value: T) {
       if index == self.0.len() {
         self.push(value);
         return;
       }
 
+      // please do NOT use this code,
+      // this is a terrible implementation of `insert_at` just for demonstration purposes.
       let me: Self = unsafe { ptr::read(self as *const Self) };
 
       let mut value_container = Some(value);
