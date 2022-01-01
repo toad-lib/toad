@@ -90,7 +90,7 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
 fn get_hello() -> Message {
   use kwap_msg::*;
   Message { id: Id(1),
-            ty: Type(0),
+            ty: Type::Con,
             __optc: Default::default(),
             ver: Default::default(),
             token: Token(Default::default()),
@@ -103,7 +103,7 @@ fn get_hello() -> Message {
 fn ok_hello(token: kwap_msg::Token) -> Message {
   use kwap_msg::*;
   Message { id: Id(1),
-            ty: Type(2), // ACK
+            ty: Type::Ack, // ACK
             ver: Default::default(),
             __optc: Default::default(),
             token,
@@ -115,7 +115,7 @@ fn ok_hello(token: kwap_msg::Token) -> Message {
 fn not_found(token: kwap_msg::Token) -> Message {
   use kwap_msg::*;
   Message { id: Id(1),
-            ty: Type(2), // ACK
+            ty: Type::Ack, // ACK
             ver: Default::default(),
             __optc: Default::default(),
             token,

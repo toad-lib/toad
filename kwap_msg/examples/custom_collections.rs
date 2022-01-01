@@ -5,7 +5,7 @@ use kwap_msg::*;
 fn main() {
   type StackMsg = Message<HeaplessVec<u8, 1>, HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
   let stack_msg = StackMsg { code: Code { class: 2, detail: 5 },
-                             ty: Type(0),
+                             ty: Type::Con,
                              ver: Default::default(),
                              id: Id(0),
                              opts: Default::default(),

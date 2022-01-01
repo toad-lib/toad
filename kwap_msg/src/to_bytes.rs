@@ -17,7 +17,7 @@ pub trait TryIntoBytes {
   /// let arrayvec_message = kwap_msg::ArrayVecMessage::<0, 0, 0> {
   ///   // ...
   /// # id: kwap_msg::Id(0),
-  /// # ty: kwap_msg::Type(0),
+  /// # ty: kwap_msg::Type::Con,
   /// # ver: Default::default(),
   /// # opts: Default::default(),
   /// # payload: kwap_msg::Payload(Default::default()),
@@ -32,7 +32,7 @@ pub trait TryIntoBytes {
   /// let vec_message = kwap_msg::VecMessage {
   ///   // ...
   /// # id: kwap_msg::Id(0),
-  /// # ty: kwap_msg::Type(0),
+  /// # ty: kwap_msg::Type::Con,
   /// # ver: Default::default(),
   /// # opts: Default::default(),
   /// # payload: kwap_msg::Payload(Default::default()),
@@ -121,10 +121,22 @@ impl From<Id> for [u8; 2] {
   }
 }
 
+impl From<Type> for u8 {
+  fn from(t: Type) -> u8 {
+    use Type::*;
+    match t {
+      Con => 0,
+      Non => 1,
+      Ack => 2,
+      Reset => 3,
+    }
+  }
+}
+
 impl From<Byte1> for u8 {
   fn from(b: Byte1) -> u8 {
     let ver = b.ver.0 << 6;
-    let ty = b.ty.0 << 4;
+    let ty = u8::from(b.ty) << 4;
     let tkl = b.tkl;
 
     ver | ty | tkl
@@ -163,7 +175,7 @@ mod tests {
   #[test]
   fn byte_1() {
     let byte = Byte1 { ver: Version(1),
-                       ty: Type(2),
+                       ty: Type::Ack,
                        tkl: 3 };
     let actual: u8 = byte.into();
     let expected = 0b_01_10_0011u8;
@@ -212,7 +224,7 @@ mod tests {
   #[test]
   fn no_payload_marker() {
     let msg = VecMessage { id: Id(0),
-                           ty: Type(0),
+                           ty: Type::Con,
                            ver: Default::default(),
                            code: Code { class: 2, detail: 5 },
                            token: Token(Default::default()),

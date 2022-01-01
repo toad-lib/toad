@@ -75,6 +75,9 @@ pub enum MessageParseError {
 
   /// The rest of the message contained more bytes than there was capacity for
   PayloadTooLong(usize),
+
+  /// The message type is invalid (see [`Type`] for information & valid values)
+  InvalidType(u8),
 }
 
 impl MessageParseError {
@@ -109,15 +112,31 @@ pub(crate) fn parse_opt_len_or_delta(head: u8,
   }
 }
 
-impl From<u8> for Byte1 {
-  fn from(b: u8) -> Self {
+impl TryFrom<u8> for Type {
+  type Error = MessageParseError;
+
+  fn try_from(b: u8) -> Result<Self, Self::Error> {
+    match b {
+      0 => Ok(Type::Con),
+      1 => Ok(Type::Non),
+      2 => Ok(Type::Ack),
+      3 => Ok(Type::Reset),
+      _ => Err(MessageParseError::InvalidType(b)),
+    }
+  }
+}
+
+impl TryFrom<u8> for Byte1 {
+  type Error = MessageParseError;
+
+  fn try_from(b: u8) -> Result<Self, Self::Error> {
     let ver = b >> 6; // bits 0 & 1
     let ty = b >> 4 & 0b11; // bits 2 & 3
     let tkl = b & 0b1111u8; // last 4 bits
 
-    Byte1 { ver: Version(ver),
-            ty: Type(ty),
-            tkl }
+    Ok(Byte1 { ver: Version(ver),
+            ty: Type::try_from(ty)?,
+            tkl })
   }
 }
 
@@ -176,7 +195,7 @@ impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<u8> for Message
   fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
     let mut bytes = bytes.into_iter();
 
-    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.into();
+    let Byte1 { tkl, ty, ver } = Self::Error::try_next(&mut bytes)?.try_into()?;
 
     if tkl > 8 {
       return Err(Self::Error::InvalidTokenLength(tkl));
@@ -212,10 +231,10 @@ mod tests {
   #[test]
   fn parse_byte1() {
     let byte = 0b_01_10_0011u8;
-    let byte = Byte1::from(byte);
+    let byte = Byte1::try_from(byte).unwrap();
     assert_eq!(byte,
                Byte1 { ver: Version(1),
-                       ty: Type(2),
+                       ty: Type::Ack,
                        tkl: 3 })
   }
 
