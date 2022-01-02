@@ -82,11 +82,7 @@ pub mod from_bytes;
 pub mod opt;
 #[doc(hidden)]
 pub mod to_bytes;
-#[doc(hidden)]
-pub mod insert;
 
-#[doc(inline)]
-pub use insert::*;
 #[doc(inline)]
 pub use code::*;
 #[doc(inline)]
