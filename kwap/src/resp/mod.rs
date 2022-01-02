@@ -61,6 +61,7 @@ pub struct Resp<Bytes: Array<u8>,
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>
 {
   msg: Message<Bytes, OptBytes, LowLevelOpts>,
+  // TODO: replace with associated list (OptNumber, Opt)
   opts: Opts,
 }
 
@@ -112,7 +113,6 @@ impl<Bytes: Array<u8>,
     let exist = (&self.opts).into_iter().enumerate().find(|(_, o)| o.number.0 == number);
 
     if let Some((exist_ix, _)) = exist {
-      // add indexmut to array
       let mut exist = &mut self.opts[exist_ix];
       exist.value = OptValue(value.into_iter().collect());
       return None;
