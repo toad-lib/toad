@@ -48,6 +48,7 @@ pub trait Array<T>:
   + IndexMut<usize>
   + GetSize
   + Reserve
+  + SortByKey<T>
   + Extend<T>
   + FromIterator<T>
   + IntoIterator<Item = T>
@@ -125,6 +126,35 @@ impl<A: tinyvec::Array> GetSize for tinyvec::ArrayVec<A> {
 
   fn max_size(&self) -> Option<usize> {
     Some(A::CAPACITY)
+  }
+}
+
+/// A collection that can be sorted
+pub trait SortByKey<T> {
+  /// Sort the collection in place using a closure
+  /// that plucks something that implements `Ord` from its elements.
+  ///
+  /// ```
+  /// use kwap_common::SortByKey;
+  ///
+  /// let mut nums = vec![2, 1, 3, 5, 4];
+  ///
+  /// SortByKey::sort_by_key(&mut nums, |n| *n);
+  ///
+  /// assert_eq!(nums, vec![1, 2, 3, 4, 5]);
+  /// ```
+  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K);
+}
+
+impl<T> SortByKey<T> for Vec<T> {
+  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K) {
+    self.as_mut_slice().sort_by_key(f)
+  }
+}
+
+impl<A: tinyvec::Array<Item = T>, T> SortByKey<T> for tinyvec::ArrayVec<A> {
+  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K) {
+    self.as_mut_slice().sort_by_key(f)
   }
 }
 
