@@ -35,3 +35,15 @@ extern crate alloc as std_alloc;
 
 /// CoAP response messages
 pub mod resp;
+
+static mut ID: u16 = 0;
+
+fn generate_id() -> kwap_msg::Id {
+  // TEMPORARY
+  // TODO: replace with long-living Client or Endpoint structure
+  #[allow(unsafe_code)]
+  unsafe {
+    ID += 1;
+    kwap_msg::Id(ID)
+  }
+}
