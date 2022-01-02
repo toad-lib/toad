@@ -49,7 +49,7 @@ fn generate_id() -> kwap_msg::Id {
   // TODO: replace with long-living Client or Endpoint structure
   #[allow(unsafe_code)]
   unsafe {
-    ID = ID + 1;
+    ID += 1;
     kwap_msg::Id(ID)
   }
 }
