@@ -1,14 +1,15 @@
-use core::ops::Deref;
-use core::ops::DerefMut;
+use core::ops::{Deref, DerefMut};
 
 use kwap_common::Array;
-use kwap_msg::{Message, Opt, OptNumber, Code, Type, Payload, Token};
+use kwap_msg::{Code, Message, Opt, OptNumber, Payload, Token, Type};
 #[cfg(feature = "alloc")]
-use std_alloc::{vec::Vec, string::{String, FromUtf8Error}};
+use std_alloc::{string::{FromUtf8Error, String},
+                vec::Vec};
 
-/// Request methods
+#[doc(hidden)]
 pub mod method;
-use method::Method;
+#[doc(inline)]
+pub use method::Method;
 
 /// A request that uses `Vec`
 ///
@@ -47,6 +48,7 @@ use method::Method;
 /// }
 /// ```
 #[cfg(feature = "alloc")]
+#[cfg_attr(any(docsrs, feature = "docs"), doc(cfg(feature = "alloc")))]
 #[derive(Debug, Clone)]
 pub struct Req(pub(crate) VecReq);
 
@@ -70,16 +72,19 @@ impl Req {
   pub fn delete<P: AsRef<str>>(path: P) -> Self {
     Self(VecReq::delete(path))
   }
-
 }
 
 impl Deref for Req {
   type Target = VecReq;
-  fn deref(&self) -> &VecReq {&self.0}
+  fn deref(&self) -> &VecReq {
+    &self.0
+  }
 }
 
 impl DerefMut for Req {
-  fn deref_mut(&mut self) -> &mut VecReq {&mut self.0}
+  fn deref_mut(&mut self) -> &mut VecReq {
+    &mut self.0
+  }
 }
 
 #[cfg(feature = "alloc")]
@@ -97,7 +102,8 @@ pub struct ReqCore<Bytes: Array<u8>,
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)> {
+        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+{
   msg: Message<Bytes, OptBytes, Opts>,
   opts: OptNumbers,
 }
@@ -112,18 +118,17 @@ impl<Bytes: Array<u8>,
         for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
 {
   fn new<P: AsRef<str>>(method: Method, path: P) -> Self {
-    let msg = Message {
-      ty: Type::Con,
-      ver: Default::default(),
-      code: method.0,
-      id: crate::generate_id(),
-      opts: Default::default(),
-      payload: Payload(Default::default()),
-      token: Token(Default::default()),
-      __optc: Default::default(),
-    };
+    let msg = Message { ty: Type::Con,
+                        ver: Default::default(),
+                        code: method.0,
+                        id: crate::generate_id(),
+                        opts: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: Token(Default::default()),
+                        __optc: Default::default() };
 
-    let mut me = Self { msg, opts: Default::default() };
+    let mut me = Self { msg,
+                        opts: Default::default() };
 
     // Uri-Path
     me.set_option(11, path.as_ref().as_bytes().iter().copied());
@@ -184,13 +189,15 @@ impl<Bytes: Array<u8>,
 impl<Bytes: Array<u8>,
       OptBytes: Array<u8> + 'static,
       Opts: Array<Opt<OptBytes>>,
-      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> From<ReqCore<Bytes, OptBytes, Opts, OptNumbers>> for Message<Bytes, OptBytes, Opts>
+      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> From<ReqCore<Bytes, OptBytes, Opts, OptNumbers>>
+  for Message<Bytes, OptBytes, Opts>
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)> {
-          fn from(mut req: ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
-            req.normalize_opts();
-            req.msg
-          }
-        }
+        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+{
+  fn from(mut req: ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
+    req.normalize_opts();
+    req.msg
+  }
+}

@@ -70,6 +70,7 @@ impl Code {
   }
 }
 
+#[cfg(feature = "alloc")]
 impl ToString for Code {
   fn to_string(&self) -> String {
     String::from_iter(self.to_human())
