@@ -3,7 +3,7 @@ use core::ops::{Deref, DerefMut};
 use kwap_common::Array;
 use kwap_msg::{Message, Opt, OptNumber, OptValue, Payload, Type};
 #[cfg(feature = "alloc")]
-use std_alloc::vec::Vec;
+use std_alloc::{vec::Vec, string::{String, FromUtf8Error}};
 
 /// Response codes
 pub mod code;
@@ -17,7 +17,7 @@ pub mod code;
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::for_request(&req);
+///     let mut resp = Resp::for_request(req);
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
 ///     resp.set_option(12, [50]);
@@ -32,18 +32,9 @@ pub mod code;
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(VecMessage) -> kwap::resp::Resp) {
+/// fn start_server(f: impl FnOnce(kwap::req::Req) -> kwap::resp::Resp) {
 ///   // servery things
-/// # f(VecMessage {
-/// #   id: Id(0),
-/// #   code: Code::new(0, 1),
-/// #   token: Token(Default::default()),
-/// #   ty: Type::Con,
-/// #   ver: Default::default(),
-/// #   opts: vec![],
-/// #   payload: Payload(vec![]),
-/// #   __optc: Default::default(),
-/// # });
+/// # f(kwap::req::Req::get("foo"));
 /// }
 /// ```
 #[cfg(feature = "alloc")]
@@ -52,8 +43,8 @@ pub struct Resp(VecRespCore);
 
 impl Resp {
   /// Create a new response for a given request
-  pub fn for_request(req: &kwap_msg::VecMessage) -> Self {
-    Self(RespCore::for_request(req))
+  pub fn for_request(req: crate::req::Req) -> Self {
+    Self(RespCore::for_request(req.0))
   }
 }
 
@@ -99,7 +90,8 @@ impl<Bytes: Array<u8>,
   /// Create a new response for a given request
   ///
   /// TODO: replace msg with Request type
-  pub fn for_request(req: &kwap_msg::Message<Bytes, OptBytes, Opts>) -> Self {
+  pub fn for_request(req: crate::req::ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
+    let req = Message::from(req);
     let n_opts = req.opts.get_size();
 
     let msg = Message { ty: match req.ty {
@@ -122,6 +114,17 @@ impl<Bytes: Array<u8>,
            opts: OptNumbers::reserve(n_opts) }
   }
 
+  /// Get the payload's raw bytes
+  pub fn payload(&self) -> impl Iterator<Item = &u8> {
+    (&self.msg.payload.0).into_iter()
+  }
+
+  /// Get the payload and attempt to interpret it as an ASCII string
+  #[cfg(feature = "alloc")]
+  pub fn payload_string(&self) -> Result<String, FromUtf8Error> {
+    String::from_utf8(self.payload().copied().collect())
+  }
+
   /// Change the response code
   pub fn set_code(&mut self, code: kwap_msg::Code) {
     self.msg.code = code;
@@ -132,35 +135,16 @@ impl<Bytes: Array<u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    let exist_ix = (&self.opts).into_iter()
-                               .enumerate()
-                               .find(|(_, (num, _))| num.0 == number)
-                               .map(|(ix, _)| ix);
-
-    if let Some(exist_ix) = exist_ix {
-      let mut exist = &mut self.opts[exist_ix];
-      exist.1.value = OptValue(value.into_iter().collect());
-      return None;
-    }
-
-    let n_opts = self.opts.get_size() + 1;
-    let no_room = self.opts.max_size().map(|max| max < n_opts).unwrap_or(false);
-
-    if no_room {
-      return Some((number, value));
-    }
-
-    let opt = (OptNumber(number),
-               Opt::<_> { delta: Default::default(),
-                          value: OptValue(value.into_iter().collect()) });
-
-    self.opts.extend(Some(opt));
-
-    None
+    crate::add_option(&mut self.opts, number, value)
   }
 
   /// Add a payload to this response
   pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
     self.msg.payload = Payload(payload.into_iter().collect());
+  }
+
+  /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
+  fn normalize_opts(&mut self) {
+    self.msg.opts = crate::normalize_opts(&mut self.opts);
   }
 }
