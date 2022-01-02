@@ -4,12 +4,11 @@
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
-#![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 
 extern crate alloc;
 use alloc::vec::Vec;
-use core::ops::{Index, IndexMut};
+use core::ops::{DerefMut, Deref};
 
 /// An ordered collection of some type `T`.
 ///
@@ -25,34 +24,26 @@ use core::ops::{Index, IndexMut};
 /// possibility of memory defects and UB.
 ///
 /// # Requirements
-/// - `Default` for creating the collection
-/// - `Extend` for mutating and adding onto the collection (1 or more elements)
-/// - `Reserve` for reserving space ahead of time
-/// - `GetSize` for bound checks, empty checks, and accessing the length
-/// - `FromIterator` for collecting into the collection
-/// - `IntoIterator` for:
-///    - iterating and destroying the collection
-///    - for iterating over references to items in the collection
-///
-/// # Stupid `where` clause
-/// `where for<'a> &'a Self: IntoIterator<Item = &'a T>` is necessary to fold in the idea
-/// of "A reference (of any arbitrary lifetime `'a`) to an Array must support iterating over references (`'a`) of its elements."
-///
-/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires an `Array`.
-///
-/// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
+/// - [`Default`] for creating the collection
+/// - [`Extend`] for mutating and adding onto the collection (1 or more elements)
+/// - [`Reserve`] for reserving space ahead of time
+/// - [`Insert`] for pushing and inserting elements into the collection
+/// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
+///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
+///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
+/// - [`GetSize`] for bound checks, empty checks, and accessing the length
+/// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the collection
+/// - [`IntoIterator`] for iterating and destroying the collection
 pub trait Array<T>:
   Default
   + Insert<T>
-  + Index<usize, Output = T>
-  + IndexMut<usize>
   + GetSize
   + Reserve
-  + SortByKey<T>
+  + Deref<Target = [T]>
+  + DerefMut
   + Extend<T>
   + FromIterator<T>
   + IntoIterator<Item = T>
-  where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
 
