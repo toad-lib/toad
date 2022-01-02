@@ -39,6 +39,7 @@ pub mod code;
 /// }
 /// ```
 #[cfg(feature = "alloc")]
+#[cfg_attr(any(docsrs, feature = "docs"), doc(cfg(feature = "alloc")))]
 #[derive(Debug, Clone)]
 pub struct Resp(VecRespCore);
 
