@@ -1,18 +1,14 @@
+use core::ops::{Deref, DerefMut};
+
 use kwap_common::Array;
-use kwap_msg::{Message, OptNumber, OptValue, Payload, Type};
+use kwap_msg::{Message, Opt, OptNumber, OptValue, Payload, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
-
-use crate::Opt;
 
 /// Response codes
 pub mod code;
 
 /// [`Resp`] that uses [`Vec`] as the backing collection type
-#[cfg(feature = "alloc")]
-pub type VecResp = Resp<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>, Vec<Opt<Vec<u8>>>>;
-
-/// TODO: ser/de support
 ///
 /// ```
 /// use kwap::resp::Resp;
@@ -36,7 +32,7 @@ pub type VecResp = Resp<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>, Vec<Opt<V
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(VecMessage) -> kwap::resp::VecResp) {
+/// fn start_server(f: impl FnOnce(VecMessage) -> kwap::resp::Resp) {
 ///   // servery things
 /// # f(VecMessage {
 /// #   id: Id(0),
@@ -50,34 +46,60 @@ pub type VecResp = Resp<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>, Vec<Opt<V
 /// # });
 /// }
 /// ```
+#[cfg(feature = "alloc")]
+#[derive(Debug, Clone)]
+pub struct Resp(VecRespCore);
+
+impl Resp {
+  /// Create a new response for a given request
+  pub fn for_request(req: &kwap_msg::VecMessage) -> Self {
+    Self(RespCore::for_request(req))
+  }
+}
+
+impl Deref for Resp {
+  type Target = VecRespCore;
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl DerefMut for Resp {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.0
+  }
+}
+
+type VecRespCore = RespCore<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>, Vec<(OptNumber, Opt<Vec<u8>>)>>;
+
+/// TODO: ser/de support
 #[derive(Clone, Debug)]
-pub struct Resp<Bytes: Array<u8>,
+pub struct RespCore<Bytes: Array<u8>,
  OptBytes: Array<u8> + 'static,
- LowLevelOpts: Array<kwap_msg::Opt<OptBytes>>,
- Opts: Array<Opt<OptBytes>>>
+ Opts: Array<Opt<OptBytes>>,
+ OptNumbers: Array<(OptNumber, Opt<OptBytes>)>>
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a LowLevelOpts: IntoIterator<Item = &'a kwap_msg::Opt<OptBytes>>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>
+        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
+        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
 {
-  msg: Message<Bytes, OptBytes, LowLevelOpts>,
-  // TODO: replace with associated list (OptNumber, Opt)
-  opts: Opts,
+  msg: Message<Bytes, OptBytes, Opts>,
+  opts: OptNumbers,
 }
 
 impl<Bytes: Array<u8>,
       OptBytes: Array<u8> + 'static,
-      LLOpts: Array<kwap_msg::Opt<OptBytes>>,
-      Opts: Array<Opt<OptBytes>>> Resp<Bytes, OptBytes, LLOpts, Opts>
+      Opts: Array<Opt<OptBytes>>,
+      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> RespCore<Bytes, OptBytes, Opts, OptNumbers>
   where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
         for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a LLOpts: IntoIterator<Item = &'a kwap_msg::Opt<OptBytes>>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>
+        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
+        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
 {
   /// Create a new response for a given request
   ///
   /// TODO: replace msg with Request type
-  pub fn for_request(req: &kwap_msg::Message<Bytes, OptBytes, LLOpts>) -> Self {
+  pub fn for_request(req: &kwap_msg::Message<Bytes, OptBytes, Opts>) -> Self {
     let n_opts = req.opts.get_size();
 
     let msg = Message { ty: match req.ty {
@@ -89,7 +111,7 @@ impl<Bytes: Array<u8>,
                         } else {
                           crate::generate_id()
                         },
-                        opts: LLOpts::default(),
+                        opts: Opts::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
@@ -97,7 +119,7 @@ impl<Bytes: Array<u8>,
                         __optc: Default::default() };
 
     Self { msg,
-           opts: Opts::reserve(n_opts) }
+           opts: OptNumbers::reserve(n_opts) }
   }
 
   /// Change the response code
@@ -110,11 +132,14 @@ impl<Bytes: Array<u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    let exist = (&self.opts).into_iter().enumerate().find(|(_, o)| o.number.0 == number);
+    let exist_ix = (&self.opts).into_iter()
+                               .enumerate()
+                               .find(|(_, (num, _))| num.0 == number)
+                               .map(|(ix, _)| ix);
 
-    if let Some((exist_ix, _)) = exist {
+    if let Some(exist_ix) = exist_ix {
       let mut exist = &mut self.opts[exist_ix];
-      exist.value = OptValue(value.into_iter().collect());
+      exist.1.value = OptValue(value.into_iter().collect());
       return None;
     }
 
@@ -125,8 +150,9 @@ impl<Bytes: Array<u8>,
       return Some((number, value));
     }
 
-    let opt = Opt::<_> { number: OptNumber(number),
-                         value: OptValue(value.into_iter().collect()) };
+    let opt = (OptNumber(number),
+               Opt::<_> { delta: Default::default(),
+                          value: OptValue(value.into_iter().collect()) });
 
     self.opts.extend(Some(opt));
 

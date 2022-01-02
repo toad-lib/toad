@@ -36,12 +36,6 @@ extern crate alloc as std_alloc;
 /// CoAP response messages
 pub mod resp;
 
-#[doc(hidden)]
-pub mod opt;
-
-#[doc(inline)]
-pub use opt::*;
-
 static mut ID: u16 = 0;
 
 fn generate_id() -> kwap_msg::Id {
