@@ -8,7 +8,7 @@
 
 extern crate alloc;
 use alloc::vec::Vec;
-use core::ops::{DerefMut, Deref};
+use core::ops::{Deref, DerefMut};
 
 /// An ordered indexable collection of some type `T`
 ///
