@@ -173,10 +173,7 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   }
 }
 
-impl<'a, P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
-  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
-        for<'b> &'b O: IntoIterator<Item = &'b u8>,
-        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+impl<'a, P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
 {
   type Error = MessageParseError;
 
@@ -185,10 +182,7 @@ impl<'a, P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<&'a u8> for
   }
 }
 
-impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
-  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
-        for<'b> &'b O: IntoIterator<Item = &'b u8>,
-        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
 {
   type Error = MessageParseError;
 
@@ -213,8 +207,7 @@ impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryFromBytes<u8> for Message
                  code,
                  token,
                  opts,
-                 payload,
-                 __optc: Default::default() })
+                 payload})
   }
 }
 
