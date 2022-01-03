@@ -1,6 +1,6 @@
 //! Common structs and abstractions used by `kwap`
 
-#![doc(html_root_url = "https://docs.rs/kwap-common/0.4.0")]
+#![doc(html_root_url = "https://docs.rs/kwap-common/0.5.0")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -10,7 +10,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut};
 
-/// An ordered indexable collection of some type `T`
+/// An ordered indexable collection of some type `Item`
 ///
 /// # Provided implementations
 /// - [`Vec`]
@@ -34,21 +34,27 @@ use core::ops::{Deref, DerefMut};
 /// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
 ///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
 ///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
-pub trait Array<T>:
+pub trait Array:
   Default
-  + Insert<T>
+  + Insert<<Self as Array>::Item>
   + GetSize
   + Reserve
-  + Deref<Target = [T]>
+  + Deref<Target = [<Self as Array>::Item]>
   + DerefMut
-  + Extend<T>
-  + FromIterator<T>
-  + IntoIterator<Item = T>
+  + Extend<<Self as Array>::Item>
+  + FromIterator<<Self as Array>::Item>
+  + IntoIterator<Item = <Self as Array>::Item>
 {
+  /// The type of item contained in the collection
+  type Item;
 }
 
-impl<T> Array<T> for Vec<T> {}
-impl<A: tinyvec::Array<Item = T>, T> Array<T> for tinyvec::ArrayVec<A> {}
+impl<T> Array for Vec<T> {
+  type Item = T;
+}
+impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {
+  type Item = T;
+}
 
 /// Get the runtime size of some data structure
 ///
