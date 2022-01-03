@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.5.0 (2022-01-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **common:** array type should be simple (#40)
+
+### Features
+
+* **common:** array type should be simple ([#40](https://github.com/clov-coffee/kwap/issues/40)) ([f38af97](https://github.com/clov-coffee/kwap/commit/f38af9767480408cce1b67d99b3ff9f9b4793e09))
+
 ## 0.4.0 (2021-12-31)
 
 
