@@ -4,20 +4,19 @@
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
-#![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 
 extern crate alloc;
 use alloc::vec::Vec;
-use core::ops::{Index, IndexMut};
+use core::ops::{Deref, DerefMut};
 
-/// An ordered collection of some type `T`.
+/// An ordered indexable collection of some type `T`
 ///
 /// # Provided implementations
 /// - [`Vec`]
 /// - [`tinyvec::ArrayVec`]
 ///
-/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase
+/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase within `kwap`
 /// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
 /// are notably worse than `tinyvec`.
 ///
@@ -25,45 +24,47 @@ use core::ops::{Index, IndexMut};
 /// possibility of memory defects and UB.
 ///
 /// # Requirements
-/// - `Default` for creating the collection
-/// - `Extend` for mutating and adding onto the collection (1 or more elements)
-/// - `Reserve` for reserving space ahead of time
-/// - `GetSize` for bound checks, empty checks, and accessing the length
-/// - `FromIterator` for collecting into the collection
-/// - `IntoIterator` for:
-///    - iterating and destroying the collection
-///    - for iterating over references to items in the collection
-///
-/// # Stupid `where` clause
-/// `where for<'a> &'a Self: IntoIterator<Item = &'a T>` is necessary to fold in the idea
-/// of "A reference (of any arbitrary lifetime `'a`) to an Array must support iterating over references (`'a`) of its elements."
-///
-/// A side-effect of this where clause is that because it's not a trait bound, it must be propagated to every bound that requires an `Array`.
-///
-/// Less than ideal, but far preferable to coupling tightly to a particular collection and maintaining separate `alloc` and non-`alloc` implementations.
+/// - [`Default`] for creating the collection
+/// - [`Extend`] for mutating and adding onto the collection (1 or more elements)
+/// - [`Reserve`] for reserving space ahead of time
+/// - [`Insert`] for pushing and inserting elements into the collection
+/// - [`GetSize`] for bound checks, empty checks, and accessing the length
+/// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the collection
+/// - [`IntoIterator`] for iterating and destroying the collection
+/// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
+///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
+///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
 pub trait Array<T>:
   Default
   + Insert<T>
-  + Index<usize, Output = T>
-  + IndexMut<usize>
   + GetSize
   + Reserve
+  + Deref<Target = [T]>
+  + DerefMut
   + Extend<T>
   + FromIterator<T>
   + IntoIterator<Item = T>
-  where for<'a> &'a Self: IntoIterator<Item = &'a T>
 {
 }
 
 impl<T> Array<T> for Vec<T> {}
 impl<A: tinyvec::Array<Item = T>, T> Array<T> for tinyvec::ArrayVec<A> {}
 
-/// Get the runtime size (in bytes) of a struct
+/// Get the runtime size of some data structure
 ///
-/// ## Note
+/// # Deprecated
+/// Note: in a future version of `kwap_common` this will be deprecated in favor of clearly delineating
+/// "size in bytes" (e.g. `RuntimeSize`) from "collection of potentially bounded length" (e.g. `Len`)
+///
+/// ## Collections
 /// For collections this just yields the number of elements ([`Vec::len`], [`tinyvec::ArrayVec::len`]),
 /// and when the collection is over [`u8`]s,
 /// then `get_size` represents the number of bytes in the collection.
+///
+/// ## Structs and enums
+/// When implemented for items that are not collections,
+/// this is expected to yield the runtime size in bytes
+/// (not the static Rust [`core::mem::size_of`] size)
 pub trait GetSize {
   /// Get the runtime size (in bytes) of a struct
   ///
@@ -81,6 +82,13 @@ pub trait GetSize {
   /// By default, this returns `None` and can be left unimplemented for dynamic collections.
   ///
   /// However, for fixed-size collections this method must be implemented.
+  ///
+  /// ```
+  /// use kwap_common::GetSize;
+  ///
+  /// let stack_nums = tinyvec::ArrayVec::<[u8; 2]>::from([0, 1]);
+  /// assert_eq!(stack_nums.max_size(), Some(2));
+  /// ```
   fn max_size(&self) -> Option<usize>;
 
   /// Check if the runtime size is zero
