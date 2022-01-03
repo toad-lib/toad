@@ -49,8 +49,12 @@ pub trait Array:
   type Item;
 }
 
-impl<T> Array for Vec<T> {type Item = T;}
-impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {type Item = T;}
+impl<T> Array for Vec<T> {
+  type Item = T;
+}
+impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {
+  type Item = T;
+}
 
 /// Get the runtime size of some data structure
 ///
