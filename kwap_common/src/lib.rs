@@ -10,13 +10,13 @@ extern crate alloc;
 use alloc::vec::Vec;
 use core::ops::{DerefMut, Deref};
 
-/// An ordered collection of some type `T`.
+/// An ordered indexable collection of some type `T`
 ///
 /// # Provided implementations
 /// - [`Vec`]
 /// - [`tinyvec::ArrayVec`]
 ///
-/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase
+/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase within `kwap`
 /// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
 /// are notably worse than `tinyvec`.
 ///
@@ -28,12 +28,12 @@ use core::ops::{DerefMut, Deref};
 /// - [`Extend`] for mutating and adding onto the collection (1 or more elements)
 /// - [`Reserve`] for reserving space ahead of time
 /// - [`Insert`] for pushing and inserting elements into the collection
-/// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
-///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
-///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
 /// - [`GetSize`] for bound checks, empty checks, and accessing the length
 /// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the collection
 /// - [`IntoIterator`] for iterating and destroying the collection
+/// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
+///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
+///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
 pub trait Array<T>:
   Default
   + Insert<T>
@@ -50,12 +50,21 @@ pub trait Array<T>:
 impl<T> Array<T> for Vec<T> {}
 impl<A: tinyvec::Array<Item = T>, T> Array<T> for tinyvec::ArrayVec<A> {}
 
-/// Get the runtime size (in bytes) of a struct
+/// Get the runtime size of some data structure
 ///
-/// ## Note
+/// # Deprecated
+/// Note: in a future version of `kwap_common` this will be deprecated in favor of clearly delineating
+/// "size in bytes" (e.g. `RuntimeSize`) from "collection of potentially bounded length" (e.g. `Len`)
+///
+/// ## Collections
 /// For collections this just yields the number of elements ([`Vec::len`], [`tinyvec::ArrayVec::len`]),
 /// and when the collection is over [`u8`]s,
 /// then `get_size` represents the number of bytes in the collection.
+///
+/// ## Structs and enums
+/// When implemented for items that are not collections,
+/// this is expected to yield the runtime size in bytes
+/// (not the static Rust [`core::mem::size_of`] size)
 pub trait GetSize {
   /// Get the runtime size (in bytes) of a struct
   ///
@@ -73,6 +82,13 @@ pub trait GetSize {
   /// By default, this returns `None` and can be left unimplemented for dynamic collections.
   ///
   /// However, for fixed-size collections this method must be implemented.
+  ///
+  /// ```
+  /// use kwap_common::GetSize;
+  ///
+  /// let stack_nums = tinyvec::ArrayVec<[u8; 2]>::from([0, 1]);
+  /// assert_eq!(stack_nums.max_size(), 2);
+  /// ```
   fn max_size(&self) -> Option<usize>;
 
   /// Check if the runtime size is zero
@@ -117,35 +133,6 @@ impl<A: tinyvec::Array> GetSize for tinyvec::ArrayVec<A> {
 
   fn max_size(&self) -> Option<usize> {
     Some(A::CAPACITY)
-  }
-}
-
-/// A collection that can be sorted
-pub trait SortByKey<T> {
-  /// Sort the collection in place using a closure
-  /// that plucks something that implements `Ord` from its elements.
-  ///
-  /// ```
-  /// use kwap_common::SortByKey;
-  ///
-  /// let mut nums = vec![2, 1, 3, 5, 4];
-  ///
-  /// SortByKey::sort_by_key(&mut nums, |n| *n);
-  ///
-  /// assert_eq!(nums, vec![1, 2, 3, 4, 5]);
-  /// ```
-  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K);
-}
-
-impl<T> SortByKey<T> for Vec<T> {
-  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K) {
-    self.as_mut_slice().sort_by_key(f)
-  }
-}
-
-impl<A: tinyvec::Array<Item = T>, T> SortByKey<T> for tinyvec::ArrayVec<A> {
-  fn sort_by_key<K: Ord>(&mut self, f: impl Fn(&T) -> K) {
-    self.as_mut_slice().sort_by_key(f)
   }
 }
 
