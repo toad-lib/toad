@@ -86,8 +86,8 @@ pub trait GetSize {
   /// ```
   /// use kwap_common::GetSize;
   ///
-  /// let stack_nums = tinyvec::ArrayVec<[u8; 2]>::from([0, 1]);
-  /// assert_eq!(stack_nums.max_size(), 2);
+  /// let stack_nums = tinyvec::ArrayVec::<[u8; 2]>::from([0, 1]);
+  /// assert_eq!(stack_nums.max_size(), Some(2));
   /// ```
   fn max_size(&self) -> Option<usize>;
 
