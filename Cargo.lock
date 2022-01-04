@@ -296,6 +296,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kwap-common"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93f5757652b703ceecc63fa0970e45d5c83f43454497d74c79eefc34a85fccd1"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "kwap-macros"
 version = "0.1.6"
 dependencies = [
@@ -324,7 +333,7 @@ dependencies = [
  "criterion",
  "heapless",
  "itertools",
- "kwap-common 0.4.0",
+ "kwap-common 0.6.0",
  "kwap-macros 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinyvec",
 ]

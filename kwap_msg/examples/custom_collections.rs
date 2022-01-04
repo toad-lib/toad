@@ -10,8 +10,7 @@ fn main() {
                              id: Id(0),
                              opts: Default::default(),
                              payload: Payload(Default::default()),
-                             token: Token(Default::default()),
-                             __optc: Default::default() };
+                             token: Token(Default::default()) };
   println!("created {}b message using heapless::Vec", stack_msg.get_size());
 
   let bytes = stack_msg.clone().try_into_bytes::<HeaplessVec<u8, 5>>().unwrap();
@@ -24,7 +23,7 @@ fn main() {
 }
 
 pub(crate) mod collection_heapless_vec {
-  use std::{ops::{Index, IndexMut},
+  use std::{ops::{Deref, DerefMut, Index, IndexMut},
             ptr};
 
   use kwap_common::Insert;
@@ -32,7 +31,21 @@ pub(crate) mod collection_heapless_vec {
   use super::*;
   #[derive(Debug, Default, PartialEq, Clone)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
-  impl<T: Default, const N: usize> Array<T> for HeaplessVec<T, N> {}
+  impl<T: Default, const N: usize> Array for HeaplessVec<T, N> {
+    type Item = T;
+  }
+
+  impl<T: Default, const N: usize> Deref for HeaplessVec<T, N> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+      &self.0
+    }
+  }
+  impl<T: Default, const N: usize> DerefMut for HeaplessVec<T, N> {
+    fn deref_mut(&mut self) -> &mut [T] {
+      &mut self.0
+    }
+  }
 
   impl<T: Default, const N: usize> Insert<T> for HeaplessVec<T, N> {
     // we can use the default implementation of Insert::push because `insert` invokes push for us
