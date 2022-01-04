@@ -58,14 +58,10 @@ fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: Into
   -> Option<(u32, V)> {
   use kwap_msg::*;
 
-  let exist_ix = opts.iter()
-                     .enumerate()
-                     .find(|(_, (num, _))| num.0 == number)
-                     .map(|(ix, _)| ix);
+  let exist = opts.iter_mut().find(|(num, _)| num.0 == number);
 
-  if let Some(exist_ix) = exist_ix {
-    let mut exist = &mut opts[exist_ix];
-    exist.1.value = OptValue(value.into_iter().collect());
+  if let Some((_, opt)) = exist {
+    opt.value = OptValue(value.into_iter().collect());
     return None;
   }
 
@@ -76,11 +72,11 @@ fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: Into
     return Some((number, value));
   }
 
-  let opt = (OptNumber(number),
-             Opt::<_> { delta: Default::default(),
-                        value: OptValue(value.into_iter().collect()) });
+  let num = OptNumber(number);
+  let opt = Opt::<_> { delta: Default::default(),
+                       value: OptValue(value.into_iter().collect()) };
 
-  opts.extend(Some(opt));
+  opts.extend(Some((num, opt)));
 
   None
 }
