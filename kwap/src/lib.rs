@@ -58,7 +58,7 @@ fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: Into
   -> Option<(u32, V)> {
   use kwap_msg::*;
 
-  let exist = opts.iter_mut().find(|(num, _)| num.0 == number);
+  let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
 
   if let Some((_, opt)) = exist {
     opt.value = OptValue(value.into_iter().collect());
@@ -90,7 +90,7 @@ fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
     return Opts::default();
   }
 
-  os.sort_by_key(|(number, _)| number.0);
+  os.sort_by_key(|&(OptNumber(num), _)| num);
   os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
                   let delta = opts.last().map(|Opt { delta: OptDelta(del), .. }| *del).unwrap_or(0u16);
                   opt.delta = OptDelta((num.0 as u16) - delta);
