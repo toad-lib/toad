@@ -70,8 +70,7 @@ type VecRespCore = RespCore<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>, Vec<(OptNumber,
 pub struct RespCore<Bytes: Array<Item = u8>,
  OptBytes: Array<Item = u8> + 'static,
  Opts: Array<Item = Opt<OptBytes>>,
- OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>>
-{
+ OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> {
   msg: Message<Bytes, OptBytes, Opts>,
   opts: Option<OptNumbers>,
 }
@@ -100,11 +99,9 @@ impl<Bytes: Array<Item = u8>,
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.token,
-                        };
+                        token: req.token };
 
-    Self { msg,
-           opts: None }
+    Self { msg, opts: None }
   }
 
   /// Get the payload's raw bytes
@@ -128,7 +125,9 @@ impl<Bytes: Array<Item = u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    if self.opts.is_none() {self.opts = Some(Default::default());}
+    if self.opts.is_none() {
+      self.opts = Some(Default::default());
+    }
     crate::add_option(self.opts.as_mut().unwrap(), number, value)
   }
 

@@ -98,8 +98,7 @@ type VecReq = ReqCore<Vec<u8>, Vec<u8>, Vec<VecOpt>, Vec<(OptNumber, VecOpt)>>;
 pub struct ReqCore<Bytes: Array<Item = u8>,
  OptBytes: Array<Item = u8> + 'static,
  Opts: Array<Item = Opt<OptBytes>>,
- OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>>
-{
+ OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> {
   msg: Message<Bytes, OptBytes, Opts>,
   opts: Option<OptNumbers>,
 }
@@ -116,8 +115,7 @@ impl<Bytes: Array<Item = u8>,
                         id: crate::generate_id(),
                         opts: Default::default(),
                         payload: Payload(Default::default()),
-                        token: Token(Default::default()),
-                        };
+                        token: Token(Default::default()) };
 
     let mut me = Self { msg,
                         opts: Default::default() };
@@ -133,7 +131,9 @@ impl<Bytes: Array<Item = u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    if self.opts.is_none() {self.opts = Some(Default::default());}
+    if self.opts.is_none() {
+      self.opts = Some(Default::default());
+    }
     crate::add_option(self.opts.as_mut().unwrap(), number, value)
   }
 

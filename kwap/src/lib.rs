@@ -51,17 +51,17 @@ fn generate_id() -> kwap_msg::Id {
   }
 }
 
-fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(opts: &mut A,
-                                                                                       number: u32,
-                                                                                       value: V)
-                                                                                       -> Option<(u32, V)>
-{
+fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(
+  opts: &mut A,
+  number: u32,
+  value: V)
+  -> Option<(u32, V)> {
   use kwap_msg::*;
 
   let exist_ix = opts.iter()
-                             .enumerate()
-                             .find(|(_, (num, _))| num.0 == number)
-                             .map(|(ix, _)| ix);
+                     .enumerate()
+                     .find(|(_, (num, _))| num.0 == number)
+                     .map(|(ix, _)| ix);
 
   if let Some(exist_ix) = exist_ix {
     let mut exist = &mut opts[exist_ix];
@@ -85,20 +85,22 @@ fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: Into
   None
 }
 
-fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>, Opts: Array<Item = Opt<Bytes>>, Bytes: Array<Item = u8>>(mut os: OptNumbers)
-                                                                                                         -> Opts
-{
+fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
+                  Opts: Array<Item = Opt<Bytes>>,
+                  Bytes: Array<Item = u8>>(
+  mut os: OptNumbers)
+  -> Opts {
   if os.is_empty() {
     return Opts::default();
   }
 
   os.sort_by_key(|(number, _)| number.0);
   os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
-    let delta = opts.last().map(|Opt {delta: OptDelta(del), ..}| *del).unwrap_or(0u16);
-    opt.delta = OptDelta((num.0 as u16) - delta);
-    opts.push(opt);
-    opts
-  })
+                  let delta = opts.last().map(|Opt { delta: OptDelta(del), .. }| *del).unwrap_or(0u16);
+                  opt.delta = OptDelta((num.0 as u16) - delta);
+                  opts.push(opt);
+                  opts
+                })
 }
 
 macro_rules! code {
@@ -116,4 +118,4 @@ macro_rules! code {
 
 pub(crate) use code;
 use kwap_common::Array;
-use kwap_msg::{Opt, OptNumber, OptDelta};
+use kwap_msg::{Opt, OptDelta, OptNumber};
