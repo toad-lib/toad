@@ -36,6 +36,9 @@ extern crate alloc as std_alloc;
 /// CoAP response messages
 pub mod resp;
 
+/// CoAP request messages
+pub mod req;
+
 static mut ID: u16 = 0;
 
 fn generate_id() -> kwap_msg::Id {
@@ -47,3 +50,68 @@ fn generate_id() -> kwap_msg::Id {
     kwap_msg::Id(ID)
   }
 }
+
+fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(
+  opts: &mut A,
+  number: u32,
+  value: V)
+  -> Option<(u32, V)> {
+  use kwap_msg::*;
+
+  let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
+
+  if let Some((_, opt)) = exist {
+    opt.value = OptValue(value.into_iter().collect());
+    return None;
+  }
+
+  let n_opts = opts.get_size() + 1;
+  let no_room = opts.max_size().map(|max| max < n_opts).unwrap_or(false);
+
+  if no_room {
+    return Some((number, value));
+  }
+
+  let num = OptNumber(number);
+  let opt = Opt::<_> { delta: Default::default(),
+                       value: OptValue(value.into_iter().collect()) };
+
+  opts.extend(Some((num, opt)));
+
+  None
+}
+
+fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
+                  Opts: Array<Item = Opt<Bytes>>,
+                  Bytes: Array<Item = u8>>(
+  mut os: OptNumbers)
+  -> Opts {
+  if os.is_empty() {
+    return Opts::default();
+  }
+
+  os.sort_by_key(|&(OptNumber(num), _)| num);
+  os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
+                  let delta = opts.last().map(|Opt { delta: OptDelta(del), .. }| *del).unwrap_or(0u16);
+                  opt.delta = OptDelta((num.0 as u16) - delta);
+                  opts.push(opt);
+                  opts
+                })
+}
+
+macro_rules! code {
+  (rfc7252($section:literal) $name:ident = $c:literal.$d:literal) => {
+    #[doc = kwap_macros::rfc_7252_doc!($section)]
+    #[allow(clippy::zero_prefixed_literal)]
+    pub const $name: kwap_msg::Code = kwap_msg::Code::new($c, $d);
+  };
+  (rfc7252($section:literal) $name:ident = $newtype:tt($c:literal.$d:literal)) => {
+    #[doc = kwap_macros::rfc_7252_doc!($section)]
+    #[allow(clippy::zero_prefixed_literal)]
+    pub const $name: $newtype = $newtype(kwap_msg::Code::new($c, $d));
+  };
+}
+
+pub(crate) use code;
+use kwap_common::Array;
+use kwap_msg::{Opt, OptDelta, OptNumber};

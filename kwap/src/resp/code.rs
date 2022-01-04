@@ -1,13 +1,6 @@
-use kwap_macros::rfc_7252_doc;
 pub use kwap_msg::Code;
 
-macro_rules! code {
-  (rfc7252($section:literal) $name:ident = $c:literal.$d:literal) => {
-    #[doc = rfc_7252_doc!($section)]
-    #[allow(clippy::zero_prefixed_literal)]
-    pub const $name: kwap_msg::Code = kwap_msg::Code::new($c, $d);
-  };
-}
+use crate::code;
 
 // 2.xx
 code!(rfc7252("5.9.1.1") CREATED = 2 . 01);
