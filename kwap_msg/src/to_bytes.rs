@@ -23,7 +23,6 @@ pub trait TryIntoBytes {
   /// # payload: kwap_msg::Payload(Default::default()),
   /// # token: kwap_msg::Token(Default::default()),
   /// # code: kwap_msg::Code {class: 0, detail: 1},
-  /// # __optc: Default::default(),
   /// };
   ///
   /// let bytes: tinyvec::ArrayVec<[u8; 1024]> = arrayvec_message.try_into_bytes().unwrap();
@@ -38,12 +37,11 @@ pub trait TryIntoBytes {
   /// # payload: kwap_msg::Payload(Default::default()),
   /// # token: kwap_msg::Token(Default::default()),
   /// # code: kwap_msg::Code {class: 0, detail: 1},
-  /// # __optc: Default::default(),
   /// };
   ///
   /// let bytes: Vec<u8> = vec_message.try_into_bytes().unwrap();
   /// ```
-  fn try_into_bytes<C: Array<u8>>(self) -> Result<C, Self::Error>
+  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error>
     where for<'a> &'a C: IntoIterator<Item = &'a u8>;
 }
 
@@ -54,14 +52,14 @@ pub enum MessageToBytesError {
   TooLong { capacity: usize, size: usize },
 }
 
-impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> TryIntoBytes for Message<P, O, Os>
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes for Message<P, O, Os>
   where for<'b> &'b P: IntoIterator<Item = &'b u8>,
         for<'b> &'b O: IntoIterator<Item = &'b u8>,
         for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
 {
   type Error = MessageToBytesError;
 
-  fn try_into_bytes<C: Array<u8>>(self) -> Result<C, Self::Error>
+  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error>
     where for<'a> &'a C: IntoIterator<Item = &'a u8>
   {
     let mut bytes = C::reserve(self.get_size());
@@ -229,8 +227,7 @@ mod tests {
                            code: Code { class: 2, detail: 5 },
                            token: Token(Default::default()),
                            opts: Default::default(),
-                           payload: Payload(Default::default()),
-                           __optc: Default::default() };
+                           payload: Payload(Default::default()) };
 
     assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(), Some(&0b11111111));
   }

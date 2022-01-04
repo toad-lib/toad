@@ -99,7 +99,7 @@ pub use to_bytes::TryIntoBytes;
 
 #[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct Payload<C: Array<u8>>(pub C) where for<'a> &'a C: IntoIterator<Item = &'a u8>;
+pub struct Payload<C: Array<Item = u8>>(pub C);
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
@@ -162,17 +162,12 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///   opts: opts_expected,
 ///   code: Code {class: 2, detail: 5},
 ///   payload: Payload(b"hello, world!".to_vec()),
-///   __optc: Default::default(),
 /// };
 ///
 /// assert_eq!(msg, expected);
 /// ```
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct Message<PayloadC: Array<u8>, OptC: Array<u8> + 'static, Opts: Array<Opt<OptC>>>
-  where for<'a> &'a PayloadC: IntoIterator<Item = &'a u8>,
-        for<'a> &'a OptC: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptC>>
-{
+pub struct Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>> {
   /// see [`Id`] for details
   pub id: Id,
   /// see [`Type`] for details
@@ -187,21 +182,15 @@ pub struct Message<PayloadC: Array<u8>, OptC: Array<u8> + 'static, Opts: Array<O
   pub opts: Opts,
   /// see [`Payload`]
   pub payload: Payload<PayloadC>,
-  /// empty field using the Opt internal byte collection type
-  pub __optc: core::marker::PhantomData<OptC>,
 }
 
-impl<P: Array<u8>, O: Array<u8>, Os: Array<Opt<O>>> GetSize for Message<P, O, Os>
-  where for<'b> &'b P: IntoIterator<Item = &'b u8>,
-        for<'b> &'b O: IntoIterator<Item = &'b u8>,
-        for<'b> &'b Os: IntoIterator<Item = &'b Opt<O>>
-{
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize for Message<P, O, Os> {
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
     let payload_size = self.payload.0.get_size();
     let token_size = self.token.0.len();
-    let opts_size: usize = (&self.opts).into_iter().map(|o| o.get_size()).sum();
+    let opts_size: usize = self.opts.iter().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
   }
@@ -316,8 +305,7 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                          token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                          opts,
                          code: Code { class: 2, detail: 5 },
-                         payload: Payload(b"hello, world!".into_iter().copied().collect()),
-                         __optc: Default::default() };
+                         payload: Payload(b"hello, world!".into_iter().copied().collect()) };
   (msg, bytes)
 }
 
