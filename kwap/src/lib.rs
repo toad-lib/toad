@@ -51,16 +51,14 @@ fn generate_id() -> kwap_msg::Id {
   }
 }
 
-fn add_option<A: Array<(OptNumber, Opt<B>)>, B: Array<u8>, V: IntoIterator<Item = u8>>(opts: &mut A,
+fn add_option<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(opts: &mut A,
                                                                                        number: u32,
                                                                                        value: V)
                                                                                        -> Option<(u32, V)>
-  where for<'a> &'a B: IntoIterator<Item = &'a u8>,
-        for<'a> &'a A: IntoIterator<Item = &'a (OptNumber, Opt<B>)>
 {
   use kwap_msg::*;
 
-  let exist_ix = (opts as &A).into_iter()
+  let exist_ix = opts.iter()
                              .enumerate()
                              .find(|(_, (num, _))| num.0 == number)
                              .map(|(ix, _)| ix);
@@ -87,14 +85,20 @@ fn add_option<A: Array<(OptNumber, Opt<B>)>, B: Array<u8>, V: IntoIterator<Item 
   None
 }
 
-fn normalize_opts<OptNumbers: Array<(OptNumber, Opt<Bytes>)>, Opts: Array<Opt<Bytes>>, Bytes: Array<u8>>(os: &mut OptNumbers)
+fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>, Opts: Array<Item = Opt<Bytes>>, Bytes: Array<Item = u8>>(mut os: OptNumbers)
                                                                                                          -> Opts
-  where for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<Bytes>)>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<Bytes>>
 {
-  // TODO
-  Default::default()
+  if os.is_empty() {
+    return Opts::default();
+  }
+
+  os.sort_by_key(|(number, _)| number.0);
+  os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
+    let delta = opts.last().map(|Opt {delta: OptDelta(del), ..}| *del).unwrap_or(0u16);
+    opt.delta = OptDelta((num.0 as u16) - delta);
+    opts.push(opt);
+    opts
+  })
 }
 
 macro_rules! code {
@@ -112,4 +116,4 @@ macro_rules! code {
 
 pub(crate) use code;
 use kwap_common::Array;
-use kwap_msg::{Opt, OptNumber};
+use kwap_msg::{Opt, OptNumber, OptDelta};

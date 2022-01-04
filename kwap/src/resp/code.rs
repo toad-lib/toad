@@ -1,4 +1,3 @@
-use kwap_macros::rfc_7252_doc;
 pub use kwap_msg::Code;
 
 use crate::code;

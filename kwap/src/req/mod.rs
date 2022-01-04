@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 use kwap_common::Array;
-use kwap_msg::{Code, Message, Opt, OptNumber, Payload, Token, Type};
+use kwap_msg::{Message, Opt, OptNumber, Payload, Token, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::{string::{FromUtf8Error, String},
                 vec::Vec};
@@ -95,27 +95,19 @@ type VecReq = ReqCore<Vec<u8>, Vec<u8>, Vec<VecOpt>, Vec<(OptNumber, VecOpt)>>;
 
 /// TODO
 #[derive(Debug, Clone)]
-pub struct ReqCore<Bytes: Array<u8>,
- OptBytes: Array<u8> + 'static,
- Opts: Array<Opt<OptBytes>>,
- OptNumbers: Array<(OptNumber, Opt<OptBytes>)>>
-  where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+pub struct ReqCore<Bytes: Array<Item = u8>,
+ OptBytes: Array<Item = u8> + 'static,
+ Opts: Array<Item = Opt<OptBytes>>,
+ OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>>
 {
   msg: Message<Bytes, OptBytes, Opts>,
-  opts: OptNumbers,
+  opts: Option<OptNumbers>,
 }
 
-impl<Bytes: Array<u8>,
-      OptBytes: Array<u8> + 'static,
-      Opts: Array<Opt<OptBytes>>,
-      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> ReqCore<Bytes, OptBytes, Opts, OptNumbers>
-  where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+impl<Bytes: Array<Item = u8>,
+      OptBytes: Array<Item = u8> + 'static,
+      Opts: Array<Item = Opt<OptBytes>>,
+      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> ReqCore<Bytes, OptBytes, Opts, OptNumbers>
 {
   fn new<P: AsRef<str>>(method: Method, path: P) -> Self {
     let msg = Message { ty: Type::Con,
@@ -125,7 +117,7 @@ impl<Bytes: Array<u8>,
                         opts: Default::default(),
                         payload: Payload(Default::default()),
                         token: Token(Default::default()),
-                        __optc: Default::default() };
+                        };
 
     let mut me = Self { msg,
                         opts: Default::default() };
@@ -141,7 +133,8 @@ impl<Bytes: Array<u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    crate::add_option(&mut self.opts, number, value)
+    if self.opts.is_none() {self.opts = Some(Default::default());}
+    crate::add_option(self.opts.as_mut().unwrap(), number, value)
   }
 
   /// Creates a new GET request
@@ -171,7 +164,7 @@ impl<Bytes: Array<u8>,
 
   /// Get the payload's raw bytes
   pub fn payload(&self) -> impl Iterator<Item = &u8> {
-    (&self.msg.payload.0).into_iter()
+    self.msg.payload.0.iter()
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
@@ -182,19 +175,17 @@ impl<Bytes: Array<u8>,
 
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
   fn normalize_opts(&mut self) {
-    self.msg.opts = crate::normalize_opts(&mut self.opts);
+    if let Some(opts) = Option::take(&mut self.opts) {
+      self.msg.opts = crate::normalize_opts(opts);
+    }
   }
 }
 
-impl<Bytes: Array<u8>,
-      OptBytes: Array<u8> + 'static,
-      Opts: Array<Opt<OptBytes>>,
-      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> From<ReqCore<Bytes, OptBytes, Opts, OptNumbers>>
+impl<Bytes: Array<Item = u8>,
+      OptBytes: Array<Item = u8> + 'static,
+      Opts: Array<Item = Opt<OptBytes>>,
+      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> From<ReqCore<Bytes, OptBytes, Opts, OptNumbers>>
   for Message<Bytes, OptBytes, Opts>
-  where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
 {
   fn from(mut req: ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
     req.normalize_opts();

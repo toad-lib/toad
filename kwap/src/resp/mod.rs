@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 use kwap_common::Array;
-use kwap_msg::{Message, Opt, OptNumber, OptValue, Payload, Type};
+use kwap_msg::{Message, Opt, OptNumber, Payload, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::{string::{FromUtf8Error, String},
                 vec::Vec};
@@ -67,34 +67,25 @@ type VecRespCore = RespCore<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>, Vec<(OptNumber,
 
 /// TODO: ser/de support
 #[derive(Clone, Debug)]
-pub struct RespCore<Bytes: Array<u8>,
- OptBytes: Array<u8> + 'static,
- Opts: Array<Opt<OptBytes>>,
- OptNumbers: Array<(OptNumber, Opt<OptBytes>)>>
-  where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+pub struct RespCore<Bytes: Array<Item = u8>,
+ OptBytes: Array<Item = u8> + 'static,
+ Opts: Array<Item = Opt<OptBytes>>,
+ OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>>
 {
   msg: Message<Bytes, OptBytes, Opts>,
-  opts: OptNumbers,
+  opts: Option<OptNumbers>,
 }
 
-impl<Bytes: Array<u8>,
-      OptBytes: Array<u8> + 'static,
-      Opts: Array<Opt<OptBytes>>,
-      OptNumbers: Array<(OptNumber, Opt<OptBytes>)>> RespCore<Bytes, OptBytes, Opts, OptNumbers>
-  where for<'a> &'a OptBytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Bytes: IntoIterator<Item = &'a u8>,
-        for<'a> &'a Opts: IntoIterator<Item = &'a Opt<OptBytes>>,
-        for<'a> &'a OptNumbers: IntoIterator<Item = &'a (OptNumber, Opt<OptBytes>)>
+impl<Bytes: Array<Item = u8>,
+      OptBytes: Array<Item = u8> + 'static,
+      Opts: Array<Item = Opt<OptBytes>>,
+      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> RespCore<Bytes, OptBytes, Opts, OptNumbers>
 {
   /// Create a new response for a given request
   ///
   /// TODO: replace msg with Request type
   pub fn for_request(req: crate::req::ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
     let req = Message::from(req);
-    let n_opts = req.opts.get_size();
 
     let msg = Message { ty: match req.ty {
                           | Type::Con => Type::Ack,
@@ -110,15 +101,15 @@ impl<Bytes: Array<u8>,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
                         token: req.token,
-                        __optc: Default::default() };
+                        };
 
     Self { msg,
-           opts: OptNumbers::reserve(n_opts) }
+           opts: None }
   }
 
   /// Get the payload's raw bytes
   pub fn payload(&self) -> impl Iterator<Item = &u8> {
-    (&self.msg.payload.0).into_iter()
+    self.msg.payload.0.iter()
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
@@ -137,7 +128,8 @@ impl<Bytes: Array<u8>,
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
-    crate::add_option(&mut self.opts, number, value)
+    if self.opts.is_none() {self.opts = Some(Default::default());}
+    crate::add_option(self.opts.as_mut().unwrap(), number, value)
   }
 
   /// Add a payload to this response
@@ -147,6 +139,8 @@ impl<Bytes: Array<u8>,
 
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
   fn normalize_opts(&mut self) {
-    self.msg.opts = crate::normalize_opts(&mut self.opts);
+    if let Some(opts) = Option::take(&mut self.opts) {
+      self.msg.opts = crate::normalize_opts(opts);
+    }
   }
 }
