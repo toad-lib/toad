@@ -23,7 +23,6 @@ pub trait TryIntoBytes {
   /// # payload: kwap_msg::Payload(Default::default()),
   /// # token: kwap_msg::Token(Default::default()),
   /// # code: kwap_msg::Code {class: 0, detail: 1},
-  /// # __optc: Default::default(),
   /// };
   ///
   /// let bytes: tinyvec::ArrayVec<[u8; 1024]> = arrayvec_message.try_into_bytes().unwrap();
@@ -38,7 +37,6 @@ pub trait TryIntoBytes {
   /// # payload: kwap_msg::Payload(Default::default()),
   /// # token: kwap_msg::Token(Default::default()),
   /// # code: kwap_msg::Code {class: 0, detail: 1},
-  /// # __optc: Default::default(),
   /// };
   ///
   /// let bytes: Vec<u8> = vec_message.try_into_bytes().unwrap();
@@ -229,8 +227,7 @@ mod tests {
                            code: Code { class: 2, detail: 5 },
                            token: Token(Default::default()),
                            opts: Default::default(),
-                           payload: Payload(Default::default()),
-                           __optc: Default::default() };
+                           payload: Payload(Default::default()) };
 
     assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(), Some(&0b11111111));
   }

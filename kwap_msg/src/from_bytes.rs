@@ -173,7 +173,8 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   }
 }
 
-impl<'a, P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<&'a u8> for Message<P, O, Os>
+impl<'a, P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<&'a u8>
+  for Message<P, O, Os>
 {
   type Error = MessageParseError;
 
@@ -182,8 +183,7 @@ impl<'a, P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> Try
   }
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<u8> for Message<P, O, Os>
-{
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFromBytes<u8> for Message<P, O, Os> {
   type Error = MessageParseError;
 
   fn try_from_bytes<I: IntoIterator<Item = u8>>(bytes: I) -> Result<Self, Self::Error> {
@@ -207,7 +207,7 @@ impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryFrom
                  code,
                  token,
                  opts,
-                 payload})
+                 payload })
   }
 }
 

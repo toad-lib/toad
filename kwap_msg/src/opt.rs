@@ -17,15 +17,14 @@ use crate::from_bytes::*;
 ///
 /// To get [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
 #[derive(Clone, PartialEq, PartialOrd, Debug, Default)]
-pub struct Opt<C: Array<Item = u8>>
-{
+pub struct Opt<C: Array<Item = u8>> {
   /// See [`OptDelta`]
   pub delta: OptDelta,
   /// See [`OptValue`]
   pub value: OptValue<C>,
 }
 
-impl<C: Array<Item = u8>> GetSize for Opt<C>{
+impl<C: Array<Item = u8>> GetSize for Opt<C> {
   fn get_size(&self) -> usize {
     let header_size = 1;
     let delta_size = match self.delta.0 {
@@ -97,7 +96,7 @@ pub struct OptNumber(pub u32);
 
 #[doc = rfc_7252_doc!("3.2")]
 #[derive(Default, Clone, PartialEq, PartialOrd, Debug)]
-pub struct OptValue<C: Array<Item = u8>>(pub C) ;
+pub struct OptValue<C: Array<Item = u8>>(pub C);
 
 /// Peek at the first byte of a byte iterable and interpret as an Option header.
 ///
@@ -114,8 +113,7 @@ pub(crate) fn opt_header<I: Iterator<Item = u8>>(mut bytes: I) -> Result<u8, Opt
   Ok(opt_header.unwrap())
 }
 
-impl<C: Array<Item = u8>, OptArray: Array<Item = Opt<C>>, I: Iterator<Item = u8>> TryConsumeBytes<I> for OptArray
-  {
+impl<C: Array<Item = u8>, OptArray: Array<Item = Opt<C>>, I: Iterator<Item = u8>> TryConsumeBytes<I> for OptArray {
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
@@ -137,8 +135,7 @@ impl<C: Array<Item = u8>, OptArray: Array<Item = Opt<C>>, I: Iterator<Item = u8>
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeBytes<I> for Opt<C>
-  {
+impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeBytes<I> for Opt<C> {
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
@@ -153,8 +150,7 @@ impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeBytes<I> for Opt<C>
   }
 }
 
-impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeNBytes<I> for OptValue<C>
-  {
+impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeNBytes<I> for OptValue<C> {
   type Error = OptParseError;
 
   fn try_consume_n_bytes(n: usize, bytes: &mut I) -> Result<Self, Self::Error> {
@@ -193,15 +189,13 @@ pub trait EnumerateOptNumbers<T>
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self>;
 }
 
-impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I
-{
+impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<Opt<C>, Self> {
     EnumerateOptNumbersIter { number: 0, iter: self }
   }
 }
 
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I
-{
+impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<&'a Opt<C>, Self> {
     EnumerateOptNumbersIter { number: 0, iter: self }
   }
@@ -220,8 +214,7 @@ pub struct EnumerateOptNumbersIter<T, I: Iterator<Item = T>> {
   iter: I,
 }
 
-impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I>
-{
+impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I> {
   type Item = (OptNumber, Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -232,8 +225,7 @@ impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptN
   }
 }
 
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I>
-{
+impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I> {
   type Item = (OptNumber, &'a Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {

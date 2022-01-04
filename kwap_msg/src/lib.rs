@@ -162,14 +162,12 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 ///   opts: opts_expected,
 ///   code: Code {class: 2, detail: 5},
 ///   payload: Payload(b"hello, world!".to_vec()),
-///   __optc: Default::default(),
 /// };
 ///
 /// assert_eq!(msg, expected);
 /// ```
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>>
-{
+pub struct Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>> {
   /// see [`Id`] for details
   pub id: Id,
   /// see [`Type`] for details
@@ -186,8 +184,7 @@ pub struct Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static,
   pub payload: Payload<PayloadC>,
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize for Message<P, O, Os>
-{
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize for Message<P, O, Os> {
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
@@ -308,8 +305,7 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                          token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                          opts,
                          code: Code { class: 2, detail: 5 },
-                         payload: Payload(b"hello, world!".into_iter().copied().collect()),
-                         __optc: Default::default() };
+                         payload: Payload(b"hello, world!".into_iter().copied().collect()) };
   (msg, bytes)
 }
 

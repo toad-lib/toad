@@ -91,7 +91,6 @@ fn get_hello() -> Message {
   use kwap_msg::*;
   Message { id: Id(1),
             ty: Type::Con,
-            __optc: Default::default(),
             ver: Default::default(),
             token: Token(Default::default()),
             code: Code { class: 0, detail: 1 }, // GET
@@ -105,7 +104,6 @@ fn ok_hello(token: kwap_msg::Token) -> Message {
   Message { id: Id(1),
             ty: Type::Ack, // ACK
             ver: Default::default(),
-            __optc: Default::default(),
             token,
             code: Code { class: 2, detail: 5 }, // 2.05 OK
             opts: Vec::new(),
@@ -117,7 +115,6 @@ fn not_found(token: kwap_msg::Token) -> Message {
   Message { id: Id(1),
             ty: Type::Ack, // ACK
             ver: Default::default(),
-            __optc: Default::default(),
             token,
             code: Code { class: 4, detail: 4 }, // 4.04 NOT FOUND
             opts: Vec::new(),
