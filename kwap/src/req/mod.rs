@@ -21,7 +21,7 @@ use crate::config::{self, Config};
 /// # main();
 /// fn main() {
 ///   let client = Client::new();
-///   let mut req = Req::<Alloc>::post("coap://myfunnyserver.com/hello");
+///   let mut req = Req::<Alloc>::post("coap://myfunnyserver.com", 5632, "hello");
 ///   req.set_payload("john".bytes());
 ///
 ///   let resp = client.send(req);
@@ -56,7 +56,7 @@ pub struct Req<Cfg: Config> {
 }
 
 impl<Cfg: Config> Req<Cfg> {
-  fn new<P: AsRef<str>>(method: Method, path: P) -> Self {
+  fn new<P: AsRef<str>>(method: Method, host: P, port: u16, path: P) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
@@ -68,8 +68,18 @@ impl<Cfg: Config> Req<Cfg> {
     let mut me = Self { msg,
                         opts: Default::default() };
 
+    fn strbytes<'a, S: AsRef<str> + 'a>(s: &'a S) -> impl Iterator<Item = u8> + 'a {
+      s.as_ref().as_bytes().iter().copied()
+    }
+
+    // Uri-Host
+    me.set_option(3, strbytes(&host));
+
+    // Uri-Port
+    me.set_option(7, port.to_be_bytes());
+
     // Uri-Path
-    me.set_option(11, path.as_ref().as_bytes().iter().copied());
+    me.set_option(11, strbytes(&host));
 
     me
   }
@@ -86,23 +96,23 @@ impl<Cfg: Config> Req<Cfg> {
   }
 
   /// Creates a new GET request
-  pub fn get<P: AsRef<str>>(path: P) -> Self {
-    Self::new(Method::GET, path)
+  pub fn get<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+    Self::new(Method::GET, host, port, path)
   }
 
   /// Creates a new POST request
-  pub fn post<P: AsRef<str>>(path: P) -> Self {
-    Self::new(Method::POST, path)
+  pub fn post<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+    Self::new(Method::POST, host, port, path)
   }
 
   /// Creates a new PUT request
-  pub fn put<P: AsRef<str>>(path: P) -> Self {
-    Self::new(Method::PUT, path)
+  pub fn put<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+    Self::new(Method::PUT, host, port, path)
   }
 
   /// Creates a new DELETE request
-  pub fn delete<P: AsRef<str>>(path: P) -> Self {
-    Self::new(Method::DELETE, path)
+  pub fn delete<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+    Self::new(Method::DELETE, host, port, path)
   }
 
   /// Add a payload to this request

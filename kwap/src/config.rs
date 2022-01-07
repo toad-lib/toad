@@ -20,7 +20,6 @@ impl Config for Alloc {
   type Opts = Vec<Opt<Vec<u8>>>;
   type OptNumbers = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Events = Vec<Event<Self>>;
-  type ClientEventHandlers = Vec<(MatchEvent, fn(&Client<Self>, &mut Event<Self>))>;
 }
 
 /// kwap configuration trait
@@ -34,9 +33,6 @@ pub trait Config: Sized + 'static {
 
   /// What type should we use to keep track of options before serializing?
   type OptNumbers: Array<Item = (OptNumber, Opt<Self::OptBytes>)> + Clone + Debug;
-
-  /// What type should we use to store event handlers?
-  type ClientEventHandlers: Array<Item = (MatchEvent, fn(&Client<Self>, &mut Event<Self>))>;
 
   /// What type should we use to store events?
   type Events: Array<Item = Event<Self>>;

@@ -52,6 +52,20 @@ pub mod client;
 pub mod config;
 
 static mut ID: u16 = 0;
+use no_std_net::{ToSocketAddrs, SocketAddr};
+
+/// TODO
+pub trait Socket: Default {
+/// TODO
+  type Error: core::fmt::Debug;
+
+/// TODO
+  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> nb::Result<(), Self::Error>;
+/// TODO
+  fn send(&mut self, msg: &[u8]) -> nb::Result<(), Self::Error>;
+/// TODO
+  fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
+}
 
 fn generate_id() -> kwap_msg::Id {
   // TEMPORARY
@@ -127,3 +141,36 @@ macro_rules! code {
 pub(crate) use code;
 use kwap_common::Array;
 use kwap_msg::{Opt, OptDelta, OptNumber};
+
+#[cfg(test)]
+pub(crate) mod test {
+  use super::*;
+
+  /// A mocked socket
+  #[derive(Clone, Debug, Default)]
+  pub struct TubeSock(Option<SocketAddr>, Vec<u8>);
+
+  impl Socket for TubeSock {
+    type Error = Option<()>;
+
+    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> nb::Result<(), Self::Error> {
+      self.0 = a.to_socket_addrs().unwrap().next();
+      Ok(())
+    }
+
+    fn recv(&mut self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
+      if self.1.is_empty() {
+        return Err(nb::Error::WouldBlock);
+      }
+
+      let n = self.1.len();
+      self.1.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
+      Ok((n, self.0.unwrap()))
+    }
+
+    fn send(&mut self, buf: &[u8]) -> nb::Result<(), Self::Error> {
+      self.1 = buf.iter().copied().collect();
+      Ok(())
+    }
+  }
+}
