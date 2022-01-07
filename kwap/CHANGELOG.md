@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.1.4 (2022-01-07)
+
+
+### Features
+
+* **kwap:** runtime should support acting as client ([#45](https://github.com/clov-coffee/kwap/issues/45)) ([0d63c52](https://github.com/clov-coffee/kwap/commit/0d63c52fa872e7a33ac7b298ae55e75870c1a147))
+
 ### 0.1.3 (2022-01-07)
 
 
