@@ -43,10 +43,7 @@ pub mod resp;
 pub mod req;
 
 /// CoAP client
-pub mod event;
-
-/// CoAP client
-pub mod client;
+pub mod core;
 
 /// kwap configuration
 pub mod config;

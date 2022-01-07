@@ -74,7 +74,7 @@ impl<Cfg: Config> Event<Cfg> {
 ///
 /// ```
 /// use kwap::{config::Alloc,
-///            event::{Event, MatchEvent}};
+///            core::event::{Event, MatchEvent}};
 ///
 /// static mut LOG_ERRS_WAS_CALLED: bool = false;
 ///
@@ -121,7 +121,7 @@ impl MatchEvent {
   ///
   /// ```
   /// use tinyvec::ArrayVec;
-  /// use kwap::event::{MatchEvent, Event};
+  /// use kwap::core::event::{MatchEvent, Event};
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// # main();
