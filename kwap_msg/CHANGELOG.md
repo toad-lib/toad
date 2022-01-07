@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.4.1 (2022-01-07)
+
+
+### Bug Fixes
+
+* **msg:** all where clauses should be gone ([#44](https://github.com/clov-coffee/kwap/issues/44)) ([f067a87](https://github.com/clov-coffee/kwap/commit/f067a87b705b0800b1729893dc34942aebb27917))
+
 ## 0.4.0 (2022-01-04)
 
 
