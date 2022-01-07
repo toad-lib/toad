@@ -16,7 +16,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["alloc"]
-alloc = ["no_std"]
+alloc = []
 no_std = []
 test = []
 docs = []

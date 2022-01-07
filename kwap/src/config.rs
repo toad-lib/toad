@@ -5,8 +5,7 @@ use kwap_msg::{Opt, OptNumber};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 
-use crate::{client::Client,
-            event::{Event, MatchEvent}};
+use crate::event::Event;
 
 /// Configures `kwap` to use `Vec` for collections
 #[cfg(feature = "alloc")]

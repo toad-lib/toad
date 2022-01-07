@@ -1,10 +1,6 @@
-use core::ops::{Deref, DerefMut};
-
-use kwap_common::Array;
-use kwap_msg::{Message, Opt, OptNumber, Payload, Token, Type};
+use kwap_msg::{Message, Payload, Token, Type};
 #[cfg(feature = "alloc")]
-use std_alloc::{string::{FromUtf8Error, String},
-                vec::Vec};
+use std_alloc::string::{FromUtf8Error, String};
 
 #[doc(hidden)]
 pub mod method;

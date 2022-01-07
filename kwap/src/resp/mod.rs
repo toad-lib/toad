@@ -1,10 +1,6 @@
-use core::ops::{Deref, DerefMut};
-
-use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Type};
+use kwap_msg::{EnumerateOptNumbers, Message, Payload, Type};
 #[cfg(feature = "alloc")]
-use std_alloc::{string::{FromUtf8Error, String},
-                vec::Vec};
+use std_alloc::string::{FromUtf8Error, String};
 
 use crate::config::{self, Config};
 
@@ -37,7 +33,7 @@ pub mod code;
 ///
 /// fn start_server(f: impl FnOnce(kwap::req::Req<Alloc>) -> kwap::resp::Resp<Alloc>) {
 ///   // servery things
-/// # f(kwap::req::Req::get("foo"));
+/// # f(kwap::req::Req::get("foo", 0, ""));
 /// }
 /// ```
 #[derive(Clone, Debug)]

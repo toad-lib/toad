@@ -1,6 +1,5 @@
 use core::{cell::RefCell, str::FromStr};
 
-use kwap_common::Insert;
 use kwap_msg::{EnumerateOptNumbers, TryIntoBytes};
 use no_std_net::SocketAddrV4;
 use tinyvec::ArrayVec;
@@ -12,12 +11,13 @@ use crate::{config::{self, Config},
                     MatchEvent},
             req::Req,
             resp::Resp,
-            Socket};
+            socket::Socket};
 
-/// A CoAP request client that uses a state machine to send requests and process incoming messages.
+/// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
-/// The behavior at runtime is fully customizable, with the default provided via a [`Default::default`]
-/// implementation.
+/// Defined as a state machine with state transitions ([`Event`]s).
+///
+/// The behavior at runtime is fully customizable, with the default behavior provided via [`Client::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Client<Sock: Socket, Cfg: Config> {
   sock: Sock,
@@ -30,7 +30,7 @@ pub struct Client<Sock: Socket, Cfg: Config> {
 }
 
 impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
-  /// TODO
+  /// Creates a new Client with the default runtime behavior
   pub fn new() -> Self {
     let mut me = Self::behaviorless();
     me.bootstrap();
@@ -40,9 +40,9 @@ impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
   /// Create a new client without any actual behavior
   ///
   /// ```
-  /// use kwap::{client::Client, config::Alloc};
+  /// use kwap::{client::Client, config::Alloc, std::UdpSocket};
   ///
-  /// Client::<Alloc>::behaviorless();
+  /// Client::<UdpSocket, Alloc>::behaviorless();
   /// ```
   pub fn behaviorless() -> Self {
     Self { resps: Default::default(),
@@ -57,7 +57,8 @@ impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
     self.listen(MatchEvent::RecvResp, Client::<Sock, Cfg>::store_resp);
   }
 
-  fn store_resp(&self, ev: &mut Event<Cfg>) {
+  /// Listens for RecvResp events and stores them on the runtime struct
+  pub fn store_resp(&self, ev: &mut Event<Cfg>) {
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
     let mut resps = self.resps.borrow_mut();
     if let Some(resp) = resps.try_push(Some(resp)) {
@@ -81,12 +82,13 @@ impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
   /// ```
   /// use kwap::{client::Client,
   ///            config::Alloc,
-  ///            event::{Event, MatchEvent}};
+  ///            event::{Event, MatchEvent},
+  ///            std::UdpSocket};
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
   ///
-  /// fn log_errs(_: &Client<Alloc>, ev: &mut Event<Alloc>) {
+  /// fn log_errs(_: &Client<UdpSocket, Alloc>, ev: &mut Event<Alloc>) {
   ///   let err = ev.get_msg_parse_error().unwrap();
   ///   eprintln!("error! {:?}", err);
   ///   unsafe {
@@ -110,7 +112,8 @@ impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
                                                });
   }
 
-  fn fire_sock_events(&mut self) {
+  /// Check the stored socket for a new datagram, and fire a RecvDgram event
+  fn poll_sock(&mut self) {
     let mut buf = ArrayVec::<[u8; 1152]>::new();
     let recvd = self.sock.recv(&mut buf);
     match recvd {
@@ -125,24 +128,20 @@ impl<Sock: Socket, Cfg: Config> Client<Sock, Cfg> {
 
   /// Poll for a response to a sent request
   pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> Result<Option<Resp<Cfg>>, ()> {
-    self.fire_sock_events();
-    let mut reps = self.resps.borrow_mut();
-    let taken = reps.iter_mut().find_map(|rep| match rep {
-                                 | mut o @ Some(_) => {
-                                   if o.as_ref().unwrap().msg.id == req_id {
-                                     Option::take(&mut o)
-                                   } else {
-                                     None
-                                   }
-                                 },
+    self.poll_sock();
+    let mut resps = self.resps.borrow_mut();
+    let id_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
+    let resp = resps.iter_mut().find_map(|rep| match rep {
+                                 | mut o @ Some(_) if id_matches(&o) => Option::take(&mut o),
                                  | _ => None,
                                });
 
-    Ok(taken)
+    Ok(resp)
   }
 
   /// Send a message
-  pub fn send(&mut self, msg: config::Message<Cfg>) -> Result<(), ()> {
+  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), ()> {
+    let msg = config::Message::<Cfg>::from(req);
     let (_, host) = msg.opts
                        .iter()
                        .enumerate_option_numbers()
@@ -207,13 +206,16 @@ mod tests {
 
   #[test]
   fn client_flow() {
+    type Msg = config::Message<Alloc>;
+
     let req = Req::<Alloc>::get("0.0.0.0", 1234, "");
     let id = req.msg.id;
     let resp = Resp::<Alloc>::for_request(req);
-    type Msg = config::Message<Alloc>;
     let bytes = Msg::from(resp).try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
+
     let mut client = Client::<TubeSock, Alloc>::new();
     client.fire(Event::RecvDgram(Some(bytes)));
+
     let rep = client.poll_resp(id).unwrap().unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap());
   }

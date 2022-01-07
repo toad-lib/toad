@@ -51,21 +51,14 @@ pub mod client;
 /// kwap configuration
 pub mod config;
 
+/// sockets
+pub mod socket;
+
+/// `std`-only kwap stuff
+#[cfg(any(test, not(feature = "no_std")))]
+pub mod std;
+
 static mut ID: u16 = 0;
-use no_std_net::{SocketAddr, ToSocketAddrs};
-
-/// TODO
-pub trait Socket: Default {
-  /// TODO
-  type Error: core::fmt::Debug;
-
-  /// TODO
-  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> nb::Result<(), Self::Error>;
-  /// TODO
-  fn send(&mut self, msg: &[u8]) -> nb::Result<(), Self::Error>;
-  /// TODO
-  fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
-}
 
 fn generate_id() -> kwap_msg::Id {
   // TEMPORARY
@@ -144,6 +137,9 @@ use kwap_msg::{Opt, OptDelta, OptNumber};
 
 #[cfg(test)]
 pub(crate) mod test {
+  use no_std_net::{SocketAddr, ToSocketAddrs};
+  use socket::*;
+
   use super::*;
 
   /// A mocked socket
