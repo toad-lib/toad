@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.1.3 (2022-01-07)
+
+
+### Features
+
+* **kwap:** initial commit of client ([#43](https://github.com/clov-coffee/kwap/issues/43)) ([f9f13cb](https://github.com/clov-coffee/kwap/commit/f9f13cb67cc3d962c038f93a798261d8572c3fa5))
+
 ### 0.1.2 (2022-01-04)
 
 
