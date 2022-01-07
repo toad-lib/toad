@@ -6,19 +6,21 @@ use kwap_msg::{Message, Opt, OptNumber, Payload, Type};
 use std_alloc::{string::{FromUtf8Error, String},
                 vec::Vec};
 
+use crate::config::{self, Config};
+
 /// Response codes
 pub mod code;
 
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use kwap::resp::Resp;
+/// use kwap::{config::Alloc, resp::Resp};
 /// # use kwap_msg::*;
 /// # main();
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::for_request(req);
+///     let mut resp = Resp::<Alloc>::for_request(req);
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
 ///     resp.set_option(12, [50]);
@@ -33,57 +35,22 @@ pub mod code;
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(kwap::req::Req) -> kwap::resp::Resp) {
+/// fn start_server(f: impl FnOnce(kwap::req::Req<Alloc>) -> kwap::resp::Resp<Alloc>) {
 ///   // servery things
 /// # f(kwap::req::Req::get("foo"));
 /// }
 /// ```
-#[cfg(feature = "alloc")]
-#[cfg_attr(any(docsrs, feature = "docs"), doc(cfg(feature = "alloc")))]
-#[derive(Debug, Clone)]
-pub struct Resp(VecRespCore);
-
-impl Resp {
-  /// Create a new response for a given request
-  pub fn for_request(req: crate::req::Req) -> Self {
-    Self(RespCore::for_request(req.0))
-  }
-}
-
-impl Deref for Resp {
-  type Target = VecRespCore;
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-impl DerefMut for Resp {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.0
-  }
-}
-
-type VecRespCore = RespCore<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>, Vec<(OptNumber, Opt<Vec<u8>>)>>;
-
-/// TODO: ser/de support
 #[derive(Clone, Debug)]
-pub struct RespCore<Bytes: Array<Item = u8>,
- OptBytes: Array<Item = u8> + 'static,
- Opts: Array<Item = Opt<OptBytes>>,
- OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> {
-  msg: Message<Bytes, OptBytes, Opts>,
-  opts: Option<OptNumbers>,
+pub struct Resp<Cfg: Config> {
+  msg: config::Message<Cfg>,
+  opts: Option<Cfg::OptNumbers>,
 }
 
-impl<Bytes: Array<Item = u8>,
-      OptBytes: Array<Item = u8> + 'static,
-      Opts: Array<Item = Opt<OptBytes>>,
-      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> RespCore<Bytes, OptBytes, Opts, OptNumbers>
-{
+impl<Cfg: Config> Resp<Cfg> {
   /// Create a new response for a given request
   ///
   /// TODO: replace msg with Request type
-  pub fn for_request(req: crate::req::ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
+  pub fn for_request(req: crate::req::Req<Cfg>) -> Self {
     let req = Message::from(req);
 
     let msg = Message { ty: match req.ty {
@@ -95,7 +62,7 @@ impl<Bytes: Array<Item = u8>,
                         } else {
                           crate::generate_id()
                         },
-                        opts: Opts::default(),
+                        opts: Cfg::Opts::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),

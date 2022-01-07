@@ -11,15 +11,17 @@ pub mod method;
 #[doc(inline)]
 pub use method::Method;
 
-/// A request that uses `Vec`
+use crate::config::{self, Config};
+
+/// A CoAP request
 ///
 /// ```
-/// use kwap::{req::Req, resp::Resp};
+/// use kwap::{config::Alloc, req::Req, resp::Resp};
 ///
 /// # main();
 /// fn main() {
 ///   let client = Client::new();
-///   let mut req = Req::post("coap://myfunnyserver.com/hello");
+///   let mut req = Req::<Alloc>::post("coap://myfunnyserver.com/hello");
 ///   req.set_payload("john".bytes());
 ///
 ///   let resp = client.send(req);
@@ -38,7 +40,7 @@ pub use method::Method;
 ///     # Self {__field: ()}
 ///   }
 ///
-///   fn send(&self, req: Req) -> Resp {
+///   fn send(&self, req: Req<Alloc>) -> Resp<Alloc> {
 ///     // send the request
 ///     # let body = req.payload_string().unwrap();
 ///     # let mut resp = Resp::for_request(req);
@@ -47,67 +49,13 @@ pub use method::Method;
 ///   }
 /// }
 /// ```
-#[cfg(feature = "alloc")]
-#[cfg_attr(any(docsrs, feature = "docs"), doc(cfg(feature = "alloc")))]
 #[derive(Debug, Clone)]
-pub struct Req(pub(crate) VecReq);
-
-impl Req {
-  /// Creates a new GET request
-  pub fn get<P: AsRef<str>>(path: P) -> Self {
-    Self(VecReq::get(path))
-  }
-
-  /// Creates a new POST request
-  pub fn post<P: AsRef<str>>(path: P) -> Self {
-    Self(VecReq::post(path))
-  }
-
-  /// Creates a new PUT request
-  pub fn put<P: AsRef<str>>(path: P) -> Self {
-    Self(VecReq::put(path))
-  }
-
-  /// Creates a new DELETE request
-  pub fn delete<P: AsRef<str>>(path: P) -> Self {
-    Self(VecReq::delete(path))
-  }
+pub struct Req<Cfg: Config> {
+  msg: config::Message<Cfg>,
+  opts: Option<Cfg::OptNumbers>,
 }
 
-impl Deref for Req {
-  type Target = VecReq;
-  fn deref(&self) -> &VecReq {
-    &self.0
-  }
-}
-
-impl DerefMut for Req {
-  fn deref_mut(&mut self) -> &mut VecReq {
-    &mut self.0
-  }
-}
-
-#[cfg(feature = "alloc")]
-type VecOpt = Opt<Vec<u8>>;
-
-#[cfg(feature = "alloc")]
-type VecReq = ReqCore<Vec<u8>, Vec<u8>, Vec<VecOpt>, Vec<(OptNumber, VecOpt)>>;
-
-/// TODO
-#[derive(Debug, Clone)]
-pub struct ReqCore<Bytes: Array<Item = u8>,
- OptBytes: Array<Item = u8> + 'static,
- Opts: Array<Item = Opt<OptBytes>>,
- OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> {
-  msg: Message<Bytes, OptBytes, Opts>,
-  opts: Option<OptNumbers>,
-}
-
-impl<Bytes: Array<Item = u8>,
-      OptBytes: Array<Item = u8> + 'static,
-      Opts: Array<Item = Opt<OptBytes>>,
-      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> ReqCore<Bytes, OptBytes, Opts, OptNumbers>
-{
+impl<Cfg: Config> Req<Cfg> {
   fn new<P: AsRef<str>>(method: Method, path: P) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
@@ -181,13 +129,8 @@ impl<Bytes: Array<Item = u8>,
   }
 }
 
-impl<Bytes: Array<Item = u8>,
-      OptBytes: Array<Item = u8> + 'static,
-      Opts: Array<Item = Opt<OptBytes>>,
-      OptNumbers: Array<Item = (OptNumber, Opt<OptBytes>)>> From<ReqCore<Bytes, OptBytes, Opts, OptNumbers>>
-  for Message<Bytes, OptBytes, Opts>
-{
-  fn from(mut req: ReqCore<Bytes, OptBytes, Opts, OptNumbers>) -> Self {
+impl<Cfg: Config> From<Req<Cfg>> for config::Message<Cfg> {
+  fn from(mut req: Req<Cfg>) -> Self {
     req.normalize_opts();
     req.msg
   }

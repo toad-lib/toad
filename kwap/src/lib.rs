@@ -25,8 +25,11 @@
 
 #![doc(html_root_url = "https://docs.rs/kwap/0.1.2")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
-#![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
-#![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
+#![cfg_attr(not(test),
+            deny(missing_debug_implementations,
+                 unreachable_pub,
+                 unsafe_code,
+                 missing_copy_implementations))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 
@@ -38,6 +41,15 @@ pub mod resp;
 
 /// CoAP request messages
 pub mod req;
+
+/// CoAP client
+pub mod event;
+
+/// CoAP client
+pub mod client;
+
+/// kwap configuration
+pub mod config;
 
 static mut ID: u16 = 0;
 
