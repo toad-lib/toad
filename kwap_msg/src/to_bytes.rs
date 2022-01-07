@@ -51,12 +51,10 @@ pub enum MessageToBytesError {
   TooLong { capacity: usize, size: usize },
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes for Message<P, O, Os>
-{
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes for Message<P, O, Os> {
   type Error = MessageToBytesError;
 
-  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error>
-  {
+  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
     let mut bytes = C::reserve(self.get_size());
     let size: usize = self.get_size();
 
