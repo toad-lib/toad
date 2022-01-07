@@ -3,7 +3,8 @@ use core::fmt::Debug;
 use kwap_msg::MessageParseError;
 use tinyvec::ArrayVec;
 
-use crate::config::{Config, Message};
+use crate::{config::{Config, Message},
+            resp::Resp};
 
 /// Event listeners shared across kwap
 pub mod listeners;
@@ -30,10 +31,28 @@ pub enum Event<Cfg: Config> {
   /// Failed to parse message from dgram
   MsgParseError(kwap_msg::MessageParseError),
   /// Received a message, this should be transitioned into either "RecvResp", or "RecvReq"
-  RecvMsg(Message<Cfg>),
+  RecvMsg(Option<Message<Cfg>>),
+  /// Received a response
+  RecvResp(Option<Resp<Cfg>>),
 }
 
 impl<Cfg: Config> Event<Cfg> {
+  /// When this is a RecvMsg event, yields a mutable reference to the bytes in the event.
+  pub fn get_mut_msg(&mut self) -> Option<&mut Option<Message<Cfg>>> {
+    match self {
+      | Self::RecvMsg(e) => Some(e),
+      | _ => None,
+    }
+  }
+
+  /// When this is a RecvResp event, yields a mutable reference to the bytes in the event.
+  pub fn get_mut_resp(&mut self) -> Option<&mut Option<Resp<Cfg>>> {
+    match self {
+      | Self::RecvResp(e) => Some(e),
+      | _ => None,
+    }
+  }
+
   /// When this is a RecvDgram event, yields a mutable reference to the bytes in the event.
   pub fn get_mut_dgram(&mut self) -> Option<&mut Option<ArrayVec<[u8; 1152]>>> {
     match self {
@@ -55,7 +74,7 @@ impl<Cfg: Config> Event<Cfg> {
 ///
 /// ```
 /// use kwap::{config::Alloc,
-///            event::{Event, MatchEvent}};
+///            core::event::{Event, MatchEvent}};
 ///
 /// static mut LOG_ERRS_WAS_CALLED: bool = false;
 ///
@@ -83,6 +102,8 @@ pub enum MatchEvent {
   MsgParseError,
   /// see [`Event::RecvMsg`]
   RecvMsg,
+  /// see [`Event::RecvResp`]
+  RecvResp,
   /// Match any event
   All,
   /// Match multiple events
@@ -100,7 +121,7 @@ impl MatchEvent {
   ///
   /// ```
   /// use tinyvec::ArrayVec;
-  /// use kwap::event::{MatchEvent, Event};
+  /// use kwap::core::event::{MatchEvent, Event};
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// # main();
@@ -127,6 +148,7 @@ impl MatchEvent {
       | Self::MsgParseError => matches!(event, Event::MsgParseError(_)),
       | Self::RecvDgram => matches!(event, Event::RecvDgram(_)),
       | Self::RecvMsg => matches!(event, Event::RecvMsg(_)),
+      | Self::RecvResp => matches!(event, Event::RecvResp(_)),
     }
   }
 }

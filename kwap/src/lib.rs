@@ -43,13 +43,17 @@ pub mod resp;
 pub mod req;
 
 /// CoAP client
-pub mod event;
-
-/// CoAP client
-pub mod client;
+pub mod core;
 
 /// kwap configuration
 pub mod config;
+
+/// sockets
+pub mod socket;
+
+/// `std`-only kwap stuff
+#[cfg(any(test, not(feature = "no_std")))]
+pub mod std;
 
 static mut ID: u16 = 0;
 
@@ -127,3 +131,39 @@ macro_rules! code {
 pub(crate) use code;
 use kwap_common::Array;
 use kwap_msg::{Opt, OptDelta, OptNumber};
+
+#[cfg(test)]
+pub(crate) mod test {
+  use no_std_net::{SocketAddr, ToSocketAddrs};
+  use socket::*;
+
+  use super::*;
+
+  /// A mocked socket
+  #[derive(Clone, Debug, Default)]
+  pub struct TubeSock(pub Option<SocketAddr>, pub Vec<u8>);
+
+  impl Socket for TubeSock {
+    type Error = Option<()>;
+
+    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> nb::Result<(), Self::Error> {
+      self.0 = a.to_socket_addrs().unwrap().next();
+      Ok(())
+    }
+
+    fn recv(&mut self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
+      if self.1.is_empty() {
+        return Err(nb::Error::WouldBlock);
+      }
+
+      let n = self.1.len();
+      self.1.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
+      Ok((n, self.0.unwrap()))
+    }
+
+    fn send(&mut self, buf: &[u8]) -> nb::Result<(), Self::Error> {
+      self.1 = buf.iter().copied().collect();
+      Ok(())
+    }
+  }
+}
