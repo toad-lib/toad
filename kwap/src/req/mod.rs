@@ -51,7 +51,7 @@ use crate::config::{self, Config};
 /// ```
 #[derive(Debug, Clone)]
 pub struct Req<Cfg: Config> {
-  msg: config::Message<Cfg>,
+  pub(crate) msg: config::Message<Cfg>,
   opts: Option<Cfg::OptNumbers>,
 }
 

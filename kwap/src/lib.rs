@@ -52,18 +52,18 @@ pub mod client;
 pub mod config;
 
 static mut ID: u16 = 0;
-use no_std_net::{ToSocketAddrs, SocketAddr};
+use no_std_net::{SocketAddr, ToSocketAddrs};
 
 /// TODO
 pub trait Socket: Default {
-/// TODO
+  /// TODO
   type Error: core::fmt::Debug;
 
-/// TODO
+  /// TODO
   fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> nb::Result<(), Self::Error>;
-/// TODO
+  /// TODO
   fn send(&mut self, msg: &[u8]) -> nb::Result<(), Self::Error>;
-/// TODO
+  /// TODO
   fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
 }
 
@@ -148,7 +148,7 @@ pub(crate) mod test {
 
   /// A mocked socket
   #[derive(Clone, Debug, Default)]
-  pub struct TubeSock(Option<SocketAddr>, Vec<u8>);
+  pub struct TubeSock(pub Option<SocketAddr>, pub Vec<u8>);
 
   impl Socket for TubeSock {
     type Error = Option<()>;

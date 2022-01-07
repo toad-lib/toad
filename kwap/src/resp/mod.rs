@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 use kwap_common::Array;
-use kwap_msg::{Message, Opt, OptNumber, Payload, Type};
+use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::{string::{FromUtf8Error, String},
                 vec::Vec};
@@ -42,7 +42,7 @@ pub mod code;
 /// ```
 #[derive(Clone, Debug)]
 pub struct Resp<Cfg: Config> {
-  msg: config::Message<Cfg>,
+  pub(crate) msg: config::Message<Cfg>,
   opts: Option<Cfg::OptNumbers>,
 }
 
@@ -108,5 +108,21 @@ impl<Cfg: Config> Resp<Cfg> {
     if let Some(opts) = Option::take(&mut self.opts) {
       self.msg.opts = crate::normalize_opts(opts);
     }
+  }
+}
+
+impl<Cfg: Config> From<Resp<Cfg>> for config::Message<Cfg> {
+  fn from(mut rep: Resp<Cfg>) -> Self {
+    rep.normalize_opts();
+    rep.msg
+  }
+}
+
+impl<Cfg: Config> From<config::Message<Cfg>> for Resp<Cfg> {
+  fn from(mut msg: config::Message<Cfg>) -> Self {
+    let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
+    msg.opts = Default::default();
+
+    Self { msg, opts: Some(opts) }
   }
 }
