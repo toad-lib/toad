@@ -159,6 +159,7 @@ pub(crate) mod test {
 
     fn recv(&mut self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
       if self.1.is_empty() {
+        println!("TubSock recv invoked without sending first");
         return Err(nb::Error::WouldBlock);
       }
 

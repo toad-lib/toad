@@ -11,6 +11,7 @@ use event::{listeners::{resp_from_msg, try_parse_message},
             Eventer,
             MatchEvent};
 
+use self::event::listeners::log;
 use crate::{config::{self, Config},
             req::Req,
             resp::Resp,
@@ -43,9 +44,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Create a new runtime without any actual behavior
   ///
   /// ```
-  /// use kwap::{config::Alloc, core::Core, std::UdpSocket};
+  /// use std::net::UdpSocket;
   ///
-  /// Core::<UdpSocket, Alloc>::behaviorless();
+  /// use kwap::{config::Alloc, core::Core};
+  ///
+  /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
+  /// Core::<UdpSocket, Alloc>::behaviorless(sock);
   /// ```
   pub fn behaviorless(sock: Sock) -> Self {
     Self { resps: Default::default(),
@@ -56,6 +60,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Add the default behavior to a behaviorless Core
   pub fn bootstrap(&mut self) {
     self.listen(MatchEvent::RecvDgram, try_parse_message);
+    #[cfg(any(test, not(feature = "no_std")))]
+    self.listen(MatchEvent::MsgParseError, log);
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
     self.listen(MatchEvent::RecvResp, Core::<Sock, Cfg>::store_resp);
   }
@@ -83,10 +89,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Fire an event
   ///
   /// ```
+  /// use std::net::UdpSocket;
+  ///
   /// use kwap::{config::Alloc,
   ///            core::{event::{Event, MatchEvent},
-  ///                   Core},
-  ///            std::UdpSocket};
+  ///                   Core}};
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
@@ -99,7 +106,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///   }
   /// }
   ///
-  /// let mut client = Core::behaviorless();
+  /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
+  /// let mut client = Core::behaviorless(sock);
   ///
   /// client.listen(MatchEvent::MsgParseError, log_errs);
   /// client.fire(Event::<Alloc>::MsgParseError(UnexpectedEndOfStream));
@@ -116,22 +124,21 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Check the stored socket for a new datagram, and fire a RecvDgram event
-  fn poll_sock(&mut self) -> nb::Result<(), Sock::Error> {
+  fn poll_sock(&mut self) {
     let mut buf = [0u8; 1152];
     let recvd = self.sock.recv(&mut buf);
     match recvd {
       | Ok(n) => {
         let ev = Event::RecvDgram(Some(buf[0..n].iter().copied().collect()));
         self.fire(ev);
-        Ok(())
       },
-      | Err(e) => Err(e),
+      | _ => {},
     }
   }
 
   /// Poll for a response to a sent request
   pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> nb::Result<Resp<Cfg>, Sock::Error> {
-    self.poll_sock()?;
+    self.poll_sock();
     let mut resps = self.resps.borrow_mut();
     let id_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
     let resp = resps.iter_mut().find_map(|rep| match rep {
@@ -226,7 +233,7 @@ mod tests {
     let mut client = Core::<TubeSock, Alloc>::new(TubeSock::new());
     client.fire(Event::RecvDgram(Some(bytes)));
 
-    let rep = client.poll_resp(id).unwrap().unwrap();
+    let rep = client.poll_resp(id).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap());
   }
 }
