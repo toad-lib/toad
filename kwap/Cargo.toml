@@ -1,6 +1,6 @@
 [package]
 name = "kwap"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "Reliable cross-platform CoAP server runtime"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
