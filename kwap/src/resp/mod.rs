@@ -78,6 +78,11 @@ impl<Cfg: Config> Resp<Cfg> {
     String::from_utf8(self.payload().copied().collect())
   }
 
+  /// Get the response code
+  pub fn code(&self) -> kwap_msg::Code {
+    self.msg.code
+  }
+
   /// Change the response code
   pub fn set_code(&mut self, code: kwap_msg::Code) {
     self.msg.code = code;

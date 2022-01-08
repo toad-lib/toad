@@ -1,7 +1,8 @@
 use core::{cell::RefCell, str::FromStr};
+use core::convert::Infallible;
 
 use kwap_msg::{EnumerateOptNumbers, TryIntoBytes};
-use no_std_net::SocketAddrV4;
+use no_std_net::{SocketAddrV4, Ipv4Addr};
 use tinyvec::ArrayVec;
 
 /// Events used by core
@@ -34,8 +35,8 @@ pub struct Core<Sock: Socket, Cfg: Config> {
 
 impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Creates a new Core with the default runtime behavior
-  pub fn new() -> Self {
-    let mut me = Self::behaviorless();
+  pub fn new(sock: Sock) -> Self {
+    let mut me = Self::behaviorless(sock);
     me.bootstrap();
     me
   }
@@ -47,9 +48,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// Core::<UdpSocket, Alloc>::behaviorless();
   /// ```
-  pub fn behaviorless() -> Self {
+  pub fn behaviorless(sock: Sock) -> Self {
     Self { resps: Default::default(),
-           sock: Sock::default(),
+           sock,
            ears: Default::default() }
   }
 
@@ -116,22 +117,22 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Check the stored socket for a new datagram, and fire a RecvDgram event
-  fn poll_sock(&mut self) {
-    let mut buf = ArrayVec::<[u8; 1152]>::new();
+  fn poll_sock(&mut self) -> nb::Result<(), Sock::Error> {
+    let mut buf = [0u8; 1152];
     let recvd = self.sock.recv(&mut buf);
     match recvd {
-      | Ok(_) => {
-        let ev = Event::RecvDgram(Some(buf));
+      | Ok(n) => {
+        let ev = Event::RecvDgram(Some(buf[0..n].iter().copied().collect()));
         self.fire(ev);
+        Ok(())
       },
-      // TODO: handle wouldblock and errors separately
-      | _ => {},
+      | Err(e) => Err(e),
     }
   }
 
   /// Poll for a response to a sent request
-  pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> Result<Option<Resp<Cfg>>, ()> {
-    self.poll_sock();
+  pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> nb::Result<Resp<Cfg>, Sock::Error> {
+    self.poll_sock()?;
     let mut resps = self.resps.borrow_mut();
     let id_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
     let resp = resps.iter_mut().find_map(|rep| match rep {
@@ -139,7 +140,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
                                  | _ => None,
                                });
 
-    Ok(resp)
+    resp.ok_or(nb::Error::WouldBlock)
   }
 
   /// Send a message
@@ -150,9 +151,16 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
                        .enumerate_option_numbers()
                        .find(|(n, _)| n.0 == 3)
                        .unwrap();
+    let (_, port) = msg.opts
+                       .iter()
+                       .enumerate_option_numbers()
+                       .find(|(n, _)| n.0 == 7)
+                       .unwrap();
+    let port_bytes = port.value.0.iter().copied().collect::<ArrayVec<[u8; 2]>>();
+    let port = u16::from_be_bytes(port_bytes.into_inner());
     let host_str: &str = core::str::from_utf8(&host.value.0).unwrap();
     self.sock
-        .connect(SocketAddrV4::from_str(host_str).unwrap())
+        .connect(SocketAddrV4::new(Ipv4Addr::from_str(host_str).unwrap(), port))
         .map_err(|_| ())?;
     self.sock
         .send(&msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(|_| ())?)
@@ -184,7 +192,7 @@ mod tests {
     let req = Req::<Alloc>::get("0.0.0.0", 1234, "");
     let bytes = config::Message::<Alloc>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
                                                    .unwrap();
-    let mut client = Core::<TubeSock, Alloc>::behaviorless();
+    let mut client = Core::<TubeSock, Alloc>::behaviorless(TubeSock::new());
 
     fn on_err(_: &Core<TubeSock, Alloc>, e: &mut Event<Alloc>) {
       panic!("{:?}", e)
@@ -216,7 +224,7 @@ mod tests {
     let resp = Resp::<Alloc>::for_request(req);
     let bytes = Msg::from(resp).try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
-    let mut client = Core::<TubeSock, Alloc>::new();
+    let mut client = Core::<TubeSock, Alloc>::new(TubeSock::new());
     client.fire(Event::RecvDgram(Some(bytes)));
 
     let rep = client.poll_resp(id).unwrap().unwrap();
