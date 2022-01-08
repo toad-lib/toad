@@ -164,11 +164,7 @@ pub(crate) mod test {
 
       let n = self.1.len();
       self.1.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
-<<<<<<< HEAD
       Ok(n)
-=======
-      Ok((n, self.0.unwrap()))
->>>>>>> main
     }
 
     fn send(&mut self, buf: &[u8]) -> nb::Result<(), Self::Error> {
