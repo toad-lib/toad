@@ -50,5 +50,5 @@ pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cf
 /// Logs an event using println
 #[cfg(any(test, not(feature = "no_std")))]
 pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &Evr, ev: &mut Event<Cfg>) {
-  println!("Error parsing message: {:?}", ev);
+  println!("Event: {:?}", ev);
 }
