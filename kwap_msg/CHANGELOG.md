@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.4.2 (2022-01-08)
+
+
+### Bug Fixes
+
+* **msg:** OptNumber should impl Default ([#47](https://github.com/clov-coffee/kwap/issues/47)) ([e3b8687](https://github.com/clov-coffee/kwap/commit/e3b8687b1b30de909a0c8b6203c355c1ee1c7aaa))
+
 ### 0.4.1 (2022-01-07)
 
 
