@@ -1,8 +1,7 @@
-use core::{cell::RefCell, str::FromStr};
-use core::convert::Infallible;
+use core::{cell::RefCell, convert::Infallible, str::FromStr};
 
 use kwap_msg::{EnumerateOptNumbers, TryIntoBytes};
-use no_std_net::{SocketAddrV4, Ipv4Addr};
+use no_std_net::{Ipv4Addr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
 /// Events used by core
