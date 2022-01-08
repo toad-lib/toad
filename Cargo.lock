@@ -354,7 +354,7 @@ dependencies = [
 
 [[package]]
 name = "kwap"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "embedded-nal",
  "kwap-common 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
