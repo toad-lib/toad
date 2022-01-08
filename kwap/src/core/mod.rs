@@ -1,4 +1,4 @@
-use core::{cell::RefCell, convert::Infallible, str::FromStr};
+use core::{cell::RefCell, str::FromStr};
 
 use kwap_msg::{EnumerateOptNumbers, TryIntoBytes};
 use no_std_net::{Ipv4Addr, SocketAddrV4};
@@ -58,6 +58,30 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Add the default behavior to a behaviorless Core
+  ///
+  /// # Example
+  /// See `./examples/client.rs`
+  ///
+  /// # Event handlers registered
+  ///
+  /// | Event type | Handler | Should then fire | Remarks |
+  /// | -- | -- | -- | -- |
+  /// | [`Event::RecvDgram`] | [`try_parse_message`] | [`Event::MsgParseError`] or [`Event::RecvMsg`] | None |
+  /// | [`Event::MsgParseError`] | [`log`] | None | only when crate feature `no_std` is not enabled |
+  /// | [`Event::RecvMsg`] | [`resp_from_msg`] | [`Event::RecvResp`] or nothing | None |
+  /// | [`Event::RecvResp`] | [`Core::store_resp`](#method.store_resp) | nothing (yet) | Manages internal state used to match request ids (see [`Core.poll_resp()`](#method.poll_resp)) |
+  ///
+  /// ```
+  /// use std::net::UdpSocket;
+  ///
+  /// use kwap::{config::Alloc, core::Core};
+  ///
+  /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
+  ///
+  /// // Note: this is the same as Core::new().
+  /// let mut core = Core::<_, Alloc>::behaviorless(sock);
+  /// core.bootstrap()
+  /// ```
   pub fn bootstrap(&mut self) {
     self.listen(MatchEvent::RecvDgram, try_parse_message);
     #[cfg(any(test, not(feature = "no_std")))]
@@ -81,7 +105,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
 
   /// Listen for an event
   ///
-  /// For an example, see [`Core.fire()`](#method.fire)
+  /// # Example
+  /// See [`Core.fire()`](#method.fire)
   pub fn listen(&mut self, mat: MatchEvent, listener: fn(&Self, &mut Event<Cfg>)) {
     self.ears.push(Some((mat, listener)));
   }
@@ -137,6 +162,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Poll for a response to a sent request
+  ///
+  /// # Example
+  /// See `./examples/client.rs`
   pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> nb::Result<Resp<Cfg>, Sock::Error> {
     self.poll_sock();
     let mut resps = self.resps.borrow_mut();
@@ -150,6 +178,16 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Send a message
+  ///
+  /// ```
+  /// use std::net::UdpSocket;
+  ///
+  /// use kwap::{config::Alloc, core::Core, req::Req};
+  ///
+  /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
+  /// let mut core = Core::<_, Alloc>::new(sock);
+  /// core.send_req(Req::<Alloc>::get("1.1.1.1", 5683, "/hello"));
+  /// ```
   pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), ()> {
     let msg = config::Message::<Cfg>::from(req);
     let (_, host) = msg.opts
