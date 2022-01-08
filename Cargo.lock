@@ -359,7 +359,7 @@ dependencies = [
  "embedded-nal",
  "kwap-common 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "kwap-msg 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kwap-msg 0.4.2",
  "nb 1.0.0",
  "no-std-net 0.6.0",
  "tinyvec",
@@ -417,9 +417,9 @@ dependencies = [
 
 [[package]]
 name = "kwap-msg"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3030c309e617f0f76f6e7cd401c7252bf0de8f6456406551233f2d30a9b5060"
+checksum = "2519ca262711856df621ca22759a77db0ef9d7c8812bd526ead92d8c3d57cac8"
 dependencies = [
  "kwap-common 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",

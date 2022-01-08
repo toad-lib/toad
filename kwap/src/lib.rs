@@ -134,6 +134,7 @@ use kwap_msg::{Opt, OptDelta, OptNumber};
 
 #[cfg(test)]
 pub(crate) mod test {
+  use kwap_msg::OptValue;
   use no_std_net::{SocketAddr, ToSocketAddrs};
   use socket::*;
 
@@ -172,5 +173,64 @@ pub(crate) mod test {
       self.1 = buf.iter().copied().collect();
       Ok(())
     }
+  }
+
+  #[test]
+  fn add_option_updates_when_exist() {
+    let mut opts = vec![(OptNumber(0),
+                         Opt::<Vec<u8>> { delta: OptDelta(0),
+                                          value: OptValue(vec![]) })];
+
+    let out = add_option(&mut opts, 0, vec![1]);
+
+    assert!(out.is_none());
+    assert_eq!(opts.len(), 1);
+    assert_eq!(opts[0].1.value.0, vec![1]);
+  }
+
+  #[test]
+  fn add_option_adds_when_not_exist() {
+    let mut opts = Vec::<(_, Opt<Vec<u8>>)>::new();
+
+    let out = add_option(&mut opts, 0, vec![1]);
+
+    assert!(out.is_none());
+    assert_eq!(opts.len(), 1);
+    assert_eq!(opts[0].1.value.0, vec![1]);
+  }
+
+  #[test]
+  fn normalize_opts_echoes_when_empty() {
+    let opts = Vec::<(OptNumber, Opt<Vec<u8>>)>::new();
+    let out = normalize_opts::<_, Vec<Opt<Vec<u8>>>, _>(opts);
+    assert!(out.is_empty())
+  }
+
+  #[test]
+  fn normalize_opts_works() {
+    let opts: Vec<(OptNumber, Opt<Vec<u8>>)> = vec![(OptNumber(32), Default::default()),
+                                                    (OptNumber(1), Default::default()),
+                                                    (OptNumber(3), Default::default()),];
+
+    let expect: Vec<Opt<Vec<u8>>> = vec![Opt { delta: OptDelta(1),
+                                               ..Default::default() },
+                                         Opt { delta: OptDelta(2),
+                                               ..Default::default() },
+                                         Opt { delta: OptDelta(29),
+                                               ..Default::default() },];
+
+    let actual = normalize_opts::<_, Vec<Opt<Vec<u8>>>, _>(opts);
+
+    assert_eq!(actual, expect)
+  }
+
+  #[test]
+  fn add_option_rets_some_when_full() {
+    let mut opts =
+      tinyvec::ArrayVec::<[(OptNumber, Opt<Vec<u8>>); 1]>::from([(OptNumber(1), Opt::<Vec<u8>>::default())]);
+
+    let out = add_option(&mut opts, 0, vec![1]);
+
+    assert_eq!(out, Some((0, vec![1])));
   }
 }
