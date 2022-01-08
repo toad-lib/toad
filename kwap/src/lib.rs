@@ -108,7 +108,7 @@ fn normalize_opts<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
 
   os.sort_by_key(|&(OptNumber(num), _)| num);
   os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
-                  let delta = opts.last().map(|Opt { delta: OptDelta(del), .. }| *del).unwrap_or(0u16);
+                  let delta = opts.iter().fold(0u16, |n, opt| opt.delta.0 + n);
                   opt.delta = OptDelta((num.0 as u16) - delta);
                   opts.push(opt);
                   opts
@@ -143,6 +143,12 @@ pub(crate) mod test {
   #[derive(Clone, Debug, Default)]
   pub struct TubeSock(pub Option<SocketAddr>, pub Vec<u8>);
 
+  impl TubeSock {
+    pub fn new() -> Self {
+      Self(None, vec![])
+    }
+  }
+
   impl Socket for TubeSock {
     type Error = Option<()>;
 
@@ -151,14 +157,15 @@ pub(crate) mod test {
       Ok(())
     }
 
-    fn recv(&mut self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
+    fn recv(&mut self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
       if self.1.is_empty() {
+        println!("TubSock recv invoked without sending first");
         return Err(nb::Error::WouldBlock);
       }
 
       let n = self.1.len();
       self.1.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
-      Ok((n, self.0.unwrap()))
+      Ok(n)
     }
 
     fn send(&mut self, buf: &[u8]) -> nb::Result<(), Self::Error> {

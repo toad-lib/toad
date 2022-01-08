@@ -75,9 +75,14 @@ impl<Cfg: Config> Req<Cfg> {
     me.set_option(7, port.to_be_bytes());
 
     // Uri-Path
-    me.set_option(11, strbytes(&host));
+    me.set_option(11, strbytes(&path));
 
     me
+  }
+
+  /// Get a copy of the message id for this request
+  pub fn msg_id(&self) -> kwap_msg::Id {
+    self.msg.id
   }
 
   /// Add a custom option to this request

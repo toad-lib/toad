@@ -6,7 +6,7 @@ use no_std_net::{SocketAddr, ToSocketAddrs};
 ///
 /// One notable difference is that `connect`ing is expected to modify the internal state of a [`Socket`],
 /// not yield a connected socket type (like [`std::net::UdpSocket::connect`]).
-pub trait Socket: Default {
+pub trait Socket {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
 
@@ -17,5 +17,5 @@ pub trait Socket: Default {
   fn send(&mut self, msg: &[u8]) -> nb::Result<(), Self::Error>;
 
   /// Receive a message farom the `connect`ed host
-  fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
+  fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<usize, Self::Error>;
 }

@@ -22,7 +22,7 @@ impl Config for Alloc {
 }
 
 /// kwap configuration trait
-pub trait Config: Sized + 'static {
+pub trait Config: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
   type PayloadBuffer: Array<Item = u8> + Clone + Debug;
   /// What type should we use to store the option values?
