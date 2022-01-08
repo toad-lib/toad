@@ -81,6 +81,13 @@ impl<Cfg: Config> Req<Cfg> {
   }
 
   /// Get a copy of the message id for this request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let _msg_id = req.msg_id();
+  /// ```
   pub fn msg_id(&self) -> kwap_msg::Id {
     self.msg.id
   }
@@ -89,6 +96,13 @@ impl<Cfg: Config> Req<Cfg> {
   ///
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// req.set_option(17, Some(50)); // Accept: application/json
+  /// ```
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
@@ -97,36 +111,87 @@ impl<Cfg: Config> Req<Cfg> {
   }
 
   /// Creates a new GET request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let _req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// ```
   pub fn get<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
     Self::new(Method::GET, host, port, path)
   }
 
   /// Creates a new POST request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
+  /// req.set_payload("Hi!".bytes());
+  /// ```
   pub fn post<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
     Self::new(Method::POST, host, port, path)
   }
 
   /// Creates a new PUT request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::put("1.1.1.1", 5683, "/hello");
+  /// req.set_payload("Hi!".bytes());
+  /// ```
   pub fn put<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
     Self::new(Method::PUT, host, port, path)
   }
 
   /// Creates a new DELETE request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let _req = Req::<Alloc>::delete("1.1.1.1", 5683, "/users/john");
+  /// ```
   pub fn delete<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
     Self::new(Method::DELETE, host, port, path)
   }
 
   /// Add a payload to this request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::put("1.1.1.1", 5683, "/hello");
+  /// req.set_payload("Hi!".bytes());
+  /// ```
   pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
     self.msg.payload = Payload(payload.into_iter().collect());
   }
 
   /// Get the payload's raw bytes
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
+  /// req.set_payload("Hi!".bytes());
+  ///
+  /// assert!(req.payload().copied().eq("Hi!".bytes()))
+  /// ```
   pub fn payload(&self) -> impl Iterator<Item = &u8> {
     self.msg.payload.0.iter()
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
+  /// req.set_payload("Hi!".bytes());
+  ///
+  /// assert_eq!(req.payload_string().unwrap(), "Hi!".to_string())
+  /// ```
   #[cfg(feature = "alloc")]
   pub fn payload_string(&self) -> Result<String, FromUtf8Error> {
     String::from_utf8(self.payload().copied().collect())
