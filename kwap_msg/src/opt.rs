@@ -91,7 +91,7 @@ pub struct OptDelta(pub u16);
 /// # `OptNumber` struct
 /// Because Option Numbers are only able to be computed in the context of other options, in order to
 /// get Option Numbers you must have a collection of [`Opt`]s, and use the provided [`EnumerateOptNumbers`].
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct OptNumber(pub u32);
 
 #[doc = rfc_7252_doc!("3.2")]
