@@ -2,7 +2,8 @@ use kwap_msg::{EnumerateOptNumbers, Message, Payload, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
-use crate::config::{self, Config};
+use crate::{config::{self, Config},
+            req::Req};
 
 /// Response codes
 pub mod code;
@@ -19,7 +20,7 @@ pub mod code;
 ///     let mut resp = Resp::<Alloc>::for_request(req);
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
-///     resp.set_option(12, [50]);
+///     resp.set_option(12, Some(50)); // Content-Format: application/json
 ///
 ///     let payload = r#"""{
 ///       "foo": "bar",
@@ -45,8 +46,26 @@ pub struct Resp<Cfg: Config> {
 impl<Cfg: Config> Resp<Cfg> {
   /// Create a new response for a given request
   ///
-  /// TODO: replace msg with Request type
-  pub fn for_request(req: crate::req::Req<Cfg>) -> Self {
+  /// ```
+  /// use kwap::{config::{Alloc, Message},
+  ///            req::Req,
+  ///            resp::Resp};
+  ///
+  /// // pretend this is an incoming request
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let resp = Resp::<Alloc>::for_request(req.clone());
+  ///
+  /// let req_msg = Message::<Alloc>::from(req);
+  /// let resp_msg = Message::<Alloc>::from(resp);
+  ///
+  /// // note that Req's default type is CON, so the response will be an ACK.
+  /// // this means that the token and id of the response will be the same
+  /// // as the incoming request.
+  /// assert_eq!(resp_msg.ty, kwap_msg::Type::Ack);
+  /// assert_eq!(req_msg.id, resp_msg.id);
+  /// assert_eq!(req_msg.token, resp_msg.token);
+  /// ```
+  pub fn for_request(req: Req<Cfg>) -> Self {
     let req = Message::from(req);
 
     let msg = Message { ty: match req.ty {
@@ -68,22 +87,69 @@ impl<Cfg: Config> Resp<Cfg> {
   }
 
   /// Get the payload's raw bytes
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  ///
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  ///
+  /// // pretend this is an incoming response
+  /// let resp = Resp::<Alloc>::for_request(req);
+  ///
+  /// let data: Vec<u8> = resp.payload().copied().collect();
+  /// ```
   pub fn payload(&self) -> impl Iterator<Item = &u8> {
     self.msg.payload.0.iter()
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  ///
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  ///
+  /// // pretend this is an incoming response
+  /// let mut resp = Resp::<Alloc>::for_request(req);
+  /// resp.set_payload("hello!".bytes());
+  ///
+  /// let data: String = resp.payload_string().unwrap();
+  /// ```
   #[cfg(feature = "alloc")]
   pub fn payload_string(&self) -> Result<String, FromUtf8Error> {
     String::from_utf8(self.payload().copied().collect())
   }
 
   /// Get the response code
+  ///
+  /// ```
+  /// use kwap::{config::Alloc,
+  ///            req::Req,
+  ///            resp::{code, Resp}};
+  ///
+  /// // pretend this is an incoming request
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let resp = Resp::<Alloc>::for_request(req);
+  ///
+  /// assert_eq!(resp.code(), code::CONTENT);
+  /// ```
   pub fn code(&self) -> kwap_msg::Code {
     self.msg.code
   }
 
   /// Change the response code
+  ///
+  /// ```
+  /// use kwap::{config::Alloc,
+  ///            req::Req,
+  ///            resp::{code, Resp}};
+  ///
+  /// // pretend this is an incoming request
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Alloc>::for_request(req);
+  ///
+  /// resp.set_code(code::INTERNAL_SERVER_ERROR);
+  /// ```
   pub fn set_code(&mut self, code: kwap_msg::Code) {
     self.msg.code = code;
   }
@@ -92,6 +158,16 @@ impl<Cfg: Config> Resp<Cfg> {
   ///
   /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
   /// Otherwise, returns `None`.
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  ///
+  /// // pretend this is an incoming request
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Alloc>::for_request(req);
+  ///
+  /// resp.set_option(17, Some(50)); // Accept: application/json
+  /// ```
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
@@ -100,6 +176,20 @@ impl<Cfg: Config> Resp<Cfg> {
   }
 
   /// Add a payload to this response
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  ///
+  /// // pretend this is an incoming request
+  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Alloc>::for_request(req);
+  ///
+  /// // Maybe you have some bytes:
+  /// resp.set_payload(vec![1, 2, 3]);
+  ///
+  /// // Or a string:
+  /// resp.set_payload("hello!".bytes());
+  /// ```
   pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
     self.msg.payload = Payload(payload.into_iter().collect());
   }

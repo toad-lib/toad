@@ -8,6 +8,13 @@ use std_alloc::vec::Vec;
 use crate::core::event::Event;
 
 /// Configures `kwap` to use `Vec` for collections
+///
+/// ```
+/// use kwap::{config::Alloc, req::Req};
+///
+/// // Uses `Vec` for all internal storage
+/// Req::<Alloc>::get("192.168.0.1", 5683, "/hello");
+/// ```
 #[cfg(feature = "alloc")]
 #[derive(Debug, Clone, Copy)]
 pub struct Alloc;
@@ -37,5 +44,6 @@ pub trait Config: Sized + 'static + core::fmt::Debug {
   type Events: Array<Item = Event<Self>>;
 }
 
-pub(crate) type Message<Cfg> =
+/// Type alias using Config instead of explicit type parameters for [`kwap_msg::Message`]
+pub type Message<Cfg> =
   kwap_msg::Message<<Cfg as Config>::PayloadBuffer, <Cfg as Config>::OptBytes, <Cfg as Config>::Opts>;

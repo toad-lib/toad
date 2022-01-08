@@ -1,4 +1,4 @@
-use no_std_net::{SocketAddr, ToSocketAddrs};
+use no_std_net::ToSocketAddrs;
 
 /// A CoAP network socket
 ///

@@ -6,7 +6,7 @@ use tinyvec::ArrayVec;
 use crate::{config::{Config, Message},
             resp::Resp};
 
-/// Event listeners shared across kwap
+/// Event listeners useful across "Eventer" implemenations
 pub mod listeners;
 
 /// A thing that emits kwap events
@@ -18,9 +18,7 @@ pub trait Eventer<Cfg: Config> {
   fn listen(&mut self, mat: MatchEvent, listener: fn(&Self, &mut Event<Cfg>));
 }
 
-/// The core eventing system of `kwap`
-///
-/// This is a state machine that represents the lifecycle of messages (inbound and out)
+/// A state transition for a message in the CoAP runtime
 #[derive(Debug, Clone)]
 pub enum Event<Cfg: Config> {
   /// Received a datagram from the socket
@@ -28,16 +26,31 @@ pub enum Event<Cfg: Config> {
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
   RecvDgram(Option<ArrayVec<[u8; 1152]>>),
-  /// Failed to parse message from dgram
-  MsgParseError(kwap_msg::MessageParseError),
   /// Received a message, this should be transitioned into either "RecvResp", or "RecvReq"
+  ///
+  /// This is an option to allow mutably [`take`](Option.take)ing
+  /// the bytes from the event, leaving `None` in its place.
   RecvMsg(Option<Message<Cfg>>),
   /// Received a response
+  ///
+  /// This is an option to allow mutably [`take`](Option.take)ing
+  /// the bytes from the event, leaving `None` in its place.
   RecvResp(Option<Resp<Cfg>>),
+  /// Failed to parse message from dgram
+  MsgParseError(kwap_msg::MessageParseError),
 }
 
 impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvMsg event, yields a mutable reference to the bytes in the event.
+  ///
+  /// ```
+  /// use kwap::{config::{Alloc, Message},
+  ///            core::event::Event};
+  ///
+  /// # let msg = kwap::req::Req::<Alloc>::get("", 0, "").into();
+  /// let mut ev = Event::<Alloc>::RecvMsg(Some(msg));
+  /// let msg: &mut Option<Message<Alloc>> = ev.get_mut_msg().unwrap();
+  /// ```
   pub fn get_mut_msg(&mut self) -> Option<&mut Option<Message<Cfg>>> {
     match self {
       | Self::RecvMsg(e) => Some(e),
@@ -46,6 +59,17 @@ impl<Cfg: Config> Event<Cfg> {
   }
 
   /// When this is a RecvResp event, yields a mutable reference to the bytes in the event.
+  ///
+  /// ```
+  /// use kwap::{config::{Alloc, Message},
+  ///            core::event::Event,
+  ///            resp::Resp};
+  ///
+  /// # let req = kwap::req::Req::<Alloc>::get("", 0, "");
+  /// # let resp = Resp::for_request(req);
+  /// let mut ev = Event::<Alloc>::RecvResp(Some(resp));
+  /// let msg: &mut Option<Resp<Alloc>> = ev.get_mut_resp().unwrap();
+  /// ```
   pub fn get_mut_resp(&mut self) -> Option<&mut Option<Resp<Cfg>>> {
     match self {
       | Self::RecvResp(e) => Some(e),
@@ -54,6 +78,16 @@ impl<Cfg: Config> Event<Cfg> {
   }
 
   /// When this is a RecvDgram event, yields a mutable reference to the bytes in the event.
+  ///
+  /// ```
+  /// use kwap::{config::{Alloc, Message},
+  ///            core::event::Event,
+  ///            resp::Resp};
+  /// use tinyvec::ArrayVec;
+  ///
+  /// let mut ev = Event::<Alloc>::RecvDgram(Some(ArrayVec::default()));
+  /// let msg: &mut Option<ArrayVec<[u8; 1152]>> = ev.get_mut_dgram().unwrap();
+  /// ```
   pub fn get_mut_dgram(&mut self) -> Option<&mut Option<ArrayVec<[u8; 1152]>>> {
     match self {
       | Self::RecvDgram(e) => Some(e),
@@ -62,6 +96,16 @@ impl<Cfg: Config> Event<Cfg> {
   }
 
   /// Extract the MessageParseError when this is a MsgParseError event.
+  ///
+  /// ```
+  /// use kwap::{config::{Alloc, Message},
+  ///            core::event::Event,
+  ///            resp::Resp};
+  /// use kwap_msg::MessageParseError;
+  ///
+  /// let mut ev = Event::<Alloc>::MsgParseError(MessageParseError::UnexpectedEndOfStream);
+  /// let msg: &MessageParseError = ev.get_msg_parse_error().unwrap();
+  /// ```
   pub fn get_msg_parse_error(&self) -> Option<&MessageParseError> {
     match self {
       | Self::MsgParseError(e) => Some(e),
