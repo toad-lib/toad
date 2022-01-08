@@ -91,6 +91,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Listens for RecvResp events and stores them on the runtime struct
+  ///
+  /// # Panics
+  /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
   pub fn store_resp(&self, ev: &mut Event<Cfg>) {
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
     let mut resps = self.resps.borrow_mut();
