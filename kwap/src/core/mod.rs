@@ -211,7 +211,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), SendError<Cfg, Sock>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
-    let port_bytes = port.value.0.iter().copied().collect::<ArrayVec<[u8; 2]>>();
+    let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
 
     let host = req.get_option(3).expect("Uri-Host must be present");
