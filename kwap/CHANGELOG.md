@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.1.8 (2022-01-11)
+
+
+### Bug Fixes
+
+* **kwap:** add error types to send_req ([#50](https://github.com/clov-coffee/kwap/issues/50)) ([818904a](https://github.com/clov-coffee/kwap/commit/818904a039b3e7884d3411bc2cd0462f4f3f56a6))
+
 ### 0.1.7 (2022-01-11)
 
 ### 0.1.6 (2022-01-08)
