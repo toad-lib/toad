@@ -1,4 +1,5 @@
-use kwap_msg::{Message, Payload, Token, Type};
+use kwap_common::Array;
+use kwap_msg::{Message, Opt, Payload, Token, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -182,6 +183,21 @@ impl<Cfg: Config> Req<Cfg> {
     self.msg.payload.0.iter()
   }
 
+  /// Read an option by its number from the request
+  ///
+  /// ```
+  /// use kwap::{config::Alloc, req::Req};
+  ///
+  /// let req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
+  /// let uri_host = req.get_option(3).unwrap();
+  /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
+  /// ```
+  pub fn get_option(&self, n: u32) -> Option<&Opt<Cfg::OptBytes>> {
+    self.opts
+        .as_ref()
+        .and_then(|opts| opts.iter().find(|(num, _)| num.0 == n).map(|(_, o)| o))
+  }
+
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
@@ -209,5 +225,13 @@ impl<Cfg: Config> From<Req<Cfg>> for config::Message<Cfg> {
   fn from(mut req: Req<Cfg>) -> Self {
     req.normalize_opts();
     req.msg
+  }
+}
+
+impl<Cfg: Config> TryIntoBytes for Req<Cfg> {
+  type Error = <config::Message<Cfg> as TryIntoBytes>::Error;
+
+  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
+    config::Message::<Cfg>::from(self).try_into_bytes()
   }
 }

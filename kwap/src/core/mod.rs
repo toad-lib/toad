@@ -1,6 +1,6 @@
 use core::{cell::RefCell, str::FromStr};
 
-use kwap_msg::{EnumerateOptNumbers, TryIntoBytes};
+use kwap_msg::TryIntoBytes;
 use no_std_net::{Ipv4Addr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -32,6 +32,19 @@ pub struct Core<Sock: Socket, Cfg: Config> {
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   ears: ArrayVec<[Option<(MatchEvent, fn(&Self, &mut Event<Cfg>))>; 32]>,
   resps: RefCell<ArrayVec<[Option<Resp<Cfg>>; 64]>>,
+}
+
+/// An error encounterable while sending a message
+#[derive(Debug, Clone)]
+pub enum SendError<Cfg: Config, Sock: Socket> {
+  /// Some socket operation (e.g. connecting to host) failed
+  SockError(Sock::Error),
+  /// Serializing a message to bytes failed
+  ToBytes(<config::Message<Cfg> as TryIntoBytes>::Error),
+  /// Uri-Host in request was not a utf8 string
+  HostInvalidUtf8(core::str::Utf8Error),
+  /// Uri-Host in request was not a valid IPv4 address (TODO)
+  HostInvalidIpAddress,
 }
 
 impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
@@ -196,28 +209,25 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// let mut core = Core::<_, Alloc>::new(sock);
   /// core.send_req(Req::<Alloc>::get("1.1.1.1", 5683, "/hello"));
   /// ```
-  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), ()> {
-    let msg = config::Message::<Cfg>::from(req);
-    let (_, host) = msg.opts
-                       .iter()
-                       .enumerate_option_numbers()
-                       .find(|(n, _)| n.0 == 3)
-                       .unwrap();
-    let (_, port) = msg.opts
-                       .iter()
-                       .enumerate_option_numbers()
-                       .find(|(n, _)| n.0 == 7)
-                       .unwrap();
-    let port_bytes = port.value.0.iter().copied().collect::<ArrayVec<[u8; 2]>>();
+  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), SendError<Cfg, Sock>> {
+    let port = req.get_option(7).expect("Uri-Port must be present");
+    let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
-    let host_str: &str = core::str::from_utf8(&host.value.0).unwrap();
-    self.sock
-        .connect(SocketAddrV4::new(Ipv4Addr::from_str(host_str).unwrap(), port))
-        .map_err(|_| ())?;
-    self.sock
-        .send(&msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(|_| ())?)
-        .map_err(|_| ())?;
-    Ok(())
+
+    let host = req.get_option(3).expect("Uri-Host must be present");
+    core::str::from_utf8(&host.value.0).map_err(SendError::HostInvalidUtf8)
+                                       .bind(|host| {
+                                         Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress)
+                                       })
+                                       .map(|ip| SocketAddrV4::new(ip, port))
+                                       .try_perform(|addr| self.sock.connect(addr).map_err(SendError::SockError))
+                                       .bind(|_| {
+                                         req.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes)
+                                       })
+                                       .try_perform(|bytes| {
+                                         nb::block!(self.sock.send(bytes)).map_err(SendError::SockError)
+                                       })
+                                       .map(|_| ())
   }
 }
 

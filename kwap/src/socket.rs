@@ -12,7 +12,7 @@ pub trait Socket {
   type Error: core::fmt::Debug;
 
   /// Connect as a client to some remote host
-  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> nb::Result<(), Self::Error>;
+  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> Result<(), Self::Error>;
 
   /// Send a message to the `connect`ed host
   fn send(&self, msg: &[u8]) -> nb::Result<(), Self::Error>;
