@@ -1,4 +1,5 @@
-use core::{cell::RefCell, str::FromStr};
+use core::cell::RefCell;
+use core::str::FromStr;
 
 use kwap_msg::TryIntoBytes;
 use no_std_net::{Ipv4Addr, SocketAddrV4};
@@ -6,17 +7,15 @@ use tinyvec::ArrayVec;
 
 /// Events used by core
 pub mod event;
-use event::{listeners::{resp_from_msg, try_parse_message},
-            Event,
-            Eventer,
-            MatchEvent};
+use event::listeners::{resp_from_msg, try_parse_message};
+use event::{Event, Eventer, MatchEvent};
 
 use self::event::listeners::log;
-use crate::{config::{self, Config},
-            req::Req,
-            resp::Resp,
-            result_ext::ResultExt,
-            socket::Socket};
+use crate::config::{self, Config};
+use crate::req::Req;
+use crate::resp::Resp;
+use crate::result_ext::ResultExt;
+use crate::socket::Socket;
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -60,7 +59,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::{config::Alloc, core::Core};
+  /// use kwap::config::Alloc;
+  /// use kwap::core::Core;
   ///
   /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
   /// Core::<UdpSocket, Alloc>::behaviorless(sock);
@@ -88,7 +88,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::{config::Alloc, core::Core};
+  /// use kwap::config::Alloc;
+  /// use kwap::core::Core;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
   ///
@@ -133,9 +134,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::{config::Alloc,
-  ///            core::{event::{Event, MatchEvent},
-  ///                   Core}};
+  /// use kwap::config::Alloc;
+  /// use kwap::core::event::{Event, MatchEvent};
+  /// use kwap::core::Core;
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
@@ -203,7 +204,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::{config::Alloc, core::Core, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::core::Core;
+  /// use kwap::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
   /// let mut core = Core::<_, Alloc>::new(sock);
@@ -247,7 +250,10 @@ mod tests {
   use tinyvec::ArrayVec;
 
   use super::*;
-  use crate::{config, config::Alloc, req::Req, test::TubeSock};
+  use crate::config;
+  use crate::config::Alloc;
+  use crate::req::Req;
+  use crate::test::TubeSock;
 
   #[test]
   fn eventer() {

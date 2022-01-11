@@ -1,6 +1,8 @@
 use std::net::UdpSocket;
 
-use kwap::{config::Alloc, core::Core, req::Req};
+use kwap::config::Alloc;
+use kwap::core::Core;
+use kwap::req::Req;
 
 fn main() {
   let sock = UdpSocket::bind("0.0.0.0:4870").unwrap();

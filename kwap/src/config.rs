@@ -10,7 +10,8 @@ use crate::core::event::Event;
 /// Configures `kwap` to use `Vec` for collections
 ///
 /// ```
-/// use kwap::{config::Alloc, req::Req};
+/// use kwap::config::Alloc;
+/// use kwap::req::Req;
 ///
 /// // Uses `Vec` for all internal storage
 /// Req::<Alloc>::get("192.168.0.1", 5683, "/hello");
