@@ -55,10 +55,9 @@ pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &Evr, ev: &mut Event<Cfg>) {
 
 #[cfg(test)]
 mod tests {
-  use std::{cell::{Cell, RefCell},
-            collections::HashMap};
+  use std::cell::RefCell;
 
-  use kwap_msg::{Code, TryIntoBytes};
+  use kwap_msg::TryIntoBytes;
   use tinyvec::ArrayVec;
 
   use super::*;

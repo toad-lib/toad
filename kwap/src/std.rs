@@ -13,14 +13,14 @@ impl Socket for UdpSocket {
                                 nb::Error::Other(Error::new(ErrorKind::InvalidInput,
                                                             "invalid socket addrs".to_string()))
                               })
-                              .and_then(|addr| UdpSocket::connect(self, &*addr).map_err(|e| nb::Error::Other(e)))
+                              .and_then(|addr| UdpSocket::connect(self, &*addr).map_err(nb::Error::Other))
   }
 
-  fn send(&mut self, msg: &[u8]) -> nb::Result<(), Self::Error> {
+  fn send(&self, msg: &[u8]) -> nb::Result<(), Self::Error> {
     UdpSocket::send(self, msg).map(|_| ()).map_err(nb::Error::Other)
   }
 
-  fn recv(&mut self, buffer: &mut [u8]) -> nb::Result<usize, Self::Error> {
+  fn recv(&self, buffer: &mut [u8]) -> nb::Result<usize, Self::Error> {
     UdpSocket::recv(self, buffer).map_err(nb::Error::Other)
   }
 }

@@ -158,19 +158,29 @@ pub(crate) mod test {
       Ok(())
     }
 
-    fn recv(&mut self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
+    fn recv(&self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
       if self.1.is_empty() {
         println!("TubSock recv invoked without sending first");
         return Err(nb::Error::WouldBlock);
       }
 
       let n = self.1.len();
-      self.1.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
+      let vec = &self.1 as *const _ as *mut Vec<u8>;
+      unsafe {
+        vec.as_mut()
+           .unwrap()
+           .drain(..)
+           .enumerate()
+           .for_each(|(ix, el)| buf[ix] = el);
+      }
       Ok(n)
     }
 
-    fn send(&mut self, buf: &[u8]) -> nb::Result<(), Self::Error> {
-      self.1 = buf.iter().copied().collect();
+    fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {
+      let vec = &self.1 as *const _ as *mut Vec<u8>;
+      unsafe {
+        *vec = buf.iter().copied().collect();
+      }
       Ok(())
     }
   }

@@ -152,28 +152,23 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   }
 
   /// Check the stored socket for a new datagram, and fire a RecvDgram event
-  fn poll_sock(&mut self) {
-    let mut buf = [0u8; 1152];
-    let recvd = self.sock.recv(&mut buf);
-    match recvd {
-      | Ok(n) => {
-        let ev = Event::RecvDgram(Some(buf[0..n].iter().copied().collect()));
-        self.fire(ev);
-      },
-      | _ => {},
-    }
-  }
-
   /// Poll for a response to a sent request
   ///
   /// # Example
   /// See `./examples/client.rs`
   pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> nb::Result<Resp<Cfg>, Sock::Error> {
-    self.poll_sock();
+    // check if there's a dgram in the socket,
+    // and move it through the event pipeline.
+    //
+    // this will store the response (if there is one) before we continue.
+    if let Some(dgram) = self.sock.poll()? {
+      self.fire(Event::RecvDgram(Some(dgram)));
+    }
+
+    let resp_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
     let mut resps = self.resps.borrow_mut();
-    let id_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
     let resp = resps.iter_mut().find_map(|rep| match rep {
-                                 | mut o @ Some(_) if id_matches(&o) => Option::take(&mut o),
+                                 | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
                                  | _ => None,
                                });
 
