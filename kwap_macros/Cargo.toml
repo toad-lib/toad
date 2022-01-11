@@ -1,6 +1,6 @@
 [package]
 name = "kwap-macros"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 description = "Macros used by kwap for boilerplate reduction"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
