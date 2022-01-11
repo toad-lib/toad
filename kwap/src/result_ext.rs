@@ -1,7 +1,7 @@
 pub(crate) trait ResultExt<T, E> {
   fn bind<R>(self, f: impl FnOnce(T) -> Result<R, E>) -> Result<R, E>;
   fn bind_err<R>(self, f: impl FnOnce(E) -> Result<T, R>) -> Result<T, R>;
-  fn bind_toss(self, f: impl FnOnce(&T) -> Result<(), E>) -> Result<T, E>;
+  fn try_perform(self, f: impl FnOnce(&T) -> Result<(), E>) -> Result<T, E>;
   fn perform(self, f: impl FnOnce(&T) -> ()) -> Result<T, E>;
   fn filter(self, pred: impl FnOnce(&T) -> bool, on_fail: impl FnOnce(&T) -> E) -> Result<T, E>;
 }
@@ -18,7 +18,7 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
     }
   }
 
-  fn bind_toss(self, f: impl FnOnce(&T) -> Result<(), E>) -> Result<T, E> {
+  fn try_perform(self, f: impl FnOnce(&T) -> Result<(), E>) -> Result<T, E> {
     self.and_then(|t| f(&t).map(|_| t))
   }
 

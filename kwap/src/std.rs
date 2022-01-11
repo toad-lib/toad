@@ -13,7 +13,7 @@ impl Socket for UdpSocket {
       || nb::Error::Other(Error::new(ErrorKind::InvalidInput, "invalid socket addrs".to_string()));
 
     convert_socket_addrs(addr).ok_or_else(invalid_addr_error)
-                              .bind_toss(|_| self.set_nonblocking(true).map_err(nb::Error::Other))
+                              .try_perform(|_| self.set_nonblocking(true).map_err(nb::Error::Other))
                               .bind(|addrs| UdpSocket::connect(self, &*addrs).map_err(io_to_nb))
   }
 
