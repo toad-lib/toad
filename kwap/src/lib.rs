@@ -155,7 +155,7 @@ pub(crate) mod test {
   impl Socket for TubeSock {
     type Error = Option<()>;
 
-    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> nb::Result<(), Self::Error> {
+    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> Result<(), Self::Error> {
       self.0 = a.to_socket_addrs().unwrap().next();
       Ok(())
     }
