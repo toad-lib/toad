@@ -21,7 +21,6 @@ pub trait Socket {
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<usize, Self::Error>;
 
   /// Poll the socket for a datagram
-  ///
   fn poll(&self) -> Result<Option<ArrayVec<[u8; 1152]>>, Self::Error> {
     let mut buf = [0u8; 1152];
     let recvd = self.recv(&mut buf);
