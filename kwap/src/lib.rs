@@ -36,6 +36,8 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
+pub(crate) mod result_ext;
+
 /// CoAP response messages
 pub mod resp;
 

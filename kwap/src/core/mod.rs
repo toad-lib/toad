@@ -15,6 +15,7 @@ use self::event::listeners::log;
 use crate::{config::{self, Config},
             req::Req,
             resp::Resp,
+            result_ext::ResultExt,
             socket::Socket};
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
@@ -161,18 +162,25 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     // and move it through the event pipeline.
     //
     // this will store the response (if there is one) before we continue.
-    if let Some(dgram) = self.sock.poll()? {
-      self.fire(Event::RecvDgram(Some(dgram)));
-    }
-
     let resp_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
-    let mut resps = self.resps.borrow_mut();
-    let resp = resps.iter_mut().find_map(|rep| match rep {
-                                 | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
-                                 | _ => None,
-                               });
 
-    resp.ok_or(nb::Error::WouldBlock)
+    self.sock
+        .poll()
+        .map(|polled| {
+          if let Some(dgram) = polled {
+            self.fire(Event::RecvDgram(Some(dgram)));
+          }
+          ()
+        })
+        .map_err(nb::Error::Other)
+        .bind(|_| {
+          self.resps.borrow_mut().iter_mut()
+               .find_map(|rep| match rep {
+                 | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
+                 | _ => None,
+               })
+               .ok_or(nb::Error::WouldBlock)
+        })
   }
 
   /// Send a message
