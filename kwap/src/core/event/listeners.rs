@@ -1,8 +1,8 @@
 use kwap_msg::TryFromBytes;
 
 use super::{Event, Eventer};
-use crate::{config::{self, Config},
-            resp::Resp};
+use crate::config::{self, Config};
+use crate::resp::Resp;
 
 /// Accepts a [`Event::RecvDgram`] and fires either [`Event::RecvMsg`] or [`Event::MsgParseError`].
 ///
@@ -61,9 +61,9 @@ mod tests {
   use tinyvec::ArrayVec;
 
   use super::*;
-  use crate::{config::{Alloc, Message},
-              core::event::MatchEvent,
-              req::Req};
+  use crate::config::{Alloc, Message};
+  use crate::core::event::MatchEvent;
+  use crate::req::Req;
   #[derive(Default)]
   struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&Self, &mut Event<Alloc>))>>);
 

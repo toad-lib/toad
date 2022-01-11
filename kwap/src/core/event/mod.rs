@@ -3,8 +3,8 @@ use core::fmt::Debug;
 use kwap_msg::MessageParseError;
 use tinyvec::ArrayVec;
 
-use crate::{config::{Config, Message},
-            resp::Resp};
+use crate::config::{Config, Message};
+use crate::resp::Resp;
 
 /// Event listeners useful across "Eventer" implemenations
 pub mod listeners;
@@ -44,8 +44,8 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvMsg event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::{config::{Alloc, Message},
-  ///            core::event::Event};
+  /// use kwap::config::{Alloc, Message};
+  /// use kwap::core::event::Event;
   ///
   /// # let msg = kwap::req::Req::<Alloc>::get("", 0, "").into();
   /// let mut ev = Event::<Alloc>::RecvMsg(Some(msg));
@@ -61,9 +61,9 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvResp event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::{config::{Alloc, Message},
-  ///            core::event::Event,
-  ///            resp::Resp};
+  /// use kwap::config::{Alloc, Message};
+  /// use kwap::core::event::Event;
+  /// use kwap::resp::Resp;
   ///
   /// # let req = kwap::req::Req::<Alloc>::get("", 0, "");
   /// # let resp = Resp::for_request(req);
@@ -80,9 +80,9 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvDgram event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::{config::{Alloc, Message},
-  ///            core::event::Event,
-  ///            resp::Resp};
+  /// use kwap::config::{Alloc, Message};
+  /// use kwap::core::event::Event;
+  /// use kwap::resp::Resp;
   /// use tinyvec::ArrayVec;
   ///
   /// let mut ev = Event::<Alloc>::RecvDgram(Some(ArrayVec::default()));
@@ -98,9 +98,9 @@ impl<Cfg: Config> Event<Cfg> {
   /// Extract the MessageParseError when this is a MsgParseError event.
   ///
   /// ```
-  /// use kwap::{config::{Alloc, Message},
-  ///            core::event::Event,
-  ///            resp::Resp};
+  /// use kwap::config::{Alloc, Message};
+  /// use kwap::core::event::Event;
+  /// use kwap::resp::Resp;
   /// use kwap_msg::MessageParseError;
   ///
   /// let mut ev = Event::<Alloc>::MsgParseError(MessageParseError::UnexpectedEndOfStream);
@@ -117,8 +117,8 @@ impl<Cfg: Config> Event<Cfg> {
 /// Used to compare events without creating them
 ///
 /// ```
-/// use kwap::{config::Alloc,
-///            core::event::{Event, MatchEvent}};
+/// use kwap::config::Alloc;
+/// use kwap::core::event::{Event, MatchEvent};
 ///
 /// static mut LOG_ERRS_WAS_CALLED: bool = false;
 ///

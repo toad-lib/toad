@@ -23,8 +23,8 @@ fn main() {
 }
 
 pub(crate) mod collection_heapless_vec {
-  use std::{ops::{Deref, DerefMut, Index, IndexMut},
-            ptr};
+  use std::ops::{Deref, DerefMut, Index, IndexMut};
+  use std::ptr;
 
   use kwap_common::Insert;
 

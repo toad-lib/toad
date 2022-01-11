@@ -1,9 +1,10 @@
-use std::{io::{self, Error, ErrorKind},
-          net::UdpSocket};
+use std::io::{self, Error, ErrorKind};
+use std::net::UdpSocket;
 
 use no_std_net::{SocketAddr, ToSocketAddrs};
 
-use crate::{result_ext::ResultExt, socket::Socket};
+use crate::result_ext::ResultExt;
+use crate::socket::Socket;
 
 impl Socket for UdpSocket {
   type Error = io::Error;

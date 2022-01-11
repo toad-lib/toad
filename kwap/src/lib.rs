@@ -32,6 +32,9 @@
                  missing_copy_implementations))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
+// - prefer explicit effectful statements that and in a () expr
+// - prefer `fn foo() -> ()` to `fn foo()`
+#![allow(clippy::unused_unit)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;

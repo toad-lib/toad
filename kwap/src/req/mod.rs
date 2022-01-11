@@ -13,7 +13,9 @@ use crate::config::{self, Config};
 /// A CoAP request
 ///
 /// ```
-/// use kwap::{config::Alloc, req::Req, resp::Resp};
+/// use kwap::config::Alloc;
+/// use kwap::req::Req;
+/// use kwap::resp::Resp;
 ///
 /// # main();
 /// fn main() {
@@ -84,7 +86,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get a copy of the message id for this request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   /// let _msg_id = req.msg_id();
@@ -99,7 +102,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   /// req.set_option(17, Some(50)); // Accept: application/json
@@ -114,7 +118,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new GET request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let _req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   /// ```
@@ -125,7 +130,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new POST request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -137,7 +143,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new PUT request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -149,7 +156,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new DELETE request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let _req = Req::<Alloc>::delete("1.1.1.1", 5683, "/users/john");
   /// ```
@@ -160,7 +168,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Add a payload to this request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -172,7 +181,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -186,7 +196,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Read an option by its number from the request
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// let uri_host = req.get_option(3).unwrap();
@@ -201,7 +212,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());

@@ -2,8 +2,8 @@ use kwap_msg::{EnumerateOptNumbers, Message, Payload, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
-use crate::{config::{self, Config},
-            req::Req};
+use crate::config::{self, Config};
+use crate::req::Req;
 
 /// Response codes
 pub mod code;
@@ -11,7 +11,8 @@ pub mod code;
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use kwap::{config::Alloc, resp::Resp};
+/// use kwap::config::Alloc;
+/// use kwap::resp::Resp;
 /// # use kwap_msg::*;
 /// # main();
 ///
@@ -47,9 +48,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Create a new response for a given request
   ///
   /// ```
-  /// use kwap::{config::{Alloc, Message},
-  ///            req::Req,
-  ///            resp::Resp};
+  /// use kwap::config::{Alloc, Message};
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
@@ -89,7 +90,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
   ///
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   ///
@@ -105,7 +108,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
   ///
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   ///
@@ -123,9 +128,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the response code
   ///
   /// ```
-  /// use kwap::{config::Alloc,
-  ///            req::Req,
-  ///            resp::{code, Resp}};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
@@ -140,9 +145,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Change the response code
   ///
   /// ```
-  /// use kwap::{config::Alloc,
-  ///            req::Req,
-  ///            resp::{code, Resp}};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
@@ -160,7 +165,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
@@ -178,7 +185,9 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Add a payload to this response
   ///
   /// ```
-  /// use kwap::{config::Alloc, req::Req, resp::Resp};
+  /// use kwap::config::Alloc;
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
