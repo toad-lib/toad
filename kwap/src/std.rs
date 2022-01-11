@@ -8,13 +8,12 @@ use crate::{result_ext::ResultExt, socket::Socket};
 impl Socket for UdpSocket {
   type Error = io::Error;
 
-  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> nb::Result<(), Self::Error> {
-    let invalid_addr_error =
-      || nb::Error::Other(Error::new(ErrorKind::InvalidInput, "invalid socket addrs".to_string()));
+  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> Result<(), Self::Error> {
+    let invalid_addr_error = || Error::new(ErrorKind::InvalidInput, "invalid socket addrs".to_string());
 
     convert_socket_addrs(addr).ok_or_else(invalid_addr_error)
-                              .try_perform(|_| self.set_nonblocking(true).map_err(nb::Error::Other))
-                              .bind(|addrs| UdpSocket::connect(self, &*addrs).map_err(io_to_nb))
+                              .try_perform(|_| self.set_nonblocking(true))
+                              .bind(|addrs| UdpSocket::connect(self, &*addrs))
   }
 
   fn send(&self, msg: &[u8]) -> nb::Result<(), Self::Error> {
