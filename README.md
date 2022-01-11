@@ -31,24 +31,24 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 
  - [x] parse messages
  - [x] ipv4
- - [] ipv6
- - [] multicast
- - [] there exists a solution for dns resolution on embedded
- - [] coaps
- - [] observe
- - [] coap block
- - [] client flow
+ - [ ] ipv6
+ - [ ] multicast
+ - [ ] there exists a solution for dns resolution on embedded
+ - [ ] coaps
+ - [ ] observe
+ - [ ] coap block
+ - [ ] client flow
    - [x] send confirmable requests
-   - [] send nonconfirmable requests
-   - [] retry send
+   - [ ] send nonconfirmable requests
+   - [ ] retry send
    - [x] poll for matching piggybacked ack response
-   - [] poll for matching con response
-   - [] ack con response
- - [] server flow
-   - [] send piggybacked responses to requests
-   - [] send separate ack & con resps
-   - [] retry send resps
- - [] high-level `http`/`reqwest`y builder interface on top of `kwap::core::Core`
+   - [ ] poll for matching con response
+   - [ ] ack con response
+ - [ ] server flow
+   - [ ] send piggybacked responses to requests
+   - [ ] send separate ack & con resps
+   - [ ] retry send resps
+ - [ ] high-level `http`/`reqwest`y builder interface on top of `kwap::core::Core`
 
 ## How it works (at the moment)
 `kwap` contains the core CoAP runtime that drives client & server behavior.
