@@ -174,12 +174,14 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         })
         .map_err(nb::Error::Other)
         .bind(|_| {
-          self.resps.borrow_mut().iter_mut()
-               .find_map(|rep| match rep {
-                 | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
-                 | _ => None,
-               })
-               .ok_or(nb::Error::WouldBlock)
+          self.resps
+              .borrow_mut()
+              .iter_mut()
+              .find_map(|rep| match rep {
+                | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
+                | _ => None,
+              })
+              .ok_or(nb::Error::WouldBlock)
         })
   }
 

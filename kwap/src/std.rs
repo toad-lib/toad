@@ -28,8 +28,8 @@ impl Socket for UdpSocket {
 
 fn io_to_nb(err: io::Error) -> nb::Error<io::Error> {
   match err.kind() {
-    io::ErrorKind::WouldBlock => nb::Error::WouldBlock,
-    _ => nb::Error::Other(err),
+    | io::ErrorKind::WouldBlock => nb::Error::WouldBlock,
+    | _ => nb::Error::Other(err),
   }
 }
 
