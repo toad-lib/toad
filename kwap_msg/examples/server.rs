@@ -1,7 +1,7 @@
-use std::{fmt::Debug,
-          net::UdpSocket,
-          sync::{Arc, Barrier},
-          thread::{self, JoinHandle}};
+use std::fmt::Debug;
+use std::net::UdpSocket;
+use std::sync::{Arc, Barrier};
+use std::thread::{self, JoinHandle};
 
 use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes, VecMessage as Message};
 

@@ -10,7 +10,8 @@
 use proc_macro::TokenStream;
 use quote::ToTokens;
 use regex::Regex;
-use syn::{parse::Parse, parse_macro_input, LitStr};
+use syn::parse::Parse;
+use syn::{parse_macro_input, LitStr};
 
 struct DocSection(LitStr);
 
