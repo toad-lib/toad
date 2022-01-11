@@ -17,21 +17,15 @@ fn main() {
     core.send_req(req).unwrap();
     println!("GET 0.0.0.0:5683/hello");
 
-    loop {
-      match core.poll_resp(id) {
-        | Ok(rep) => {
-          println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
-          break;
-        },
-        | Err(nb::Error::WouldBlock) => {
-          println!("waiting...");
-          std::thread::sleep(std::time::Duration::from_millis(500));
-        },
-        | Err(e) => {
-          eprintln!("error! {:#?}", e);
-          break;
-        },
-      }
+    let resp = nb::block!(core.poll_resp(id));
+
+    match resp {
+      | Ok(rep) => {
+        println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
+      },
+      | Err(e) => {
+        eprintln!("error! {:#?}", e);
+      },
     }
   }
 }
