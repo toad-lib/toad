@@ -36,12 +36,14 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Even
 pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cfg>) {
   // TODO: can these be statically guaranteed somehow?
   let msg = ev.get_mut_msg()
-              .expect("resp_from_msg invoked on an event type other than RecvMsg")
-              .take()
-              .expect("Message was already taken out of the event");
+              .expect("resp_from_msg invoked on an event type other than RecvMsg");
 
   // TODO: Code.is_resp / Code.is_req
-  if msg.code.class > 1 {
+  if msg.as_ref().map(|m| m.code.class > 1) == Some(true) {
+    let msg = ev.get_mut_msg()
+                .unwrap()
+                .take()
+                .expect("Message was already taken out of the event");
     let resp = Resp::<Cfg>::from(msg);
     ep.fire(Event::RecvResp(Some(resp)));
   }
@@ -176,13 +178,11 @@ mod tests {
   }
 
   #[test]
-  #[should_panic]
-  fn resp_from_msg_panics_on_multiple_invocations() {
+  fn resp_from_msg_does_not_panic_on_multiple_invocations() {
     let req = Req::<Alloc>::get("foo", 0, "");
 
     let mut evr = MockEventer::default();
-    // the first invocation takes the arrayvec out of the event,
-    // and the second attempts to and panics
+
     evr.listen(MatchEvent::RecvMsg, resp_from_msg);
     evr.listen(MatchEvent::RecvMsg, resp_from_msg);
 

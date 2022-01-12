@@ -55,7 +55,7 @@ pub struct Req<Cfg: Config> {
 }
 
 impl<Cfg: Config> Req<Cfg> {
-  fn new<P: AsRef<str>>(method: Method, host: P, port: u16, path: P) -> Self {
+  fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
@@ -81,6 +81,16 @@ impl<Cfg: Config> Req<Cfg> {
     me.set_option(11, strbytes(&path));
 
     me
+  }
+
+  /// Set this request to be non-confirmable
+  ///
+  /// Some messages do not require an acknowledgement.
+  ///
+  /// This is particularly true for messages that are repeated regularly for
+  /// application requirements, such as repeated readings from a sensor.
+  pub fn non(&mut self) -> () {
+    self.msg.ty = Type::Non;
   }
 
   /// Get a copy of the message id for this request
@@ -123,7 +133,7 @@ impl<Cfg: Config> Req<Cfg> {
   ///
   /// let _req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
   /// ```
-  pub fn get<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+  pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::GET, host, port, path)
   }
 
@@ -136,7 +146,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn post<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+  pub fn post(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::POST, host, port, path)
   }
 
@@ -149,7 +159,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Alloc>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn put<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+  pub fn put(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::PUT, host, port, path)
   }
 
@@ -161,7 +171,7 @@ impl<Cfg: Config> Req<Cfg> {
   ///
   /// let _req = Req::<Alloc>::delete("1.1.1.1", 5683, "/users/john");
   /// ```
-  pub fn delete<P: AsRef<str>>(host: P, port: u16, path: P) -> Self {
+  pub fn delete(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::DELETE, host, port, path)
   }
 
