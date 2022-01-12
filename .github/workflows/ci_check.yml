@@ -22,6 +22,15 @@ jobs:
           target
         key: rust-${{ runner.os }}
 
+    - uses: dorny/paths-filter@v2
+      id: package_changed
+      with:
+        filters: |
+          kwap-msg: ['kwap_msg/**']
+          kwap-macros: ['kwap_macros/**']
+          kwap-common: ['kwap_common/**']
+          kwap: ['kwap/**']
+
     - run: |
         if [ ! -f ~/.cargo/bin/cargo-make ];
         then
@@ -29,4 +38,19 @@ jobs:
         else
           echo 'cargo-make already available.'
         fi
+
     - run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-msg == 'true'
+      working-directory: 'kwap_msg'
+
+    - run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-common == 'true'
+      working-directory: 'kwap_common'
+
+    - run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-macros == 'true'
+      working-directory: 'kwap_macros'
+
+    - run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap == 'true'
+      working-directory: 'kwap'
