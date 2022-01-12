@@ -147,11 +147,23 @@ pub(crate) mod test {
 
   /// A mocked socket
   #[derive(Clone, Debug, Default)]
-  pub struct TubeSock(pub Option<SocketAddr>, pub Vec<u8>);
+  pub struct TubeSock {
+    pub addr: Option<SocketAddr>,
+    pub rx: Vec<u8>,
+    pub tx: Vec<u8>,
+  }
 
   impl TubeSock {
     pub fn new() -> Self {
-      Self(None, vec![])
+      Self { addr: None,
+             rx: Default::default(),
+             tx: Default::default() }
+    }
+
+    pub fn init(rx: Vec<u8>) -> Self {
+      let mut me = Self::new();
+      me.rx = rx;
+      me
     }
   }
 
@@ -159,18 +171,18 @@ pub(crate) mod test {
     type Error = Option<()>;
 
     fn connect<A: ToSocketAddrs>(&mut self, a: A) -> Result<(), Self::Error> {
-      self.0 = a.to_socket_addrs().unwrap().next();
+      self.addr = a.to_socket_addrs().unwrap().next();
       Ok(())
     }
 
     fn recv(&self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
-      if self.1.is_empty() {
-        println!("TubSock recv invoked without sending first");
+      if self.rx.is_empty() {
+        eprintln!("TubeSock recv invoked without any bytes");
         return Err(nb::Error::WouldBlock);
       }
 
-      let n = self.1.len();
-      let vec = &self.1 as *const _ as *mut Vec<u8>;
+      let n = self.rx.len();
+      let vec = &self.rx as *const _ as *mut Vec<u8>;
       unsafe {
         vec.as_mut()
            .unwrap()
@@ -182,7 +194,7 @@ pub(crate) mod test {
     }
 
     fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {
-      let vec = &self.1 as *const _ as *mut Vec<u8>;
+      let vec = &self.tx as *const _ as *mut Vec<u8>;
       unsafe {
         *vec = buf.iter().copied().collect();
       }
