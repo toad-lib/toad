@@ -7,7 +7,6 @@ use crate::code;
 pub struct Method(pub(super) Code);
 
 impl Method {
-  code!(rfc7252("4.1")   EMPTY  = Method(0 . 00));
   code!(rfc7252("5.8.1") GET    = Method(0 . 01));
   code!(rfc7252("5.8.2") POST   = Method(0 . 02));
   code!(rfc7252("5.8.3") PUT    = Method(0 . 03));
