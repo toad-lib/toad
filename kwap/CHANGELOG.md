@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.1.10 (2022-01-12)
+
+
+### Features
+
+* **kwap:** core should allow pinging coap servers ([#53](https://github.com/clov-coffee/kwap/issues/53)) ([de7cfda](https://github.com/clov-coffee/kwap/commit/de7cfda186b47ad1a41da2f9da922ceb2ea5e1ed))
+
 ### 0.1.9 (2022-01-11)
 
 ### 0.1.8 (2022-01-11)
