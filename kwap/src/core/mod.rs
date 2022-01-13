@@ -3,7 +3,7 @@ use core::str::FromStr;
 
 use kwap_common::Array;
 use kwap_msg::TryIntoBytes;
-use no_std_net::{Ipv4Addr, SocketAddrV4, SocketAddr};
+use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
 /// Events used by core
@@ -29,15 +29,13 @@ pub struct ToAck {
 
 impl ToAck {
   fn msg<Cfg: Config>(&self) -> config::Message<Cfg> {
-    config::Message::<Cfg> {
-      id: self.id,
-      token: kwap_msg::Token(Default::default()),
-      ver: Default::default(),
-      ty: kwap_msg::Type::Ack,
-      code: kwap_msg::Code::new(0, 0),
-      payload: kwap_msg::Payload(Default::default()),
-      opts: Default::default(),
-    }
+    config::Message::<Cfg> { id: self.id,
+                             token: kwap_msg::Token(Default::default()),
+                             ver: Default::default(),
+                             ty: kwap_msg::Type::Ack,
+                             code: kwap_msg::Code::new(0, 0),
+                             payload: kwap_msg::Payload(Default::default()),
+                             opts: Default::default() }
   }
 }
 
@@ -75,7 +73,9 @@ pub enum SendError<Cfg: Config, Sock: Socket> {
 }
 
 impl<Sock: Socket, Cfg: Config> Default for SendError<Cfg, Sock> {
-  fn default() -> Self {Self::NoError}
+  fn default() -> Self {
+    Self::NoError
+  }
 }
 
 impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
@@ -98,13 +98,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Core::<UdpSocket, Alloc>::behaviorless(sock);
   /// ```
   pub fn behaviorless(sock: Sock) -> Self {
-    Self {
-      sock,
-      ears: Default::default(),
-      resps: Default::default(),
-      emptys: Default::default(),
-      ack_queue: Default::default(),
-    }
+    Self { sock,
+           ears: Default::default(),
+           resps: Default::default(),
+           emptys: Default::default(),
+           ack_queue: Default::default() }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -149,8 +147,9 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     let mut iter = q.iter_mut().filter_map(Option::take);
 
     while let Some(ack) = iter.next() {
-      let bytes = ack.msg::<Cfg>().try_into_bytes::<ArrayVec<[u8; 1152]>>()
-         .map_err(SendError::ToBytes)?;
+      let bytes = ack.msg::<Cfg>()
+                     .try_into_bytes::<ArrayVec<[u8; 1152]>>()
+                     .map_err(SendError::ToBytes)?;
 
       Self::send(&mut self.sock, ack.addr, bytes)?;
     }
@@ -161,15 +160,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// FIXME
   pub fn queue_ack(&self, ev: &mut Event<Cfg>) {
     match ev {
-      Event::RecvResp(Some((ref resp, ref addr))) => {
+      | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
-          self.ack_queue.borrow_mut().push(Some(ToAck {
-            id: resp.msg_id(),
-            addr: *addr,
-          }));
+          self.ack_queue.borrow_mut().push(Some(ToAck { id: resp.msg_id(),
+                                                        addr: *addr }));
         }
       },
-      _ => {},
+      | _ => {},
     }
   }
 
@@ -270,7 +267,10 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///  | 0.00   |      Token: 0x20
   ///  |        |
   /// ```
-  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<config::Message<Cfg>, SendError<Cfg, Sock>> {
+  pub fn poll_ping(&mut self,
+                   req_id: kwap_msg::Id,
+                   addr: SocketAddr)
+                   -> nb::Result<config::Message<Cfg>, SendError<Cfg, Sock>> {
     self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::try_get_empty)
   }
 
@@ -298,10 +298,14 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         .bind(|_| f(&self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
   }
 
-  fn try_get_resp(&self, _: kwap_msg::Id, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<Cfg>, Sock::Error> {
+  fn try_get_resp(&self,
+                  _: kwap_msg::Id,
+                  token: kwap_msg::Token,
+                  sock: SocketAddr)
+                  -> nb::Result<Resp<Cfg>, Sock::Error> {
     let resp_matches = |o: &Option<(Resp<Cfg>, SocketAddr)>| {
-       let (resp, sock_stored) = o.as_ref().unwrap();
-       resp.msg.token == token && *sock_stored == sock
+      let (resp, sock_stored) = o.as_ref().unwrap();
+      resp.msg.token == token && *sock_stored == sock
     };
 
     self.resps
@@ -314,7 +318,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         .ok_or(nb::Error::WouldBlock)
   }
 
-  fn try_get_empty(&self, req_id: kwap_msg::Id, _: kwap_msg::Token, addr: SocketAddr) -> nb::Result<config::Message<Cfg>, Sock::Error> {
+  fn try_get_empty(&self,
+                   req_id: kwap_msg::Id,
+                   _: kwap_msg::Token,
+                   addr: SocketAddr)
+                   -> nb::Result<config::Message<Cfg>, Sock::Error> {
     let msg_matches = |o: &Option<(config::Message<Cfg>, SocketAddr)>| {
       let (msg, stored_addr) = o.as_ref().unwrap();
       msg.id == req_id && *stored_addr == addr
@@ -357,7 +365,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
                                        .copied()
                                        .collect();
     core::str::from_utf8(&host).map_err(SendError::HostInvalidUtf8)
-        .bind(|host| Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress))
+                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress))
                                .tupled(|_| req.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
                                .map(|(host, bytes)| (SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
@@ -399,14 +407,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  fn send(sock: &mut Sock,
-              addr: SocketAddr,
-              bytes: impl Array<Item = u8>)
-              -> Result<SocketAddr, SendError<Cfg, Sock>> {
+  fn send(sock: &mut Sock, addr: SocketAddr, bytes: impl Array<Item = u8>) -> Result<SocketAddr, SendError<Cfg, Sock>> {
     // TODO: uncouple from ipv4
-    sock.connect(addr).map_err(SendError::SockError)
-                                   .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(SendError::SockError))
-                                   .map(|_| addr)
+    sock.connect(addr)
+        .map_err(SendError::SockError)
+        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(SendError::SockError))
+        .map(|_| addr)
   }
 }
 
@@ -452,7 +458,7 @@ mod tests {
     client.listen(MatchEvent::MsgParseError, on_err);
     client.listen(MatchEvent::RecvDgram, on_dgram);
 
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     client.fire(Event::RecvDgram(Some((bytes, addr.into()))));
 
     unsafe {
@@ -491,7 +497,7 @@ mod tests {
     let resp = Resp::<Alloc>::for_request(req);
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut client = Core::<TubeSock, Alloc>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
 
     let rep = client.poll_resp(id, &addr.into()).unwrap();

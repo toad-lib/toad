@@ -10,12 +10,12 @@ pub struct Method(pub(super) Code);
 impl std::fmt::Display for Method {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let string = match self.0 {
-      Code {class: 0, detail: 0} => "EMPTY".to_string(),
-      Code {class: 0, detail: 1} => "GET".to_string(),
-      Code {class: 0, detail: 2} => "PUT".to_string(),
-      Code {class: 0, detail: 3} => "POST".to_string(),
-      Code {class: 0, detail: 4} => "DELETE".to_string(),
-      c => c.to_string(),
+      | Code { class: 0, detail: 0 } => "EMPTY".to_string(),
+      | Code { class: 0, detail: 1 } => "GET".to_string(),
+      | Code { class: 0, detail: 2 } => "PUT".to_string(),
+      | Code { class: 0, detail: 3 } => "POST".to_string(),
+      | Code { class: 0, detail: 4 } => "DELETE".to_string(),
+      | c => c.to_string(),
     };
 
     write!(f, "{}", string)

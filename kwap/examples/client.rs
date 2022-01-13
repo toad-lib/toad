@@ -29,14 +29,13 @@ macro_rules! block {
 
 fn main() {
   server::spawn();
- 
+
   let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
   println!("bound to 127.0.0.1:4870\n");
   let mut core = Core::<UdpSocket, Alloc>::new(sock);
   println!("{}", std::mem::size_of_val(&core));
 
   ping(&mut core);
-
 
   get_hello(&mut core, false);
   get_hello(&mut core, true);
@@ -59,7 +58,9 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
 
 fn get_hello(core: &mut Core<UdpSocket, Alloc>, non: bool) {
   let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
-  if non {req.non();}
+  if non {
+    req.non();
+  }
   let (id, addr) = core.send_req(req).unwrap();
   println!("GET 127.0.0.1:5683/hello");
 

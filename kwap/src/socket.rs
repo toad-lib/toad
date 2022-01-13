@@ -1,4 +1,4 @@
-use no_std_net::{ToSocketAddrs, SocketAddr};
+use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
 /// A CoAP network socket

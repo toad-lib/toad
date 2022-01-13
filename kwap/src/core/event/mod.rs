@@ -47,7 +47,7 @@ impl<Cfg: Config> Event<Cfg> {
   /// ```
   /// use kwap::config::{Alloc, Message};
   /// use kwap::core::event::Event;
-  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
+  /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
   ///
@@ -68,7 +68,7 @@ impl<Cfg: Config> Event<Cfg> {
   /// use kwap::config::{Alloc, Message};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
-  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
+  /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
   /// let req = kwap::req::Req::<Alloc>::get("", 0, "");
@@ -90,8 +90,8 @@ impl<Cfg: Config> Event<Cfg> {
   /// use kwap::config::{Alloc, Message};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
+  /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   /// use tinyvec::ArrayVec;
-  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
   /// let mut ev = Event::<Alloc>::RecvDgram(Some((ArrayVec::default(), addr)));

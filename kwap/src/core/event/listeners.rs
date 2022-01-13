@@ -15,7 +15,7 @@ use crate::resp::Resp;
 /// - When an event handler took the dgram out of the event before this handler was called.
 pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cfg>) {
   let data = ev.get_mut_dgram()
-                .expect("try_parse_message invoked on an event type other than RecvDgram");
+               .expect("try_parse_message invoked on an event type other than RecvDgram");
   let (dgram, addr) = data.take().expect("Dgram was already taken out of the event");
 
   match config::Message::<Cfg>::try_from_bytes(dgram) {
@@ -41,9 +41,9 @@ pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cf
   // TODO: Code.is_resp / Code.is_req
   if msg.as_ref().map(|(m, _)| m.code.class > 1) == Some(true) {
     let (msg, addr) = ev.get_mut_msg()
-                .unwrap()
-                .take()
-                .expect("Message was already taken out of the event");
+                        .unwrap()
+                        .take()
+                        .expect("Message was already taken out of the event");
     let resp = Resp::<Cfg>::from(msg);
     ep.fire(Event::RecvResp(Some((resp, addr))));
   }
@@ -61,7 +61,7 @@ mod tests {
 
   use kwap_msg::TryIntoBytes;
   use no_std_net::{Ipv4Addr, SocketAddrV4};
-use tinyvec::ArrayVec;
+  use tinyvec::ArrayVec;
 
   use super::*;
   use crate::config::{Alloc, Message};
@@ -104,7 +104,7 @@ use tinyvec::ArrayVec;
   #[test]
   fn try_parse_message_ok() {
     let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let data = (msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap(), addr.into());
     let mut evr = MockEventer::default();
 
@@ -123,7 +123,7 @@ use tinyvec::ArrayVec;
   #[should_panic]
   fn try_parse_message_panics_on_multiple_invocations() {
     let mut evr = MockEventer::default();
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     // the first invocation takes the arrayvec out of the event,
     // and the second attempts to and panics
@@ -138,7 +138,7 @@ use tinyvec::ArrayVec;
   fn try_parse_message_panics_on_wrong_event() {
     let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
     let mut evr = MockEventer::default();
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     // the first invocation takes the arrayvec out of the event,
     // and the second attempts to and panics
@@ -151,7 +151,7 @@ use tinyvec::ArrayVec;
   fn resp_from_msg_ok() {
     let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
     let bytes = msg.try_into_bytes().unwrap();
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut evr = MockEventer::default();
 
     evr.listen(MatchEvent::RecvDgram, try_parse_message);
@@ -168,7 +168,7 @@ use tinyvec::ArrayVec;
   #[test]
   fn resp_from_msg_nops_on_code_not_response() {
     let cases = vec![Req::<Alloc>::get("foo", 0, ""), Req::<Alloc>::post("foo", 0, "")];
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     for case in cases {
       let mut evr = MockEventer::default();
@@ -186,7 +186,7 @@ use tinyvec::ArrayVec;
   #[test]
   fn resp_from_msg_does_not_panic_on_multiple_invocations() {
     let req = Req::<Alloc>::get("foo", 0, "");
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     let mut evr = MockEventer::default();
 
@@ -200,7 +200,7 @@ use tinyvec::ArrayVec;
   #[should_panic]
   fn resp_from_msg_panics_on_wrong_event() {
     let mut evr = MockEventer::default();
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     evr.listen(MatchEvent::RecvDgram, resp_from_msg);
 

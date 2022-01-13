@@ -22,7 +22,8 @@ impl Socket for UdpSocket {
   }
 
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
-    UdpSocket::recv_from(self, buffer).map(|(n, addr)| (n, no_std_addr_from_std(addr))).map_err(io_to_nb)
+    UdpSocket::recv_from(self, buffer).map(|(n, addr)| (n, no_std_addr_from_std(addr)))
+                                      .map_err(io_to_nb)
   }
 }
 
@@ -68,8 +69,8 @@ fn no_std_addr_v6_from_std(sock: std::net::SocketAddrV6) -> no_std_net::SocketAd
 }
 
 fn no_std_addr_from_std(addr: std::net::SocketAddr) -> no_std_net::SocketAddr {
-                            match addr {
-                                  | std::net::SocketAddr::V4(sock) => no_std_addr_v4_from_std(sock),
-                                  | std::net::SocketAddr::V6(sock) => no_std_addr_v6_from_std(sock),
-                                }
+  match addr {
+    | std::net::SocketAddr::V4(sock) => no_std_addr_v4_from_std(sock),
+    | std::net::SocketAddr::V6(sock) => no_std_addr_v6_from_std(sock),
+  }
 }

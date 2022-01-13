@@ -21,15 +21,16 @@ fn should_shutdown() -> bool {
 
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
-      .spawn(|| {
-    let p = std::panic::catch_unwind(|| {
-      server_main();
-    });
+                             .spawn(|| {
+                               let p = std::panic::catch_unwind(|| {
+                                 server_main();
+                               });
 
-    if p.is_err() {
-      eprintln!("server panicked! {:?}", p);
-    }
-  }).unwrap()
+                               if p.is_err() {
+                                 eprintln!("server panicked! {:?}", p);
+                               }
+                             })
+                             .unwrap()
 }
 
 fn server_main() {
@@ -58,7 +59,11 @@ fn server_main() {
                       .map(|o| &o.value.0)
                       .map(|b| std::str::from_utf8(&b).unwrap());
 
-        println!("server: got {:?} {} {} {} bytes", req.msg_type(), req.method(), path.unwrap_or("/"), req.payload_str().unwrap().len());
+        println!("server: got {:?} {} {} {} bytes",
+                 req.msg_type(),
+                 req.method(),
+                 path.unwrap_or("/"),
+                 req.payload_str().unwrap().len());
 
         if req.msg_type() == Type::Ack {
         } else if req.method() == Method::GET && path == Some("hello") {
@@ -67,7 +72,11 @@ fn server_main() {
           resp.set_code(code::CONTENT);
 
           sock.send_to(&resp.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
-        } else if req.msg_type() == Type::Con && req.method() == Method::EMPTY && req.opts().next().is_none() && req.payload().is_empty() {
+        } else if req.msg_type() == Type::Con
+                  && req.method() == Method::EMPTY
+                  && req.opts().next().is_none()
+                  && req.payload().is_empty()
+        {
           let mut resp = Resp::<Alloc>::for_request(req);
           resp.set_code(kwap_msg::Code::new(0, 0));
 
