@@ -157,7 +157,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     Ok(())
   }
 
-  /// FIXME
+  /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
+  ///
+  /// These ACKs are processed whenever the socket is polled (e.g. [`poll_resp`](#method.poll_resp))
+  ///
+  /// # Panics
+  /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
   pub fn queue_ack(&self, ev: &mut Event<Cfg>) {
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {

@@ -84,8 +84,6 @@ impl<Cfg: Config> Req<Cfg> {
   }
 
   /// Get the request method
-  ///
-  /// example FIXME
   pub fn method(&self) -> Method {
     Method(self.msg.code)
   }
