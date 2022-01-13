@@ -61,6 +61,7 @@ pub mod socket;
 pub mod std;
 
 static mut ID: u16 = 0;
+static mut TOKEN: u64 = 0;
 
 fn generate_id() -> kwap_msg::Id {
   // TEMPORARY
@@ -69,6 +70,16 @@ fn generate_id() -> kwap_msg::Id {
   unsafe {
     ID += 1;
     kwap_msg::Id(ID)
+  }
+}
+
+fn generate_token() -> kwap_msg::Token {
+  // TEMPORARY
+  // TODO: replace with long-living Client or Endpoint structure
+  #[allow(unsafe_code)]
+  unsafe {
+    TOKEN += 1;
+    kwap_msg::Token(TOKEN.to_be_bytes().into())
   }
 }
 

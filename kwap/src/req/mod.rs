@@ -62,7 +62,7 @@ impl<Cfg: Config> Req<Cfg> {
                         id: crate::generate_id(),
                         opts: Default::default(),
                         payload: Payload(Default::default()),
-                        token: Token(Default::default()) };
+                        token: crate::generate_token() };
 
     let mut me = Self { msg,
                         opts: Default::default() };
@@ -116,6 +116,11 @@ impl<Cfg: Config> Req<Cfg> {
   /// ```
   pub fn msg_id(&self) -> kwap_msg::Id {
     self.msg.id
+  }
+
+  /// Get a copy of the message token for this request
+  pub fn msg_token(&self) -> kwap_msg::Token {
+    self.msg.token
   }
 
   /// Add a custom option to this request

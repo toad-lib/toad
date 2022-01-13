@@ -37,11 +37,9 @@ fn main() {
 
   ping(&mut core);
 
-  let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
 
-  get_hello(&mut core, req.clone());
-  req.non();
-  get_hello(&mut core, req);
+  get_hello(&mut core, false);
+  get_hello(&mut core, true);
 
   server::shutdown();
 }
@@ -50,9 +48,7 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!("pinging coap://localhost:5683");
   let pre_ping = Instant::now();
   let (id, addr) = core.ping("127.0.0.1", 5683).unwrap();
-  println!("{}", std::mem::size_of_val(&id));
-  println!("{}", std::mem::size_of_val(&addr));
-  block!(core.poll_ping(id, &addr), on_wait {
+  block!(core.poll_ping(id, addr), on_wait {
     if (Instant::now() - pre_ping).as_secs() > 5 {
       panic!("ping timed out");
     }
@@ -61,11 +57,13 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!();
 }
 
-fn get_hello(core: &mut Core<UdpSocket, Alloc>, req: Req<Alloc>) {
+fn get_hello(core: &mut Core<UdpSocket, Alloc>, non: bool) {
+  let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
+  if non {req.non();}
   let (id, addr) = core.send_req(req).unwrap();
   println!("GET 127.0.0.1:5683/hello");
 
-  let resp = block!(core.poll_resp(id, &addr), on_wait {()});
+  let resp = block!(core.poll_resp(id, addr), on_wait {()});
 
   match resp {
     | Ok(rep) => {
