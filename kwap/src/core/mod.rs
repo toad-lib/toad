@@ -489,7 +489,7 @@ mod tests {
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
     client.fire(Event::RecvDgram(Some((bytes, addr))));
-    let rep = client.poll_ping(id, &addr.into()).unwrap();
+    let rep = client.poll_ping(id, addr.into()).unwrap();
     assert_eq!(bytes, rep.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap());
   }
 
@@ -498,14 +498,14 @@ mod tests {
     type Msg = config::Message<Alloc>;
 
     let req = Req::<Alloc>::get("0.0.0.0", 1234, "");
-    let id = req.msg.id;
+    let token = req.msg.token;
     let resp = Resp::<Alloc>::for_request(req);
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut client = Core::<TubeSock, Alloc>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
 
-    let rep = client.poll_resp(id, &addr.into()).unwrap();
+    let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());
   }
 }

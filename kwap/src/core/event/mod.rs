@@ -191,7 +191,6 @@ impl MatchEvent {
   ///   # };
   ///
   ///   assert!(MatchEvent::All.matches(&ev));
-  ///   assert!(MatchEvent::Many(many).matches(&ev));
   ///   assert!(!MatchEvent::RecvDgram.matches(&ev))
   /// }
   /// ```
