@@ -68,14 +68,6 @@ pub enum SendError<Cfg: Config, Sock: Socket> {
   HostInvalidUtf8(core::str::Utf8Error),
   /// Uri-Host in request was not a valid IPv4 address (TODO)
   HostInvalidIpAddress,
-  /// [`Default`] value
-  NoError,
-}
-
-impl<Sock: Socket, Cfg: Config> Default for SendError<Cfg, Sock> {
-  fn default() -> Self {
-    Self::NoError
-  }
 }
 
 impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
