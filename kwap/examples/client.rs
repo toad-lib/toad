@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 use std::time::Instant;
 
 use kwap::config::Alloc;
-use kwap::core::Core;
+use kwap::core::{Core, ToAck};
 use kwap::req::Req;
 
 #[path = "./server.rs"]
@@ -29,14 +29,14 @@ macro_rules! block {
 
 fn main() {
   server::spawn();
-
-  let sock = UdpSocket::bind("0.0.0.0:4870").unwrap();
-  println!("bound to 0.0.0.0:4870\n");
+ 
+  let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
+  println!("bound to 127.0.0.1:4870\n");
   let mut core = Core::<UdpSocket, Alloc>::new(sock);
 
   ping(&mut core);
 
-  let mut req = Req::<Alloc>::get("0.0.0.0", 5683, "hello");
+  let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
 
   get_hello(&mut core, req.clone());
   req.non();
@@ -48,9 +48,9 @@ fn main() {
 fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!("pinging coap://localhost:5683");
   let pre_ping = Instant::now();
-  let (id, addr) = core.ping("0.0.0.0", 5683).unwrap();
+  let (id, addr) = core.ping("127.0.0.1", 5683).unwrap();
   block!(core.poll_ping(id, &addr), on_wait {
-    if (Instant::now() - pre_ping).as_secs() > 30 {
+    if (Instant::now() - pre_ping).as_secs() > 5 {
       panic!("ping timed out");
     }
   }).unwrap();
@@ -60,7 +60,7 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
 
 fn get_hello(core: &mut Core<UdpSocket, Alloc>, req: Req<Alloc>) {
   let (id, addr) = core.send_req(req).unwrap();
-  println!("GET 0.0.0.0:5683/hello");
+  println!("GET 127.0.0.1:5683/hello");
 
   let resp = block!(core.poll_resp(id, &addr), on_wait {()});
 

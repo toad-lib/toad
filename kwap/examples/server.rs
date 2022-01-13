@@ -20,7 +20,8 @@ fn should_shutdown() -> bool {
 }
 
 pub fn spawn() -> JoinHandle<()> {
-  std::thread::spawn(|| {
+  std::thread::Builder::new().stack_size(32 * 1024 * 1024)
+      .spawn(|| {
     let p = std::panic::catch_unwind(|| {
       server_main();
     });
@@ -28,7 +29,7 @@ pub fn spawn() -> JoinHandle<()> {
     if p.is_err() {
       eprintln!("server panicked! {:?}", p);
     }
-  })
+  }).unwrap()
 }
 
 fn server_main() {
@@ -50,7 +51,6 @@ fn server_main() {
 
     match sock.recv_from(&mut buf) {
       | Ok((n, addr)) => {
-        println!("server: got {} bytes", n);
         let msg = config::Message::<Alloc>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
         let req = Req::<Alloc>::from(msg);
         let path = req.get_option(11)
@@ -58,7 +58,7 @@ fn server_main() {
                       .map(|o| &o.value.0)
                       .map(|b| std::str::from_utf8(&b).unwrap());
 
-        println!("server: got {} {:?}", req.method(), path);
+        println!("server: got {} {} {} bytes", req.method(), path.unwrap_or("/"), req.payload_str().unwrap().len());
 
         if req.method() == Method::GET && path == Some("hello") {
           let mut resp = Resp::<Alloc>::for_request(req);

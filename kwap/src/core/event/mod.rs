@@ -157,10 +157,11 @@ pub enum MatchEvent {
   RecvMsg,
   /// see [`Event::RecvResp`]
   RecvResp,
-  /// Match any event
+  /// Match any event, defer filtering to the handler
+  ///
+  /// This is discouraged and should only be used when a handler
+  /// _needs_ to handle multiple types of events.
   All,
-  /// Match multiple events
-  Many(&'static ArrayVec<[Self; 3]>),
 }
 
 impl Default for MatchEvent {
@@ -197,7 +198,6 @@ impl MatchEvent {
   pub fn matches<Cfg: Config>(&self, event: &Event<Cfg>) -> bool {
     match *self {
       | Self::All => true,
-      | Self::Many(many) => many.iter().any(|mat| mat.matches(event)),
       | Self::MsgParseError => matches!(event, Event::MsgParseError(_)),
       | Self::RecvDgram => matches!(event, Event::RecvDgram(_)),
       | Self::RecvMsg => matches!(event, Event::RecvMsg(_)),

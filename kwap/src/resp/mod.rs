@@ -107,6 +107,27 @@ impl<Cfg: Config> Resp<Cfg> {
     self.msg.payload.0.iter()
   }
 
+  /// Get the message type
+  ///
+  /// See [`kwap_msg::Type`] for more info
+  pub fn msg_type(&self) -> kwap_msg::Type {
+    self.msg.ty
+  }
+
+  /// Get the message id
+  ///
+  /// See [`kwap_msg::Id`] for more info
+  pub fn msg_id(&self) -> kwap_msg::Id {
+    self.msg.id
+  }
+
+  /// Get the message token
+  ///
+  /// See [`kwap_msg::Token`] for more info
+  pub fn token(&self) -> kwap_msg::Token {
+    self.msg.token
+  }
+
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
