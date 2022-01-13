@@ -109,11 +109,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// Core::<UdpSocket, Alloc>::behaviorless(sock);
   /// ```
   pub fn behaviorless(sock: Sock) -> Self {
-    let resps =Default::default();
-    let emptys =Default::default();
-    let ack_queue =Default::default();
-    let ears =Default::default();
-    Self{sock,ears,resps,emptys,ack_queue}
+    Self {
+      sock,
+      ears: Default::default(),
+      resps: Default::default(),
+      emptys: Default::default(),
+      ack_queue: Default::default(),
+    }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -154,14 +156,14 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
 
   /// ACK all the CON responses we've received
   pub fn process_ack_queue(&mut self) -> Result<(), SendError<Cfg, Sock>> {
-    let mut q: ArrayVec<[ToAck; 16]> = self.ack_queue.borrow_mut().drain(..).filter_map(|a| a).collect();
+    let q = self.ack_queue.get_mut();
+    let mut iter = q.iter_mut().filter_map(Option::take);
 
-    while let Some(ack) = q.pop() {
+    while let Some(ack) = iter.next() {
       let bytes = ack.msg::<Cfg>().try_into_bytes::<ArrayVec<[u8; 1152]>>()
          .map_err(SendError::ToBytes)?;
 
-      self.send(ack.addr, bytes)?;
-      drop(bytes);
+      Self::send(&mut self.sock, ack.addr, bytes)?;
     }
 
     Ok(())
@@ -371,7 +373,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         .bind(|host| Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress))
                                .tupled(|_| req.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
                                .map(|(host, bytes)| (SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
-                               .bind(|(addr, bytes)| self.send(addr, bytes))
+                               .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
                                .map(|addr| (id, addr))
   }
 
@@ -399,23 +401,23 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     msg.code = kwap_msg::Code::new(0, 0);
 
     let id = msg.id;
-    msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
+    msg.try_into_bytes::<ArrayVec<[u8; 8]>>()
        .map_err(SendError::ToBytes)
        .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| SendError::HostInvalidIpAddress))
-       .bind(|(bytes, host)| self.send(SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
+       .bind(|(bytes, host)| Self::send(&mut self.sock, SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
        .map(|addr| (id, addr))
   }
 
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  pub fn send(&mut self,
+  fn send(sock: &mut Sock,
               addr: SocketAddr,
               bytes: impl Array<Item = u8>)
               -> Result<SocketAddr, SendError<Cfg, Sock>> {
     // TODO: uncouple from ipv4
-    self.sock.connect(addr).map_err(SendError::SockError)
-                                   .try_perform(|_| nb::block!(self.sock.send(&bytes)).map_err(SendError::SockError))
+    sock.connect(addr).map_err(SendError::SockError)
+                                   .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(SendError::SockError))
                                    .map(|_| addr)
   }
 }

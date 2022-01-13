@@ -26,7 +26,7 @@ pub trait Socket {
     let recvd = self.recv(&mut buf);
 
     match recvd {
-      | Ok((n, addr)) => Ok(Some((buf[0..n].iter().copied().collect(), addr))),
+      | Ok((n, addr)) => Ok(Some((buf.into_iter().take(n).collect(), addr))),
       | Err(nb::Error::WouldBlock) => Ok(None),
       | Err(nb::Error::Other(e)) => Err(e),
     }

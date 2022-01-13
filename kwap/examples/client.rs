@@ -33,6 +33,7 @@ fn main() {
   let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
   println!("bound to 127.0.0.1:4870\n");
   let mut core = Core::<UdpSocket, Alloc>::new(sock);
+  println!("{}", std::mem::size_of_val(&core));
 
   ping(&mut core);
 
@@ -49,6 +50,8 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!("pinging coap://localhost:5683");
   let pre_ping = Instant::now();
   let (id, addr) = core.ping("127.0.0.1", 5683).unwrap();
+  println!("{}", std::mem::size_of_val(&id));
+  println!("{}", std::mem::size_of_val(&addr));
   block!(core.poll_ping(id, &addr), on_wait {
     if (Instant::now() - pre_ping).as_secs() > 5 {
       panic!("ping timed out");
