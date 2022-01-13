@@ -1,4 +1,5 @@
-use kwap_msg::{EnumerateOptNumbers, Message, Payload, Type};
+use kwap_common::Array;
+use kwap_msg::{EnumerateOptNumbers, Message, Payload, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -71,6 +72,7 @@ impl<Cfg: Config> Resp<Cfg> {
 
     let msg = Message { ty: match req.ty {
                           | Type::Con => Type::Ack,
+                          | Type::Non => Type::Con,
                           | _ => req.ty,
                         },
                         id: if req.ty == Type::Con {
@@ -103,6 +105,27 @@ impl<Cfg: Config> Resp<Cfg> {
   /// ```
   pub fn payload(&self) -> impl Iterator<Item = &u8> {
     self.msg.payload.0.iter()
+  }
+
+  /// Get the message type
+  ///
+  /// See [`kwap_msg::Type`] for more info
+  pub fn msg_type(&self) -> kwap_msg::Type {
+    self.msg.ty
+  }
+
+  /// Get the message id
+  ///
+  /// See [`kwap_msg::Id`] for more info
+  pub fn msg_id(&self) -> kwap_msg::Id {
+    self.msg.id
+  }
+
+  /// Get the message token
+  ///
+  /// See [`kwap_msg::Token`] for more info
+  pub fn token(&self) -> kwap_msg::Token {
+    self.msg.token
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
@@ -224,5 +247,13 @@ impl<Cfg: Config> From<config::Message<Cfg>> for Resp<Cfg> {
     msg.opts = Default::default();
 
     Self { msg, opts: Some(opts) }
+  }
+}
+
+impl<Cfg: Config> TryIntoBytes for Resp<Cfg> {
+  type Error = <config::Message<Cfg> as TryIntoBytes>::Error;
+
+  fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
+    config::Message::<Cfg>::from(self).try_into_bytes()
   }
 }

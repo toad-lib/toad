@@ -2,8 +2,11 @@ use std::net::UdpSocket;
 use std::time::Instant;
 
 use kwap::config::Alloc;
-use kwap::core::Core;
+use kwap::core::{Core, ToAck};
 use kwap::req::Req;
+
+#[path = "./server.rs"]
+mod server;
 
 macro_rules! block {
   ($e:expr, on_wait {$on_wait:expr}) => {
@@ -25,24 +28,27 @@ macro_rules! block {
 }
 
 fn main() {
-  let sock = UdpSocket::bind("0.0.0.0:4870").unwrap();
-  println!("bound to 0.0.0.0:4870\n");
+  server::spawn();
+
+  let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
+  println!("bound to 127.0.0.1:4870\n");
   let mut core = Core::<UdpSocket, Alloc>::new(sock);
+  println!("{}", std::mem::size_of_val(&core));
 
   ping(&mut core);
 
-  let req = Req::<Alloc>::get("0.0.0.0", 5683, "hello");
+  get_hello(&mut core, false);
+  get_hello(&mut core, true);
 
-  get_hello(&mut core, req.clone());
-  get_hello(&mut core, req);
+  server::shutdown();
 }
 
 fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!("pinging coap://localhost:5683");
   let pre_ping = Instant::now();
-  let ping_id = core.ping("0.0.0.0", 5683).unwrap();
-  block!(core.poll_ping(ping_id), on_wait {
-    if (Instant::now() - pre_ping).as_secs() > 30 {
+  let (id, addr) = core.ping("127.0.0.1", 5683).unwrap();
+  block!(core.poll_ping(id, addr), on_wait {
+    if (Instant::now() - pre_ping).as_secs() > 5 {
       panic!("ping timed out");
     }
   }).unwrap();
@@ -50,12 +56,15 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!();
 }
 
-fn get_hello(core: &mut Core<UdpSocket, Alloc>, req: Req<Alloc>) {
-  let id = req.msg_id();
-  core.send_req(req).unwrap();
-  println!("GET 0.0.0.0:5683/hello");
+fn get_hello(core: &mut Core<UdpSocket, Alloc>, non: bool) {
+  let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
+  if non {
+    req.non();
+  }
+  let (id, addr) = core.send_req(req).unwrap();
+  println!("GET 127.0.0.1:5683/hello");
 
-  let resp = block!(core.poll_resp(id), on_wait {()});
+  let resp = block!(core.poll_resp(id, addr), on_wait {()});
 
   match resp {
     | Ok(rep) => {
