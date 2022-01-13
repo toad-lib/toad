@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{Message, Opt, Payload, Token, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -41,7 +41,7 @@ use crate::config::{self, Config};
 ///
 ///   fn send(&self, req: Req<Alloc>) -> Resp<Alloc> {
 ///     // send the request
-///     # let body = req.payload_string().unwrap();
+///     # let body = req.payload_str().unwrap().to_string();
 ///     # let mut resp = Resp::for_request(req);
 ///     # resp.set_payload(format!("Hello, {}!", body).bytes());
 ///     # resp
@@ -81,6 +81,18 @@ impl<Cfg: Config> Req<Cfg> {
     me.set_option(11, strbytes(&path));
 
     me
+  }
+
+  /// Get the request method
+  ///
+  /// example FIXME
+  pub fn method(&self) -> Method {
+    Method(self.msg.code)
+  }
+
+  /// Get the request type (confirmable, non-confirmable)
+  pub fn msg_type(&self) -> kwap_msg::Type {
+    self.msg.ty
   }
 
   /// Set this request to be non-confirmable
@@ -197,10 +209,10 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
-  /// assert!(req.payload().copied().eq("Hi!".bytes()))
+  /// assert!(req.payload().iter().copied().eq("Hi!".bytes()))
   /// ```
-  pub fn payload(&self) -> impl Iterator<Item = &u8> {
-    self.msg.payload.0.iter()
+  pub fn payload(&self) -> &[u8] {
+    &self.msg.payload.0
   }
 
   /// Read an option by its number from the request
@@ -228,11 +240,10 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Alloc>::post("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
-  /// assert_eq!(req.payload_string().unwrap(), "Hi!".to_string())
+  /// assert_eq!(req.payload_str().unwrap(), "Hi!")
   /// ```
-  #[cfg(feature = "alloc")]
-  pub fn payload_string(&self) -> Result<String, FromUtf8Error> {
-    String::from_utf8(self.payload().copied().collect())
+  pub fn payload_str(&self) -> Result<&str, core::str::Utf8Error> {
+    core::str::from_utf8(&self.payload())
   }
 
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
@@ -240,6 +251,11 @@ impl<Cfg: Config> Req<Cfg> {
     if let Some(opts) = Option::take(&mut self.opts) {
       self.msg.opts = crate::normalize_opts(opts);
     }
+  }
+
+  /// Iterate over the options attached to this request
+  pub fn opts(&self) -> impl Iterator<Item = &(OptNumber, Opt<Cfg::OptBytes>)> {
+    self.opts.iter().flat_map(|opts| opts.iter())
   }
 }
 
@@ -255,5 +271,14 @@ impl<Cfg: Config> TryIntoBytes for Req<Cfg> {
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
     config::Message::<Cfg>::from(self).try_into_bytes()
+  }
+}
+
+impl<Cfg: Config> From<config::Message<Cfg>> for Req<Cfg> {
+  fn from(mut msg: config::Message<Cfg>) -> Self {
+    let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
+    msg.opts = Default::default();
+
+    Self { msg, opts: Some(opts) }
   }
 }

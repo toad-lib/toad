@@ -160,8 +160,9 @@ pub(crate) mod test {
              tx: Default::default() }
     }
 
-    pub fn init(rx: Vec<u8>) -> Self {
+    pub fn init(addr: SocketAddr, rx: Vec<u8>) -> Self {
       let mut me = Self::new();
+      me.addr = Some(addr);
       me.rx = rx;
       me
     }
@@ -175,9 +176,9 @@ pub(crate) mod test {
       Ok(())
     }
 
-    fn recv(&self, buf: &mut [u8]) -> nb::Result<usize, Self::Error> {
-      if self.rx.is_empty() {
-        eprintln!("TubeSock recv invoked without any bytes");
+    fn recv(&self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
+      if self.addr.is_none() || self.rx.is_empty() {
+        println!("TubeSock recv invoked without sending first");
         return Err(nb::Error::WouldBlock);
       }
 
@@ -190,7 +191,8 @@ pub(crate) mod test {
            .enumerate()
            .for_each(|(ix, el)| buf[ix] = el);
       }
-      Ok(n)
+
+      Ok((n, self.addr.clone().unwrap()))
     }
 
     fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {

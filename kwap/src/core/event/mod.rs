@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 
 use kwap_msg::MessageParseError;
+use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
 use crate::config::{Config, Message};
@@ -25,17 +26,17 @@ pub enum Event<Cfg: Config> {
   ///
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
-  RecvDgram(Option<ArrayVec<[u8; 1152]>>),
+  RecvDgram(Option<(ArrayVec<[u8; 1152]>, SocketAddr)>),
   /// Received a message, this should be transitioned into either "RecvResp", or "RecvReq"
   ///
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
-  RecvMsg(Option<Message<Cfg>>),
+  RecvMsg(Option<(Message<Cfg>, SocketAddr)>),
   /// Received a response
   ///
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
-  RecvResp(Option<Resp<Cfg>>),
+  RecvResp(Option<(Resp<Cfg>, SocketAddr)>),
   /// Failed to parse message from dgram
   MsgParseError(kwap_msg::MessageParseError),
 }
@@ -46,12 +47,15 @@ impl<Cfg: Config> Event<Cfg> {
   /// ```
   /// use kwap::config::{Alloc, Message};
   /// use kwap::core::event::Event;
+  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
   ///
-  /// # let msg = kwap::req::Req::<Alloc>::get("", 0, "").into();
-  /// let mut ev = Event::<Alloc>::RecvMsg(Some(msg));
-  /// let msg: &mut Option<Message<Alloc>> = ev.get_mut_msg().unwrap();
+  /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
+  ///
+  /// let msg = kwap::req::Req::<Alloc>::get("", 0, "").into();
+  /// let mut ev = Event::<Alloc>::RecvMsg(Some((msg, addr)));
+  /// let msg: &mut Option<(Message<Alloc>, SocketAddr)> = ev.get_mut_msg().unwrap();
   /// ```
-  pub fn get_mut_msg(&mut self) -> Option<&mut Option<Message<Cfg>>> {
+  pub fn get_mut_msg(&mut self) -> Option<&mut Option<(Message<Cfg>, SocketAddr)>> {
     match self {
       | Self::RecvMsg(e) => Some(e),
       | _ => None,
@@ -64,13 +68,16 @@ impl<Cfg: Config> Event<Cfg> {
   /// use kwap::config::{Alloc, Message};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
+  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
   ///
-  /// # let req = kwap::req::Req::<Alloc>::get("", 0, "");
-  /// # let resp = Resp::for_request(req);
-  /// let mut ev = Event::<Alloc>::RecvResp(Some(resp));
-  /// let msg: &mut Option<Resp<Alloc>> = ev.get_mut_resp().unwrap();
+  /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
+  /// let req = kwap::req::Req::<Alloc>::get("", 0, "");
+  /// let resp = Resp::for_request(req);
+  ///
+  /// let mut ev = Event::<Alloc>::RecvResp(Some((resp, addr)));
+  /// let msg: &mut Option<(Resp<Alloc>, SocketAddr)> = ev.get_mut_resp().unwrap();
   /// ```
-  pub fn get_mut_resp(&mut self) -> Option<&mut Option<Resp<Cfg>>> {
+  pub fn get_mut_resp(&mut self) -> Option<&mut Option<(Resp<Cfg>, SocketAddr)>> {
     match self {
       | Self::RecvResp(e) => Some(e),
       | _ => None,
@@ -84,11 +91,13 @@ impl<Cfg: Config> Event<Cfg> {
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
   /// use tinyvec::ArrayVec;
+  /// use no_std_net::{SocketAddr, SocketAddrV4 as AddrV4, Ipv4Addr as Ip};
   ///
-  /// let mut ev = Event::<Alloc>::RecvDgram(Some(ArrayVec::default()));
-  /// let msg: &mut Option<ArrayVec<[u8; 1152]>> = ev.get_mut_dgram().unwrap();
+  /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
+  /// let mut ev = Event::<Alloc>::RecvDgram(Some((ArrayVec::default(), addr)));
+  /// let msg: &mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)> = ev.get_mut_dgram().unwrap();
   /// ```
-  pub fn get_mut_dgram(&mut self) -> Option<&mut Option<ArrayVec<[u8; 1152]>>> {
+  pub fn get_mut_dgram(&mut self) -> Option<&mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)>> {
     match self {
       | Self::RecvDgram(e) => Some(e),
       | _ => None,

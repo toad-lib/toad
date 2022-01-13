@@ -3,7 +3,7 @@ use core::str::FromStr;
 
 use kwap_common::Array;
 use kwap_msg::TryIntoBytes;
-use no_std_net::{Ipv4Addr, SocketAddrV4};
+use no_std_net::{Ipv4Addr, SocketAddrV4, SocketAddr};
 use tinyvec::ArrayVec;
 
 /// Events used by core
@@ -31,8 +31,8 @@ pub struct Core<Sock: Socket, Cfg: Config> {
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   ears: ArrayVec<[Option<(MatchEvent, fn(&Self, &mut Event<Cfg>))>; 32]>,
-  emptys: RefCell<ArrayVec<[Option<config::Message<Cfg>>; 64]>>,
-  resps: RefCell<ArrayVec<[Option<Resp<Cfg>>; 64]>>,
+  emptys: RefCell<ArrayVec<[Option<(config::Message<Cfg>, SocketAddr)>; 64]>>,
+  resps: RefCell<ArrayVec<[Option<(Resp<Cfg>, SocketAddr)>; 64]>>,
 }
 
 /// An error encounterable while sending a message
@@ -107,6 +107,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
     self.listen(MatchEvent::RecvMsg, Self::store_empty);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
+    self.listen(MatchEvent::RecvResp, Self::ack);
+  }
+
+  /// FIXME
+  pub fn ack(&self, ev: &mut Event<Cfg>) {
+    // self.send(self, )
   }
 
   /// Listens for RecvMsg events that are not requests or responses, and stores them on the runtime struct
@@ -116,7 +122,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   pub fn store_empty(&self, ev: &mut Event<Cfg>) {
     let msg = ev.get_mut_msg().unwrap();
 
-    if msg.is_some() && msg.as_ref().unwrap().code == kwap_msg::Code::new(0, 0) {
+    if msg.is_some() && msg.as_ref().unwrap().0.code == kwap_msg::Code::new(0, 0) {
       let msg = msg.take().unwrap();
       // this is not as smart as store_resp because empty messages are much less common
       self.emptys.borrow_mut().push(Some(msg));
@@ -188,8 +194,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Example
   /// See `./examples/client.rs`
-  pub fn poll_resp(&mut self, req_id: kwap_msg::Id) -> nb::Result<Resp<Cfg>, Sock::Error> {
-    self.poll(req_id, &kwap_msg::Token(Default::default()), Self::try_get_resp)
+  pub fn poll_resp(&mut self, req_id: kwap_msg::Id, sock: &SocketAddr) -> nb::Result<Resp<Cfg>, Sock::Error> {
+    self.poll(req_id, sock, &kwap_msg::Token(Default::default()), Self::try_get_resp)
   }
 
   /// Poll for an empty message in response to a sent empty message (CoAP ping)
@@ -206,14 +212,15 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///  | 0.00   |      Token: 0x20
   ///  |        |
   /// ```
-  pub fn poll_ping(&mut self, req_id: kwap_msg::Id) -> nb::Result<config::Message<Cfg>, Sock::Error> {
-    self.poll(req_id, &kwap_msg::Token(Default::default()), Self::try_get_empty)
+  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: &SocketAddr) -> nb::Result<config::Message<Cfg>, Sock::Error> {
+    self.poll(req_id, addr, &kwap_msg::Token(Default::default()), Self::try_get_empty)
   }
 
   fn poll<R>(&mut self,
              req_id: kwap_msg::Id,
+             addr: &SocketAddr,
              token: &kwap_msg::Token,
-             f: fn(&Self, id: kwap_msg::Id, token: &kwap_msg::Token) -> nb::Result<R, Sock::Error>)
+             f: fn(&Self, kwap_msg::Id, &SocketAddr, &kwap_msg::Token) -> nb::Result<R, Sock::Error>)
              -> nb::Result<R, Sock::Error> {
     // check if there's a dgram in the socket,
     // and move it through the event pipeline.
@@ -228,30 +235,36 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
           ()
         })
         .map_err(nb::Error::Other)
-        .bind(|_| f(&self, req_id, &token))
+        .bind(|_| f(&self, req_id, addr, &token))
   }
 
-  fn try_get_resp(&self, req_id: kwap_msg::Id, _: &kwap_msg::Token) -> nb::Result<Resp<Cfg>, Sock::Error> {
-    let resp_matches = |o: &Option<Resp<Cfg>>| o.as_ref().unwrap().msg.id == req_id;
+  fn try_get_resp(&self, req_id: kwap_msg::Id, sock: &SocketAddr, _: &kwap_msg::Token) -> nb::Result<Resp<Cfg>, Sock::Error> {
+    let resp_matches = |o: &Option<(Resp<Cfg>, SocketAddr)>| {
+       let (resp, sock_stored) = o.as_ref().unwrap();
+       resp.msg.id == req_id && sock_stored == sock
+    };
 
     self.resps
         .borrow_mut()
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o),
+          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
   }
 
-  fn try_get_empty(&self, req_id: kwap_msg::Id, _: &kwap_msg::Token) -> nb::Result<config::Message<Cfg>, Sock::Error> {
-    let msg_matches = |o: &Option<config::Message<Cfg>>| o.as_ref().unwrap().id == req_id;
+  fn try_get_empty(&self, req_id: kwap_msg::Id, addr: &SocketAddr, _: &kwap_msg::Token) -> nb::Result<config::Message<Cfg>, Sock::Error> {
+    let msg_matches = |o: &Option<(config::Message<Cfg>, SocketAddr)>| {
+      let (msg, stored_addr) = o.as_ref().unwrap();
+      msg.id == req_id && stored_addr == addr
+    };
 
     self.emptys
         .borrow_mut()
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o),
+          | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o).map(|(msg, _)| msg),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
@@ -270,7 +283,8 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// let mut core = Core::<_, Alloc>::new(sock);
   /// core.send_req(Req::<Alloc>::get("1.1.1.1", 5683, "/hello"));
   /// ```
-  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(), SendError<Cfg, Sock>> {
+  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Id, SocketAddr), SendError<Cfg, Sock>> {
+    let id = req.msg_id();
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
@@ -285,6 +299,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     core::str::from_utf8(&host).map_err(SendError::HostInvalidUtf8)
                                .tupled(|_| req.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
                                .bind(|(host, bytes)| self.send(host, port, bytes))
+                               .map(|addr| (id, addr))
   }
 
   /// Send a ping message to some remote coap server
@@ -300,12 +315,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// use kwap::core::Core;
   /// use kwap::req::Req;
   ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
+  /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
   /// let mut core = Core::<_, Alloc>::new(sock);
   /// let id = core.ping("1.1.1.1", 5683);
   /// // core.poll_ping(id);
   /// ```
-  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<kwap_msg::Id, SendError<Cfg, Sock>> {
+  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), SendError<Cfg, Sock>> {
     let mut msg: config::Message<Cfg> = Req::<Cfg>::get(host.as_ref(), port, "").into();
     msg.opts = Default::default();
     msg.code = kwap_msg::Code::new(0, 0);
@@ -314,7 +329,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
        .map_err(SendError::ToBytes)
        .bind(|bytes| self.send(host, port, bytes))
-       .map(|_| id)
+       .map(|addr| (id, addr))
   }
 
   /// Send a raw message down the wire to some remote host.
@@ -324,12 +339,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
               ip: impl AsRef<str>,
               port: u16,
               bytes: impl Array<Item = u8>)
-              -> Result<(), SendError<Cfg, Sock>> {
+              -> Result<SocketAddr, SendError<Cfg, Sock>> {
+    // TODO: uncouple from ipv4
     Ipv4Addr::from_str(ip.as_ref()).map_err(|_| SendError::HostInvalidIpAddress)
                                    .map(|ip| SocketAddrV4::new(ip, port))
-                                   .bind(|addr| self.sock.connect(addr).map_err(SendError::SockError))
+                                   .try_perform(|addr| self.sock.connect(addr).map_err(SendError::SockError))
                                    .try_perform(|_| nb::block!(self.sock.send(&bytes)).map_err(SendError::SockError))
-                                   .map(|_| ())
+                                   .map(|addr| addr.into())
   }
 }
 
@@ -375,7 +391,8 @@ mod tests {
     client.listen(MatchEvent::MsgParseError, on_err);
     client.listen(MatchEvent::RecvDgram, on_dgram);
 
-    client.fire(Event::RecvDgram(Some(bytes)));
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    client.fire(Event::RecvDgram(Some((bytes, addr.into()))));
 
     unsafe {
       assert_eq!(CALLS, 1);
@@ -387,7 +404,7 @@ mod tests {
     type Msg = config::Message<Alloc>;
 
     let mut client = Core::<TubeSock, Alloc>::new(TubeSock::new());
-    let id = client.ping("0.0.0.0", 5632).unwrap();
+    let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
     let resp = Msg { id,
                      token: kwap_msg::Token(Default::default()),
@@ -399,8 +416,8 @@ mod tests {
 
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
-    client.fire(Event::RecvDgram(Some(bytes)));
-    let rep = client.poll_ping(id).unwrap();
+    client.fire(Event::RecvDgram(Some((bytes, addr))));
+    let rep = client.poll_ping(id, &addr.into()).unwrap();
     assert_eq!(bytes, rep.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap());
   }
 
@@ -413,9 +430,10 @@ mod tests {
     let resp = Resp::<Alloc>::for_request(req);
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
-    let mut client = Core::<TubeSock, Alloc>::new(TubeSock::init(bytes.clone()));
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0,0,0,0), 1234);
+    let mut client = Core::<TubeSock, Alloc>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
 
-    let rep = client.poll_resp(id).unwrap();
+    let rep = client.poll_resp(id, &addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());
   }
 }
