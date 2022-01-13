@@ -40,11 +40,11 @@ CoAP has the same verbs and many of the same semantics as HTTP;
  - [ ] client flow
    - [x] send a ping message
    - [x] send confirmable requests
-   - [ ] send nonconfirmable requests
+   - [x] send nonconfirmable requests
    - [ ] retry send
    - [x] poll for matching piggybacked ack response
-   - [ ] poll for matching con response
-   - [ ] ack con response
+   - [x] poll for matching con response
+   - [x] ack con response
  - [ ] server flow
    - [ ] send piggybacked responses to requests
    - [ ] send separate ack & con resps
