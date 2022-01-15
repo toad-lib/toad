@@ -39,6 +39,7 @@ fn main() {
 
   get_hello(&mut core, false);
   get_hello(&mut core, true);
+  get_dropped(&mut core);
 
   server::shutdown();
 }
@@ -65,6 +66,30 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
   println!("GET 127.0.0.1:5683/hello");
 
   let resp = block!(core.poll_resp(id, addr), on_wait {()});
+
+  match resp {
+    | Ok(rep) => {
+      println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
+      println!();
+    },
+    | Err(e) => {
+      eprintln!("error! {:#?}", e);
+    },
+  }
+}
+
+fn get_dropped(core: &mut Core<Std>) {
+  let mut req = Req::<Std>::get("127.0.0.1", 5683, "dropped");
+
+  let (id, addr) = core.send_req(req).unwrap();
+  println!("GET 127.0.0.1:5683/dropped");
+
+  let start = Instant::now();
+  let resp = block!(core.poll_resp(id, addr), on_wait {
+    if (Instant::now() - start).as_secs() > 10 {
+      panic!("GET dropped timed out. Are we retrying?");
+    }
+  });
 
   match resp {
     | Ok(rep) => {

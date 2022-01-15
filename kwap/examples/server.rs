@@ -44,6 +44,8 @@ fn server_main() {
 
   println!("server: up");
 
+  let mut dropped_req_ct = 0u8;
+
   loop {
     if should_shutdown() {
       println!("server: shutting down...");
@@ -65,30 +67,33 @@ fn server_main() {
                  path.unwrap_or("/"),
                  req.payload_str().unwrap().len());
 
-        if req.msg_type() == Type::Ack {
-        } else if req.method() == Method::GET && path == Some("hello") {
-          let mut resp = Resp::<Std>::for_request(req);
-          resp.set_payload("hello, world!".bytes());
-          resp.set_code(code::CONTENT);
+        let mut resp = Resp::<Std>::for_request(req.clone());
+        let send = || sock.send_to(&resp.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
-          sock.send_to(&resp.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
-        } else if req.msg_type() == Type::Con
-                  && req.method() == Method::EMPTY
-                  && req.opts().next().is_none()
-                  && req.payload().is_empty()
-        {
-          let mut resp = Resp::<Std>::for_request(req);
-          resp.set_code(kwap_msg::Code::new(0, 0));
-
-          let mut msg = config::Message::<Std>::from(resp);
-          msg.ty = kwap_msg::Type::Reset;
-
-          sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
-        } else {
-          let mut resp = Resp::for_request(req);
-          resp.set_code(code::NOT_FOUND);
-
-          sock.send_to(&resp.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
+        match (req.msg_type(), req.method(), path) {
+          (Type::Con, Method::GET, Some("dropped")) => {
+            if dropped_req_ct >= 3 {
+              resp.set_payload("sorry it took me a bit to respond...".bytes());
+              resp.set_code(code::CONTENT);
+              send();
+            }
+          },
+          (_, Method::GET, Some("hello")) => {
+            resp.set_payload("hello, world!".bytes());
+            resp.set_code(code::CONTENT);
+            send();
+          },
+          // ping
+          (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
+            resp.set_code(kwap_msg::Code::new(0, 0));
+            let mut msg = config::Message::<Std>::from(resp);
+            msg.ty = kwap_msg::Type::Reset;
+            sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
+          },
+          _ => {
+            resp.set_code(code::NOT_FOUND);
+            send();
+          },
         }
       },
       | Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,

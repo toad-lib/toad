@@ -3,7 +3,7 @@ use kwap_msg::Code;
 use crate::code;
 
 /// Request method
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Method(pub(super) Code);
 
 #[cfg(not(feature = "no_std"))]
