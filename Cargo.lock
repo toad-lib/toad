@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "kwap"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "embedded-time",
  "kwap-common 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -288,7 +288,6 @@ dependencies = [
  "kwap-msg 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb",
  "no-std-net",
- "std-embedded-time",
  "tinyvec",
 ]
 
@@ -671,15 +670,6 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
-
-[[package]]
-name = "std-embedded-time"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a82a83bf323e55022f3d875305319a23a4936de5a316b9c67cf31e9758bb63"
-dependencies = [
- "embedded-time",
-]
 
 [[package]]
 name = "syn"
