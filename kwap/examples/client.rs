@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 use std::time::Instant;
 
 use kwap::config::Alloc;
-use kwap::core::{Core, ToAck};
+use kwap::core::Core;
 use kwap::req::Req;
 
 #[path = "./server.rs"]

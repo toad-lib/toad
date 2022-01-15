@@ -29,7 +29,7 @@ use crate::result_ext::ResultExt;
 ///   };
 ///
 ///   let strategy = retry::Strategy::Delay(Milliseconds(10));
-///   let mut retry = retry::RetryTimer::try_new(Clock::new(), strategy, retry::Attempts(1)).unwrap();
+///   let mut retry = retry::RetryTimer::try_new(Clock::new(), strategy, retry::Attempts(2)).unwrap();
 ///
 ///   while let Err(_) = fails_once() {
 ///     match nb::block!(retry.what_should_i_do()) {
@@ -195,7 +195,6 @@ mod test {
   #[test]
   fn exp_calculation() {
     let init = Milliseconds(100);
-    assert_eq!(Strategy::total_delay_exp(init, 0), 0);
     assert_eq!(Strategy::total_delay_exp(init, 1), 100);
     assert_eq!(Strategy::total_delay_exp(init, 2), 300);
     assert_eq!(Strategy::total_delay_exp(init, 3), 700);
