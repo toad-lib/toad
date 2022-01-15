@@ -4,7 +4,11 @@ use crate::result_ext::ResultExt;
 
 type ClockResult<T> = nb::Result<T, embedded_time::clock::Error>;
 
-/// A timer that lives alongside some operation to retry
+/// A timer that allows a fixed-delay or exponential-backoff retry,
+/// that lives alongside some operation to retry.
+///
+/// It does not _contain_ the work to be done (e.g. `Box<fn()>`) because
+/// we don't have the luxury of a memory allocator :)
 ///
 /// ```
 /// use kwap::{std::Clock, retry};
