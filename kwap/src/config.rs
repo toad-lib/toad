@@ -23,18 +23,24 @@ use crate::socket::Socket;
 /// Req::<Std>::get("192.168.0.1", 5683, "/hello");
 /// ```
 #[cfg(feature = "alloc")]
-#[derive(Debug, Copy)]
+#[derive(Copy)]
 pub struct Alloc<Clk, Sock>(PhantomData<(Clk, Sock)>)
-  where Clk: Clock<T = u64> + core::fmt::Debug + 'static,
-        Sock: Socket + 'static + core::fmt::Debug;
+  where Clk: Clock<T = u64> + 'static,
+        Sock: Socket + 'static;
 
-impl<Clk: Clock<T = u64> + 'static + core::fmt::Debug, Sock: Socket + 'static + core::fmt::Debug> Clone for Alloc<Clk, Sock> {
+impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Alloc::<_, _>(_)")
+  }
+}
+
+impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
   fn clone(&self) -> Self {
     Self(Default::default())
   }
 }
 
-impl<Clk: Clock<T = u64> + 'static + core::fmt::Debug, Sock: Socket + 'static + core::fmt::Debug> Config
+impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config
   for Alloc<Clk, Sock>
 {
   type PayloadBuffer = Vec<u8>;
