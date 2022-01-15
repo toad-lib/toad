@@ -54,7 +54,9 @@ pub struct RetryTimer<C: Clock<T = u64>> {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Attempts(pub u16);
 
-/// TODO
+/// Result of [`RetryTimer.what_should_i_do`].
+///
+/// This tells you if a retry should be attempted or not.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum YouShould {
   /// Attempts have been exhausted and the work that is
@@ -73,7 +75,8 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
            attempts: Attempts(1) }
   }
 
-  /// Ask the retrier if we should retry
+  /// When the thing we keep trying fails, invoke this to
+  /// tell the retrytimer "it failed again! what do I do??"
   pub fn what_should_i_do(&mut self, now: Instant<C>) -> nb::Result<YouShould, core::convert::Infallible> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
