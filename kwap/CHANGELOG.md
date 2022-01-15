@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.2.0 (2022-01-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** remove interior mutability in Core (#55)
+
+### Bug Fixes
+
+* **kwap:** remove interior mutability in Core ([#55](https://github.com/clov-coffee/kwap/issues/55)) ([768f4b9](https://github.com/clov-coffee/kwap/commit/768f4b94c078958f54e18efa53d93ce1ab144182))
+
 ### 0.1.10 (2022-01-12)
 
 
