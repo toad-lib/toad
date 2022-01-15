@@ -51,10 +51,10 @@ pub struct Core<Sock: Socket, Cfg: Config> {
   // which is required by ArrayVec.
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
-  ears: ArrayVec<[Option<(MatchEvent, fn(&Self, &mut Event<Cfg>))>; 16]>,
-  emptys: RefCell<ArrayVec<[Option<(config::Message<Cfg>, SocketAddr)>; 8]>>,
-  resps: RefCell<ArrayVec<[Option<(Resp<Cfg>, SocketAddr)>; 16]>>,
-  ack_queue: RefCell<ArrayVec<[Option<ToAck>; 16]>>,
+  ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>))>; 16]>,
+  emptys: ArrayVec<[Option<(config::Message<Cfg>, SocketAddr)>; 8]>,
+  resps: ArrayVec<[Option<(Resp<Cfg>, SocketAddr)>; 16]>,
+  ack_queue: ArrayVec<[Option<ToAck>; 16]>,
 }
 
 /// An error encounterable while sending a message
@@ -135,8 +135,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
 
   /// ACK all the CON responses we've received
   pub fn process_ack_queue(&mut self) -> Result<(), SendError<Cfg, Sock>> {
-    let q = self.ack_queue.get_mut();
-    let mut iter = q.iter_mut().filter_map(Option::take);
+    let mut iter = self.ack_queue.iter_mut().filter_map(Option::take);
 
     while let Some(ack) = iter.next() {
       let bytes = ack.msg::<Cfg>()
@@ -155,12 +154,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn queue_ack(&self, ev: &mut Event<Cfg>) {
+  pub fn queue_ack(&mut self, ev: &mut Event<Cfg>) {
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
-          self.ack_queue.borrow_mut().push(Some(ToAck { id: resp.msg_id(),
-                                                        addr: *addr }));
+          self.ack_queue.push(Some(ToAck { id: resp.msg_id(),
+                                           addr: *addr }));
         }
       },
       | _ => {},
@@ -171,13 +170,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
-  pub fn store_empty(&self, ev: &mut Event<Cfg>) {
+  pub fn store_empty(&mut self, ev: &mut Event<Cfg>) {
     let msg = ev.get_mut_msg().unwrap();
 
     if msg.is_some() && msg.as_ref().unwrap().0.code == kwap_msg::Code::new(0, 0) {
       let msg = msg.take().unwrap();
       // this is not as smart as store_resp because empty messages are much less common
-      self.emptys.borrow_mut().push(Some(msg));
+      self.emptys.push(Some(msg));
     }
   }
 
@@ -185,15 +184,14 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Panics
   /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
-  pub fn store_resp(&self, ev: &mut Event<Cfg>) {
+  pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
-    let mut resps = self.resps.borrow_mut();
-    if let Some(resp) = resps.try_push(Some(resp)) {
+    if let Some(resp) = self.resps.try_push(Some(resp)) {
       // arrayvec is full, remove nones
-      *resps = resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
+      self.resps = self.resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
 
       // panic if we're still full
-      resps.push(resp);
+      self.resps.push(resp);
     }
   }
 
@@ -201,7 +199,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Example
   /// See [`Core.fire()`](#method.fire)
-  pub fn listen(&mut self, mat: MatchEvent, listener: fn(&Self, &mut Event<Cfg>)) {
+  pub fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>)) {
     self.ears.push(Some((mat, listener)));
   }
 
@@ -217,7 +215,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
   ///
-  /// fn log_errs(_: &Core<UdpSocket, Alloc>, ev: &mut Event<Alloc>) {
+  /// fn log_errs(_: &mut Core<UdpSocket, Alloc>, ev: &mut Event<Alloc>) {
   ///   let err = ev.get_msg_parse_error().unwrap();
   ///   eprintln!("error! {:?}", err);
   ///   unsafe {
@@ -233,13 +231,15 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// unsafe { assert_eq!(LOG_ERRS_CALLS, 1) }
   /// ```
-  pub fn fire(&self, event: Event<Cfg>) {
+  pub fn fire(&mut self, event: Event<Cfg>) {
     let mut sound = event;
-    self.ears.iter().filter_map(|o| o.as_ref()).for_each(|(mat, work)| {
-                                                 if mat.matches(&sound) {
-                                                   work(self, &mut sound);
-                                                 }
-                                               });
+    let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
+
+    ears.into_iter().filter_map(|o| o).for_each(|(mat, work)| {
+                                        if mat.matches(&sound) {
+                                          work(self, &mut sound);
+                                        }
+                                      });
   }
 
   /// Poll for a response to a sent request
@@ -275,7 +275,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
              req_id: kwap_msg::Id,
              addr: SocketAddr,
              token: kwap_msg::Token,
-             f: fn(&Self, kwap_msg::Id, kwap_msg::Token, SocketAddr) -> nb::Result<R, Sock::Error>)
+             f: fn(&mut Self, kwap_msg::Id, kwap_msg::Token, SocketAddr) -> nb::Result<R, Sock::Error>)
              -> nb::Result<R, SendError<Cfg, Sock>> {
     // check if there's a dgram in the socket,
     // and move it through the event pipeline.
@@ -292,10 +292,10 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         .map_err(SendError::SockError)
         .try_perform(|_| self.process_ack_queue())
         .map_err(nb::Error::Other)
-        .bind(|_| f(&self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
+        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
   }
 
-  fn try_get_resp(&self,
+  fn try_get_resp(&mut self,
                   _: kwap_msg::Id,
                   token: kwap_msg::Token,
                   sock: SocketAddr)
@@ -306,7 +306,6 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     };
 
     self.resps
-        .borrow_mut()
         .iter_mut()
         .find_map(|rep| match rep {
           | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|(resp, _)| resp),
@@ -315,7 +314,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
         .ok_or(nb::Error::WouldBlock)
   }
 
-  fn try_get_empty(&self,
+  fn try_get_empty(&mut self,
                    req_id: kwap_msg::Id,
                    _: kwap_msg::Token,
                    addr: SocketAddr)
@@ -326,7 +325,6 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     };
 
     self.emptys
-        .borrow_mut()
         .iter_mut()
         .find_map(|rep| match rep {
           | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o).map(|(msg, _)| msg),
@@ -414,11 +412,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
 }
 
 impl<Sock: Socket, Cfg: Config> Eventer<Cfg> for Core<Sock, Cfg> {
-  fn fire(&self, ev: Event<Cfg>) {
-    self.fire(ev)
+  fn fire(&mut self, ev: Event<Cfg>) {
+    Self::fire(self, ev)
   }
 
-  fn listen(&mut self, mat: MatchEvent, f: fn(&Self, &mut Event<Cfg>)) {
+  fn listen(&mut self, mat: MatchEvent, f: fn(&mut Self, &mut Event<Cfg>)) {
     self.listen(mat, f)
   }
 }
@@ -441,12 +439,12 @@ mod tests {
                                                    .unwrap();
     let mut client = Core::<TubeSock, Alloc>::behaviorless(TubeSock::new());
 
-    fn on_err(_: &Core<TubeSock, Alloc>, e: &mut Event<Alloc>) {
+    fn on_err(_: &mut Core<TubeSock, Alloc>, e: &mut Event<Alloc>) {
       panic!("{:?}", e)
     }
 
     static mut CALLS: usize = 0;
-    fn on_dgram(_: &Core<TubeSock, Alloc>, _: &mut Event<Alloc>) {
+    fn on_dgram(_: &mut Core<TubeSock, Alloc>, _: &mut Event<Alloc>) {
       unsafe {
         CALLS += 1;
       }

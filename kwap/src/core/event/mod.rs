@@ -13,10 +13,10 @@ pub mod listeners;
 /// A thing that emits kwap events
 pub trait Eventer<Cfg: Config> {
   /// Fire an event
-  fn fire(&self, event: Event<Cfg>);
+  fn fire(&mut self, event: Event<Cfg>);
 
   /// Attach a listener function that will be invoked on events that match `mat`.
-  fn listen(&mut self, mat: MatchEvent, listener: fn(&Self, &mut Event<Cfg>));
+  fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>));
 }
 
 /// A state transition for a message in the CoAP runtime
