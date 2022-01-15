@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.3.0 (2022-01-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** we should retry sending CONfirmable messages until ACKed (#56)
+
+### Features
+
+* **kwap:** we should retry sending CONfirmable messages until ACKed ([#56](https://github.com/clov-coffee/kwap/issues/56)) ([7de512d](https://github.com/clov-coffee/kwap/commit/7de512dcb8ed4e24b9a725bb4add9d175864aab7))
+
 ## 0.2.0 (2022-01-15)
 
 
