@@ -45,15 +45,15 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvMsg event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::config::{Alloc, Message};
+  /// use kwap::config::{Message, Std};
   /// use kwap::core::event::Event;
   /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
   ///
-  /// let msg = kwap::req::Req::<Alloc>::get("", 0, "").into();
-  /// let mut ev = Event::<Alloc>::RecvMsg(Some((msg, addr)));
-  /// let msg: &mut Option<(Message<Alloc>, SocketAddr)> = ev.get_mut_msg().unwrap();
+  /// let msg = kwap::req::Req::<Std>::get("", 0, "").into();
+  /// let mut ev = Event::<Std>::RecvMsg(Some((msg, addr)));
+  /// let msg: &mut Option<(Message<Std>, SocketAddr)> = ev.get_mut_msg().unwrap();
   /// ```
   pub fn get_mut_msg(&mut self) -> Option<&mut Option<(Message<Cfg>, SocketAddr)>> {
     match self {
@@ -65,17 +65,17 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvResp event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::config::{Alloc, Message};
+  /// use kwap::config::{Message, Std};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
   /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
-  /// let req = kwap::req::Req::<Alloc>::get("", 0, "");
+  /// let req = kwap::req::Req::<Std>::get("", 0, "");
   /// let resp = Resp::for_request(req);
   ///
-  /// let mut ev = Event::<Alloc>::RecvResp(Some((resp, addr)));
-  /// let msg: &mut Option<(Resp<Alloc>, SocketAddr)> = ev.get_mut_resp().unwrap();
+  /// let mut ev = Event::<Std>::RecvResp(Some((resp, addr)));
+  /// let msg: &mut Option<(Resp<Std>, SocketAddr)> = ev.get_mut_resp().unwrap();
   /// ```
   pub fn get_mut_resp(&mut self) -> Option<&mut Option<(Resp<Cfg>, SocketAddr)>> {
     match self {
@@ -87,14 +87,14 @@ impl<Cfg: Config> Event<Cfg> {
   /// When this is a RecvDgram event, yields a mutable reference to the bytes in the event.
   ///
   /// ```
-  /// use kwap::config::{Alloc, Message};
+  /// use kwap::config::{Message, Std};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
   /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
   /// use tinyvec::ArrayVec;
   ///
   /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
-  /// let mut ev = Event::<Alloc>::RecvDgram(Some((ArrayVec::default(), addr)));
+  /// let mut ev = Event::<Std>::RecvDgram(Some((ArrayVec::default(), addr)));
   /// let msg: &mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)> = ev.get_mut_dgram().unwrap();
   /// ```
   pub fn get_mut_dgram(&mut self) -> Option<&mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)>> {
@@ -107,12 +107,12 @@ impl<Cfg: Config> Event<Cfg> {
   /// Extract the MessageParseError when this is a MsgParseError event.
   ///
   /// ```
-  /// use kwap::config::{Alloc, Message};
+  /// use kwap::config::{Message, Std};
   /// use kwap::core::event::Event;
   /// use kwap::resp::Resp;
   /// use kwap_msg::MessageParseError;
   ///
-  /// let mut ev = Event::<Alloc>::MsgParseError(MessageParseError::UnexpectedEndOfStream);
+  /// let mut ev = Event::<Std>::MsgParseError(MessageParseError::UnexpectedEndOfStream);
   /// let msg: &MessageParseError = ev.get_msg_parse_error().unwrap();
   /// ```
   pub fn get_msg_parse_error(&self) -> Option<&MessageParseError> {
@@ -126,19 +126,19 @@ impl<Cfg: Config> Event<Cfg> {
 /// Used to compare events without creating them
 ///
 /// ```
-/// use kwap::config::Alloc;
+/// use kwap::config::Std;
 /// use kwap::core::event::{Event, MatchEvent};
 ///
 /// static mut LOG_ERRS_WAS_CALLED: bool = false;
 ///
-/// fn log_errs(e: Event<Alloc>) {
+/// fn log_errs(e: Event<Std>) {
 ///   eprintln!("error parsing message: {:?}", e.get_msg_parse_error().unwrap());
 ///   unsafe {
 ///     LOG_ERRS_WAS_CALLED = true;
 ///   }
 /// }
 ///
-/// fn listen(e: MatchEvent, f: fn(e: Event<Alloc>)) {
+/// fn listen(e: MatchEvent, f: fn(e: Event<Std>)) {
 ///   // listeny things
 ///   # f(Event::MsgParseError(kwap_msg::MessageParseError::UnexpectedEndOfStream))
 /// }
@@ -180,7 +180,7 @@ impl MatchEvent {
   ///
   /// # main();
   /// fn main() {
-  ///   let ev = Event::<kwap::config::Alloc>::MsgParseError(UnexpectedEndOfStream);
+  ///   let ev = Event::<kwap::config::Std>::MsgParseError(UnexpectedEndOfStream);
   ///   # static mut MANY: Option<ArrayVec<[MatchEvent; 3]>> = None;
   ///   let many: &'static ArrayVec<[MatchEvent; 3]> =
   ///   # unsafe {

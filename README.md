@@ -37,11 +37,11 @@ CoAP has the same verbs and many of the same semantics as HTTP;
  - [ ] coaps
  - [ ] observe
  - [ ] coap block
- - [ ] client flow
+ - [x] client flow
    - [x] send a ping message
    - [x] send confirmable requests
    - [x] send nonconfirmable requests
-   - [ ] retry send
+   - [x] retry send
    - [x] poll for matching piggybacked ack response
    - [x] poll for matching con response
    - [x] ack con response

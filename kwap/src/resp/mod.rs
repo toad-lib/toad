@@ -12,14 +12,14 @@ pub mod code;
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use kwap::config::Alloc;
+/// use kwap::config::Std;
 /// use kwap::resp::Resp;
 /// # use kwap_msg::*;
 /// # main();
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::<Alloc>::for_request(req);
+///     let mut resp = Resp::<Std>::for_request(req);
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
@@ -34,7 +34,7 @@ pub mod code;
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(kwap::req::Req<Alloc>) -> kwap::resp::Resp<Alloc>) {
+/// fn start_server(f: impl FnOnce(kwap::req::Req<Std>) -> kwap::resp::Resp<Std>) {
 ///   // servery things
 /// # f(kwap::req::Req::get("foo", 0, ""));
 /// }
@@ -49,16 +49,16 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Create a new response for a given request
   ///
   /// ```
-  /// use kwap::config::{Alloc, Message};
+  /// use kwap::config::{Message, Std};
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Alloc>::for_request(req.clone());
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let resp = Resp::<Std>::for_request(req.clone());
   ///
-  /// let req_msg = Message::<Alloc>::from(req);
-  /// let resp_msg = Message::<Alloc>::from(resp);
+  /// let req_msg = Message::<Std>::from(req);
+  /// let resp_msg = Message::<Std>::from(resp);
   ///
   /// // note that Req's default type is CON, so the response will be an ACK.
   /// // this means that the token and id of the response will be the same
@@ -92,14 +92,14 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let resp = Resp::<Alloc>::for_request(req);
+  /// let resp = Resp::<Std>::for_request(req);
   ///
   /// let data: Vec<u8> = resp.payload().copied().collect();
   /// ```
@@ -131,14 +131,14 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let mut resp = Resp::<Alloc>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(req);
   /// resp.set_payload("hello!".bytes());
   ///
   /// let data: String = resp.payload_string().unwrap();
@@ -151,13 +151,13 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the response code
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Alloc>::for_request(req);
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let resp = Resp::<Std>::for_request(req);
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
@@ -168,13 +168,13 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Change the response code
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Alloc>::for_request(req);
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Std>::for_request(req);
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
@@ -188,13 +188,13 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Alloc>::for_request(req);
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Std>::for_request(req);
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
@@ -208,13 +208,13 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Add a payload to this response
   ///
   /// ```
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Alloc>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Alloc>::for_request(req);
+  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let mut resp = Resp::<Std>::for_request(req);
   ///
   /// // Maybe you have some bytes:
   /// resp.set_payload(vec![1, 2, 3]);

@@ -64,11 +64,11 @@ mod tests {
   use tinyvec::ArrayVec;
 
   use super::*;
-  use crate::config::{Alloc, Message};
+  use crate::config::{Message, Std};
   use crate::core::event::MatchEvent;
   use crate::req::Req;
   #[derive(Default)]
-  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&mut Self, &mut Event<Alloc>))>>);
+  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&mut Self, &mut Event<Std>))>>);
 
   impl MockEventer {
     fn calls(&self, mat: MatchEvent) -> usize {
@@ -76,8 +76,8 @@ mod tests {
     }
   }
 
-  impl Eventer<Alloc> for MockEventer {
-    fn fire(&mut self, mut event: Event<Alloc>) {
+  impl Eventer<Std> for MockEventer {
+    fn fire(&mut self, mut event: Event<Std>) {
       let ears = self.0.borrow();
       ears.iter().for_each(|(n, mat, ear)| {
                    if mat.matches(&event) {
@@ -91,21 +91,21 @@ mod tests {
                  })
     }
 
-    fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Alloc>)) {
+    fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Std>)) {
       let mut ears = self.0.borrow_mut();
       ears.push((0, mat, listener));
     }
   }
 
-  fn panic<E: Eventer<Alloc>>(_: &mut E, event: &mut Event<Alloc>) {
+  fn panic<E: Eventer<Std>>(_: &mut E, event: &mut Event<Std>) {
     panic!("{:?}", event)
   }
 
-  fn nop<E: Eventer<Alloc>>(_: &mut E, _: &mut Event<Alloc>) {}
+  fn nop<E: Eventer<Std>>(_: &mut E, _: &mut Event<Std>) {}
 
   #[test]
   fn try_parse_message_ok() {
-    let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
+    let msg = Message::<Std>::from(Req::<Std>::get("foo", 0, ""));
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let data = (msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap(), addr.into());
     let mut evr = MockEventer::default();
@@ -138,7 +138,7 @@ mod tests {
   #[test]
   #[should_panic]
   fn try_parse_message_panics_on_wrong_event() {
-    let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
+    let msg = Message::<Std>::from(Req::<Std>::get("foo", 0, ""));
     let mut evr = MockEventer::default();
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
@@ -146,12 +146,12 @@ mod tests {
     // and the second attempts to and panics
     evr.listen(MatchEvent::RecvMsg, try_parse_message);
 
-    evr.fire(Event::<Alloc>::RecvMsg(Some((msg, addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((msg, addr.into()))));
   }
 
   #[test]
   fn resp_from_msg_ok() {
-    let msg = Message::<Alloc>::from(Req::<Alloc>::get("foo", 0, ""));
+    let msg = Message::<Std>::from(Req::<Std>::get("foo", 0, ""));
     let bytes = msg.try_into_bytes().unwrap();
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut evr = MockEventer::default();
@@ -169,7 +169,7 @@ mod tests {
 
   #[test]
   fn resp_from_msg_nops_on_code_not_response() {
-    let cases = vec![Req::<Alloc>::get("foo", 0, ""), Req::<Alloc>::post("foo", 0, "")];
+    let cases = vec![Req::<Std>::get("foo", 0, ""), Req::<Std>::post("foo", 0, "")];
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     for case in cases {
@@ -178,7 +178,7 @@ mod tests {
       evr.listen(MatchEvent::RecvMsg, resp_from_msg);
       evr.listen(MatchEvent::RecvResp, nop);
 
-      evr.fire(Event::<Alloc>::RecvMsg(Some((case.into(), addr.clone().into()))));
+      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.clone().into()))));
 
       assert_eq!(evr.calls(MatchEvent::RecvResp), 0);
       assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
@@ -187,7 +187,7 @@ mod tests {
 
   #[test]
   fn resp_from_msg_does_not_panic_on_multiple_invocations() {
-    let req = Req::<Alloc>::get("foo", 0, "");
+    let req = Req::<Std>::get("foo", 0, "");
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     let mut evr = MockEventer::default();
@@ -195,7 +195,7 @@ mod tests {
     evr.listen(MatchEvent::RecvMsg, resp_from_msg);
     evr.listen(MatchEvent::RecvMsg, resp_from_msg);
 
-    evr.fire(Event::<Alloc>::RecvMsg(Some((req.into(), addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((req.into(), addr.into()))));
   }
 
   #[test]
