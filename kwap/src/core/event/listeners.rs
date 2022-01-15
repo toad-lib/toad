@@ -13,7 +13,7 @@ use crate::resp::Resp;
 /// # Panics
 /// - When invoked on an event type other than RecvDgram.
 /// - When an event handler took the dgram out of the event before this handler was called.
-pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cfg>) {
+pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
   let data = ev.get_mut_dgram()
                .expect("try_parse_message invoked on an event type other than RecvDgram");
   let (dgram, addr) = data.take().expect("Dgram was already taken out of the event");
@@ -33,7 +33,7 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Even
 /// # Panics
 /// - When invoked on an event type other than RecvMsg.
 /// - When an event handler took the data out of the event before this handler was called.
-pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cfg>) {
+pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
   // TODO: can these be statically guaranteed somehow?
   let msg = ev.get_mut_msg()
               .expect("resp_from_msg invoked on an event type other than RecvMsg");
@@ -51,7 +51,7 @@ pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &Evr, ev: &mut Event<Cf
 
 /// Logs an event using println
 #[cfg(any(test, not(feature = "no_std")))]
-pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &Evr, ev: &mut Event<Cfg>) {
+pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &mut Evr, ev: &mut Event<Cfg>) {
   println!("Event: {:?}", ev);
 }
 
@@ -68,7 +68,7 @@ mod tests {
   use crate::core::event::MatchEvent;
   use crate::req::Req;
   #[derive(Default)]
-  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&Self, &mut Event<Alloc>))>>);
+  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&mut Self, &mut Event<Alloc>))>>);
 
   impl MockEventer {
     fn calls(&self, mat: MatchEvent) -> usize {
@@ -77,29 +77,31 @@ mod tests {
   }
 
   impl Eventer<Alloc> for MockEventer {
-    fn fire(&self, mut event: Event<Alloc>) {
-      self.0.borrow().iter().for_each(|(n, mat, ear)| {
-                              if mat.matches(&event) {
-                                let n = n as *const _ as *mut usize;
-                                unsafe {
-                                  *n += 1usize;
-                                }
-                                ear(&self, &mut event);
-                              }
-                            })
+    fn fire(&mut self, mut event: Event<Alloc>) {
+      let ears = self.0.borrow();
+      ears.iter().for_each(|(n, mat, ear)| {
+                   if mat.matches(&event) {
+                     unsafe {
+                       let n = n as *const _ as *mut usize;
+                       *n += 1usize;
+                       let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
+                       ear(me_mut, &mut event);
+                     }
+                   }
+                 })
     }
 
-    fn listen(&mut self, mat: MatchEvent, listener: fn(&Self, &mut Event<Alloc>)) {
+    fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Alloc>)) {
       let mut ears = self.0.borrow_mut();
       ears.push((0, mat, listener));
     }
   }
 
-  fn panic<E: Eventer<Alloc>>(_: &E, event: &mut Event<Alloc>) {
+  fn panic<E: Eventer<Alloc>>(_: &mut E, event: &mut Event<Alloc>) {
     panic!("{:?}", event)
   }
 
-  fn nop<E: Eventer<Alloc>>(_: &E, _: &mut Event<Alloc>) {}
+  fn nop<E: Eventer<Alloc>>(_: &mut E, _: &mut Event<Alloc>) {}
 
   #[test]
   fn try_parse_message_ok() {
