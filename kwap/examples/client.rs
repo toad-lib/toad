@@ -32,7 +32,7 @@ fn main() {
 
   let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
   println!("bound to 127.0.0.1:4870\n");
-  let mut core = Core::<Std>::new(sock);
+  let mut core = Core::<Std>::new(kwap::std::Clock::new(), sock);
   println!("{}", std::mem::size_of_val(&core));
 
   ping(&mut core);

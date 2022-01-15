@@ -11,6 +11,10 @@ use crate::socket::Socket;
 #[derive(Debug, Clone, Copy)]
 pub struct Clock(Instant);
 
+impl Default for Clock {
+  fn default() -> Self {Self::new()}
+}
+
 impl Clock {
   /// Create a new clock
   pub fn new() -> Self {

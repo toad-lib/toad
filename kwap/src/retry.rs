@@ -11,9 +11,8 @@ use crate::result_ext::ResultExt;
 /// we don't have the luxury of a memory allocator :)
 ///
 /// ```
-/// use embedded_time::duration::Milliseconds;
+/// use embedded_time::{clock::Clock, duration::Milliseconds};
 /// use kwap::retry;
-/// use kwap::std::Clock;
 ///
 /// # main();
 /// fn main() {
@@ -28,11 +27,13 @@ use crate::result_ext::ResultExt;
 ///     # }
 ///   };
 ///
+///   let clock = kwap::std::Clock::new();
+///   let now = || clock.try_now().unwrap();
 ///   let strategy = retry::Strategy::Delay(Milliseconds(10));
-///   let mut retry = retry::RetryTimer::try_new(Clock::new(), strategy, retry::Attempts(2)).unwrap();
+///   let mut retry = retry::RetryTimer::new(now(), strategy, retry::Attempts(2));
 ///
 ///   while let Err(_) = fails_once() {
-///     match nb::block!(retry.what_should_i_do()) {
+///     match nb::block!(retry.what_should_i_do(now())) {
 ///       | Ok(retry::YouShould::Retry) => continue,
 ///       | Ok(retry::YouShould::Cry) => panic!("no more attempts! it failed more than once!!"),
 ///       | Err(clock_err) => unreachable!(),
@@ -43,7 +44,6 @@ use crate::result_ext::ResultExt;
 #[derive(Debug, Clone, Copy)]
 pub struct RetryTimer<C: Clock<T = u64>> {
   start: Instant<C>,
-  clock: C,
   strategy: Strategy,
   attempts: Attempts,
   max_attempts: Attempts,
@@ -65,34 +65,28 @@ pub enum YouShould {
 
 impl<C: Clock<T = u64>> RetryTimer<C> {
   /// Create a new retrier
-  pub fn try_new(clock: C, strategy: Strategy, max_attempts: Attempts) -> Result<Self, ClockError> {
-    clock.try_now().map(|start| Self { start,
-                                       clock,
-                                       strategy,
-                                       max_attempts,
-                                       attempts: Attempts(1) })
+  pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
+    Self { start,
+           strategy,
+           max_attempts,
+           attempts: Attempts(1) }
   }
 
   /// Ask the retrier if we should retry
-  pub fn what_should_i_do(&mut self) -> nb::Result<YouShould, ClockError> {
+  pub fn what_should_i_do(&mut self, now: Instant<C>) -> nb::Result<YouShould, core::convert::Infallible> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
     } else {
-      self.clock
-          .try_now()
-          .map(|now| now - self.start)
-          .map(|elapsed| self.strategy.is_ready(elapsed.try_into().unwrap(), self.attempts.0))
-          .map_err(nb::Error::Other)
-          .bind(|ready| {
+      let ready = self.strategy
+          .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
             if ready {
               self.attempts.0 += 1;
               Ok(YouShould::Retry)
             } else {
               Err(nb::Error::WouldBlock)
             }
-          })
+          }
     }
-  }
 }
 
 /// Strategy to employ when retrying
@@ -156,24 +150,25 @@ mod test {
 
     let mut time_millis = 0u64;
     let clock = FakeClock::new(&time_millis as *const _);
-    let mut retry = RetryTimer::try_new(clock, Strategy::Delay(Milliseconds(1000)), Attempts(5)).unwrap();
+    let now = || clock.try_now().unwrap();
+    let mut retry = RetryTimer::new(now(), Strategy::Delay(Milliseconds(1000)), Attempts(5));
 
     time_millis = 999;
-    assert_eq!(retry.what_should_i_do().unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
 
     time_millis = 1000;
-    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 2
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry); // Attempt 2
 
     time_millis = 1999;
-    assert_eq!(retry.what_should_i_do().unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
 
     time_millis = 2000;
-    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 3
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry); // Attempt 3
 
     time_millis = 10_000;
-    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 4
-    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 5
-    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Cry); // Attempt 6
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry); // Attempt 4
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry); // Attempt 5
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Cry); // Attempt 6
   }
 
   #[test]

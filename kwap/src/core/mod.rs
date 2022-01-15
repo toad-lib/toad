@@ -1,7 +1,8 @@
 use core::str::FromStr;
 
+use embedded_time::Clock;
 use kwap_common::Array;
-use kwap_msg::TryIntoBytes;
+use kwap_msg::{TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -46,14 +47,14 @@ struct Retryable<Cfg: Config, T>(T, RetryTimer<Cfg::Clock>);
 pub struct Core<Cfg: Config> {
   /// Networking socket that the CoAP runtime uses
   sock: Cfg::Socket,
+  /// Clock used for timing
+  clock: Cfg::Clock,
   // Option for these collections provides a Default implementation,
   // which is required by ArrayVec.
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   /// Event listeners
   ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>))>; 16]>,
-  /// Received empty messages (ping responses)
-  emptys: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 8]>,
   /// Received responses
   resps: ArrayVec<[Option<Addressed<Resp<Cfg>>>; 16]>,
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
@@ -83,8 +84,8 @@ pub enum SendError<Cfg: Config> {
 
 impl<Cfg: Config> Core<Cfg> {
   /// Creates a new Core with the default runtime behavior
-  pub fn new(sock: Cfg::Socket) -> Self {
-    let mut me = Self::behaviorless(sock);
+  pub fn new(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
+    let mut me = Self::behaviorless(clock, sock);
     me.bootstrap();
     me
   }
@@ -96,15 +97,16 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// use kwap::config::Std;
   /// use kwap::core::Core;
+  /// use kwap::std::Clock;
   ///
   /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
-  /// Core::<Std>::behaviorless(sock);
+  /// Core::<Std>::behaviorless(Clock::new(), sock);
   /// ```
-  pub fn behaviorless(sock: Cfg::Socket) -> Self {
+  pub fn behaviorless(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
     Self { sock,
+           clock,
            ears: Default::default(),
            resps: Default::default(),
-           emptys: Default::default(),
            non_q: Default::default(),
            con_q: Default::default() }
   }
@@ -127,12 +129,13 @@ impl<Cfg: Config> Core<Cfg> {
   /// use std::net::UdpSocket;
   ///
   /// use kwap::config::Std;
+  /// use kwap::std::Clock;
   /// use kwap::core::Core;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
   ///
   /// // Note: this is the same as Core::new().
-  /// let mut core = Core::<Std>::behaviorless(sock);
+  /// let mut core = Core::<Std>::behaviorless(Clock::new(), sock);
   /// core.bootstrap()
   /// ```
   pub fn bootstrap(&mut self) {
@@ -142,7 +145,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
     //          vvvvvvvvvvvvvvv RecvResp and RecvReq
     self.listen(MatchEvent::All, Self::ack);
-    self.listen(MatchEvent::RecvMsg, Self::store_empty);
+    self.listen(MatchEvent::RecvMsg, Self::process_acks);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
@@ -183,12 +186,18 @@ impl<Cfg: Config> Core<Cfg> {
           msg.clone()
              .try_into_bytes::<ArrayVec<[u8; 1152]>>()
              .map_err(SendError::ToBytes)
-             .tupled(|_| retry.what_should_i_do().map_err(|_| SendError::ClockError))
-             .bind(|(bytes, should)| match should {
-               | YouShould::Retry => Self::send(&mut self.sock, *addr, bytes),
-               | YouShould::Cry => Err(SendError::MessageNeverAcked),
+             .tupled(|_| {
+               self.clock
+                   .try_now()
+                   .map_err(|_| SendError::ClockError)
+                   .map(|now| retry.what_should_i_do(now))
              })
-             .map(|_| ())
+             .bind(|(bytes, should)| match should {
+               | Ok(YouShould::Retry) => Self::send(&mut self.sock, *addr, bytes).map(|_| ()),
+               | Ok(YouShould::Cry) => Err(SendError::MessageNeverAcked),
+               | Err(nb::Error::WouldBlock) => Ok(()),
+               | _ => unreachable!(),
+             })
         })
         .collect()
   }
@@ -210,17 +219,24 @@ impl<Cfg: Config> Core<Cfg> {
     }
   }
 
-  /// Listens for RecvMsg events that are not requests or responses, and stores them on the runtime struct
+  /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
-  pub fn store_empty(&mut self, ev: &mut Event<Cfg>) {
+  pub fn process_acks(&mut self, ev: &mut Event<Cfg>) {
     let msg = ev.get_mut_msg().unwrap();
 
-    if msg.is_some() && msg.as_ref().unwrap().0.code == kwap_msg::Code::new(0, 0) {
-      let msg = msg.take().unwrap();
-      // this is not as smart as store_resp because empty messages are much less common
-      self.emptys.push(Some(Addressed(msg.0, msg.1)));
+    if msg.is_some() && msg.as_ref().unwrap().0.ty == Type::Ack {
+      let (msg, addr) = msg.clone().unwrap();
+      if let Some((ix, _)) =
+        self.con_q
+            .iter()
+            .filter_map(|o| o.as_ref())
+            .enumerate()
+            .find(|(ix, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == msg.id)
+      {
+        self.con_q.remove(ix);
+      }
     }
   }
 
@@ -253,6 +269,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// use std::net::UdpSocket;
   ///
   /// use kwap::config::Std;
+  /// use kwap::std::Clock;
   /// use kwap::core::event::{Event, MatchEvent};
   /// use kwap::core::Core;
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
@@ -268,7 +285,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// }
   ///
   /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
-  /// let mut client = Core::behaviorless(sock);
+  /// let mut client = Core::behaviorless(Clock::new(), sock);
   ///
   /// client.listen(MatchEvent::MsgParseError, log_errs);
   /// client.fire(Event::<Std>::MsgParseError(UnexpectedEndOfStream));
@@ -311,8 +328,8 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn poll_ping(&mut self,
                    req_id: kwap_msg::Id,
                    addr: SocketAddr)
-                   -> nb::Result<config::Message<Cfg>, SendError<Cfg>> {
-    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::try_get_empty)
+                   -> nb::Result<(), SendError<Cfg>> {
+    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
   }
 
   fn poll<R>(&mut self,
@@ -362,23 +379,21 @@ impl<Cfg: Config> Core<Cfg> {
         .ok_or(nb::Error::WouldBlock)
   }
 
-  fn try_get_empty(&mut self,
+  fn check_ping(&mut self,
                    req_id: kwap_msg::Id,
                    _: kwap_msg::Token,
                    addr: SocketAddr)
-                   -> nb::Result<config::Message<Cfg>, <<Cfg as Config>::Socket as Socket>::Error> {
-    let msg_matches = |o: &Option<Addressed<config::Message<Cfg>>>| {
-      let Addressed(msg, stored_addr) = o.as_ref().unwrap();
-      msg.id == req_id && *stored_addr == addr
-    };
+                   -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
+    let still_qd = self.con_q
+        .iter()
+        .filter_map(|o| o.as_ref())
+        .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);
 
-    self.emptys
-        .iter_mut()
-        .find_map(|rep| match rep {
-          | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o).map(|Addressed(msg, _)| msg),
-          | _ => None,
-        })
-        .ok_or(nb::Error::WouldBlock)
+    if still_qd {
+      Err(nb::Error::WouldBlock)
+    } else {
+      Ok(())
+    }
   }
 
   /// Send a request!
@@ -391,7 +406,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// use kwap::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
-  /// let mut core = Core::<Std>::new(sock);
+  /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
   pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Token, SocketAddr), SendError<Cfg>> {
@@ -407,12 +422,35 @@ impl<Cfg: Config> Core<Cfg> {
                                        .iter()
                                        .copied()
                                        .collect();
+
+    let msg = config::Message::<Cfg>::from(req);
+
     core::str::from_utf8(&host).map_err(SendError::HostInvalidUtf8)
                                .bind(|host| Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress))
-                               .tupled(|_| req.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
-                               .map(|(host, bytes)| (SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
+                               .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
+                               .try_perform(|addr| {
+                                 if msg.ty == Type::Con {
+                                   let t = Addressed(msg.clone(), *addr);
+                                   self.retryable(t).map(|bam| self.con_q.push(Some(bam)))
+                                 } else {
+                                   Ok(())
+                                 }
+                               })
+                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
                                .map(|addr| (token, addr))
+  }
+
+  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, SendError<Cfg>> {
+    self.clock
+        .try_now()
+        .map(|now| {
+          RetryTimer::new(now,
+                          crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
+                          crate::retry::Attempts(5))
+        })
+        .map_err(|_| SendError::ClockError)
+        .map(|timer| Retryable(t, timer))
   }
 
   /// Send a ping message to some remote coap server
@@ -429,7 +467,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// use kwap::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
-  /// let mut core = Core::<Std>::new(sock);
+  /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// let id = core.ping("1.1.1.1", 5683);
   /// // core.poll_ping(id);
   /// ```
@@ -490,7 +528,7 @@ mod tests {
     let req = Req::<Config>::get("0.0.0.0", 1234, "");
     let bytes = config::Message::<Config>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
                                                     .unwrap();
-    let mut client = Core::<Config>::behaviorless(TubeSock::new());
+    let mut client = Core::<Config>::behaviorless(crate::std::Clock::new(), TubeSock::new());
 
     fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) {
       panic!("{:?}", e)
@@ -518,7 +556,7 @@ mod tests {
   fn ping() {
     type Msg = config::Message<Config>;
 
-    let mut client = Core::<Config>::new(TubeSock::new());
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::new());
     let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
     let resp = Msg { id,
@@ -532,8 +570,7 @@ mod tests {
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
     client.fire(Event::RecvDgram(Some((bytes, addr))));
-    let rep = client.poll_ping(id, addr.into()).unwrap();
-    assert_eq!(bytes, rep.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap());
+    client.poll_ping(id, addr.into()).unwrap();
   }
 
   #[test]
@@ -546,7 +583,7 @@ mod tests {
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<Config>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::init(addr.clone().into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());
