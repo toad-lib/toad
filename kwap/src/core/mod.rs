@@ -1,6 +1,7 @@
 use core::cell::RefCell;
 use core::str::FromStr;
 
+use embedded_time::Clock;
 use kwap_common::Array;
 use kwap_msg::TryIntoBytes;
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -16,28 +17,27 @@ use crate::config::{self, Config};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::result_ext::ResultExt;
+use crate::retry::RetryTimer;
 use crate::socket::Socket;
 
-/// A queued ACK message
-#[derive(Debug, Clone, Copy)]
-pub struct ToAck {
-  /// Address to send ACK to
-  pub addr: SocketAddr,
-  /// Message to ACK
-  pub id: kwap_msg::Id,
+fn mk_ack<Cfg: Config>(id: kwap_msg::Id, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
+  use kwap_msg::*;
+  let msg = config::Message::<Cfg> { id,
+                                     token: Token(Default::default()),
+                                     ver: Default::default(),
+                                     ty: Type::Ack,
+                                     code: Code::new(0, 0),
+                                     payload: Payload(Default::default()),
+                                     opts: Default::default() };
+
+  Addressed(msg, addr)
 }
 
-impl ToAck {
-  fn msg<Cfg: Config>(&self) -> config::Message<Cfg> {
-    config::Message::<Cfg> { id: self.id,
-                             token: kwap_msg::Token(Default::default()),
-                             ver: Default::default(),
-                             ty: kwap_msg::Type::Ack,
-                             code: kwap_msg::Code::new(0, 0),
-                             payload: kwap_msg::Payload(Default::default()),
-                             opts: Default::default() }
-  }
-}
+#[derive(Debug, Clone, Copy)]
+struct Addressed<T>(T, SocketAddr);
+
+#[derive(Debug, Clone, Copy)]
+struct Retryable<T, Clk: Clock<T = u64>>(T, RetryTimer<Clk>);
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -46,16 +46,22 @@ impl ToAck {
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<Sock: Socket, Cfg: Config> {
+  /// Networking socket that the CoAP runtime uses
   sock: Sock,
   // Option for these collections provides a Default implementation,
   // which is required by ArrayVec.
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
+  /// Event listeners
   ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>))>; 16]>,
-  emptys: ArrayVec<[Option<(config::Message<Cfg>, SocketAddr)>; 8]>,
-  resps: ArrayVec<[Option<(Resp<Cfg>, SocketAddr)>; 16]>,
-  ack_queue: ArrayVec<[Option<ToAck>; 16]>,
-  //to_send: RefCell<ArrayVec<>>,
+  /// Received empty messages (ping responses)
+  emptys: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 8]>,
+  /// Received responses
+  resps: ArrayVec<[Option<Addressed<Resp<Cfg>>>; 16]>,
+  /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
+  non_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
+  ///// Queue of confirmable messages to send at our earliest convenience
+  //con_q: ArrayVec<[Option<Retryable<Addressed<config::Message<Cfg>>>>; 16]>,
 }
 
 /// An error encounterable while sending a message
@@ -95,7 +101,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
            ears: Default::default(),
            resps: Default::default(),
            emptys: Default::default(),
-           ack_queue: Default::default() }
+           non_q: Default::default() }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -129,21 +135,21 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     #[cfg(any(test, not(feature = "no_std")))]
     self.listen(MatchEvent::MsgParseError, log);
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
-    self.listen(MatchEvent::All, Self::queue_ack);
+    //          vvvvvvvvvvvvvvv RecvResp and RecvReq
+    self.listen(MatchEvent::All, Self::ack);
     self.listen(MatchEvent::RecvMsg, Self::store_empty);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
-  /// ACK all the CON responses we've received
-  pub fn process_ack_queue(&mut self) -> Result<(), SendError<Cfg, Sock>> {
-    let mut iter = self.ack_queue.iter_mut().filter_map(Option::take);
+  /// Send everything we need to send
+  pub fn send_nons(&mut self) -> Result<(), SendError<Cfg, Sock>> {
+    let mut iter = self.non_q.iter_mut().filter_map(Option::take);
 
-    while let Some(ack) = iter.next() {
-      let bytes = ack.msg::<Cfg>()
-                     .try_into_bytes::<ArrayVec<[u8; 1152]>>()
+    while let Some(Addressed(msg, addr)) = iter.next() {
+      let bytes = msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
                      .map_err(SendError::ToBytes)?;
 
-      Self::send(&mut self.sock, ack.addr, bytes)?;
+      Self::send(&mut self.sock, addr, bytes)?;
     }
 
     Ok(())
@@ -155,12 +161,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn queue_ack(&mut self, ev: &mut Event<Cfg>) {
+  pub fn ack(&mut self, ev: &mut Event<Cfg>) {
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
-          self.ack_queue.push(Some(ToAck { id: resp.msg_id(),
-                                           addr: *addr }));
+          self.non_q.push(Some(mk_ack::<Cfg>(resp.msg_id(), *addr)));
         }
       },
       | _ => {},
@@ -177,7 +182,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
     if msg.is_some() && msg.as_ref().unwrap().0.code == kwap_msg::Code::new(0, 0) {
       let msg = msg.take().unwrap();
       // this is not as smart as store_resp because empty messages are much less common
-      self.emptys.push(Some(msg));
+      self.emptys.push(Some(Addressed(msg.0, msg.1)));
     }
   }
 
@@ -187,7 +192,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
   pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
-    if let Some(resp) = self.resps.try_push(Some(resp)) {
+    if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
       // arrayvec is full, remove nones
       self.resps = self.resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
 
@@ -291,7 +296,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
           ()
         })
         .map_err(SendError::SockError)
-        .try_perform(|_| self.process_ack_queue())
+        .try_perform(|_| self.send_nons())
         .map_err(nb::Error::Other)
         .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
   }
@@ -301,15 +306,15 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
                   token: kwap_msg::Token,
                   sock: SocketAddr)
                   -> nb::Result<Resp<Cfg>, Sock::Error> {
-    let resp_matches = |o: &Option<(Resp<Cfg>, SocketAddr)>| {
-      let (resp, sock_stored) = o.as_ref().unwrap();
+    let resp_matches = |o: &Option<Addressed<Resp<Cfg>>>| {
+      let Addressed(resp, sock_stored) = o.as_ref().unwrap();
       resp.msg.token == token && *sock_stored == sock
     };
 
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|(resp, _)| resp),
+          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
@@ -320,15 +325,15 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
                    _: kwap_msg::Token,
                    addr: SocketAddr)
                    -> nb::Result<config::Message<Cfg>, Sock::Error> {
-    let msg_matches = |o: &Option<(config::Message<Cfg>, SocketAddr)>| {
-      let (msg, stored_addr) = o.as_ref().unwrap();
+    let msg_matches = |o: &Option<Addressed<config::Message<Cfg>>>| {
+      let Addressed(msg, stored_addr) = o.as_ref().unwrap();
       msg.id == req_id && *stored_addr == addr
     };
 
     self.emptys
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o).map(|(msg, _)| msg),
+          | mut o @ Some(_) if msg_matches(&o) => Option::take(&mut o).map(|Addressed(msg, _)| msg),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)

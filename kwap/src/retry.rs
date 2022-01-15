@@ -1,11 +1,10 @@
+use embedded_time::clock::Error as ClockError;
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
 
 use crate::result_ext::ResultExt;
 
-type ClockResult<T> = nb::Result<T, embedded_time::clock::Error>;
-
-/// A timer that allows a fixed-delay or exponential-backoff retry,
+/// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.
 ///
 /// It does not _contain_ the work to be done (e.g. `Box<fn()>`) because
@@ -66,7 +65,7 @@ pub enum YouShould {
 
 impl<C: Clock<T = u64>> RetryTimer<C> {
   /// Create a new retrier
-  pub fn try_new(clock: C, strategy: Strategy, max_attempts: Attempts) -> Result<Self, embedded_time::clock::Error> {
+  pub fn try_new(clock: C, strategy: Strategy, max_attempts: Attempts) -> Result<Self, ClockError> {
     clock.try_now().map(|start| Self { start,
                                        clock,
                                        strategy,
@@ -75,7 +74,7 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
   }
 
   /// Ask the retrier if we should retry
-  pub fn what_should_i_do(&mut self) -> ClockResult<YouShould> {
+  pub fn what_should_i_do(&mut self) -> nb::Result<YouShould, ClockError> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
     } else {
