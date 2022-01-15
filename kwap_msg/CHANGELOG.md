@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.4.4 (2022-01-15)
+
+
+### Bug Fixes
+
+* **msg:** Code should impl Eq + Ord ([#57](https://github.com/clov-coffee/kwap/issues/57)) ([96bdd8d](https://github.com/clov-coffee/kwap/commit/96bdd8da8ab71c6c6a828c95d6d38ff90a3d1dd4))
+
 ### 0.4.3 (2022-01-11)
 
 ### 0.4.2 (2022-01-08)

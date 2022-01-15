@@ -15,7 +15,7 @@ use std_alloc::string::{String, ToString};
 /// use kwap_msg::Code;
 /// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
 /// ```
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Code {
   /// The "class" of message codes identify it as a request or response, and provides the class of response status:
   ///
