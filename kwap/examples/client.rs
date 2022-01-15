@@ -1,7 +1,7 @@
 use std::net::UdpSocket;
 use std::time::Instant;
 
-use kwap::config::Alloc;
+use kwap::config::Std;
 use kwap::core::Core;
 use kwap::req::Req;
 
@@ -32,7 +32,7 @@ fn main() {
 
   let sock = UdpSocket::bind("127.0.0.1:4870").unwrap();
   println!("bound to 127.0.0.1:4870\n");
-  let mut core = Core::<UdpSocket, Alloc>::new(sock);
+  let mut core = Core::<UdpSocket, Std>::new(sock);
   println!("{}", std::mem::size_of_val(&core));
 
   ping(&mut core);
@@ -43,7 +43,7 @@ fn main() {
   server::shutdown();
 }
 
-fn ping(core: &mut Core<UdpSocket, Alloc>) {
+fn ping(core: &mut Core<UdpSocket, Std>) {
   println!("pinging coap://localhost:5683");
   let pre_ping = Instant::now();
   let (id, addr) = core.ping("127.0.0.1", 5683).unwrap();
@@ -56,8 +56,8 @@ fn ping(core: &mut Core<UdpSocket, Alloc>) {
   println!();
 }
 
-fn get_hello(core: &mut Core<UdpSocket, Alloc>, non: bool) {
-  let mut req = Req::<Alloc>::get("127.0.0.1", 5683, "hello");
+fn get_hello(core: &mut Core<UdpSocket, Std>, non: bool) {
+  let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
   if non {
     req.non();
   }

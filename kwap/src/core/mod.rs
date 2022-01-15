@@ -37,7 +37,7 @@ fn mk_ack<Cfg: Config>(id: kwap_msg::Id, addr: SocketAddr) -> Addressed<config::
 struct Addressed<T>(T, SocketAddr);
 
 #[derive(Debug, Clone, Copy)]
-struct Retryable<T, Clk: Clock<T = u64>>(T, RetryTimer<Clk>);
+struct Retryable<Cfg: Config, T>(T, RetryTimer<Cfg::Clock>);
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -61,7 +61,7 @@ pub struct Core<Sock: Socket, Cfg: Config> {
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
   non_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
   ///// Queue of confirmable messages to send at our earliest convenience
-  //con_q: ArrayVec<[Option<Retryable<Addressed<config::Message<Cfg>>>>; 16]>,
+  //con_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
 }
 
 /// An error encounterable while sending a message
@@ -90,11 +90,11 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::core::Core;
   ///
   /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
-  /// Core::<UdpSocket, Alloc>::behaviorless(sock);
+  /// Core::<UdpSocket, Std>::behaviorless(sock);
   /// ```
   pub fn behaviorless(sock: Sock) -> Self {
     Self { sock,
@@ -121,13 +121,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::core::Core;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
   ///
   /// // Note: this is the same as Core::new().
-  /// let mut core = Core::<_, Alloc>::behaviorless(sock);
+  /// let mut core = Core::<_, Std>::behaviorless(sock);
   /// core.bootstrap()
   /// ```
   pub fn bootstrap(&mut self) {
@@ -214,14 +214,14 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::core::event::{Event, MatchEvent};
   /// use kwap::core::Core;
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
   ///
-  /// fn log_errs(_: &mut Core<UdpSocket, Alloc>, ev: &mut Event<Alloc>) {
+  /// fn log_errs(_: &mut Core<UdpSocket, Std>, ev: &mut Event<Std>) {
   ///   let err = ev.get_msg_parse_error().unwrap();
   ///   eprintln!("error! {:?}", err);
   ///   unsafe {
@@ -233,7 +233,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// let mut client = Core::behaviorless(sock);
   ///
   /// client.listen(MatchEvent::MsgParseError, log_errs);
-  /// client.fire(Event::<Alloc>::MsgParseError(UnexpectedEndOfStream));
+  /// client.fire(Event::<Std>::MsgParseError(UnexpectedEndOfStream));
   ///
   /// unsafe { assert_eq!(LOG_ERRS_CALLS, 1) }
   /// ```
@@ -344,13 +344,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::core::Core;
   /// use kwap::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
-  /// let mut core = Core::<_, Alloc>::new(sock);
-  /// core.send_req(Req::<Alloc>::get("1.1.1.1", 5683, "/hello"));
+  /// let mut core = Core::<_, Std>::new(sock);
+  /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
   pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Token, SocketAddr), SendError<Cfg, Sock>> {
     let token = req.msg_token();
@@ -382,12 +382,12 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::config::Alloc;
+  /// use kwap::config::Std;
   /// use kwap::core::Core;
   /// use kwap::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
-  /// let mut core = Core::<_, Alloc>::new(sock);
+  /// let mut core = Core::<_, Std>::new(sock);
   /// let id = core.ping("1.1.1.1", 5683);
   /// // core.poll_ping(id);
   /// ```
@@ -434,23 +434,23 @@ mod tests {
 
   use super::*;
   use crate::config;
-  use crate::config::Alloc;
+  use crate::config::Std;
   use crate::req::Req;
   use crate::test::TubeSock;
 
   #[test]
   fn eventer() {
-    let req = Req::<Alloc>::get("0.0.0.0", 1234, "");
-    let bytes = config::Message::<Alloc>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
-                                                   .unwrap();
-    let mut client = Core::<TubeSock, Alloc>::behaviorless(TubeSock::new());
+    let req = Req::<Std>::get("0.0.0.0", 1234, "");
+    let bytes = config::Message::<Std>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
+                                                 .unwrap();
+    let mut client = Core::<TubeSock, Std>::behaviorless(TubeSock::new());
 
-    fn on_err(_: &mut Core<TubeSock, Alloc>, e: &mut Event<Alloc>) {
+    fn on_err(_: &mut Core<TubeSock, Std>, e: &mut Event<Std>) {
       panic!("{:?}", e)
     }
 
     static mut CALLS: usize = 0;
-    fn on_dgram(_: &mut Core<TubeSock, Alloc>, _: &mut Event<Alloc>) {
+    fn on_dgram(_: &mut Core<TubeSock, Std>, _: &mut Event<Std>) {
       unsafe {
         CALLS += 1;
       }
@@ -469,9 +469,9 @@ mod tests {
 
   #[test]
   fn ping() {
-    type Msg = config::Message<Alloc>;
+    type Msg = config::Message<Std>;
 
-    let mut client = Core::<TubeSock, Alloc>::new(TubeSock::new());
+    let mut client = Core::<TubeSock, Std>::new(TubeSock::new());
     let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
     let resp = Msg { id,
@@ -491,15 +491,15 @@ mod tests {
 
   #[test]
   fn client_flow() {
-    type Msg = config::Message<Alloc>;
+    type Msg = config::Message<Std>;
 
-    let req = Req::<Alloc>::get("0.0.0.0", 1234, "");
+    let req = Req::<Std>::get("0.0.0.0", 1234, "");
     let token = req.msg.token;
-    let resp = Resp::<Alloc>::for_request(req);
+    let resp = Resp::<Std>::for_request(req);
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<TubeSock, Alloc>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
+    let mut client = Core::<TubeSock, Std>::new(TubeSock::init(addr.clone().into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

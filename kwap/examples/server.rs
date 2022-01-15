@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::JoinHandle;
 
-use kwap::config::{self, Alloc};
+use kwap::config::{self, Std};
 use kwap::req::{Method, Req};
 use kwap::resp::{code, Resp};
 use kwap_msg::{TryFromBytes, TryIntoBytes, Type};
@@ -52,8 +52,8 @@ fn server_main() {
 
     match sock.recv_from(&mut buf) {
       | Ok((n, addr)) => {
-        let msg = config::Message::<Alloc>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
-        let req = Req::<Alloc>::from(msg);
+        let msg = config::Message::<Std>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
+        let req = Req::<Std>::from(msg);
         let path = req.get_option(11)
                       .as_ref()
                       .map(|o| &o.value.0)
@@ -67,7 +67,7 @@ fn server_main() {
 
         if req.msg_type() == Type::Ack {
         } else if req.method() == Method::GET && path == Some("hello") {
-          let mut resp = Resp::<Alloc>::for_request(req);
+          let mut resp = Resp::<Std>::for_request(req);
           resp.set_payload("hello, world!".bytes());
           resp.set_code(code::CONTENT);
 
@@ -77,10 +77,10 @@ fn server_main() {
                   && req.opts().next().is_none()
                   && req.payload().is_empty()
         {
-          let mut resp = Resp::<Alloc>::for_request(req);
+          let mut resp = Resp::<Std>::for_request(req);
           resp.set_code(kwap_msg::Code::new(0, 0));
 
-          let mut msg = config::Message::<Alloc>::from(resp);
+          let mut msg = config::Message::<Std>::from(resp);
           msg.ty = kwap_msg::Type::Reset;
 
           sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
