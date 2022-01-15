@@ -68,20 +68,20 @@ fn server_main() {
                  req.payload_str().unwrap().len());
 
         let mut resp = Resp::<Std>::for_request(req.clone());
-        let send = || sock.send_to(&resp.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
+        let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
         match (req.msg_type(), req.method(), path) {
           (Type::Con, Method::GET, Some("dropped")) => {
             if dropped_req_ct >= 3 {
               resp.set_payload("sorry it took me a bit to respond...".bytes());
               resp.set_code(code::CONTENT);
-              send();
+              send(resp);
             }
           },
           (_, Method::GET, Some("hello")) => {
             resp.set_payload("hello, world!".bytes());
             resp.set_code(code::CONTENT);
-            send();
+            send(resp);
           },
           // ping
           (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
@@ -92,7 +92,7 @@ fn server_main() {
           },
           _ => {
             resp.set_code(code::NOT_FOUND);
-            send();
+            send(resp);
           },
         }
       },
