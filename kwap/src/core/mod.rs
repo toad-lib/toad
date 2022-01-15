@@ -73,6 +73,12 @@ pub enum SendError<Cfg: Config> {
   HostInvalidUtf8(core::str::Utf8Error),
   /// Uri-Host in request was not a valid IPv4 address (TODO)
   HostInvalidIpAddress,
+  /// A CONfirmable message was sent many times without an ACKnowledgement.
+  MessageNeverAcked,
+  /// The clock failed to provide timing.
+  ///
+  /// See [`embedded_time::clock::Error`]
+  ClockError,
 }
 
 impl<Cfg: Config> Core<Cfg> {
@@ -140,18 +146,51 @@ impl<Cfg: Config> Core<Cfg> {
     self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
-  /// Send everything we need to send
+  /// Process all the queued outbound nonconfirmable messages.
+  ///
+  /// Notably, unlike `send_cons`, this eagerly takes
+  /// the messages out of the queue and discards them after sending,
+  /// since we do not need to guarantee receipt of these messages.
   pub fn send_nons(&mut self) -> Result<(), SendError<Cfg>> {
-    let mut iter = self.non_q.iter_mut().filter_map(Option::take);
+    self.non_q
+        .iter_mut()
+        .filter_map(Option::take)
+        .map(|Addressed(msg, addr)| {
+          msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
+             .map_err(SendError::ToBytes)
+             .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
+             .map(|_| ())
+        })
+        .collect()
+  }
 
-    while let Some(Addressed(msg, addr)) = iter.next() {
-      let bytes = msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-                     .map_err(SendError::ToBytes)?;
+  /// Process all the queued outbound confirmable messages.
+  ///
+  /// Notably, unlike `send_nons`, this does not eagerly take
+  /// the messages out of the queue and instead clones them and mutates
+  /// the RetryTimer in-place.
+  ///
+  /// The expectation is that when they are Acked, an event handler
+  /// will remove them from storage, meaning that a message in con_q
+  /// has not been acked yet.
+  pub fn send_cons(&mut self) -> Result<(), SendError<Cfg>> {
+    use crate::retry::YouShould;
 
-      Self::send(&mut self.sock, addr, bytes)?;
-    }
-
-    Ok(())
+    self.con_q
+        .iter_mut()
+        .filter_map(|o| o.as_mut())
+        .map(|Retryable(Addressed(msg, addr), retry)| {
+          msg.clone()
+             .try_into_bytes::<ArrayVec<[u8; 1152]>>()
+             .map_err(SendError::ToBytes)
+             .tupled(|_| retry.what_should_i_do().map_err(|_| SendError::ClockError))
+             .bind(|(bytes, should)| match should {
+               | YouShould::Retry => Self::send(&mut self.sock, *addr, bytes),
+               | YouShould::Cry => Err(SendError::MessageNeverAcked),
+             })
+             .map(|_| ())
+        })
+        .collect()
   }
 
   /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
@@ -280,7 +319,10 @@ impl<Cfg: Config> Core<Cfg> {
              req_id: kwap_msg::Id,
              addr: SocketAddr,
              token: kwap_msg::Token,
-             f: fn(&mut Self, kwap_msg::Id, kwap_msg::Token, SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
+             f: fn(&mut Self,
+                kwap_msg::Id,
+                kwap_msg::Token,
+                SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
              -> nb::Result<R, SendError<Cfg>> {
     // check if there's a dgram in the socket,
     // and move it through the event pipeline.
@@ -296,6 +338,7 @@ impl<Cfg: Config> Core<Cfg> {
         })
         .map_err(SendError::SockError)
         .try_perform(|_| self.send_nons())
+        .try_perform(|_| self.send_cons())
         .map_err(nb::Error::Other)
         .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
   }
@@ -407,7 +450,10 @@ impl<Cfg: Config> Core<Cfg> {
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  fn send(sock: &mut Cfg::Socket, addr: SocketAddr, bytes: impl Array<Item = u8>) -> Result<SocketAddr, SendError<Cfg>> {
+  fn send(sock: &mut Cfg::Socket,
+          addr: SocketAddr,
+          bytes: impl Array<Item = u8>)
+          -> Result<SocketAddr, SendError<Cfg>> {
     // TODO: uncouple from ipv4
     sock.connect(addr)
         .map_err(SendError::SockError)
@@ -443,7 +489,7 @@ mod tests {
   fn eventer() {
     let req = Req::<Config>::get("0.0.0.0", 1234, "");
     let bytes = config::Message::<Config>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
-                                                 .unwrap();
+                                                    .unwrap();
     let mut client = Core::<Config>::behaviorless(TubeSock::new());
 
     fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) {

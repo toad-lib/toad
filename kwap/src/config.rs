@@ -40,9 +40,7 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk,
   }
 }
 
-impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config
-  for Alloc<Clk, Sock>
-{
+impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk, Sock> {
   type PayloadBuffer = Vec<u8>;
   type OptBytes = Vec<u8>;
   type Opts = Vec<Opt<Vec<u8>>>;
