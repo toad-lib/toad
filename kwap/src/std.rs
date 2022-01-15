@@ -12,7 +12,9 @@ use crate::socket::Socket;
 pub struct Clock(Instant);
 
 impl Default for Clock {
-  fn default() -> Self {Self::new()}
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Clock {

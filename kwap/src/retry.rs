@@ -11,7 +11,8 @@ use crate::result_ext::ResultExt;
 /// we don't have the luxury of a memory allocator :)
 ///
 /// ```
-/// use embedded_time::{clock::Clock, duration::Milliseconds};
+/// use embedded_time::clock::Clock;
+/// use embedded_time::duration::Milliseconds;
 /// use kwap::retry;
 ///
 /// # main();
@@ -78,15 +79,15 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
       Ok(YouShould::Cry)
     } else {
       let ready = self.strategy
-          .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
-            if ready {
-              self.attempts.0 += 1;
-              Ok(YouShould::Retry)
-            } else {
-              Err(nb::Error::WouldBlock)
-            }
-          }
+                      .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
+      if ready {
+        self.attempts.0 += 1;
+        Ok(YouShould::Retry)
+      } else {
+        Err(nb::Error::WouldBlock)
+      }
     }
+  }
 }
 
 /// Strategy to employ when retrying

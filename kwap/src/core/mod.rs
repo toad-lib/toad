@@ -129,8 +129,8 @@ impl<Cfg: Config> Core<Cfg> {
   /// use std::net::UdpSocket;
   ///
   /// use kwap::config::Std;
-  /// use kwap::std::Clock;
   /// use kwap::core::Core;
+  /// use kwap::std::Clock;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
   ///
@@ -269,9 +269,9 @@ impl<Cfg: Config> Core<Cfg> {
   /// use std::net::UdpSocket;
   ///
   /// use kwap::config::Std;
-  /// use kwap::std::Clock;
   /// use kwap::core::event::{Event, MatchEvent};
   /// use kwap::core::Core;
+  /// use kwap::std::Clock;
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
@@ -325,10 +325,7 @@ impl<Cfg: Config> Core<Cfg> {
   ///  | 0.00   |      Token: 0x20
   ///  |        |
   /// ```
-  pub fn poll_ping(&mut self,
-                   req_id: kwap_msg::Id,
-                   addr: SocketAddr)
-                   -> nb::Result<(), SendError<Cfg>> {
+  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), SendError<Cfg>> {
     self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
   }
 
@@ -380,14 +377,14 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   fn check_ping(&mut self,
-                   req_id: kwap_msg::Id,
-                   _: kwap_msg::Token,
-                   addr: SocketAddr)
-                   -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
+                req_id: kwap_msg::Id,
+                _: kwap_msg::Token,
+                addr: SocketAddr)
+                -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
     let still_qd = self.con_q
-        .iter()
-        .filter_map(|o| o.as_ref())
-        .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);
+                       .iter()
+                       .filter_map(|o| o.as_ref())
+                       .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);
 
     if still_qd {
       Err(nb::Error::WouldBlock)
@@ -583,7 +580,8 @@ mod tests {
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::init(addr.clone().into(), bytes.clone()));
+    let mut client = Core::<Config>::new(crate::std::Clock::new(),
+                                         TubeSock::init(addr.clone().into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

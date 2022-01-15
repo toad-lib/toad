@@ -72,6 +72,7 @@ fn server_main() {
 
         match (req.msg_type(), req.method(), path) {
           | (Type::Con, Method::GET, Some("dropped")) => {
+            dropped_req_ct += 1;
             if dropped_req_ct >= 3 {
               resp.set_payload("sorry it took me a bit to respond...".bytes());
               resp.set_code(code::CONTENT);
