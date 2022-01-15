@@ -71,26 +71,26 @@ fn server_main() {
         let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
         match (req.msg_type(), req.method(), path) {
-          (Type::Con, Method::GET, Some("dropped")) => {
+          | (Type::Con, Method::GET, Some("dropped")) => {
             if dropped_req_ct >= 3 {
               resp.set_payload("sorry it took me a bit to respond...".bytes());
               resp.set_code(code::CONTENT);
               send(resp);
             }
           },
-          (_, Method::GET, Some("hello")) => {
+          | (_, Method::GET, Some("hello")) => {
             resp.set_payload("hello, world!".bytes());
             resp.set_code(code::CONTENT);
             send(resp);
           },
           // ping
-          (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
+          | (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
             resp.set_code(kwap_msg::Code::new(0, 0));
             let mut msg = config::Message::<Std>::from(resp);
             msg.ty = kwap_msg::Type::Reset;
             sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
           },
-          _ => {
+          | _ => {
             resp.set_code(code::NOT_FOUND);
             send(resp);
           },
