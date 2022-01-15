@@ -80,15 +80,15 @@ mod tests {
     fn fire(&mut self, mut event: Event<Alloc>) {
       let ears = self.0.borrow();
       ears.iter().for_each(|(n, mat, ear)| {
-                              if mat.matches(&event) {
-                                unsafe {
-                                  let n = n as *const _ as *mut usize;
-                                    *n += 1usize;
-                                  let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
-                                  ear(me_mut, &mut event);
-                                }
-                              }
-                            })
+                   if mat.matches(&event) {
+                     unsafe {
+                       let n = n as *const _ as *mut usize;
+                       *n += 1usize;
+                       let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
+                       ear(me_mut, &mut event);
+                     }
+                   }
+                 })
     }
 
     fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Alloc>)) {

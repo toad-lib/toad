@@ -55,7 +55,7 @@ pub struct Core<Sock: Socket, Cfg: Config> {
   emptys: ArrayVec<[Option<(config::Message<Cfg>, SocketAddr)>; 8]>,
   resps: ArrayVec<[Option<(Resp<Cfg>, SocketAddr)>; 16]>,
   ack_queue: ArrayVec<[Option<ToAck>; 16]>,
-  // to_send: RefCell<ArrayVec<>>,
+  //to_send: RefCell<ArrayVec<>>,
 }
 
 /// An error encounterable while sending a message
@@ -160,7 +160,7 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
           self.ack_queue.push(Some(ToAck { id: resp.msg_id(),
-                                                        addr: *addr }));
+                                           addr: *addr }));
         }
       },
       | _ => {},
