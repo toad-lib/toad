@@ -1,47 +1,80 @@
-use embedded_time::{duration::{Milliseconds, Duration}, Clock, Instant, TimeInt};
+use embedded_time::{duration::Milliseconds, Clock, Instant};
 
 use crate::result_ext::ResultExt;
 
-type ClockResult<T> = Result<T, embedded_time::clock::Error>;
+type ClockResult<T> = nb::Result<T, embedded_time::clock::Error>;
 
-/// TODO
+/// A timer that lives alongside some operation to retry
+///
+/// ```
+/// use kwap::{std::Clock, retry};
+/// use embedded_time::duration::Milliseconds;
+///
+/// # main();
+/// fn main() {
+///   let mut called = false;
+///   let mut fails_once = || -> Result<(), ()> {
+///     // ...
+///     # if !called {
+///     #   called = true;
+///     #   Err(())
+///     # } else {
+///     #   Ok(())
+///     # }
+///   };
+///
+///   let strategy = retry::Strategy::Delay(Milliseconds(10));
+///   let mut retry = retry::RetryTimer::try_new(Clock::new(), strategy, retry::Attempts(1)).unwrap();
+///
+///   while let Err(_) = fails_once() {
+///     match nb::block!(retry.what_should_i_do()) {
+///       Ok(retry::YouShould::Retry) => continue,
+///       Ok(retry::YouShould::Cry) => panic!("no more attempts! it failed more than once!!"),
+///       Err(clock_err) => unreachable!(),
+///     }
+///   }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy)]
-pub struct Retry<C: Clock<T = u64>> {
+pub struct RetryTimer<C: Clock<T = u64>> {
   start: Instant<C>,
   clock: C,
   strategy: Strategy,
-  attempts: u16,
-  max_attempts: u16,
+  attempts: Attempts,
+  max_attempts: Attempts,
 }
+
+/// A number of attempts
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Attempts(pub u16);
 
 /// TODO
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum Attempt {
+pub enum YouShould {
   /// Attempts have been exhausted and the work that is
   /// being retried should be considered poisoned.
-  NoMoreAttempts,
+  Cry,
   /// A retry should be performed
   Retry,
-  /// Not ready to retry
-  WouldBlock,
 }
 
-impl<C: Clock<T = u64>> Retry<C> {
+impl<C: Clock<T = u64>> RetryTimer<C> {
   /// Create a new retrier
-  pub fn try_new(clock: C, strategy: Strategy, max_attempts: u16) -> ClockResult<Self> {
-    clock.try_now().map(|start| Self {start, clock, strategy, max_attempts, attempts: 0})
+  pub fn try_new(clock: C, strategy: Strategy, max_attempts: Attempts) -> Result<Self, embedded_time::clock::Error> {
+    clock.try_now().map(|start| Self {start, clock, strategy, max_attempts, attempts: Attempts(1)})
   }
 
   /// Ask the retrier if we should retry
-  pub fn attempt(&mut self) -> ClockResult<Attempt> {
+  pub fn what_should_i_do(&mut self) -> ClockResult<YouShould> {
     if self.attempts >= self.max_attempts {
-      Ok(Attempt::NoMoreAttempts)
+      Ok(YouShould::Cry)
     } else {
       self.clock
           .try_now()
           .map(|now| now - self.start)
-          .map(|elapsed| self.strategy.is_ready(elapsed.try_into().unwrap(), self.attempts))
-          .map(|ready| if ready {self.attempts += 1; Attempt::Retry} else {Attempt::WouldBlock})
+          .map(|elapsed| self.strategy.is_ready(elapsed.try_into().unwrap(), self.attempts.0))
+          .map_err(nb::Error::Other)
+          .bind(|ready| if ready {self.attempts.0 += 1; Ok(YouShould::Retry)} else {Err(nb::Error::WouldBlock)})
     }
   }
 }
@@ -71,12 +104,7 @@ impl Strategy {
   }
 
   fn total_delay_exp(init: Milliseconds<u64>, attempts: u16) -> u64 {
-    // att: 0 = 0
-    // att: 1 = init
-    // att: 2 = init + init * 2
-    // att: 3 = init + init * 2 + init * 4
     match attempts {
-      0 => 0,
       1 => init.0,
       n => init.0 + (1..n).map(|n| init.0 * 2u64.pow(n as u32)).sum::<u64>()
     }
@@ -112,26 +140,24 @@ use super::*;
 
     let mut time_millis = 0u64;
     let clock = FakeClock::new(&time_millis as *const _);
-    let mut retry = Retry::try_new(clock, Strategy::Delay(Milliseconds(1000)), 5).unwrap();
-
-    assert_eq!(retry.attempt().unwrap(), Attempt::Retry); // Attempt 1
+    let mut retry = RetryTimer::try_new(clock, Strategy::Delay(Milliseconds(1000)), Attempts(5)).unwrap();
 
     time_millis = 999;
-    assert_eq!(retry.attempt().unwrap(), Attempt::WouldBlock);
+    assert_eq!(retry.what_should_i_do().unwrap_err(), nb::Error::WouldBlock);
 
     time_millis = 1000;
-    assert_eq!(retry.attempt().unwrap(), Attempt::Retry); // Attempt 2
+    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 2
 
     time_millis = 1999;
-    assert_eq!(retry.attempt().unwrap(), Attempt::WouldBlock);
+    assert_eq!(retry.what_should_i_do().unwrap_err(), nb::Error::WouldBlock);
 
     time_millis = 2000;
-    assert_eq!(retry.attempt().unwrap(), Attempt::Retry); // Attempt 3
+    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 3
 
     time_millis = 10_000;
-    assert_eq!(retry.attempt().unwrap(), Attempt::Retry); // Attempt 4
-    assert_eq!(retry.attempt().unwrap(), Attempt::Retry); // Attempt 5
-    assert_eq!(retry.attempt().unwrap(), Attempt::NoMoreAttempts); // Attempt 6
+    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 4
+    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Retry); // Attempt 5
+    assert_eq!(retry.what_should_i_do().unwrap(), YouShould::Cry); // Attempt 6
   }
 
   #[test]

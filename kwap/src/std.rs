@@ -9,17 +9,24 @@ use embedded_time as emb_time;
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
-pub struct StdClock(Instant);
+pub struct Clock(Instant);
 
-impl emb_time::Clock for StdClock {
+impl Clock {
+  /// Create a new clock
+  pub fn new() -> Self {
+    Self(Instant::now())
+  }
+}
+
+impl emb_time::Clock for Clock {
     type T = u64;
 
     const SCALING_FACTOR: emb_time::rate::Fraction = emb_time::rate::Fraction::new(1, 1_000_000_000);
 
     fn try_now(&self) -> Result<emb_time::Instant<Self>, emb_time::clock::Error> {
-        let now = Instant::now();
-        let elapsed = now.duration_since(self.0);
-        Ok(emb_time::Instant::new(elapsed.as_nanos() as u64))
+      let now = Instant::now();
+      let elapsed = now.duration_since(self.0);
+      Ok(emb_time::Instant::new(elapsed.as_nanos() as u64))
     }
 }
 
