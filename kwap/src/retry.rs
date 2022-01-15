@@ -1,4 +1,5 @@
-use embedded_time::{duration::Milliseconds, Clock, Instant};
+use embedded_time::duration::Milliseconds;
+use embedded_time::{Clock, Instant};
 
 use crate::result_ext::ResultExt;
 
@@ -11,8 +12,9 @@ type ClockResult<T> = nb::Result<T, embedded_time::clock::Error>;
 /// we don't have the luxury of a memory allocator :)
 ///
 /// ```
-/// use kwap::{std::Clock, retry};
 /// use embedded_time::duration::Milliseconds;
+/// use kwap::retry;
+/// use kwap::std::Clock;
 ///
 /// # main();
 /// fn main() {
@@ -32,9 +34,9 @@ type ClockResult<T> = nb::Result<T, embedded_time::clock::Error>;
 ///
 ///   while let Err(_) = fails_once() {
 ///     match nb::block!(retry.what_should_i_do()) {
-///       Ok(retry::YouShould::Retry) => continue,
-///       Ok(retry::YouShould::Cry) => panic!("no more attempts! it failed more than once!!"),
-///       Err(clock_err) => unreachable!(),
+///       | Ok(retry::YouShould::Retry) => continue,
+///       | Ok(retry::YouShould::Cry) => panic!("no more attempts! it failed more than once!!"),
+///       | Err(clock_err) => unreachable!(),
 ///     }
 ///   }
 /// }
@@ -65,7 +67,11 @@ pub enum YouShould {
 impl<C: Clock<T = u64>> RetryTimer<C> {
   /// Create a new retrier
   pub fn try_new(clock: C, strategy: Strategy, max_attempts: Attempts) -> Result<Self, embedded_time::clock::Error> {
-    clock.try_now().map(|start| Self {start, clock, strategy, max_attempts, attempts: Attempts(1)})
+    clock.try_now().map(|start| Self { start,
+                                       clock,
+                                       strategy,
+                                       max_attempts,
+                                       attempts: Attempts(1) })
   }
 
   /// Ask the retrier if we should retry
@@ -78,7 +84,14 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
           .map(|now| now - self.start)
           .map(|elapsed| self.strategy.is_ready(elapsed.try_into().unwrap(), self.attempts.0))
           .map_err(nb::Error::Other)
-          .bind(|ready| if ready {self.attempts.0 += 1; Ok(YouShould::Retry)} else {Err(nb::Error::WouldBlock)})
+          .bind(|ready| {
+            if ready {
+              self.attempts.0 += 1;
+              Ok(YouShould::Retry)
+            } else {
+              Err(nb::Error::WouldBlock)
+            }
+          })
     }
   }
 }
@@ -102,15 +115,15 @@ impl Strategy {
     }
 
     match self {
-      Self::Delay(dur) => time_passed.0 >= (dur.0 * attempts as u64),
-      Self::Exponential(dur) => time_passed.0 >= Self::total_delay_exp(*dur, attempts),
+      | Self::Delay(dur) => time_passed.0 >= (dur.0 * attempts as u64),
+      | Self::Exponential(dur) => time_passed.0 >= Self::total_delay_exp(*dur, attempts),
     }
   }
 
   fn total_delay_exp(init: Milliseconds<u64>, attempts: u16) -> u64 {
     match attempts {
-      1 => init.0,
-      n => init.0 + (1..n).map(|n| init.0 * 2u64.pow(n as u32)).sum::<u64>()
+      | 1 => init.0,
+      | n => init.0 + (1..n).map(|n| init.0 * 2u64.pow(n as u32)).sum::<u64>(),
     }
   }
 }
@@ -119,11 +132,13 @@ impl Strategy {
 mod test {
   use embedded_time::rate::Fraction;
 
-use super::*;
+  use super::*;
 
   pub struct FakeClock(pub *const u64);
   impl FakeClock {
-    pub fn new(time_ptr: *const u64) -> Self {Self(time_ptr)}
+    pub fn new(time_ptr: *const u64) -> Self {
+      Self(time_ptr)
+    }
   }
 
   impl Clock for FakeClock {
@@ -132,11 +147,9 @@ use super::*;
     const SCALING_FACTOR: Fraction = Fraction::new(1, 1000);
 
     fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-      unsafe {
-        Ok(Instant::new(*self.0))
-      }
+      unsafe { Ok(Instant::new(*self.0)) }
     }
-}
+  }
 
   #[test]
   fn retrier() {
@@ -196,12 +209,12 @@ use super::*;
     assert!(strat.is_ready(Milliseconds(0), 0));
 
     assert!(!strat.is_ready(Milliseconds(99), 1));
-    assert!( strat.is_ready(Milliseconds(100), 1));
+    assert!(strat.is_ready(Milliseconds(100), 1));
 
     assert!(!strat.is_ready(Milliseconds(299), 2));
-    assert!( strat.is_ready(Milliseconds(300), 2));
+    assert!(strat.is_ready(Milliseconds(300), 2));
 
     assert!(!strat.is_ready(Milliseconds(699), 3));
-    assert!( strat.is_ready(Milliseconds(700), 3));
+    assert!(strat.is_ready(Milliseconds(700), 3));
   }
 }

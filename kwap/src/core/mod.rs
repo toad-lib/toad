@@ -234,18 +234,13 @@ impl<Sock: Socket, Cfg: Config> Core<Sock, Cfg> {
   /// ```
   pub fn fire(&mut self, event: Event<Cfg>) {
     let mut sound = event;
-    let ears: ArrayVec<[_; 16]> = self.ears
-        .iter()
-        .copied()
-        .collect();
+    let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
 
-    ears.into_iter()
-        .filter_map(|o| o)
-        .for_each(|(mat, work)| {
-          if mat.matches(&sound) {
-            work(self, &mut sound);
-          }
-        });
+    ears.into_iter().filter_map(|o| o).for_each(|(mat, work)| {
+                                        if mat.matches(&sound) {
+                                          work(self, &mut sound);
+                                        }
+                                      });
   }
 
   /// Poll for a response to a sent request

@@ -1,11 +1,11 @@
 use std::io::{self, Error, ErrorKind};
-use std::net::{UdpSocket, Ipv6Addr, SocketAddr, SocketAddrV6, SocketAddrV4};
+use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
 use std::time::Instant;
+
+use embedded_time as emb_time;
 
 use crate::result_ext::ResultExt;
 use crate::socket::Socket;
-
-use embedded_time as emb_time;
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
@@ -19,15 +19,15 @@ impl Clock {
 }
 
 impl emb_time::Clock for Clock {
-    type T = u64;
+  type T = u64;
 
-    const SCALING_FACTOR: emb_time::rate::Fraction = emb_time::rate::Fraction::new(1, 1_000_000_000);
+  const SCALING_FACTOR: emb_time::rate::Fraction = emb_time::rate::Fraction::new(1, 1_000_000_000);
 
-    fn try_now(&self) -> Result<emb_time::Instant<Self>, emb_time::clock::Error> {
-      let now = Instant::now();
-      let elapsed = now.duration_since(self.0);
-      Ok(emb_time::Instant::new(elapsed.as_nanos() as u64))
-    }
+  fn try_now(&self) -> Result<emb_time::Instant<Self>, emb_time::clock::Error> {
+    let now = Instant::now();
+    let elapsed = now.duration_since(self.0);
+    Ok(emb_time::Instant::new(elapsed.as_nanos() as u64))
+  }
 }
 
 impl Socket for UdpSocket {
