@@ -1,6 +1,6 @@
 [package]
 name = "kwap"
-version = "0.1.10"
+version = "0.2.0"
 edition = "2021"
 description = "Reliable cross-platform CoAP server runtime"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
@@ -33,7 +33,6 @@ tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
 kwap-macros = "0.1.6"
 no-std-net = "0.6"
 embedded-time = "0.12"
-std-embedded-time = "0.1"
 nb = "1"
 
 [dev-dependencies]
