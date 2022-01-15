@@ -64,7 +64,7 @@
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
 //! </details>
 
-#![doc(html_root_url = "https://docs.rs/kwap-msg/0.4.3")]
+#![doc(html_root_url = "https://docs.rs/kwap-msg/0.4.4")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
