@@ -65,7 +65,7 @@ pub struct Core<Cfg: Config> {
 
 /// An error encounterable while sending a message
 #[derive(Debug)]
-pub enum SendError<Cfg: Config> {
+pub enum Error<Cfg: Config> {
   /// Some socket operation (e.g. connecting to host) failed
   SockError(<<Cfg as Config>::Socket as Socket>::Error),
   /// Serializing a message to bytes failed
@@ -154,13 +154,13 @@ impl<Cfg: Config> Core<Cfg> {
   /// Notably, unlike `send_cons`, this eagerly takes
   /// the messages out of the queue and discards them after sending,
   /// since we do not need to guarantee receipt of these messages.
-  pub fn send_nons(&mut self) -> Result<(), SendError<Cfg>> {
+  pub fn send_nons(&mut self) -> Result<(), Error<Cfg>> {
     self.non_q
         .iter_mut()
         .filter_map(Option::take)
         .map(|Addressed(msg, addr)| {
           msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(SendError::ToBytes)
+             .map_err(Error::ToBytes)
              .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
              .map(|_| ())
         })
@@ -176,7 +176,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// The expectation is that when they are Acked, an event handler
   /// will remove them from storage, meaning that a message in con_q
   /// has not been acked yet.
-  pub fn send_cons(&mut self) -> Result<(), SendError<Cfg>> {
+  pub fn send_cons(&mut self) -> Result<(), Error<Cfg>> {
     use crate::retry::YouShould;
 
     self.con_q
@@ -185,16 +185,16 @@ impl<Cfg: Config> Core<Cfg> {
         .map(|Retryable(Addressed(msg, addr), retry)| {
           msg.clone()
              .try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(SendError::ToBytes)
+             .map_err(Error::ToBytes)
              .tupled(|_| {
                self.clock
                    .try_now()
-                   .map_err(|_| SendError::ClockError)
+                   .map_err(|_| Error::ClockError)
                    .map(|now| retry.what_should_i_do(now))
              })
              .bind(|(bytes, should)| match should {
                | Ok(YouShould::Retry) => Self::send(&mut self.sock, *addr, bytes).map(|_| ()),
-               | Ok(YouShould::Cry) => Err(SendError::MessageNeverAcked),
+               | Ok(YouShould::Cry) => Err(Error::MessageNeverAcked),
                | Err(nb::Error::WouldBlock) => Ok(()),
                | _ => unreachable!(),
              })
@@ -307,7 +307,7 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// # Example
   /// See `./examples/client.rs`
-  pub fn poll_resp(&mut self, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<Cfg>, SendError<Cfg>> {
+  pub fn poll_resp(&mut self, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<Cfg>, Error<Cfg>> {
     self.poll(kwap_msg::Id(0), sock, token, Self::try_get_resp)
   }
 
@@ -325,7 +325,7 @@ impl<Cfg: Config> Core<Cfg> {
   ///  | 0.00   |      Token: 0x20
   ///  |        |
   /// ```
-  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), SendError<Cfg>> {
+  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<Cfg>> {
     self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
   }
 
@@ -337,7 +337,7 @@ impl<Cfg: Config> Core<Cfg> {
                 kwap_msg::Id,
                 kwap_msg::Token,
                 SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
-             -> nb::Result<R, SendError<Cfg>> {
+             -> nb::Result<R, Error<Cfg>> {
     // check if there's a dgram in the socket,
     // and move it through the event pipeline.
     //
@@ -350,11 +350,11 @@ impl<Cfg: Config> Core<Cfg> {
           }
           ()
         })
-        .map_err(SendError::SockError)
+        .map_err(Error::SockError)
         .try_perform(|_| self.send_nons())
         .try_perform(|_| self.send_cons())
         .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(SendError::SockError)))
+        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
   }
 
   fn try_get_resp(&mut self,
@@ -406,7 +406,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
-  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Token, SocketAddr), SendError<Cfg>> {
+  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Token, SocketAddr), Error<Cfg>> {
     let token = req.msg_token();
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
@@ -422,8 +422,8 @@ impl<Cfg: Config> Core<Cfg> {
 
     let msg = config::Message::<Cfg>::from(req);
 
-    core::str::from_utf8(&host).map_err(SendError::HostInvalidUtf8)
-                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| SendError::HostInvalidIpAddress))
+    core::str::from_utf8(&host).map_err(Error::HostInvalidUtf8)
+                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| Error::HostInvalidIpAddress))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .try_perform(|addr| {
                                  if msg.ty == Type::Con {
@@ -433,12 +433,12 @@ impl<Cfg: Config> Core<Cfg> {
                                    Ok(())
                                  }
                                })
-                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(SendError::ToBytes))
+                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(Error::ToBytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
                                .map(|addr| (token, addr))
   }
 
-  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, SendError<Cfg>> {
+  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
     self.clock
         .try_now()
         .map(|now| {
@@ -446,7 +446,7 @@ impl<Cfg: Config> Core<Cfg> {
                           crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
                           crate::retry::Attempts(5))
         })
-        .map_err(|_| SendError::ClockError)
+        .map_err(|_| Error::ClockError)
         .map(|timer| Retryable(t, timer))
   }
 
@@ -468,7 +468,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// let id = core.ping("1.1.1.1", 5683);
   /// // core.poll_ping(id);
   /// ```
-  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), SendError<Cfg>> {
+  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), Error<Cfg>> {
     let mut msg: config::Message<Cfg> = Req::<Cfg>::get(host.as_ref(), port, "").into();
     msg.token = kwap_msg::Token(Default::default());
     msg.opts = Default::default();
@@ -476,8 +476,8 @@ impl<Cfg: Config> Core<Cfg> {
 
     let id = msg.id;
     msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-       .map_err(SendError::ToBytes)
-       .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| SendError::HostInvalidIpAddress))
+       .map_err(Error::ToBytes)
+       .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| Error::HostInvalidIpAddress))
        .bind(|(bytes, host)| Self::send(&mut self.sock, SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
        .map(|addr| (id, addr))
   }
@@ -488,11 +488,11 @@ impl<Cfg: Config> Core<Cfg> {
   fn send(sock: &mut Cfg::Socket,
           addr: SocketAddr,
           bytes: impl Array<Item = u8>)
-          -> Result<SocketAddr, SendError<Cfg>> {
+          -> Result<SocketAddr, Error<Cfg>> {
     // TODO: uncouple from ipv4
     sock.connect(addr)
-        .map_err(SendError::SockError)
-        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(SendError::SockError))
+        .map_err(Error::SockError)
+        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(Error::SockError))
         .map(|_| addr)
   }
 }

@@ -7,6 +7,10 @@ use std_alloc::string::{FromUtf8Error, String};
 pub mod method;
 #[doc(inline)]
 pub use method::Method;
+#[doc(hidden)]
+pub mod builder;
+#[doc(inline)]
+pub use builder::*;
 
 use crate::config::{self, Config};
 
@@ -137,7 +141,8 @@ impl<Cfg: Config> Req<Cfg> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }
-    crate::add_option(self.opts.as_mut().unwrap(), number, value)
+
+    crate::option::add(self.opts.as_mut().unwrap(), number, value)
   }
 
   /// Creates a new GET request
@@ -252,7 +257,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
   fn normalize_opts(&mut self) {
     if let Some(opts) = Option::take(&mut self.opts) {
-      self.msg.opts = crate::normalize_opts(opts);
+      self.msg.opts = crate::option::normalize(opts);
     }
   }
 
