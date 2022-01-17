@@ -68,7 +68,25 @@ impl<'a> ToOptionValue for &'a str {
   }
 }
 
+impl ToOptionValue for u8 {
+  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+    [self].into_iter().collect()
+  }
+}
+
 impl ToOptionValue for u16 {
+  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+    self.to_be_bytes().into_iter().collect()
+  }
+}
+
+impl ToOptionValue for u32 {
+  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+    self.to_be_bytes().into_iter().collect()
+  }
+}
+
+impl ToOptionValue for u64 {
   fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
     self.to_be_bytes().into_iter().collect()
   }
