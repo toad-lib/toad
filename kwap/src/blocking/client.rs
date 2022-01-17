@@ -56,6 +56,6 @@ impl<Cfg: Config> Client<Cfg> {
 
   /// Send a GET request
   pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> ReqBuilder<Cfg> {
-    todo!()
+    ReqBuilder::get(host, port, path)
   }
 }

@@ -64,13 +64,13 @@ pub trait ToOptionValue {
 
 impl<'a> ToOptionValue for &'a str {
   fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
-    todo!()
+    self.bytes().collect()
   }
 }
 
 impl ToOptionValue for u16 {
   fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
-    todo!()
+    self.to_be_bytes().into_iter().collect()
   }
 }
 
