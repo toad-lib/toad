@@ -11,7 +11,7 @@ pub struct Client<Cfg: Config> {
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Client error
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
   NetworkError,
   MessageInvalid,

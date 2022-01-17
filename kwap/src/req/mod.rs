@@ -142,7 +142,16 @@ impl<Cfg: Config> Req<Cfg> {
       self.opts = Some(Default::default());
     }
 
-    crate::option::add(self.opts.as_mut().unwrap(), number, value)
+    crate::option::add(self.opts.as_mut().unwrap(), false, number, value)
+  }
+
+  /// Add an instance of a repeatable option to the request.
+  pub fn add_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+    if self.opts.is_none() {
+      self.opts = Some(Default::default());
+    }
+
+    crate::option::add(self.opts.as_mut().unwrap(), true, number, value)
   }
 
   /// Creates a new GET request

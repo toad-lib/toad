@@ -1,5 +1,54 @@
 use kwap_common::Array;
 use kwap_msg::{Opt, OptDelta, OptNumber};
+use crate::config::Config;
+
+/// Content formats supported by kwap
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy)]
+pub enum ContentFormat {
+  /// `text/plain; charset=utf-8`
+  TextPlainUtf8,
+  /// `application/link-format`
+  LinkFormat,
+  /// `application/xml`
+  Xml,
+  /// `application/octet-stream`
+  OctetStream,
+  /// `application/exi`
+  Exi,
+  /// `application/json`
+  Json,
+  /// Another content format
+  Other(u16),
+}
+
+impl ContentFormat {
+  /// Convert this content format to the CoAP byte value
+  pub fn bytes(&self) -> [u8; 2] {
+    u16::from(self).to_be_bytes()
+  }
+}
+
+impl<'a> From<&'a ContentFormat> for u16 {
+  fn from(f: &'a ContentFormat) -> Self {
+    use ContentFormat::*;
+    match *f {
+     TextPlainUtf8 => 0,
+     LinkFormat => 40,
+     Xml => 41,
+     OctetStream => 42,
+     Exi => 47,
+     Json => 50,
+     Other(n) => n,
+    }
+  }
+}
+
+impl ToOptionValue for ContentFormat {
+  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+    self.bytes().into_iter().collect()
+  }
+}
 
 /// Something that can be stored in a CoAP Option.
 ///
@@ -25,33 +74,75 @@ impl ToOptionValue for u16 {
   }
 }
 
-macro_rules! builder_option {
-  ($rfc:literal $name:ident<$cfg:ty>(string)) => {
-    paste::paste! {
-      #[doc = kwap_macros::rfc_7252_doc!($rfc)]
-      pub fn [<option_ $name>]<S: AsRef<str>>(mut self, number: u32, value: S) -> Self {
-        self.inner.set_option(number, crate::ToOptionValue::to_option_value::<$cfg>(value.as_ref())).unwrap();
+macro_rules! builder_method {
+  (
+    #[doc = $doc:expr]
+    #[option(num = $nr:literal)]
+    fn $name:ident<$cfg:ty>(string);
+  ) => {
+      #[doc = $doc]
+      pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
+        self.inner.set_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value.as_ref())).unwrap();
         self
       }
+  };
+  (
+    #[doc = $doc:expr]
+    #[option(repeatable, num = $nr:literal)]
+    fn $name:ident<$cfg:ty>(string);
+  ) => {
+    #[doc = $doc]
+    pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
+      self.inner.add_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value.as_ref())).unwrap();
+      self
     }
   };
-  ($rfc:literal $name:ident<$cfg:ty>($t:ty)) => {
-    paste::paste! {
-      #[doc = kwap_macros::rfc_7252_doc!($rfc)]
-      pub fn [<option_ $name>](mut self, number: u32, value: $t) -> Self {
-        self.inner.set_option(number, crate::ToOptionValue::to_option_value::<$cfg>(value)).unwrap();
-        self
-      }
+  (
+    #[doc = $doc:expr]
+    #[option(num = $nr:literal)]
+    fn $name:ident<$cfg:ty>($t:ty);
+  ) => {
+    #[doc = $doc]
+    pub fn $name(mut self, value: $t) -> Self {
+      self.inner.add_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value)).unwrap();
+      self
     }
-  }
+  };
+  (
+    #[doc = $doc:expr]
+    #[option(repeatable, num = $nr:literal)]
+    $name:ident<$cfg:ty>($t:ty);
+  ) => {
+    #[doc = $doc]
+    pub fn $name(mut self, value: $t) -> Self {
+      self.inner.set_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value)).unwrap();
+      self
+    }
+  };
 }
 
 macro_rules! common_options {
   ($cfg:ty) => {
-    // crate::option::builder_option!("TODO" host<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" path<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" port<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" query<$cfg>(TODO));
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.1")]
+      #[option(num = 3)]
+      fn set_host<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[option(num = 11)]
+      fn set_path<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[option(num = 7)]
+      fn set_port<$cfg>(u16);
+    }
+    crate::option::builder_method!{
+      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[option(repeatable, num = 15)]
+      fn add_query<$cfg>(string);
+    }
     // crate::option::builder_option!("TODO" size1<$cfg>(TODO));
     // crate::option::builder_option!("TODO" if_match<$cfg>(TODO));
     // crate::option::builder_option!("TODO" if_none_match<$cfg>(TODO));
@@ -61,18 +152,30 @@ macro_rules! common_options {
     // crate::option::builder_option!("TODO" location_query<$cfg>(TODO));
     // crate::option::builder_option!("TODO" location_path<$cfg>(TODO));
     // crate::option::builder_option!("TODO" etag<$cfg>(TODO));
-    crate::option::builder_option!("5.10.3" content_format<$cfg>(u16));
-    crate::option::builder_option!("5.10.4" accept<$cfg>(u16));
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.3")]
+      #[option(num = 12)]
+      fn set_content_format<$cfg>(crate::ContentFormat);
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.4")]
+      #[option(num = 17)]
+      fn set_accept<$cfg>(crate::ContentFormat);
+    }
   };
 }
 
-pub(crate) use builder_option;
+pub(crate) use builder_method;
 pub(crate) use common_options;
 
-use crate::config::Config;
 
-pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(
+pub(crate) fn add<
+  A: Array<Item = (OptNumber, Opt<B>)>,
+  B: Array<Item = u8>,
+  V: IntoIterator<Item = u8>
+  >(
   opts: &mut A,
+  repeatable: bool,
   number: u32,
   value: V)
   -> Option<(u32, V)> {
@@ -80,9 +183,11 @@ pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: 
 
   let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
 
-  if let Some((_, opt)) = exist {
-    opt.value = OptValue(value.into_iter().collect());
-    return None;
+  if repeatable == false {
+    if let Some((_, opt)) = exist {
+      opt.value = OptValue(value.into_iter().collect());
+      return None;
+    }
   }
 
   let n_opts = opts.get_size() + 1;
