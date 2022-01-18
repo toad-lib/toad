@@ -44,8 +44,8 @@ impl<'a> From<&'a ContentFormat> for u16 {
   }
 }
 
-impl ToOptionValue for ContentFormat {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl ToCoapValue for ContentFormat {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     self.bytes().into_iter().collect()
   }
 }
@@ -57,37 +57,55 @@ impl ToOptionValue for ContentFormat {
 /// - empty (`()`)
 /// - unsigned integers (`u8`, `u16`, `u32`, `u64`)
 /// - bytes (anything that impls [`kwap_common::Array`])
-pub trait ToOptionValue {
+pub trait ToCoapValue {
   /// Convert the value
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes;
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T;
 }
 
-impl<'a> ToOptionValue for &'a str {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl<'a> ToCoapValue for &'a str {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     self.bytes().collect()
   }
 }
 
-impl ToOptionValue for u8 {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl ToCoapValue for core::str::Bytes<'_> {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
+    self.collect()
+  }
+}
+
+impl<A: tinyvec::Array<Item = u8>> ToCoapValue for tinyvec::ArrayVec<A> {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
+    self.into_iter().collect()
+  }
+}
+
+impl ToCoapValue for &[u8] {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
+    self.iter().copied().collect()
+  }
+}
+
+impl ToCoapValue for u8 {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     [self].into_iter().collect()
   }
 }
 
-impl ToOptionValue for u16 {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl ToCoapValue for u16 {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     self.to_be_bytes().into_iter().collect()
   }
 }
 
-impl ToOptionValue for u32 {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl ToCoapValue for u32 {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     self.to_be_bytes().into_iter().collect()
   }
 }
 
-impl ToOptionValue for u64 {
-  fn to_option_value<Cfg: Config>(self) -> Cfg::OptBytes {
+impl ToCoapValue for u64 {
+  fn to_coap_value<T: Array<Item = u8>>(self) -> T {
     self.to_be_bytes().into_iter().collect()
   }
 }
@@ -100,8 +118,17 @@ macro_rules! builder_method {
   ) => {
       #[doc = $doc]
       pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
-        self.inner.set_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value.as_ref())).unwrap();
-        self
+        self.option($nr, value.as_ref())
+      }
+  };
+  (
+    #[doc = $doc:expr]
+    #[option(num = $nr:literal)]
+    fn $name:ident<$cfg:ty>(());
+  ) => {
+      #[doc = $doc]
+      pub fn $name<S: AsRef<str>>(mut self) -> Self {
+        self.option($nr, &*<$cfg>::OptBytes::default())
       }
   };
   (
@@ -111,8 +138,7 @@ macro_rules! builder_method {
   ) => {
     #[doc = $doc]
     pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
-      self.inner.add_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value.as_ref())).unwrap();
-      self
+      self.add_option($nr, value.as_ref())
     }
   };
   (
@@ -122,19 +148,17 @@ macro_rules! builder_method {
   ) => {
     #[doc = $doc]
     pub fn $name(mut self, value: $t) -> Self {
-      self.inner.add_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value)).unwrap();
-      self
+      self.option($nr, value)
     }
   };
   (
     #[doc = $doc:expr]
     #[option(repeatable, num = $nr:literal)]
-    $name:ident<$cfg:ty>($t:ty);
+    fn $name:ident<$cfg:ty>($t:ty);
   ) => {
     #[doc = $doc]
     pub fn $name(mut self, value: $t) -> Self {
-      self.inner.set_option($nr, crate::ToOptionValue::to_option_value::<$cfg>(value)).unwrap();
-      self
+      self.add_option($nr, value)
     }
   };
 }
@@ -161,24 +185,67 @@ macro_rules! common_options {
       #[option(repeatable, num = 15)]
       fn add_query<$cfg>(string);
     }
-    // crate::option::builder_option!("TODO" size1<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" if_match<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" if_none_match<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" proxy_scheme<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" proxy_uri<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" max_age<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" location_query<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" location_path<$cfg>(TODO));
-    // crate::option::builder_option!("TODO" etag<$cfg>(TODO));
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.9")]
+      #[option(num = 60)]
+      fn size1<$cfg>(u32);
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.8.1")]
+      #[option(repeatable, num = 1)]
+      fn if_match<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.8.2")]
+      #[option(num = 5)]
+      fn if_none_match<$cfg>(());
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.2")]
+      #[option(num = 35)]
+      fn proxy_uri<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = "See docs for [`Self.proxy_uri()`](#method.proxy_uri)"]
+      #[option(num = 39)]
+      fn proxy_scheme<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.5")]
+      #[option(num = 14)]
+      fn max_age<$cfg>(u32);
+    }
+    crate::option::builder_method!{
+      #[doc = "See docs for [`Self.location_path()`](#method.location_path)"]
+      #[option(repeatable, num = 20)]
+      fn location_query<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = kwap_macros::rfc_7252_doc!("5.10.7")]
+      #[option(repeatable, num = 8)]
+      fn location_path<$cfg>(string);
+    }
+    crate::option::builder_method!{
+      #[doc = concat!(
+                kwap_macros::rfc_7252_doc!("5.10.6"),
+                "\n<details><summary>ETag as a Request Option</summary>\n\n",
+                kwap_macros::rfc_7252_doc!("5.10.6.2"),
+                "\n</details><details><summary>ETag as a Response Option</summary>\n\n",
+                kwap_macros::rfc_7252_doc!("5.10.6.1"),
+                "</details>"
+      )]
+      #[option(repeatable, num = 4)]
+      fn etag<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
+    }
     crate::option::builder_method!{
       #[doc = kwap_macros::rfc_7252_doc!("5.10.3")]
       #[option(num = 12)]
-      fn set_content_format<$cfg>(crate::ContentFormat);
+      fn content_format<$cfg>(crate::ContentFormat);
     }
     crate::option::builder_method!{
       #[doc = kwap_macros::rfc_7252_doc!("5.10.4")]
       #[option(num = 17)]
-      fn set_accept<$cfg>(crate::ContentFormat);
+      fn accept<$cfg>(crate::ContentFormat);
     }
   };
 }
@@ -252,7 +319,7 @@ mod test {
                          Opt::<Vec<u8>> { delta: OptDelta(0),
                                           value: OptValue(vec![]) })];
 
-    let out = add(&mut opts, 0, vec![1]);
+    let out = add(&mut opts, false, 0, vec![1]);
 
     assert!(out.is_none());
     assert_eq!(opts.len(), 1);
@@ -263,12 +330,27 @@ mod test {
   fn add_adds_when_not_exist() {
     let mut opts = Vec::<(_, Opt<Vec<u8>>)>::new();
 
-    let out = add(&mut opts, 0, vec![1]);
+    let out = add(&mut opts, false, 0, vec![1]);
 
     assert!(out.is_none());
     assert_eq!(opts.len(), 1);
     assert_eq!(opts[0].1.value.0, vec![1]);
-  }  #[test]
+  }
+
+  #[test]
+  fn add_adds_when_repeatable() {
+    let mut opts = vec![(OptNumber(0),
+                         Opt::<Vec<u8>> { delta: OptDelta(0),
+                                          value: OptValue(vec![]) })];
+
+    let out = add(&mut opts, true, 0, vec![]);
+
+    assert!(out.is_none());
+    assert_eq!(opts.len(), 2);
+    assert_eq!(opts[0], opts[1]);
+  }
+
+  #[test]
   fn normalize_opts_echoes_when_empty() {
     let opts = Vec::<(OptNumber, Opt<Vec<u8>>)>::new();
     let out = normalize::<_, Vec<Opt<Vec<u8>>>, _>(opts);
@@ -292,12 +374,13 @@ mod test {
 
     assert_eq!(actual, expect)
   }
+
   #[test]
   fn add_rets_some_when_full() {
     let mut opts =
       tinyvec::ArrayVec::<[(OptNumber, Opt<Vec<u8>>); 1]>::from([(OptNumber(1), Opt::<Vec<u8>>::default())]);
 
-    let out = add(&mut opts, 0, vec![1]);
+    let out = add(&mut opts, false, 0, vec![1]);
 
     assert_eq!(out, Some((0, vec![1])));
   }

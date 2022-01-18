@@ -67,7 +67,7 @@ pub mod socket;
 pub mod std;
 
 mod option;
-pub use option::{ContentFormat, ToOptionValue};
+pub use option::{ContentFormat, ToCoapValue};
 
 static mut ID: u16 = 0;
 static mut TOKEN: u64 = 0;

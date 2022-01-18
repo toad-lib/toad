@@ -2,6 +2,7 @@ use kwap_common::Array;
 use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
+use crate::ToCoapValue;
 
 #[doc(hidden)]
 pub mod method;
@@ -213,8 +214,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
-    self.msg.payload = Payload(payload.into_iter().collect());
+  pub fn set_payload<P: ToCoapValue>(&mut self, payload: P) {
+    self.msg.payload = Payload(payload.to_coap_value::<Cfg::PayloadBuffer>());
   }
 
   /// Get the payload's raw bytes

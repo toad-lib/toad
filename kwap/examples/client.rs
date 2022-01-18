@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use kwap::config::Std;
 use kwap::core::Core;
-use kwap::req::Req;
+use kwap::req::{Req, ReqBuilder};
 
 #[path = "./server.rs"]
 mod server;
@@ -58,7 +58,8 @@ fn ping(core: &mut Core<Std>) {
 }
 
 fn get_hello(core: &mut Core<Std>, non: bool) {
-  let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  let mut req = ReqBuilder::<Std>::get("127.0.0.1", 5683, "hello").build().unwrap();
+
   if non {
     req.non();
   }
@@ -79,7 +80,7 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
 }
 
 fn get_dropped(core: &mut Core<Std>) {
-  let mut req = Req::<Std>::get("127.0.0.1", 5683, "dropped");
+  let req = Req::<Std>::get("127.0.0.1", 5683, "dropped");
 
   let (id, addr) = core.send_req(req).unwrap();
   println!("GET 127.0.0.1:5683/dropped");

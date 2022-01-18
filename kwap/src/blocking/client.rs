@@ -38,7 +38,7 @@ impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
 impl<Cfg: Config> Client<Cfg> {
   /// TODO
   ///
-  /// ```no_run
+  /// ```ignore
   /// use kwap::blocking::Client;
   ///
   /// fn main() {
