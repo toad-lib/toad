@@ -1,6 +1,9 @@
 #![allow(missing_docs)]
 
-use crate::{config::{Config, Std}, core::Core, resp::Resp, req::ReqBuilder};
+use crate::config::{Config, Std};
+use crate::core::Core;
+use crate::req::ReqBuilder;
+use crate::resp::Resp;
 
 /// TODO
 #[allow(missing_debug_implementations)]
@@ -25,12 +28,12 @@ impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
   fn from(e: &'a crate::core::Error<Cfg>) -> Self {
     use crate::core::Error::*;
     match e {
-      SockError(_) => Self::NetworkError,
-      ToBytes(_) => Self::MessageInvalid,
-      MessageNeverAcked => Self::TimedOut,
-      HostInvalidUtf8(_) => Self::HostInvalidUtf8,
-      HostInvalidIpAddress => Self::HostInvalidIpAddress,
-      ClockError => Self::Other,
+      | SockError(_) => Self::NetworkError,
+      | ToBytes(_) => Self::MessageInvalid,
+      | MessageNeverAcked => Self::TimedOut,
+      | HostInvalidUtf8(_) => Self::HostInvalidUtf8,
+      | HostInvalidIpAddress => Self::HostInvalidIpAddress,
+      | ClockError => Self::Other,
     }
   }
 }
@@ -51,7 +54,7 @@ impl<Cfg: Config> Client<Cfg> {
   pub fn new_std() -> Client<Std> {
     let clock = crate::std::Clock::new();
     let sock = std::net::UdpSocket::bind("127.0.0.1:*").unwrap();
-    Client {core: Core::new(clock, sock)}
+    Client { core: Core::new(clock, sock) }
   }
 
   /// Send a GET request

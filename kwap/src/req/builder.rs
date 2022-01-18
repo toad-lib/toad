@@ -1,25 +1,27 @@
-use crate::{config::Config, ToCoapValue, option::common_options};
-
-use super::{Req, Method};
+use super::{Method, Req};
+use crate::config::Config;
+use crate::option::common_options;
+use crate::ToCoapValue;
 
 /// TODO
 ///
 /// ```
 /// use kwap::config::Std;
-/// use kwap::ContentFormat;
 /// use kwap::req::ReqBuilder;
+/// use kwap::ContentFormat;
 ///
-/// let request = ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff")
-///            .accept(ContentFormat::Json)
-///            .content_format(ContentFormat::Json)
-///            .payload(r#"
+/// let request = ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
+///                                                                     .content_format(ContentFormat::Json)
+///                                                                     .payload(
+///                                                                              r#"
 ///            {
 ///              "name": "Jameson",
 ///              "say": "Hello"
 ///            }
-///            "#)
-///            .build()
-///            .unwrap();
+///            "#,
+/// )
+///                                                                     .build()
+///                                                                     .unwrap();
 ///
 /// let rep = send(request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
@@ -36,7 +38,7 @@ pub struct ReqBuilder<Cfg: Config> {
 
 impl<Cfg: Config> ReqBuilder<Cfg> {
   fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self {inner: Req::new(method, host, port, path)}
+    Self { inner: Req::new(method, host, port, path) }
   }
 
   pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {

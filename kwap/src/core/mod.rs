@@ -485,10 +485,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  fn send(sock: &mut Cfg::Socket,
-          addr: SocketAddr,
-          bytes: impl Array<Item = u8>)
-          -> Result<SocketAddr, Error<Cfg>> {
+  fn send(sock: &mut Cfg::Socket, addr: SocketAddr, bytes: impl Array<Item = u8>) -> Result<SocketAddr, Error<Cfg>> {
     // TODO: uncouple from ipv4
     sock.connect(addr)
         .map_err(Error::SockError)

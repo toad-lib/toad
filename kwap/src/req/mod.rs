@@ -2,6 +2,7 @@ use kwap_common::Array;
 use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
+
 use crate::ToCoapValue;
 
 #[doc(hidden)]

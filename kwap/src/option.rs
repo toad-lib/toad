@@ -1,5 +1,6 @@
 use kwap_common::Array;
 use kwap_msg::{Opt, OptDelta, OptNumber};
+
 use crate::config::Config;
 
 /// Content formats supported by kwap
@@ -33,13 +34,13 @@ impl<'a> From<&'a ContentFormat> for u16 {
   fn from(f: &'a ContentFormat) -> Self {
     use ContentFormat::*;
     match *f {
-     TextPlainUtf8 => 0,
-     LinkFormat => 40,
-     Xml => 41,
-     OctetStream => 42,
-     Exi => 47,
-     Json => 50,
-     Other(n) => n,
+      | TextPlainUtf8 => 0,
+      | LinkFormat => 40,
+      | Xml => 41,
+      | OctetStream => 42,
+      | Exi => 47,
+      | Json => 50,
+      | Other(n) => n,
     }
   }
 }
@@ -116,20 +117,20 @@ macro_rules! builder_method {
     #[option(num = $nr:literal)]
     fn $name:ident<$cfg:ty>(string);
   ) => {
-      #[doc = $doc]
-      pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
-        self.option($nr, value.as_ref())
-      }
+    #[doc = $doc]
+    pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
+      self.option($nr, value.as_ref())
+    }
   };
   (
     #[doc = $doc:expr]
     #[option(num = $nr:literal)]
     fn $name:ident<$cfg:ty>(());
   ) => {
-      #[doc = $doc]
-      pub fn $name<S: AsRef<str>>(mut self) -> Self {
-        self.option($nr, &*<$cfg>::OptBytes::default())
-      }
+    #[doc = $doc]
+    pub fn $name<S: AsRef<str>>(mut self) -> Self {
+      self.option($nr, &*<$cfg>::OptBytes::default())
+    }
   };
   (
     #[doc = $doc:expr]
@@ -165,67 +166,67 @@ macro_rules! builder_method {
 
 macro_rules! common_options {
   ($cfg:ty) => {
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.1")]
       #[option(num = 3)]
       fn set_host<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = "see [`Self.set_host()`](#method.set_host)"]
       #[option(num = 11)]
       fn set_path<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = "see [`Self.set_host()`](#method.set_host)"]
       #[option(num = 7)]
       fn set_port<$cfg>(u16);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = "see [`Self.set_host()`](#method.set_host)"]
       #[option(repeatable, num = 15)]
       fn add_query<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.9")]
       #[option(num = 60)]
       fn size1<$cfg>(u32);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.8.1")]
       #[option(repeatable, num = 1)]
       fn if_match<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.8.2")]
       #[option(num = 5)]
       fn if_none_match<$cfg>(());
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.2")]
       #[option(num = 35)]
       fn proxy_uri<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = "See docs for [`Self.proxy_uri()`](#method.proxy_uri)"]
       #[option(num = 39)]
       fn proxy_scheme<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.5")]
       #[option(num = 14)]
       fn max_age<$cfg>(u32);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = "See docs for [`Self.location_path()`](#method.location_path)"]
       #[option(repeatable, num = 20)]
       fn location_query<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.7")]
       #[option(repeatable, num = 8)]
       fn location_path<$cfg>(string);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = concat!(
                 kwap_macros::rfc_7252_doc!("5.10.6"),
                 "\n<details><summary>ETag as a Request Option</summary>\n\n",
@@ -237,12 +238,12 @@ macro_rules! common_options {
       #[option(repeatable, num = 4)]
       fn etag<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.3")]
       #[option(num = 12)]
       fn content_format<$cfg>(crate::ContentFormat);
     }
-    crate::option::builder_method!{
+    crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.4")]
       #[option(num = 17)]
       fn accept<$cfg>(crate::ContentFormat);
@@ -250,15 +251,9 @@ macro_rules! common_options {
   };
 }
 
-pub(crate) use builder_method;
-pub(crate) use common_options;
+pub(crate) use {builder_method, common_options};
 
-
-pub(crate) fn add<
-  A: Array<Item = (OptNumber, Opt<B>)>,
-  B: Array<Item = u8>,
-  V: IntoIterator<Item = u8>
-  >(
+pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(
   opts: &mut A,
   repeatable: bool,
   number: u32,
@@ -291,8 +286,8 @@ pub(crate) fn add<
   None
 }
 pub(crate) fn normalize<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
-                  Opts: Array<Item = Opt<Bytes>>,
-                  Bytes: Array<Item = u8>>(
+                        Opts: Array<Item = Opt<Bytes>>,
+                        Bytes: Array<Item = u8>>(
   mut os: OptNumbers)
   -> Opts {
   if os.is_empty() {
@@ -310,8 +305,9 @@ pub(crate) fn normalize<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
 
 #[cfg(test)]
 mod test {
-  use super::*;
   use kwap_msg::OptValue;
+
+  use super::*;
 
   #[test]
   fn add_updates_when_exist() {
