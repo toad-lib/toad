@@ -118,7 +118,7 @@ macro_rules! builder_method {
     fn $name:ident<$cfg:ty>(string);
   ) => {
     #[doc = $doc]
-    pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
+    pub fn $name<S: AsRef<str>>(self, value: S) -> Self {
       self.option($nr, value.as_ref())
     }
   };
@@ -128,7 +128,7 @@ macro_rules! builder_method {
     fn $name:ident<$cfg:ty>(());
   ) => {
     #[doc = $doc]
-    pub fn $name<S: AsRef<str>>(mut self) -> Self {
+    pub fn $name<S: AsRef<str>>(self) -> Self {
       self.option($nr, &*<$cfg>::OptBytes::default())
     }
   };
@@ -138,7 +138,7 @@ macro_rules! builder_method {
     fn $name:ident<$cfg:ty>(string);
   ) => {
     #[doc = $doc]
-    pub fn $name<S: AsRef<str>>(mut self, value: S) -> Self {
+    pub fn $name<S: AsRef<str>>(self, value: S) -> Self {
       self.add_option($nr, value.as_ref())
     }
   };
@@ -148,7 +148,7 @@ macro_rules! builder_method {
     fn $name:ident<$cfg:ty>($t:ty);
   ) => {
     #[doc = $doc]
-    pub fn $name(mut self, value: $t) -> Self {
+    pub fn $name(self, value: $t) -> Self {
       self.option($nr, value)
     }
   };
@@ -158,7 +158,7 @@ macro_rules! builder_method {
     fn $name:ident<$cfg:ty>($t:ty);
   ) => {
     #[doc = $doc]
-    pub fn $name(mut self, value: $t) -> Self {
+    pub fn $name(self, value: $t) -> Self {
       self.add_option($nr, value)
     }
   };
@@ -169,20 +169,20 @@ macro_rules! common_options {
     crate::option::builder_method! {
       #[doc = kwap_macros::rfc_7252_doc!("5.10.1")]
       #[option(num = 3)]
-      fn set_host<$cfg>(string);
+      fn host<$cfg>(string);
     }
     crate::option::builder_method! {
-      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[doc = "see [`Self.host()`](#method.host)"]
       #[option(num = 11)]
-      fn set_path<$cfg>(string);
+      fn path<$cfg>(string);
     }
     crate::option::builder_method! {
-      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[doc = "see [`Self.host()`](#method.host)"]
       #[option(num = 7)]
-      fn set_port<$cfg>(u16);
+      fn port<$cfg>(u16);
     }
     crate::option::builder_method! {
-      #[doc = "see [`Self.set_host()`](#method.set_host)"]
+      #[doc = "see [`Self.host()`](#method.host)"]
       #[option(repeatable, num = 15)]
       fn add_query<$cfg>(string);
     }
