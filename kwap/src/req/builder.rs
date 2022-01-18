@@ -10,16 +10,14 @@ use crate::ToCoapValue;
 /// use kwap::req::ReqBuilder;
 /// use kwap::ContentFormat;
 ///
-/// let request = ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
-///                                                                     .content_format(ContentFormat::Json)
-///                                                                     .payload(
-///                                                                              r#"
-///            {
+/// let payload = r#"""{
 ///              "name": "Jameson",
 ///              "say": "Hello"
-///            }
-///            "#,
-/// )
+///            }"""#;
+///
+/// let request = ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
+///                                                                     .content_format(ContentFormat::Json)
+///                                                                     .payload(payload)
 ///                                                                     .build()
 ///                                                                     .unwrap();
 ///
