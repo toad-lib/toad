@@ -2,12 +2,14 @@
 
 use crate::config::{Config, Std};
 use crate::core::Core;
-use crate::req::ReqBuilder;
+use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
+use crate::result_ext::ResultExt;
 
 /// TODO
 #[allow(missing_debug_implementations)]
 pub struct Client<Cfg: Config> {
+  // TODO: wrap with refcell on non-std or mutex on std
   core: Core<Cfg>,
 }
 
@@ -38,7 +40,8 @@ impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
   }
 }
 
-impl<Cfg: Config> Client<Cfg> {
+#[cfg(not(feature = "no_std"))]
+impl Client<Std> {
   /// TODO
   ///
   /// ```ignore
@@ -46,15 +49,38 @@ impl<Cfg: Config> Client<Cfg> {
   ///
   /// fn main() {
   ///   let client = Client::new_std();
-  ///   let rep = client.get("127.0.0.1", 5683, "hello")?.ensure_ok()?;
+  ///   let rep = client.get("127.0.0.1", 5683, "hello")
+  ///                   .allow(ContentFormat::Text)
+  ///                   .unwrap()
+  ///                   .send()
+  ///                   .unwrap()
+  ///                   .ensure_ok()
+  ///                   .unwrap();
+  ///
   ///   println!("Hello, {}!", rep.payload_string());
   /// }
   /// ```
-  #[cfg(not(feature = "no_std"))]
   pub fn new_std() -> Client<Std> {
     let clock = crate::std::Clock::new();
-    let sock = std::net::UdpSocket::bind("127.0.0.1:*").unwrap();
+    let sock = std::net::UdpSocket::bind("127.0.0.1:4812").unwrap();
     Client { core: Core::new(clock, sock) }
+  }
+}
+
+impl<Cfg: Config> Client<Cfg> {
+  /// Ping an endpoint
+  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
+    self.core.ping(host, port)
+        .map_err(|_| Error::NetworkError)
+        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err(|_| Error::NetworkError))
+  }
+
+  /// Send a request
+  pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>> {
+    self.core
+        .send_req(req)
+        .map_err(|_| Error::NetworkError) // TODO
+        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err(|_| Error::NetworkError))
   }
 
   /// Send a GET request

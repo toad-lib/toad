@@ -42,7 +42,7 @@ pub mod code;
 #[derive(Clone, Debug)]
 pub struct Resp<Cfg: Config> {
   pub(crate) msg: config::Message<Cfg>,
-  opts: Option<Cfg::OptNumbers>,
+  opts: Option<Cfg::OptMap>,
 }
 
 impl<Cfg: Config> Resp<Cfg> {

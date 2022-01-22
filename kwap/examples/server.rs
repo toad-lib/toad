@@ -42,7 +42,7 @@ fn server_main() {
   sock.set_nonblocking(true).unwrap();
   let mut buf = [0u8; 1152];
 
-  println!("server: up");
+  println!("server: up\n");
 
   let mut dropped_req_ct = 0u8;
 
