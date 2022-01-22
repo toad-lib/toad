@@ -5,12 +5,15 @@ use std_alloc::string::{FromUtf8Error, String};
 
 use crate::ToCoapValue;
 
-#[doc(hidden)]
+/// Request methods
 pub mod method;
+
 #[doc(inline)]
 pub use method::Method;
-#[doc(hidden)]
+
+/// Request builder
 pub mod builder;
+
 #[doc(inline)]
 pub use builder::*;
 

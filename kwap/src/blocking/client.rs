@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use crate::config::{Config, Std};
 use crate::core::Core;
 use crate::req::{Req, ReqBuilder};
@@ -13,16 +11,23 @@ pub struct Client<Cfg: Config> {
   core: Core<Cfg>,
 }
 
+/// Client result
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Client error
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
+  /// There was an issue along the network somewhere
   NetworkError,
+  /// A message we tried to send was invalid
   MessageInvalid,
+  /// We timed out waiting for our request to be sent, or for a response to a request.
   TimedOut,
+  /// The host you provided is not a valid utf8 string
   HostInvalidUtf8,
+  /// The host you provided is not a valid ip address
   HostInvalidIpAddress,
+  /// Some other error
   Other,
 }
 

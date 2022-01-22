@@ -233,7 +233,7 @@ impl<Cfg: Config> Core<Cfg> {
             .iter()
             .filter_map(|o| o.as_ref())
             .enumerate()
-            .find(|(ix, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == msg.id)
+            .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == msg.id)
       {
         self.con_q.remove(ix);
       }
