@@ -1,14 +1,12 @@
 use kwap_common::Array;
 use kwap_msg::{Opt, OptDelta, OptNumber};
 
-use crate::config::Config;
-
 /// Content formats supported by kwap
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum ContentFormat {
   /// `text/plain; charset=utf-8`
-  TextPlainUtf8,
+  Text,
   /// `application/link-format`
   LinkFormat,
   /// `application/xml`
@@ -34,7 +32,7 @@ impl<'a> From<&'a ContentFormat> for u16 {
   fn from(f: &'a ContentFormat) -> Self {
     use ContentFormat::*;
     match *f {
-      | TextPlainUtf8 => 0,
+      | Text => 0,
       | LinkFormat => 40,
       | Xml => 41,
       | OctetStream => 42,

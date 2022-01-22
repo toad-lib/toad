@@ -39,7 +39,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-/// TODO
+/// Blocking CoAP client & server
 pub mod blocking;
 
 /// Customizable retrying of fallible operations

@@ -6,7 +6,7 @@ use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 use crate::result_ext::{MapErrInto, ResultExt};
 
-/// TODO
+/// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
 pub struct Client<Cfg: Config> {
   // TODO: wrap with refcell on non-std or mutex on std
@@ -48,22 +48,22 @@ impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
 
 #[cfg(not(feature = "no_std"))]
 impl Client<Std> {
-  /// TODO
+  /// Create a new Client for a platform supporting Rust's standard library.
   ///
-  /// ```ignore
+  /// ```no_run
   /// use kwap::blocking::Client;
+  /// use kwap::req::ReqBuilder;
+  /// use kwap::ContentFormat;
   ///
   /// fn main() {
-  ///   let client = Client::new_std();
-  ///   let rep = client.get("127.0.0.1", 5683, "hello")
-  ///                   .allow(ContentFormat::Text)
-  ///                   .unwrap()
-  ///                   .send()
-  ///                   .unwrap()
-  ///                   .ensure_ok()
-  ///                   .unwrap();
+  ///   let mut client = Client::new_std();
+  ///   let req = ReqBuilder::get("127.0.0.1", 5683, "hello").accept(ContentFormat::Text)
+  ///                                                        .build()
+  ///                                                        .unwrap();
   ///
-  ///   println!("Hello, {}!", rep.payload_string());
+  ///   let rep = client.send(req).unwrap();
+  ///
+  ///   println!("Hello, {}!", rep.payload_string().unwrap());
   /// }
   /// ```
   pub fn new_std() -> Client<Std> {
@@ -75,6 +75,8 @@ impl Client<Std> {
 
 impl<Cfg: Config> Client<Cfg> {
   /// Ping an endpoint
+  ///
+  /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
     self.core
         .ping(host, port)
@@ -83,6 +85,8 @@ impl<Cfg: Config> Client<Cfg> {
   }
 
   /// Send a request
+  ///
+  /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>> {
     self.core
         .send_req(req)
