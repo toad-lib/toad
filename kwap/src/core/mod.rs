@@ -157,7 +157,8 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn send_nons(&mut self) -> Result<(), Error<Cfg>> {
     self.non_q
         .iter_mut()
-        .filter_map(Option::take).try_for_each(|Addressed(msg, addr)| {
+        .filter_map(Option::take)
+        .try_for_each(|Addressed(msg, addr)| {
           msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
              .map_err(Error::ToBytes)
              .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
@@ -179,7 +180,8 @@ impl<Cfg: Config> Core<Cfg> {
 
     self.con_q
         .iter_mut()
-        .filter_map(|o| o.as_mut()).try_for_each(|Retryable(Addressed(msg, addr), retry)| {
+        .filter_map(|o| o.as_mut())
+        .try_for_each(|Retryable(Addressed(msg, addr), retry)| {
           msg.clone()
              .try_into_bytes::<ArrayVec<[u8; 1152]>>()
              .map_err(Error::ToBytes)
@@ -293,10 +295,10 @@ impl<Cfg: Config> Core<Cfg> {
     let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
 
     ears.into_iter().flatten().for_each(|(mat, work)| {
-                                        if mat.matches(&sound) {
-                                          work(self, &mut sound);
-                                        }
-                                      });
+                                if mat.matches(&sound) {
+                                  work(self, &mut sound);
+                                }
+                              });
   }
 
   /// Poll for a response to a sent request
@@ -573,8 +575,7 @@ mod tests {
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<Config>::new(crate::std::Clock::new(),
-                                         TubeSock::init(addr.into(), bytes.clone()));
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::init(addr.into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

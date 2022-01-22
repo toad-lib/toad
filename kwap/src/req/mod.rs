@@ -1,7 +1,6 @@
 use kwap_common::Array;
 use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
 
-
 use crate::ToCoapValue;
 
 /// Request methods

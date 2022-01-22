@@ -1,6 +1,3 @@
-
-
-
 use kwap::blocking::Client;
 use kwap::config::Std;
 use kwap::req::Req;

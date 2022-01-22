@@ -53,14 +53,17 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::GET, host, port, path)
   }
+
   /// Creates a PUT request
   pub fn put(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::PUT, host, port, path)
   }
+
   /// Creates a POST request
   pub fn post(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::POST, host, port, path)
   }
+
   /// Creates a DELETE request
   pub fn delete(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self::new(Method::DELETE, host, port, path)
