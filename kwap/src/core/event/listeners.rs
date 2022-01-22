@@ -178,7 +178,7 @@ mod tests {
       evr.listen(MatchEvent::RecvMsg, resp_from_msg);
       evr.listen(MatchEvent::RecvResp, nop);
 
-      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.clone().into()))));
+      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.into()))));
 
       assert_eq!(evr.calls(MatchEvent::RecvResp), 0);
       assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);

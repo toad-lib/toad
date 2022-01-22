@@ -42,7 +42,7 @@ pub mod code;
 #[derive(Clone, Debug)]
 pub struct Resp<Cfg: Config> {
   pub(crate) msg: config::Message<Cfg>,
-  opts: Option<Cfg::OptNumbers>,
+  opts: Option<Cfg::OptMap>,
 }
 
 impl<Cfg: Config> Resp<Cfg> {
@@ -202,7 +202,7 @@ impl<Cfg: Config> Resp<Cfg> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }
-    crate::add_option(self.opts.as_mut().unwrap(), number, value)
+    crate::option::add(self.opts.as_mut().unwrap(), false, number, value)
   }
 
   /// Add a payload to this response
@@ -229,7 +229,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
   fn normalize_opts(&mut self) {
     if let Some(opts) = Option::take(&mut self.opts) {
-      self.msg.opts = crate::normalize_opts(opts);
+      self.msg.opts = crate::option::normalize(opts);
     }
   }
 }

@@ -42,7 +42,7 @@ fn server_main() {
   sock.set_nonblocking(true).unwrap();
   let mut buf = [0u8; 1152];
 
-  println!("server: up");
+  println!("server: up\n");
 
   let mut dropped_req_ct = 0u8;
 
@@ -59,7 +59,7 @@ fn server_main() {
         let path = req.get_option(11)
                       .as_ref()
                       .map(|o| &o.value.0)
-                      .map(|b| std::str::from_utf8(&b).unwrap());
+                      .map(|b| std::str::from_utf8(b).unwrap());
 
         println!("server: got {:?} {} {} {} bytes",
                  req.msg_type(),

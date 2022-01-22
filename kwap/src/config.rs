@@ -44,7 +44,7 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk
   type PayloadBuffer = Vec<u8>;
   type OptBytes = Vec<u8>;
   type Opts = Vec<Opt<Vec<u8>>>;
-  type OptNumbers = Vec<(OptNumber, Opt<Vec<u8>>)>;
+  type OptMap = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Events = Vec<Event<Self>>;
   type Clock = Clk;
   type Socket = Sock;
@@ -73,7 +73,7 @@ pub trait Config: Sized + 'static + core::fmt::Debug {
   type Opts: Array<Item = Opt<Self::OptBytes>> + Clone + Debug;
 
   /// What type should we use to keep track of options before serializing?
-  type OptNumbers: Array<Item = (OptNumber, Opt<Self::OptBytes>)> + Clone + Debug;
+  type OptMap: Array<Item = (OptNumber, Opt<Self::OptBytes>)> + Clone + Debug;
 
   /// What type should we use to store events?
   type Events: Array<Item = Event<Self>>;

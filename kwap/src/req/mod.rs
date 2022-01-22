@@ -1,12 +1,19 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
-#[cfg(feature = "alloc")]
-use std_alloc::string::{FromUtf8Error, String};
+use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
 
-#[doc(hidden)]
+use crate::ToCoapValue;
+
+/// Request methods
 pub mod method;
+
 #[doc(inline)]
 pub use method::Method;
+
+/// Request builder
+pub mod builder;
+
+#[doc(inline)]
+pub use builder::*;
 
 use crate::config::{self, Config};
 
@@ -51,7 +58,7 @@ use crate::config::{self, Config};
 #[derive(Debug, Clone)]
 pub struct Req<Cfg: Config> {
   pub(crate) msg: config::Message<Cfg>,
-  opts: Option<Cfg::OptNumbers>,
+  opts: Option<Cfg::OptMap>,
 }
 
 impl<Cfg: Config> Req<Cfg> {
@@ -137,7 +144,17 @@ impl<Cfg: Config> Req<Cfg> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }
-    crate::add_option(self.opts.as_mut().unwrap(), number, value)
+
+    crate::option::add(self.opts.as_mut().unwrap(), false, number, value)
+  }
+
+  /// Add an instance of a repeatable option to the request.
+  pub fn add_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+    if self.opts.is_none() {
+      self.opts = Some(Default::default());
+    }
+
+    crate::option::add(self.opts.as_mut().unwrap(), true, number, value)
   }
 
   /// Creates a new GET request
@@ -199,8 +216,8 @@ impl<Cfg: Config> Req<Cfg> {
   /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
-    self.msg.payload = Payload(payload.into_iter().collect());
+  pub fn set_payload<P: ToCoapValue>(&mut self, payload: P) {
+    self.msg.payload = Payload(payload.to_coap_value::<Cfg::PayloadBuffer>());
   }
 
   /// Get the payload's raw bytes
@@ -246,13 +263,13 @@ impl<Cfg: Config> Req<Cfg> {
   /// assert_eq!(req.payload_str().unwrap(), "Hi!")
   /// ```
   pub fn payload_str(&self) -> Result<&str, core::str::Utf8Error> {
-    core::str::from_utf8(&self.payload())
+    core::str::from_utf8(self.payload())
   }
 
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission
   fn normalize_opts(&mut self) {
     if let Some(opts) = Option::take(&mut self.opts) {
-      self.msg.opts = crate::normalize_opts(opts);
+      self.msg.opts = crate::option::normalize(opts);
     }
   }
 
