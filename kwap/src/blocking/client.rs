@@ -70,7 +70,8 @@ impl Client<Std> {
 impl<Cfg: Config> Client<Cfg> {
   /// Ping an endpoint
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
-    self.core.ping(host, port)
+    self.core
+        .ping(host, port)
         .map_err(|_| Error::NetworkError)
         .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err(|_| Error::NetworkError))
   }

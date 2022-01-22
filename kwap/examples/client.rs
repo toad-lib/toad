@@ -32,7 +32,9 @@ fn main() {
 
   let mut client = Client::new_std();
 
-  client.ping("127.0.0.1", 5683).map(|_| println!("pinged ok!\n")).unwrap();
+  client.ping("127.0.0.1", 5683)
+        .map(|_| println!("pinged ok!\n"))
+        .unwrap();
 
   let req = Req::get("127.0.0.1", 5683, "hello");
   client.send(req).log();
