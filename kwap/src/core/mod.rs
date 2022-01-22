@@ -157,14 +157,12 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn send_nons(&mut self) -> Result<(), Error<Cfg>> {
     self.non_q
         .iter_mut()
-        .filter_map(Option::take)
-        .map(|Addressed(msg, addr)| {
+        .filter_map(Option::take).try_for_each(|Addressed(msg, addr)| {
           msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
              .map_err(Error::ToBytes)
              .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
              .map(|_| ())
         })
-        .collect()
   }
 
   /// Process all the queued outbound confirmable messages.
@@ -181,8 +179,7 @@ impl<Cfg: Config> Core<Cfg> {
 
     self.con_q
         .iter_mut()
-        .filter_map(|o| o.as_mut())
-        .map(|Retryable(Addressed(msg, addr), retry)| {
+        .filter_map(|o| o.as_mut()).try_for_each(|Retryable(Addressed(msg, addr), retry)| {
           msg.clone()
              .try_into_bytes::<ArrayVec<[u8; 1152]>>()
              .map_err(Error::ToBytes)
@@ -199,7 +196,6 @@ impl<Cfg: Config> Core<Cfg> {
                | _ => unreachable!(),
              })
         })
-        .collect()
   }
 
   /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
@@ -296,7 +292,7 @@ impl<Cfg: Config> Core<Cfg> {
     let mut sound = event;
     let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
 
-    ears.into_iter().filter_map(|o| o).for_each(|(mat, work)| {
+    ears.into_iter().flatten().for_each(|(mat, work)| {
                                         if mat.matches(&sound) {
                                           work(self, &mut sound);
                                         }
@@ -370,7 +366,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
+          | mut o @ Some(_) if resp_matches(o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
@@ -564,7 +560,7 @@ mod tests {
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
     client.fire(Event::RecvDgram(Some((bytes, addr))));
-    client.poll_ping(id, addr.into()).unwrap();
+    client.poll_ping(id, addr).unwrap();
   }
 
   #[test]
@@ -578,7 +574,7 @@ mod tests {
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut client = Core::<Config>::new(crate::std::Clock::new(),
-                                         TubeSock::init(addr.clone().into(), bytes.clone()));
+                                         TubeSock::init(addr.into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

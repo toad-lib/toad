@@ -261,7 +261,7 @@ pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: 
 
   let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
 
-  if repeatable == false {
+  if !repeatable {
     if let Some((_, opt)) = exist {
       opt.value = OptValue(value.into_iter().collect());
       return None;

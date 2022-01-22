@@ -1,8 +1,8 @@
-use embedded_time::clock::Error as ClockError;
+
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
 
-use crate::result_ext::ResultExt;
+
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.

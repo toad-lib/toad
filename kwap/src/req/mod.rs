@@ -1,7 +1,6 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
-#[cfg(feature = "alloc")]
-use std_alloc::string::{FromUtf8Error, String};
+use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
+
 
 use crate::ToCoapValue;
 
@@ -265,7 +264,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// assert_eq!(req.payload_str().unwrap(), "Hi!")
   /// ```
   pub fn payload_str(&self) -> Result<&str, core::str::Utf8Error> {
-    core::str::from_utf8(&self.payload())
+    core::str::from_utf8(self.payload())
   }
 
   /// Drains the internal associated list of opt number <> opt and converts the numbers into deltas to prepare for message transmission

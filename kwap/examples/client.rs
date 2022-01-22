@@ -1,5 +1,5 @@
-use std::net::UdpSocket;
-use std::time::Instant;
+
+
 
 use kwap::blocking::Client;
 use kwap::config::Std;
@@ -10,11 +10,11 @@ use kwap::resp::Resp;
 mod server;
 
 trait Log {
-  fn log(self) -> ();
+  fn log(self);
 }
 
 impl Log for kwap::blocking::client::Result<Resp<Std>> {
-  fn log(self) -> () {
+  fn log(self) {
     match self {
       | Ok(rep) => {
         println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());

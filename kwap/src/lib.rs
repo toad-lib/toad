@@ -161,7 +161,7 @@ pub(crate) mod test {
            .for_each(|(ix, el)| buf[ix] = el);
       }
 
-      Ok((n, self.addr.clone().unwrap()))
+      Ok((n, self.addr.unwrap()))
     }
 
     fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {

@@ -74,7 +74,7 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
     self.inner
         .as_mut()
         .map(|inner| inner.set_option(number, value.to_coap_value::<Cfg::OptBytes>()))
-        .map_err(|e| e.clone())
+        .map_err(|e| *e)
         .perform(|res| match res {
           | Some(_) => self.inner = Err(Error::TooManyOptions),
           | None => (),
@@ -92,7 +92,7 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
     self.inner
         .as_mut()
         .map(|inner| inner.add_option(number, value.to_coap_value::<Cfg::OptBytes>()))
-        .map_err(|e| e.clone())
+        .map_err(|e| *e)
         .perform(|res| match res {
           | Some(_) => self.inner = Err(Error::TooManyOptions),
           | None => (),
