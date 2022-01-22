@@ -4,7 +4,7 @@ use crate::config::{Config, Std};
 use crate::core::Core;
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
-use crate::result_ext::ResultExt;
+use crate::result_ext::{MapErrInto, ResultExt};
 
 /// TODO
 #[allow(missing_debug_implementations)]
@@ -24,6 +24,12 @@ pub enum Error {
   HostInvalidUtf8,
   HostInvalidIpAddress,
   Other,
+}
+
+impl<Cfg: Config> From<crate::core::Error<Cfg>> for Error {
+  fn from(e: crate::core::Error<Cfg>) -> Self {
+    Self::from(&e)
+  }
 }
 
 impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
@@ -72,16 +78,16 @@ impl<Cfg: Config> Client<Cfg> {
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
     self.core
         .ping(host, port)
-        .map_err(|_| Error::NetworkError)
-        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err(|_| Error::NetworkError))
+        .map_err_into()
+        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err_into())
   }
 
   /// Send a request
   pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>> {
     self.core
         .send_req(req)
-        .map_err(|_| Error::NetworkError) // TODO
-        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err(|_| Error::NetworkError))
+        .map_err_into()
+        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err_into())
   }
 
   /// Send a GET request

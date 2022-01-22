@@ -9,6 +9,16 @@ pub(crate) trait ResultExt<T, E>: Sized {
   }
 }
 
+pub(crate) trait MapErrInto<T, E: Into<R>, R> {
+  fn map_err_into(self) -> Result<T, R>;
+}
+
+impl<T, E: Into<R>, R> MapErrInto<T, E, R> for Result<T, E> {
+  fn map_err_into(self) -> Result<T, R> {
+    self.map_err(Into::into)
+  }
+}
+
 impl<T, E> ResultExt<T, E> for Result<T, E> {
   fn bind<R>(self, f: impl FnOnce(T) -> Result<R, E>) -> Result<R, E> {
     self.and_then(f)
