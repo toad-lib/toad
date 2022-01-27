@@ -19,6 +19,8 @@ use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
 use crate::socket::Socket;
 
+// TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
+
 fn mk_ack<Cfg: Config>(id: kwap_msg::Id, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
   use kwap_msg::*;
   let msg = config::Message::<Cfg> { id,
