@@ -28,16 +28,22 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
 ## Work to be done
+a `?` indicates that a feature is not blocking for a stable release, and may be implemented at a later date.
 
+ - [ ] crate restructuring
+   - [ ] move core functionality to new crate `kwap_core`
+   - [ ] keep high-level abstractions in `kwap`
+   - [ ] various module structure tweaks
  - [x] parse messages
  - [x] ipv4
- - [ ] ipv6
- - [ ] multicast
- - [ ] there exists a solution for dns resolution on embedded
- - [ ] coaps
+ - [ ] caching?
+ - [ ] proxying?
+ - [ ] ipv6?
+ - [ ] multicast?
+ - [ ] there exists a solution for dns resolution on embedded?
+ - [ ] coaps? (coap over dtls)
  - [ ] observe
- - [ ] coap block
- - [x] client flow
+ - [ ] client flow
    - [x] send a ping message
    - [x] send confirmable requests
    - [x] send nonconfirmable requests
@@ -45,11 +51,20 @@ CoAP has the same verbs and many of the same semantics as HTTP;
    - [x] poll for matching piggybacked ack response
    - [x] poll for matching con response
    - [x] ack con response
+   - [ ] send nons without expecting a response (fling nons into the void)
+   - [ ] transmission variables (`ACK_TIMEOUT`, `ACK_RANDOM_FACTOR`, etc)
+   - [ ] aggregate [`Block`](https://core-wg.github.io/new-block/draft-ietf-core-new-block.html)ed responses
  - [ ] server flow
    - [ ] send piggybacked responses to requests
    - [ ] send separate ack & con resps
    - [ ] retry send resps
- - [ ] high-level `http`/`reqwest`y builder interface on top of `kwap::core::Core`
+ - [ ] high-level `reqwest::Client` analogue
+   - [x] blocking MVP that just sends requests
+   - [ ] async MVP that just sends requests
+   - [ ] support JSON
+   - [ ] support CBOR
+   - [ ] support configuring transmission variables
+   - [ ] inline request building
 
 ## How it works (at the moment)
 `kwap` contains the core CoAP runtime that drives client & server behavior.
