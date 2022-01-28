@@ -93,14 +93,14 @@ impl Client<Std> {
   pub fn new_std() -> Self {
     let clock = crate::std::Clock::new();
     let sock = std::net::UdpSocket::bind("127.0.0.1:4812").unwrap();
-    Client::<Std>::new(ClientConfig {clock, sock})
+    Client::<Std>::new(ClientConfig { clock, sock })
   }
 }
 
 impl<Cfg: Config> Client<Cfg> {
   /// Create a new request client
-  pub fn new(ClientConfig {clock, sock}: ClientConfig<Cfg>) -> Self {
-    Self {core: Core::new(clock, sock)}
+  pub fn new(ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
+    Self { core: Core::new(clock, sock) }
   }
 
   /// Ping an endpoint

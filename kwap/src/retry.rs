@@ -169,7 +169,6 @@ mod test {
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
     // Fails again (attempt 2)
 
-
     time_millis = 1999;
     assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
 
