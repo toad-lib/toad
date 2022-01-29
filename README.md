@@ -30,10 +30,13 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 ## Work to be done
 a `?` indicates that a feature is not blocking for a stable release, and may be implemented at a later date.
 
- - [ ] crate restructuring
-   - [ ] move core functionality to new crate `kwap_core`
-   - [ ] keep high-level abstractions in `kwap`
-   - [ ] various module structure tweaks
+ - [ ] library structure
+   - [x] standardize features
+     - [x] `std` enables the standard library, and is enabled by default
+     - [x] `--no-default-features` + `alloc` enables allocator without `std`
+     - [x] `--no-default-features` disables allocator and std
+   - [ ] `kwap_core` (_see [future library structure](#future-library-structure)_)
+   - [ ] `kwap` (_see [future library structure](#future-library-structure)_)
  - [x] parse messages
  - [x] ipv4
  - [ ] caching?
@@ -54,6 +57,7 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
    - [ ] send nons without expecting a response (fling nons into the void)
    - [ ] transmission variables (`ACK_TIMEOUT`, `ACK_RANDOM_FACTOR`, etc)
    - [ ] aggregate [`Block`](https://core-wg.github.io/new-block/draft-ietf-core-new-block.html)ed responses
+   - [ ] support silently resending messages upon receiving a RESET to a CON or NON request
  - [ ] server flow
    - [ ] send piggybacked responses to requests
    - [ ] send separate ack & con resps
@@ -65,6 +69,48 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
    - [ ] support CBOR
    - [ ] support configuring transmission variables
    - [ ] inline request building
+
+### Future Library Structure
+I plan on restructuring the modules soon(ish) to move the "core runtime" to its own crate to declutter
+the module namespace and code footprint of `kwap`. This would leave `kwap` as a pleasant high-level crate for
+rust users.
+```
+kwap_core
+├── Config (config::Config)
+├── config
+│  ├── Alloc
+│  ├── Config
+│  └── Std
+├── Core
+├── Req (req::Req)
+├── req
+│  ├── Method
+│  └── Req
+├── Resp (resp::Resp)
+└── resp
+   ├── code
+   │  ├── OK_CONTENT
+   │  └── other codes...
+   └── Resp
+
+kwap
+├── async_std
+│  ├── Client
+│  ├── ClientBuilder
+│  ├── Server
+│  └── ServerBuilder
+├── blocking
+│  ├── Client
+│  ├── ClientBuilder
+│  ├── Server
+│  └── ServerBuilder
+├── req
+│  ├── ReqBuilder
+│  └── (dump kwap_core::req)
+└── resp
+   ├── RespBuilder
+   └── (dump kwap_core::resp)
+```
 
 ## How it works (at the moment)
 `kwap` contains the core CoAP runtime that drives client & server behavior.
