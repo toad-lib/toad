@@ -104,8 +104,12 @@ kwap
 │  ├── ClientBuilder
 │  ├── Server
 │  └── ServerBuilder
-├── ReqBuilder
-└── RespBuilder
+├── req
+│  ├── ReqBuilder
+│  └── (dump kwap_core::req)
+└── resp
+   ├── RespBuilder
+   └── (dump kwap_core::resp)
 ```
 
 ## How it works (at the moment)
