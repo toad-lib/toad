@@ -30,7 +30,7 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 ## Work to be done
 a `?` indicates that a feature is not blocking for a stable release, and may be implemented at a later date.
 
- - [ ] crate ergonomics
+ - [ ] library structure
    - [x] standardize features
      - [x] `std` enables the standard library, and is enabled by default
      - [x] `--no-default-features` + `alloc` enables allocator without `std`
@@ -59,6 +59,18 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
        - [ ] `ClientBuilder`
        - [ ] `Server`
        - [ ] `ServerBuilder`
+   - [ ] `kwap_std::` (_very simple re-exporter for convenience on `std` platforms_)
+     - [ ] `ReqBuilder` (_re-exports `kwap::ReqBuilder`_)
+     - [ ] `RespBuilder` (_re-exports `kwap::RespBuilder`_)
+     - [ ] `Client` (_re-exports `kwap::async_std::Client::<Std>`_)
+     - [ ] `ClientBuilder` (_re-exports `kwap::async_std::ClientBuilder::<Std>`_)
+     - [ ] `Server` (_re-exports `kwap::async_std::Server::<Std>`_)
+     - [ ] `ServerBuilder` (_re-exports `kwap::async_std::ServerBuilder::<Std>`_)
+     - [ ] `blocking::`
+       - [ ] `Client` (_re-exports `kwap::blocking::Client::<Std>`_)
+       - [ ] `ClientBuilder` (_re-exports `kwap::blocking::ClientBuilder::<Std>`_)
+       - [ ] `Server` (_re-exports `kwap::blocking::Server::<Std>`_)
+       - [ ] `ServerBuilder` (_re-exports `kwap::blocking::ServerBuilder::<Std>`_)
  - [x] parse messages
  - [x] ipv4
  - [ ] caching?
