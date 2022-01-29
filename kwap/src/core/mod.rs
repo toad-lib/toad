@@ -11,6 +11,7 @@ pub mod event;
 use event::listeners::{resp_from_msg, try_parse_message};
 use event::{Event, Eventer, MatchEvent};
 
+#[cfg(test)]
 use self::event::listeners::log;
 use crate::config::{self, Config};
 use crate::req::Req;
@@ -142,7 +143,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// ```
   pub fn bootstrap(&mut self) {
     self.listen(MatchEvent::RecvDgram, try_parse_message);
-    #[cfg(any(test, not(feature = "no_std")))]
+    #[cfg(test)]
     self.listen(MatchEvent::MsgParseError, log);
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
     //          vvvvvvvvvvvvvvv RecvResp and RecvReq

@@ -6,9 +6,13 @@ use crate::code;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Method(pub(super) Code);
 
-#[cfg(not(feature = "no_std"))]
-impl std::fmt::Display for Method {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl core::fmt::Display for Method {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    #[cfg(not(feature = "std"))]
+    use std_alloc::string::ToString;
+
     let string = match self.0 {
       | Code { class: 0, detail: 0 } => "EMPTY".to_string(),
       | Code { class: 0, detail: 1 } => "GET".to_string(),

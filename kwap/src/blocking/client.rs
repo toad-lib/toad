@@ -1,4 +1,6 @@
-use crate::config::{Config, Std};
+use crate::config::Config;
+#[cfg(feature = "std")]
+use crate::config::Std;
 use crate::core::Core;
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
@@ -70,7 +72,7 @@ impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
   }
 }
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 impl Client<Std> {
   /// Create a new Client for a platform supporting Rust's standard library.
   ///

@@ -1,12 +1,10 @@
 use core::fmt::Debug;
-use std::marker::PhantomData;
-#[cfg(not(feature = "no_std"))]
-use std::vec::Vec;
+use core::marker::PhantomData;
 
 use embedded_time::Clock;
 use kwap_common::Array;
 use kwap_msg::{Opt, OptNumber};
-#[cfg(all(feature = "no_std", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 
 use crate::core::event::Event;
@@ -23,23 +21,27 @@ use crate::socket::Socket;
 /// Req::<Std>::get("192.168.0.1", 5683, "/hello");
 /// ```
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
 pub struct Alloc<Clk, Sock>(PhantomData<(Clk, Sock)>)
   where Clk: Clock<T = u64> + 'static,
         Sock: Socket + 'static;
 
+#[cfg(feature = "alloc")]
 impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     write!(f, "Alloc::<_, _>(_)")
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
   fn clone(&self) -> Self {
     Self(Default::default())
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk, Sock> {
   type PayloadBuffer = Vec<u8>;
   type OptBytes = Vec<u8>;
@@ -60,7 +62,8 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk
 ///
 /// Req::<Std>::get("192.168.0.1", 5683, "/hello");
 /// ```
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 
 /// kwap configuration trait
