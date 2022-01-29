@@ -50,7 +50,7 @@ pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Even
 }
 
 /// Logs an event using println
-#[cfg(any(test, not(feature = "no_std")))]
+#[cfg(any(test, feature = "std"))]
 pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &mut Evr, ev: &mut Event<Cfg>) {
   println!("Event: {:?}", ev);
 }

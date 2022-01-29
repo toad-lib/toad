@@ -1,6 +1,6 @@
 [package]
 name = "kwap"
-version = "0.3.1"
+version = "0.3.3"
 edition = "2021"
 description = "Reliable cross-platform CoAP server runtime"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
@@ -15,16 +15,11 @@ categories = ["network-programming"]
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["alloc"]
+default = ["std"]
+std = ["alloc"]
 alloc = []
-no_std = []
 test = []
 docs = []
-
-# TODO
-# [[bench]]
-# name = "TODO"
-# harness = false
 
 [dependencies]
 kwap-msg = "0.4.4"

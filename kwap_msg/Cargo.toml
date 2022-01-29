@@ -15,11 +15,15 @@ categories = ["network-programming"]
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["alloc"]
-alloc = ["no_std"]
-no_std = []
+default = ["std"]
+std = ["alloc"]
+alloc = []
 test = []
 docs = []
+
+[[example]]
+name = "server"
+required-features = ["std"]
 
 [[bench]]
 name = "some_vs_once"
