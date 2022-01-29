@@ -35,7 +35,7 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
      - [x] `std` enables the standard library, and is enabled by default
      - [x] `--no-default-features` + `alloc` enables allocator without `std`
      - [x] `--no-default-features` disables allocator and std
-   - [ ] `kwap_core::` (_new crate_)
+   - [ ] `kwap_core` (_see [future library structure](#future-library-structure)_)
      - [ ] `Core`
      - [ ] `Config`
      - [ ] `Req`
@@ -103,6 +103,44 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
    - [ ] support CBOR
    - [ ] support configuring transmission variables
    - [ ] inline request building
+
+### Future Library Structure
+I plan on restructuring the modules soon(ish) to move the "core runtime" to its own crate to declutter
+the module namespace and code footprint of `kwap`. This would leave `kwap` as a pleasant high-level crate for
+rust users.
+```
+kwap_core
+├── Config (config::Config)
+├── config
+│  ├── Alloc
+│  ├── Config
+│  └── Std
+├── Core
+├── Req (req::Req)
+├── req
+│  ├── Method
+│  └── Req
+├── Resp (resp::Resp)
+└── resp
+   ├── code
+   │  ├── OK_CONTENT
+   │  └── other codes...
+   └── Resp
+
+kwap
+├── async_std
+│  ├── Client
+│  ├── ClientBuilder
+│  ├── Server
+│  └── ServerBuilder
+├── blocking
+│  ├── Client
+│  ├── ClientBuilder
+│  ├── Server
+│  └── ServerBuilder
+├── ReqBuilder
+└── RespBuilder
+```
 
 ## How it works (at the moment)
 `kwap` contains the core CoAP runtime that drives client & server behavior.
