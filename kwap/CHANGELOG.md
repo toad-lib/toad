@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.3.3 (2022-01-29)
+
+
+### Features
+
+* **kwap:** add platformless blocking::Client::new and Config struct ([#60](https://github.com/clov-coffee/kwap/issues/60)) ([45c6a65](https://github.com/clov-coffee/kwap/commit/45c6a65b72709d5ad37d042353e45c891ef88fc7))
+
 ### 0.3.2 (2022-01-28)
 
 ### 0.3.1 (2022-01-22)
