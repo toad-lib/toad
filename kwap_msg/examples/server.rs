@@ -3,7 +3,9 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Barrier};
 use std::thread::{self, JoinHandle};
 
-use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes, VecMessage as Message};
+use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes};
+
+type Message = kwap_msg::Message<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>>;
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));

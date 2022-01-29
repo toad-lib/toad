@@ -24,7 +24,7 @@
 //! - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
 #![doc(html_root_url = "https://docs.rs/kwap/0.3.3")]
-#![cfg_attr(all(not(test), feature = "no_std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test),
             deny(missing_debug_implementations,
                  unreachable_pub,
@@ -63,7 +63,8 @@ pub mod config;
 pub mod socket;
 
 /// `std`-only kwap stuff
-#[cfg(any(test, not(feature = "no_std")))]
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod std;
 
 mod option;

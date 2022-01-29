@@ -65,7 +65,7 @@
 //! </details>
 
 #![doc(html_root_url = "https://docs.rs/kwap-msg/0.4.4")]
-#![cfg_attr(all(not(test), feature = "no_std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
@@ -103,6 +103,7 @@ pub struct Payload<C: Array<Item = u8>>(pub C);
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
 /// Message that uses static fixed-capacity stack-allocating byte buffers

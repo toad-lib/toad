@@ -9,3 +9,14 @@ args = ["criterion"]
 install_crate = "cargo-flamegraph"
 command = "cargo"
 args = ["flamegraph", "--bench", "profile", "--", "--bench"]
+
+[tasks.check-no-std]
+command = "cargo"
+args = ["check", "--no-default-features"]
+
+[tasks.check-alloc]
+command = "cargo"
+args = ["check", "--no-default-features", "--features", "alloc"]
+
+[tasks.ci]
+dependencies = ["test", "fmt-check", "clippy-check", "check-no-std", "check-alloc"]
