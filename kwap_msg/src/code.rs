@@ -13,7 +13,8 @@ use std_alloc::string::{String, ToString};
 /// # Examples
 /// ```
 /// use kwap_msg::Code;
-/// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string())
+///
+/// assert_eq!(Code { class: 2, detail: 5 }.to_human(), ['2', '.', '0', '5']);
 /// ```
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Code {
@@ -70,6 +71,8 @@ impl Code {
   }
 }
 
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl ToString for Code {
   fn to_string(&self) -> String {
     String::from_iter(self.to_human())
