@@ -37,9 +37,10 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 /// Helper methods on Client Results
 pub trait ClientResultExt<T> {
-  /// If this result in an [`Error::TimedOut`], map to Ok(None).
-  /// If Ok, map to Ok(Some)
-  /// If some other error, keep it
+  /// If we timed out waiting for a response, consider that Ok(None).
+  ///
+  /// Usually used to handle sending non-confirmable requests that
+  /// the server may have received but not responded to.
   fn timeout_ok(self) -> Result<Option<T>>;
 }
 
