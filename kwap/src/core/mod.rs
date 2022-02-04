@@ -2,7 +2,7 @@ use core::str::FromStr;
 
 use embedded_time::Clock;
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, TryIntoBytes, Type};
+use kwap_msg::{TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -222,6 +222,7 @@ impl<Cfg: Config> Core<Cfg> {
   #[allow(dead_code)]
   #[cfg(feature = "std")]
   fn trace_con_q(&self) {
+    use kwap_msg::EnumerateOptNumbers;
     self.retry_q
         .iter()
         .filter_map(|o| o.as_ref())
@@ -248,6 +249,7 @@ impl<Cfg: Config> Core<Cfg> {
   #[allow(dead_code)]
   #[cfg(feature = "std")]
   fn trace_non_q(&self) {
+    use kwap_msg::EnumerateOptNumbers;
     self.fling_q
         .iter()
         .filter_map(|o| o.as_ref())
