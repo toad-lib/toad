@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.3.5 (2022-02-04)
+
+
+### Bug Fixes
+
+* **kwap:** support nons that do not receive a response ([#64](https://github.com/clov-coffee/kwap/issues/64)) ([27f64f1](https://github.com/clov-coffee/kwap/commit/27f64f198dc8211d6a8d35cd5e54702f842a8da3))
+
 ### 0.3.4 (2022-01-29)
 
 ### 0.3.3 (2022-01-29)
