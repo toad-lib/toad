@@ -69,7 +69,7 @@ fn main() {
   println!("client: NON GET /black_hole");
   let mut req = Req::get("127.0.0.1", 5683, "black_hole");
   req.non();
-  client.send(req).ignore_timeout().log();
+  client.send(req).timeout_ok().log();
 
   println!("client: NON GET /dropped");
   let req = Req::get("127.0.0.1", 5683, "dropped");

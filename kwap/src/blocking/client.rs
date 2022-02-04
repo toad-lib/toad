@@ -40,11 +40,11 @@ pub trait ClientResultExt<T> {
   /// If this result in an [`Error::TimedOut`], map to Ok(None).
   /// If Ok, map to Ok(Some)
   /// If some other error, keep it
-  fn ignore_timeout(self) -> Result<Option<T>>;
+  fn timeout_ok(self) -> Result<Option<T>>;
 }
 
 impl<T> ClientResultExt<T> for Result<T> {
-  fn ignore_timeout(self) -> Result<Option<T>> {
+  fn timeout_ok(self) -> Result<Option<T>> {
     match self {
       | Ok(t) => Ok(Some(t)),
       | Err(Error::TimedOut) => Ok(None),
