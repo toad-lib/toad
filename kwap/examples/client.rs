@@ -1,3 +1,4 @@
+use kwap::blocking::client::ClientResultExt;
 use kwap::blocking::Client;
 use kwap::config::Std;
 use kwap::req::Req;
@@ -14,11 +15,33 @@ impl Log for kwap::blocking::client::Result<Resp<Std>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
-        println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
+        println!("client: ok! {} {:?}",
+                 rep.code().to_string(),
+                 rep.payload_string().unwrap());
         println!();
       },
       | Err(e) => {
-        eprintln!("error! {:#?}", e);
+        eprintln!("client: error! {:#?}", e);
+      },
+    }
+  }
+}
+
+impl Log for kwap::blocking::client::Result<Option<Resp<Std>>> {
+  fn log(self) {
+    match self {
+      | Ok(None) => {
+        println!("client: ok! did not receive a response");
+        println!();
+      },
+      | Ok(Some(rep)) => {
+        println!("client: ok! {} {:?}",
+                 rep.code().to_string(),
+                 rep.payload_string().unwrap());
+        println!();
+      },
+      | Err(e) => {
+        eprintln!("client: error! {:#?}", e);
       },
     }
   }
@@ -29,17 +52,26 @@ fn main() {
 
   let mut client = Client::new_std();
 
+  println!("client: PING");
   client.ping("127.0.0.1", 5683)
-        .map(|_| println!("pinged ok!\n"))
+        .map(|_| println!("client: pinged ok!\n"))
         .unwrap();
 
+  println!("client: CON GET /hello");
   let req = Req::get("127.0.0.1", 5683, "hello");
   client.send(req).log();
 
+  println!("client: NON GET /hello");
   let mut req = Req::get("127.0.0.1", 5683, "hello");
   req.non();
   client.send(req).log();
 
+  println!("client: NON GET /black_hole");
+  let mut req = Req::get("127.0.0.1", 5683, "black_hole");
+  req.non();
+  client.send(req).ignore_timeout().log();
+
+  println!("client: NON GET /dropped");
   let req = Req::get("127.0.0.1", 5683, "dropped");
   client.send(req).log();
 

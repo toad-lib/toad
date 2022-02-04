@@ -35,6 +35,24 @@ pub struct Client<Cfg: Config> {
 /// `core::result::Result<T, kwap::blocking::client::Error>`
 pub type Result<T> = core::result::Result<T, Error>;
 
+/// Helper methods on Client Results
+pub trait ClientResultExt<T> {
+  /// If this result in an [`Error::TimedOut`], map to Ok(None).
+  /// If Ok, map to Ok(Some)
+  /// If some other error, keep it
+  fn ignore_timeout(self) -> Result<Option<T>>;
+}
+
+impl<T> ClientResultExt<T> for Result<T> {
+  fn ignore_timeout(self) -> Result<Option<T>> {
+    match self {
+      | Ok(t) => Ok(Some(t)),
+      | Err(Error::TimedOut) => Ok(None),
+      | Err(e) => Err(e),
+    }
+  }
+}
+
 /// Errors that could be encountered when sending requests or receiving responses.
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
