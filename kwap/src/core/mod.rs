@@ -430,7 +430,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
+          | mut o @ Some(_) if resp_matches(o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
