@@ -22,10 +22,10 @@ use crate::socket::Socket;
 
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
 
-fn mk_ack<Cfg: Config>(id: kwap_msg::Id, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
+fn mk_ack<Cfg: Config>(tk: kwap_msg::Token, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
   use kwap_msg::*;
-  let msg = config::Message::<Cfg> { id,
-                                     token: Token(Default::default()),
+  let msg = config::Message::<Cfg> { id: crate::generate_id(),
+                                     token: tk,
                                      ver: Default::default(),
                                      ty: Type::Ack,
                                      code: Code::new(0, 0),
@@ -61,9 +61,9 @@ pub struct Core<Cfg: Config> {
   /// Received responses
   resps: ArrayVec<[Option<Addressed<Resp<Cfg>>>; 16]>,
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
-  non_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
+  fling_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
   /// Queue of confirmable messages to send at our earliest convenience
-  con_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
+  retry_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
 }
 
 /// An error encounterable while sending a message
@@ -110,8 +110,8 @@ impl<Cfg: Config> Core<Cfg> {
            clock,
            ears: Default::default(),
            resps: Default::default(),
-           non_q: Default::default(),
-           con_q: Default::default() }
+           fling_q: Default::default(),
+           retry_q: Default::default() }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -145,20 +145,23 @@ impl<Cfg: Config> Core<Cfg> {
     self.listen(MatchEvent::RecvDgram, try_parse_message);
     #[cfg(test)]
     self.listen(MatchEvent::MsgParseError, log);
+    self.listen(MatchEvent::RecvMsg, Self::process_acks);
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
     //          vvvvvvvvvvvvvvv RecvResp and RecvReq
     self.listen(MatchEvent::All, Self::ack);
-    self.listen(MatchEvent::RecvMsg, Self::process_acks);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
-  /// Process all the queued outbound nonconfirmable messages.
+  /// Process all the queued outbound messages that **we will send once and never retry**.
   ///
-  /// Notably, unlike `send_cons`, this eagerly takes
-  /// the messages out of the queue and discards them after sending,
-  /// since we do not need to guarantee receipt of these messages.
-  pub fn send_nons(&mut self) -> Result<(), Error<Cfg>> {
-    self.non_q
+  /// By default, we do not consider outbound NON-confirmable requests "flings" because
+  /// we **do** want to retransmit them in the case that it is lost & the server will respond to it.
+  ///
+  /// We treat outbound NON and CON requests the same way in the core so that
+  /// we can allow for users to choose whether a NON that was transmitted multiple times
+  /// without a response is an error condition or good enough.
+  pub fn send_flings(&mut self) -> Result<(), Error<Cfg>> {
+    self.fling_q
         .iter_mut()
         .filter_map(Option::take)
         .try_for_each(|Addressed(msg, addr)| {
@@ -169,19 +172,14 @@ impl<Cfg: Config> Core<Cfg> {
         })
   }
 
-  /// Process all the queued outbound confirmable messages.
+  /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
   ///
-  /// Notably, unlike `send_nons`, this does not eagerly take
-  /// the messages out of the queue and instead clones them and mutates
-  /// the RetryTimer in-place.
-  ///
-  /// The expectation is that when they are Acked, an event handler
-  /// will remove them from storage, meaning that a message in con_q
-  /// has not been acked yet.
-  pub fn send_cons(&mut self) -> Result<(), Error<Cfg>> {
+  /// The expectation is that when these messages are Acked, an event handler
+  /// will remove them from storage.
+  pub fn send_retrys(&mut self) -> Result<(), Error<Cfg>> {
     use crate::retry::YouShould;
 
-    self.con_q
+    self.retry_q
         .iter_mut()
         .filter_map(|o| o.as_mut())
         .try_for_each(|Retryable(Addressed(msg, addr), retry)| {
@@ -213,11 +211,66 @@ impl<Cfg: Config> Core<Cfg> {
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
-          self.non_q.push(Some(mk_ack::<Cfg>(resp.msg_id(), *addr)));
+          self.fling_q.push(Some(mk_ack::<Cfg>(resp.token(), *addr)));
         }
       },
       | _ => {},
     }
+  }
+
+  // TODO: use + implement crate-wide logging
+  #[allow(dead_code)]
+  #[cfg(feature = "std")]
+  fn trace_con_q(&self) {
+    use kwap_msg::EnumerateOptNumbers;
+    self.retry_q
+        .iter()
+        .filter_map(|o| o.as_ref())
+        .inspect(|Retryable(Addressed(con, con_addr), _)| {
+          println!("still qd: {con_non:?} {meth} {addr} {route}",
+                   con_non = con.ty,
+                   meth = con.code.to_string(),
+                   addr = con_addr,
+                   route = String::from_utf8_lossy(&con.opts
+                                                       .iter()
+                                                       .enumerate_option_numbers()
+                                                       .find(|(num, _)| num.0 == 11)
+                                                       .unwrap()
+                                                       .1
+                                                       .value
+                                                       .0
+                                                       .iter()
+                                                       .copied()
+                                                       .collect::<Vec<_>>()));
+        })
+        .for_each(|_| ());
+  }
+
+  #[allow(dead_code)]
+  #[cfg(feature = "std")]
+  fn trace_non_q(&self) {
+    use kwap_msg::EnumerateOptNumbers;
+    self.fling_q
+        .iter()
+        .filter_map(|o| o.as_ref())
+        .inspect(|Addressed(con, con_addr)| {
+          println!("still qd: {con_non:?} {meth} {addr} {route}",
+                   con_non = con.ty,
+                   meth = con.code.to_string(),
+                   addr = con_addr,
+                   route = String::from_utf8_lossy(&con.opts
+                                                       .iter()
+                                                       .enumerate_option_numbers()
+                                                       .find(|(num, _)| num.0 == 11)
+                                                       .unwrap()
+                                                       .1
+                                                       .value
+                                                       .0
+                                                       .iter()
+                                                       .copied()
+                                                       .collect::<Vec<_>>()));
+        })
+        .for_each(|_| ());
   }
 
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
@@ -227,17 +280,24 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn process_acks(&mut self, ev: &mut Event<Cfg>) {
     let msg = ev.get_mut_msg().unwrap();
 
-    if msg.is_some() && msg.as_ref().unwrap().0.ty == Type::Ack {
-      let (msg, addr) = msg.clone().unwrap();
-      if let Some((ix, _)) =
-        self.con_q
-            .iter()
-            .filter_map(|o| o.as_ref())
-            .enumerate()
-            .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == msg.id)
-      {
-        self.con_q.remove(ix);
-      }
+    // is the incoming message an ack?
+    if let Some((kwap_msg::Message { id, ty: Type::Ack, .. }, addr)) = msg {
+      self.unqueue_retry(*id, *addr);
+    }
+  }
+
+  /// Mark an item in the retry_q as "succeeded" and do not retry it again.
+  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
+    if let Some((ix, _)) = self.retry_q
+                               .iter()
+                               .filter_map(|o| o.as_ref())
+                               .enumerate()
+                               .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+    {
+      self.retry_q.remove(ix);
+      Some(())
+    } else {
+      None
     }
   }
 
@@ -347,13 +407,14 @@ impl<Cfg: Config> Core<Cfg> {
         .poll()
         .map(|polled| {
           if let Some(dgram) = polled {
+            // allow the state machine to process incoming message
             self.fire(Event::RecvDgram(Some(dgram)));
           }
           ()
         })
         .map_err(Error::SockError)
-        .try_perform(|_| self.send_nons())
-        .try_perform(|_| self.send_cons())
+        .try_perform(|_| self.send_flings())
+        .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)
         .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
   }
@@ -382,7 +443,7 @@ impl<Cfg: Config> Core<Cfg> {
                 _: kwap_msg::Token,
                 addr: SocketAddr)
                 -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
-    let still_qd = self.con_q
+    let still_qd = self.retry_q
                        .iter()
                        .filter_map(|o| o.as_ref())
                        .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);
@@ -427,12 +488,8 @@ impl<Cfg: Config> Core<Cfg> {
                                .bind(|host| Ipv4Addr::from_str(host).map_err(|_| Error::HostInvalidIpAddress))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .try_perform(|addr| {
-                                 if msg.ty == Type::Con {
-                                   let t = Addressed(msg.clone(), *addr);
-                                   self.retryable(t).map(|bam| self.con_q.push(Some(bam)))
-                                 } else {
-                                   Ok(())
-                                 }
+                                 let t = Addressed(msg.clone(), *addr);
+                                 self.retryable(t).map(|bam| self.retry_q.push(Some(bam)))
                                })
                                .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(Error::ToBytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))

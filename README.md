@@ -54,7 +54,7 @@ a `?` indicates that a feature is not blocking for a stable release, and may be 
    - [x] poll for matching piggybacked ack response
    - [x] poll for matching con response
    - [x] ack con response
-   - [ ] send nons without expecting a response (fling nons into the void)
+   - [x] send nons without expecting a response (fling nons into the void)
    - [ ] transmission variables (`ACK_TIMEOUT`, `ACK_RANDOM_FACTOR`, etc)
    - [ ] aggregate [`Block`](https://core-wg.github.io/new-block/draft-ietf-core-new-block.html)ed responses
    - [ ] support silently resending messages upon receiving a RESET to a CON or NON request

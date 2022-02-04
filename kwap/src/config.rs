@@ -1,5 +1,4 @@
 use core::fmt::Debug;
-use core::marker::PhantomData;
 
 use embedded_time::Clock;
 use kwap_common::Array;
@@ -23,7 +22,7 @@ use crate::socket::Socket;
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
-pub struct Alloc<Clk, Sock>(PhantomData<(Clk, Sock)>)
+pub struct Alloc<Clk, Sock>(core::marker::PhantomData<(Clk, Sock)>)
   where Clk: Clock<T = u64> + 'static,
         Sock: Socket + 'static;
 
@@ -82,10 +81,10 @@ pub trait Config: Sized + 'static + core::fmt::Debug {
   type Events: Array<Item = Event<Self>>;
 
   /// What should we use to keep track of time?
-  type Clock: embedded_time::Clock<T = u64>;
+  type Clock: Clock<T = u64>;
 
   /// What should we use for networking?
-  type Socket: crate::socket::Socket;
+  type Socket: Socket;
 }
 
 /// Type alias using Config instead of explicit type parameters for [`kwap_msg::Message`]

@@ -42,7 +42,7 @@ fn server_main() {
   sock.set_nonblocking(true).unwrap();
   let mut buf = [0u8; 1152];
 
-  println!("server: up\n");
+  println!("server: up");
 
   let mut dropped_req_ct = 0u8;
 
@@ -71,6 +71,9 @@ fn server_main() {
         let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
         match (req.msg_type(), req.method(), path) {
+          | (Type::Non, Method::GET, Some("black_hole")) => {
+            ();
+          },
           | (Type::Con, Method::GET, Some("dropped")) => {
             dropped_req_ct += 1;
             if dropped_req_ct >= 3 {
@@ -103,6 +106,7 @@ fn server_main() {
   }
 }
 
+#[allow(dead_code)]
 fn main() {
   spawn().join().unwrap();
 }
