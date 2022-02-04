@@ -220,6 +220,7 @@ impl<Cfg: Config> Core<Cfg> {
 
   // TODO: use + implement crate-wide logging
   #[allow(dead_code)]
+  #[cfg(feature = "std")]
   fn trace_con_q(&self) {
     self.retry_q
         .iter()
@@ -245,6 +246,7 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   #[allow(dead_code)]
+  #[cfg(feature = "std")]
   fn trace_non_q(&self) {
     self.fling_q
         .iter()
