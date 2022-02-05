@@ -1,3 +1,5 @@
+#![allow(clippy::many_single_char_names)]
+
 use std::io::{self, Error, ErrorKind};
 use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
 use std::time::Instant;
