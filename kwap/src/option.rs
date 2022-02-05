@@ -255,8 +255,8 @@ pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: 
   opts: &mut A,
   repeatable: bool,
   number: u32,
-  value: V,
-) -> Option<(u32, V)> {
+  value: V)
+  -> Option<(u32, V)> {
   use kwap_msg::*;
 
   let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
@@ -276,33 +276,29 @@ pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: 
   }
 
   let num = OptNumber(number);
-  let opt = Opt::<_> {
-    delta: Default::default(),
-    value: OptValue(value.into_iter().collect()),
-  };
+  let opt = Opt::<_> { delta: Default::default(),
+                       value: OptValue(value.into_iter().collect()) };
 
   opts.extend(Some((num, opt)));
 
   None
 }
-pub(crate) fn normalize<
-  OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
-  Opts: Array<Item = Opt<Bytes>>,
-  Bytes: Array<Item = u8>,
->(
-  mut os: OptNumbers,
-) -> Opts {
+pub(crate) fn normalize<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
+                        Opts: Array<Item = Opt<Bytes>>,
+                        Bytes: Array<Item = u8>>(
+  mut os: OptNumbers)
+  -> Opts {
   if os.is_empty() {
     return Opts::default();
   }
 
   os.sort_by_key(|&(OptNumber(num), _)| num);
   os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
-    let delta = opts.iter().fold(0u16, |n, opt| opt.delta.0 + n);
-    opt.delta = OptDelta((num.0 as u16) - delta);
-    opts.push(opt);
-    opts
-  })
+                  let delta = opts.iter().fold(0u16, |n, opt| opt.delta.0 + n);
+                  opt.delta = OptDelta((num.0 as u16) - delta);
+                  opts.push(opt);
+                  opts
+                })
 }
 
 #[cfg(test)]
@@ -313,13 +309,9 @@ mod test {
 
   #[test]
   fn add_updates_when_exist() {
-    let mut opts = vec![(
-      OptNumber(0),
-      Opt::<Vec<u8>> {
-        delta: OptDelta(0),
-        value: OptValue(vec![]),
-      },
-    )];
+    let mut opts = vec![(OptNumber(0),
+                         Opt::<Vec<u8>> { delta: OptDelta(0),
+                                          value: OptValue(vec![]) })];
 
     let out = add(&mut opts, false, 0, vec![1]);
 
@@ -341,13 +333,9 @@ mod test {
 
   #[test]
   fn add_adds_when_repeatable() {
-    let mut opts = vec![(
-      OptNumber(0),
-      Opt::<Vec<u8>> {
-        delta: OptDelta(0),
-        value: OptValue(vec![]),
-      },
-    )];
+    let mut opts = vec![(OptNumber(0),
+                         Opt::<Vec<u8>> { delta: OptDelta(0),
+                                          value: OptValue(vec![]) })];
 
     let out = add(&mut opts, true, 0, vec![]);
 
@@ -365,26 +353,16 @@ mod test {
 
   #[test]
   fn normalize_opts_works() {
-    let opts: Vec<(OptNumber, Opt<Vec<u8>>)> = vec![
-      (OptNumber(32), Default::default()),
-      (OptNumber(1), Default::default()),
-      (OptNumber(3), Default::default()),
-    ];
+    let opts: Vec<(OptNumber, Opt<Vec<u8>>)> = vec![(OptNumber(32), Default::default()),
+                                                    (OptNumber(1), Default::default()),
+                                                    (OptNumber(3), Default::default()),];
 
-    let expect: Vec<Opt<Vec<u8>>> = vec![
-      Opt {
-        delta: OptDelta(1),
-        ..Default::default()
-      },
-      Opt {
-        delta: OptDelta(2),
-        ..Default::default()
-      },
-      Opt {
-        delta: OptDelta(29),
-        ..Default::default()
-      },
-    ];
+    let expect: Vec<Opt<Vec<u8>>> = vec![Opt { delta: OptDelta(1),
+                                               ..Default::default() },
+                                         Opt { delta: OptDelta(2),
+                                               ..Default::default() },
+                                         Opt { delta: OptDelta(29),
+                                               ..Default::default() },];
 
     let actual = normalize::<_, Vec<Opt<Vec<u8>>>, _>(opts);
 

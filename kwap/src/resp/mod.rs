@@ -70,23 +70,21 @@ impl<Cfg: Config> Resp<Cfg> {
   pub fn for_request(req: Req<Cfg>) -> Self {
     let req = Message::from(req);
 
-    let msg = Message {
-      ty: match req.ty {
-        | Type::Con => Type::Ack,
-        | Type::Non => Type::Con,
-        | _ => req.ty,
-      },
-      id: if req.ty == Type::Con {
-        req.id
-      } else {
-        crate::generate_id()
-      },
-      opts: Cfg::Opts::default(),
-      code: code::CONTENT,
-      ver: Default::default(),
-      payload: Payload(Default::default()),
-      token: req.token,
-    };
+    let msg = Message { ty: match req.ty {
+                          | Type::Con => Type::Ack,
+                          | Type::Non => Type::Con,
+                          | _ => req.ty,
+                        },
+                        id: if req.ty == Type::Con {
+                          req.id
+                        } else {
+                          crate::generate_id()
+                        },
+                        opts: Cfg::Opts::default(),
+                        code: code::CONTENT,
+                        ver: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: req.token };
 
     Self { msg, opts: None }
   }

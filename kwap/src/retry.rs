@@ -66,12 +66,10 @@ pub enum YouShould {
 impl<C: Clock<T = u64>> RetryTimer<C> {
   /// Create a new retrier
   pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
-    Self {
-      start,
-      strategy,
-      max_attempts,
-      attempts: Attempts(1),
-    }
+    Self { start,
+           strategy,
+           max_attempts,
+           attempts: Attempts(1) }
   }
 
   /// When the thing we keep trying fails, invoke this to
@@ -83,9 +81,8 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
     } else {
-      let ready = self
-        .strategy
-        .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
+      let ready = self.strategy
+                      .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
       if ready {
         self.attempts.0 += 1;
         Ok(YouShould::Retry)

@@ -33,9 +33,8 @@ pub struct Retryable<Cfg: Config, T>(pub T, pub crate::retry::RetryTimer<Cfg::Cl
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
 pub struct Alloc<Clk, Sock>(core::marker::PhantomData<(Clk, Sock)>)
-where
-  Clk: Clock<T = u64> + 'static,
-  Sock: Socket + 'static;
+  where Clk: Clock<T = u64> + 'static,
+        Sock: Socket + 'static;
 
 #[cfg(feature = "alloc")]
 impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {

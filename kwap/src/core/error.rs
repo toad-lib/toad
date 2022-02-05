@@ -1,6 +1,7 @@
 use kwap_msg::TryIntoBytes;
 
-use crate::{config::{Config, self}, socket::Socket};
+use crate::config::{self, Config};
+use crate::socket::Socket;
 
 /// An error encounterable from within Core
 #[derive(Debug)]

@@ -25,15 +25,11 @@
 
 #![doc(html_root_url = "https://docs.rs/kwap/0.3.5")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-  not(test),
-  deny(
-    missing_debug_implementations,
-    unreachable_pub,
-    unsafe_code,
-    missing_copy_implementations
-  )
-)]
+#![cfg_attr(not(test),
+            deny(missing_debug_implementations,
+                 unreachable_pub,
+                 unsafe_code,
+                 missing_copy_implementations))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 // - prefer explicit effectful statements that and in a () expr
@@ -129,11 +125,9 @@ pub(crate) mod test {
 
   impl TubeSock {
     pub fn new() -> Self {
-      Self {
-        addr: None,
-        rx: Default::default(),
-        tx: Default::default(),
-      }
+      Self { addr: None,
+             rx: Default::default(),
+             tx: Default::default() }
     }
 
     pub fn init(addr: SocketAddr, rx: Vec<u8>) -> Self {
@@ -161,12 +155,11 @@ pub(crate) mod test {
       let n = self.rx.len();
       let vec = &self.rx as *const _ as *mut Vec<u8>;
       unsafe {
-        vec
-          .as_mut()
-          .unwrap()
-          .drain(..)
-          .enumerate()
-          .for_each(|(ix, el)| buf[ix] = el);
+        vec.as_mut()
+           .unwrap()
+           .drain(..)
+           .enumerate()
+           .for_each(|(ix, el)| buf[ix] = el);
       }
 
       Ok((n, self.addr.unwrap()))

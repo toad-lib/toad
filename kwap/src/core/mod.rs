@@ -11,6 +11,7 @@ pub mod event;
 use event::listeners::{resp_from_msg, try_parse_message};
 use event::{Event, Eventer, MatchEvent};
 
+mod error;
 /// Core methods that manage inbound messages.
 ///
 /// For core methods that manage outbound messages, see [`outbound`].
@@ -19,7 +20,6 @@ mod inbound;
 ///
 /// For core methods that manage inbound messages, see [`inbound`].
 mod outbound;
-mod error;
 #[doc(inline)]
 pub use error::*;
 #[doc(inline)]
@@ -34,7 +34,7 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
-use crate::socket::{Socket, Addressed};
+use crate::socket::{Addressed, Socket};
 
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
 
@@ -94,15 +94,13 @@ impl<Cfg: Config> Core<Cfg> {
   /// Core::<Std>::behaviorless(Clock::new(), sock);
   /// ```
   pub fn behaviorless(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
-    Self {
-      sock,
-      clock,
-      ears: Default::default(),
-      reqs: Default::default(),
-      resps: Default::default(),
-      fling_q: Default::default(),
-      retry_q: Default::default(),
-    }
+    Self { sock,
+           clock,
+           ears: Default::default(),
+           reqs: Default::default(),
+           resps: Default::default(),
+           fling_q: Default::default(),
+           retry_q: Default::default() }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -150,66 +148,54 @@ impl<Cfg: Config> Core<Cfg> {
   #[cfg(feature = "std")]
   fn trace_con_q(&self) {
     use kwap_msg::EnumerateOptNumbers;
-    self
-      .retry_q
-      .iter()
-      .filter_map(|o| o.as_ref())
-      .inspect(|Retryable(Addressed(con, con_addr), _)| {
-        println!(
-          "still qd: {con_non:?} {meth} {addr} {route}",
-          con_non = con.ty,
-          meth = con.code.to_string(),
-          addr = con_addr,
-          route = String::from_utf8_lossy(
-            &con
-              .opts
-              .iter()
-              .enumerate_option_numbers()
-              .find(|(num, _)| num.0 == 11)
-              .unwrap()
-              .1
-              .value
-              .0
-              .iter()
-              .copied()
-              .collect::<Vec<_>>()
-          )
-        );
-      })
-      .for_each(|_| ());
+    self.retry_q
+        .iter()
+        .filter_map(|o| o.as_ref())
+        .inspect(|Retryable(Addressed(con, con_addr), _)| {
+          println!("still qd: {con_non:?} {meth} {addr} {route}",
+                   con_non = con.ty,
+                   meth = con.code.to_string(),
+                   addr = con_addr,
+                   route = String::from_utf8_lossy(&con.opts
+                                                       .iter()
+                                                       .enumerate_option_numbers()
+                                                       .find(|(num, _)| num.0 == 11)
+                                                       .unwrap()
+                                                       .1
+                                                       .value
+                                                       .0
+                                                       .iter()
+                                                       .copied()
+                                                       .collect::<Vec<_>>()));
+        })
+        .for_each(|_| ());
   }
 
   #[allow(dead_code)]
   #[cfg(feature = "std")]
   fn trace_non_q(&self) {
     use kwap_msg::EnumerateOptNumbers;
-    self
-      .fling_q
-      .iter()
-      .filter_map(|o| o.as_ref())
-      .inspect(|Addressed(con, con_addr)| {
-        println!(
-          "still qd: {con_non:?} {meth} {addr} {route}",
-          con_non = con.ty,
-          meth = con.code.to_string(),
-          addr = con_addr,
-          route = String::from_utf8_lossy(
-            &con
-              .opts
-              .iter()
-              .enumerate_option_numbers()
-              .find(|(num, _)| num.0 == 11)
-              .unwrap()
-              .1
-              .value
-              .0
-              .iter()
-              .copied()
-              .collect::<Vec<_>>()
-          )
-        );
-      })
-      .for_each(|_| ());
+    self.fling_q
+        .iter()
+        .filter_map(|o| o.as_ref())
+        .inspect(|Addressed(con, con_addr)| {
+          println!("still qd: {con_non:?} {meth} {addr} {route}",
+                   con_non = con.ty,
+                   meth = con.code.to_string(),
+                   addr = con_addr,
+                   route = String::from_utf8_lossy(&con.opts
+                                                       .iter()
+                                                       .enumerate_option_numbers()
+                                                       .find(|(num, _)| num.0 == 11)
+                                                       .unwrap()
+                                                       .1
+                                                       .value
+                                                       .0
+                                                       .iter()
+                                                       .copied()
+                                                       .collect::<Vec<_>>()));
+        })
+        .for_each(|_| ());
   }
 
   /// Listen for an event
@@ -254,20 +240,19 @@ impl<Cfg: Config> Core<Cfg> {
     let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
 
     ears.into_iter().flatten().for_each(|(mat, work)| {
-      if mat.matches(&sound) {
-        work(self, &mut sound);
-      }
-    });
+                                if mat.matches(&sound) {
+                                  work(self, &mut sound);
+                                }
+                              });
   }
 
   /// Mark an item in the retry_q as "succeeded" and do not retry it again.
   pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
-    if let Some((ix, _)) = self
-      .retry_q
-      .iter()
-      .filter_map(|o| o.as_ref())
-      .enumerate()
-      .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+    if let Some((ix, _)) = self.retry_q
+                               .iter()
+                               .filter_map(|o| o.as_ref())
+                               .enumerate()
+                               .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
     {
       self.retry_q.remove(ix);
       Some(())
@@ -277,18 +262,15 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
-    self
-      .clock
-      .try_now()
-      .map(|now| {
-        RetryTimer::new(
-          now,
-          crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
-          crate::retry::Attempts(5),
-        )
-      })
-      .map_err(|_| Error::ClockError)
-      .map(|timer| Retryable(t, timer))
+    self.clock
+        .try_now()
+        .map(|now| {
+          RetryTimer::new(now,
+                          crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
+                          crate::retry::Attempts(5))
+        })
+        .map_err(|_| Error::ClockError)
+        .map(|timer| Retryable(t, timer))
   }
 }
 
@@ -318,9 +300,8 @@ mod tests {
   #[test]
   fn eventer() {
     let req = Req::<Config>::get("0.0.0.0", 1234, "");
-    let bytes = config::Message::<Config>::from(req)
-      .try_into_bytes::<ArrayVec<[u8; 1152]>>()
-      .unwrap();
+    let bytes = config::Message::<Config>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
+                                                    .unwrap();
     let mut client = Core::<Config>::behaviorless(crate::std::Clock::new(), TubeSock::new());
 
     fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) {
@@ -352,15 +333,13 @@ mod tests {
     let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::new());
     let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
-    let resp = Msg {
-      id,
-      token: kwap_msg::Token(Default::default()),
-      code: kwap_msg::Code::new(0, 0),
-      ver: Default::default(),
-      ty: kwap_msg::Type::Reset,
-      payload: kwap_msg::Payload(Default::default()),
-      opts: Default::default(),
-    };
+    let resp = Msg { id,
+                     token: kwap_msg::Token(Default::default()),
+                     code: kwap_msg::Code::new(0, 0),
+                     ver: Default::default(),
+                     ty: kwap_msg::Type::Reset,
+                     payload: kwap_msg::Payload(Default::default()),
+                     opts: Default::default() };
 
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
