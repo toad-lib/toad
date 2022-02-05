@@ -20,3 +20,13 @@ args = ["check", "--no-default-features", "--features", "alloc"]
 
 [tasks.ci]
 dependencies = ["test", "fmt-check", "clippy-check", "check-no-std", "check-alloc"]
+
+[tasks.tdd]
+install_crate = "cargo-watch"
+command = "cargo"
+args = [ "watch"
+       , "--clear"
+       , "--watch", "kwap/src"
+       , "--delay", "0"
+       , "-x", "make --cwd kwap -t test-quiet --loglevel error"
+       ]

@@ -9,6 +9,16 @@ use std_alloc::vec::Vec;
 use crate::core::event::Event;
 use crate::socket::Socket;
 
+/// Used to associate a value with a RetryTimer.
+///
+/// The value is usually used as the basis for some
+/// fallible IO, e.g. `T` may be an outbound `Req` -
+/// `Retryable` allows us to keep track of how many times
+/// we've attempted to send this request and whether we
+/// should consider it poisoned.
+#[derive(Debug, Clone, Copy)]
+pub struct Retryable<Cfg: Config, T>(pub T, pub crate::retry::RetryTimer<Cfg::Clock>);
+
 /// Configures `kwap` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing

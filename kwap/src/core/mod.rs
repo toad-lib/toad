@@ -11,35 +11,32 @@ pub mod event;
 use event::listeners::{resp_from_msg, try_parse_message};
 use event::{Event, Eventer, MatchEvent};
 
+mod error;
+/// Core methods that manage inbound messages.
+///
+/// For core methods that manage outbound messages, see [`outbound`].
+mod inbound;
+/// Core methods that manage outbound messages.
+///
+/// For core methods that manage inbound messages, see [`inbound`].
+mod outbound;
+#[doc(inline)]
+pub use error::*;
+#[doc(inline)]
+pub use inbound::*;
+#[doc(inline)]
+pub use outbound::*;
+
 #[cfg(test)]
 use self::event::listeners::log;
-use crate::config::{self, Config};
+use crate::config::{self, Config, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
-use crate::socket::Socket;
+use crate::socket::{Addressed, Socket};
 
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
-
-fn mk_ack<Cfg: Config>(tk: kwap_msg::Token, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
-  use kwap_msg::*;
-  let msg = config::Message::<Cfg> { id: crate::generate_id(),
-                                     token: tk,
-                                     ver: Default::default(),
-                                     ty: Type::Ack,
-                                     code: Code::new(0, 0),
-                                     payload: Payload(Default::default()),
-                                     opts: Default::default() };
-
-  Addressed(msg, addr)
-}
-
-#[derive(Debug, Clone, Copy)]
-struct Addressed<T>(T, SocketAddr);
-
-#[derive(Debug, Clone, Copy)]
-struct Retryable<Cfg: Config, T>(T, RetryTimer<Cfg::Clock>);
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -58,6 +55,8 @@ pub struct Core<Cfg: Config> {
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   /// Event listeners
   ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>))>; 16]>,
+  /// Received requests
+  reqs: ArrayVec<[Option<Addressed<Req<Cfg>>>; 16]>,
   /// Received responses
   resps: ArrayVec<[Option<Addressed<Resp<Cfg>>>; 16]>,
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
@@ -66,25 +65,14 @@ pub struct Core<Cfg: Config> {
   retry_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
 }
 
-/// An error encounterable while sending a message
-#[derive(Debug)]
-pub enum Error<Cfg: Config> {
-  /// Some socket operation (e.g. connecting to host) failed
-  SockError(<<Cfg as Config>::Socket as Socket>::Error),
-  /// Serializing a message to bytes failed
-  ToBytes(<config::Message<Cfg> as TryIntoBytes>::Error),
-  /// Uri-Host in request was not a utf8 string
-  HostInvalidUtf8(core::str::Utf8Error),
-  /// Uri-Host in request was not a valid IPv4 address (TODO)
-  HostInvalidIpAddress,
-  /// A CONfirmable message was sent many times without an ACKnowledgement.
-  MessageNeverAcked,
-  /// The clock failed to provide timing.
-  ///
-  /// See [`embedded_time::clock::Error`]
-  ClockError,
-}
-
+// NOTE!
+// This impl is not all the methods available on core.
+//
+// To reduce code footprint, methods dealing sending messages out are in `outbound`.
+//
+// Methods that process incoming messages are in `inbound`.
+//
+// This is probably a smell that Core is too large...
 impl<Cfg: Config> Core<Cfg> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
@@ -109,6 +97,7 @@ impl<Cfg: Config> Core<Cfg> {
     Self { sock,
            clock,
            ears: Default::default(),
+           reqs: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
@@ -142,80 +131,16 @@ impl<Cfg: Config> Core<Cfg> {
   /// core.bootstrap()
   /// ```
   pub fn bootstrap(&mut self) {
+    //          RecvResp and RecvReq
+    //          vvvvvvvvvvvvvvv
+    self.listen(MatchEvent::All, Self::ack);
+
     self.listen(MatchEvent::RecvDgram, try_parse_message);
     #[cfg(test)]
     self.listen(MatchEvent::MsgParseError, log);
     self.listen(MatchEvent::RecvMsg, Self::process_acks);
     self.listen(MatchEvent::RecvMsg, resp_from_msg);
-    //          vvvvvvvvvvvvvvv RecvResp and RecvReq
-    self.listen(MatchEvent::All, Self::ack);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
-  }
-
-  /// Process all the queued outbound messages that **we will send once and never retry**.
-  ///
-  /// By default, we do not consider outbound NON-confirmable requests "flings" because
-  /// we **do** want to retransmit them in the case that it is lost & the server will respond to it.
-  ///
-  /// We treat outbound NON and CON requests the same way in the core so that
-  /// we can allow for users to choose whether a NON that was transmitted multiple times
-  /// without a response is an error condition or good enough.
-  pub fn send_flings(&mut self) -> Result<(), Error<Cfg>> {
-    self.fling_q
-        .iter_mut()
-        .filter_map(Option::take)
-        .try_for_each(|Addressed(msg, addr)| {
-          msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(Error::ToBytes)
-             .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
-             .map(|_| ())
-        })
-  }
-
-  /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
-  ///
-  /// The expectation is that when these messages are Acked, an event handler
-  /// will remove them from storage.
-  pub fn send_retrys(&mut self) -> Result<(), Error<Cfg>> {
-    use crate::retry::YouShould;
-
-    self.retry_q
-        .iter_mut()
-        .filter_map(|o| o.as_mut())
-        .try_for_each(|Retryable(Addressed(msg, addr), retry)| {
-          msg.clone()
-             .try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(Error::ToBytes)
-             .tupled(|_| {
-               self.clock
-                   .try_now()
-                   .map_err(|_| Error::ClockError)
-                   .map(|now| retry.what_should_i_do(now))
-             })
-             .bind(|(bytes, should)| match should {
-               | Ok(YouShould::Retry) => Self::send(&mut self.sock, *addr, bytes).map(|_| ()),
-               | Ok(YouShould::Cry) => Err(Error::MessageNeverAcked),
-               | Err(nb::Error::WouldBlock) => Ok(()),
-               | _ => unreachable!(),
-             })
-        })
-  }
-
-  /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
-  ///
-  /// These ACKs are processed whenever the socket is polled (e.g. [`poll_resp`](#method.poll_resp))
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn ack(&mut self, ev: &mut Event<Cfg>) {
-    match ev {
-      | Event::RecvResp(Some((ref resp, ref addr))) => {
-        if resp.msg_type() == kwap_msg::Type::Con {
-          self.fling_q.push(Some(mk_ack::<Cfg>(resp.token(), *addr)));
-        }
-      },
-      | _ => {},
-    }
   }
 
   // TODO: use + implement crate-wide logging
@@ -273,49 +198,6 @@ impl<Cfg: Config> Core<Cfg> {
         .for_each(|_| ());
   }
 
-  /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
-  pub fn process_acks(&mut self, ev: &mut Event<Cfg>) {
-    let msg = ev.get_mut_msg().unwrap();
-
-    // is the incoming message an ack?
-    if let Some((kwap_msg::Message { id, ty: Type::Ack, .. }, addr)) = msg {
-      self.unqueue_retry(*id, *addr);
-    }
-  }
-
-  /// Mark an item in the retry_q as "succeeded" and do not retry it again.
-  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
-    if let Some((ix, _)) = self.retry_q
-                               .iter()
-                               .filter_map(|o| o.as_ref())
-                               .enumerate()
-                               .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
-    {
-      self.retry_q.remove(ix);
-      Some(())
-    } else {
-      None
-    }
-  }
-
-  /// Listens for RecvResp events and stores them on the runtime struct
-  ///
-  /// # Panics
-  /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
-  pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
-    let resp = ev.get_mut_resp().unwrap().take().unwrap();
-    if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
-      // arrayvec is full, remove nones
-      self.resps = self.resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
-
-      // panic if we're still full
-      self.resps.push(resp);
-    }
-  }
-
   /// Listen for an event
   ///
   /// # Example
@@ -364,136 +246,19 @@ impl<Cfg: Config> Core<Cfg> {
                               });
   }
 
-  /// Poll for a response to a sent request
-  ///
-  /// # Example
-  /// See `./examples/client.rs`
-  pub fn poll_resp(&mut self, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<Cfg>, Error<Cfg>> {
-    self.poll(kwap_msg::Id(0), sock, token, Self::try_get_resp)
-  }
-
-  /// Poll for an empty message in response to a sent empty message (CoAP ping)
-  ///
-  /// ```text
-  /// Client    Server
-  ///  |        |
-  ///  |        |
-  ///  +------->|     Header: EMPTY (T=CON, Code=0.00, MID=0x0001)
-  ///  | EMPTY  |      Token: 0x20
-  ///  |        |
-  ///  |        |
-  ///  |<-------+     Header: RESET (T=RST, Code=0.00, MID=0x0001)
-  ///  | 0.00   |      Token: 0x20
-  ///  |        |
-  /// ```
-  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<Cfg>> {
-    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
-  }
-
-  fn poll<R>(&mut self,
-             req_id: kwap_msg::Id,
-             addr: SocketAddr,
-             token: kwap_msg::Token,
-             f: fn(&mut Self,
-                kwap_msg::Id,
-                kwap_msg::Token,
-                SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
-             -> nb::Result<R, Error<Cfg>> {
-    // check if there's a dgram in the socket,
-    // and move it through the event pipeline.
-    //
-    // this will store the response (if there is one) before we continue.
-    self.sock
-        .poll()
-        .map(|polled| {
-          if let Some(dgram) = polled {
-            // allow the state machine to process incoming message
-            self.fire(Event::RecvDgram(Some(dgram)));
-          }
-          ()
-        })
-        .map_err(Error::SockError)
-        .try_perform(|_| self.send_flings())
-        .try_perform(|_| self.send_retrys())
-        .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
-  }
-
-  fn try_get_resp(&mut self,
-                  _: kwap_msg::Id,
-                  token: kwap_msg::Token,
-                  sock: SocketAddr)
-                  -> nb::Result<Resp<Cfg>, <<Cfg as Config>::Socket as Socket>::Error> {
-    let resp_matches = |o: &Option<Addressed<Resp<Cfg>>>| {
-      let Addressed(resp, sock_stored) = o.as_ref().unwrap();
-      resp.msg.token == token && *sock_stored == sock
-    };
-
-    self.resps
-        .iter_mut()
-        .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
-          | _ => None,
-        })
-        .ok_or(nb::Error::WouldBlock)
-  }
-
-  fn check_ping(&mut self,
-                req_id: kwap_msg::Id,
-                _: kwap_msg::Token,
-                addr: SocketAddr)
-                -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
-    let still_qd = self.retry_q
-                       .iter()
-                       .filter_map(|o| o.as_ref())
-                       .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);
-
-    if still_qd {
-      Err(nb::Error::WouldBlock)
+  /// Mark an item in the retry_q as "succeeded" and do not retry it again.
+  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
+    if let Some((ix, _)) = self.retry_q
+                               .iter()
+                               .filter_map(|o| o.as_ref())
+                               .enumerate()
+                               .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+    {
+      self.retry_q.remove(ix);
+      Some(())
     } else {
-      Ok(())
+      None
     }
-  }
-
-  /// Send a request!
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::config::Std;
-  /// use kwap::core::Core;
-  /// use kwap::req::Req;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
-  /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
-  /// ```
-  pub fn send_req(&mut self, req: Req<Cfg>) -> Result<(kwap_msg::Token, SocketAddr), Error<Cfg>> {
-    let token = req.msg_token();
-    let port = req.get_option(7).expect("Uri-Port must be present");
-    let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
-    let port = u16::from_be_bytes(port_bytes.into_inner());
-
-    let host: ArrayVec<[u8; 128]> = req.get_option(3)
-                                       .expect("Uri-Host must be present")
-                                       .value
-                                       .0
-                                       .iter()
-                                       .copied()
-                                       .collect();
-
-    let msg = config::Message::<Cfg>::from(req);
-
-    core::str::from_utf8(&host).map_err(Error::HostInvalidUtf8)
-                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| Error::HostInvalidIpAddress))
-                               .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
-                               .try_perform(|addr| {
-                                 let t = Addressed(msg.clone(), *addr);
-                                 self.retryable(t).map(|bam| self.retry_q.push(Some(bam)))
-                               })
-                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(Error::ToBytes))
-                               .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
-                               .map(|addr| (token, addr))
   }
 
   fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
@@ -506,49 +271,6 @@ impl<Cfg: Config> Core<Cfg> {
         })
         .map_err(|_| Error::ClockError)
         .map(|timer| Retryable(t, timer))
-  }
-
-  /// Send a ping message to some remote coap server
-  /// to check liveness.
-  ///
-  /// Returns a message id that can be used to poll for the response
-  /// via [`poll_ping`](#method.poll_ping)
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::config::Std;
-  /// use kwap::core::Core;
-  /// use kwap::req::Req;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
-  /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// let id = core.ping("1.1.1.1", 5683);
-  /// // core.poll_ping(id);
-  /// ```
-  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), Error<Cfg>> {
-    let mut msg: config::Message<Cfg> = Req::<Cfg>::get(host.as_ref(), port, "").into();
-    msg.token = kwap_msg::Token(Default::default());
-    msg.opts = Default::default();
-    msg.code = kwap_msg::Code::new(0, 0);
-
-    let id = msg.id;
-    msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-       .map_err(Error::ToBytes)
-       .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| Error::HostInvalidIpAddress))
-       .bind(|(bytes, host)| Self::send(&mut self.sock, SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
-       .map(|addr| (id, addr))
-  }
-
-  /// Send a raw message down the wire to some remote host.
-  ///
-  /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  fn send(sock: &mut Cfg::Socket, addr: SocketAddr, bytes: impl Array<Item = u8>) -> Result<SocketAddr, Error<Cfg>> {
-    // TODO: uncouple from ipv4
-    sock.connect(addr)
-        .map_err(Error::SockError)
-        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(Error::SockError))
-        .map(|_| addr)
   }
 }
 

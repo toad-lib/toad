@@ -1,6 +1,10 @@
 use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
+/// Something that is associated with some network socket
+#[derive(Debug, Clone, Copy)]
+pub struct Addressed<T>(pub T, pub SocketAddr);
+
 /// A CoAP network socket
 ///
 /// This mirrors the Udp socket traits in embedded-nal, but allows us to implement them for foreign types (like `std::net::UdpSocket`).
