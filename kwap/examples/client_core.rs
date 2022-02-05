@@ -17,10 +17,10 @@ macro_rules! block {
         {
           #[allow(unreachable_code)]
           break Err(e)
-        },
+        }
         | Err(nb::Error::WouldBlock) => {
           $on_wait;
-        },
+        }
         | Ok(x) => break Ok(x),
       }
     }
@@ -52,7 +52,8 @@ fn ping(core: &mut Core<Std>) {
     if (Instant::now() - pre_ping).as_secs() > 5 {
       panic!("ping timed out");
     }
-  }).unwrap();
+  })
+  .unwrap();
   println!("ping ok! took {}ms", (Instant::now() - pre_ping).as_millis());
   println!();
 }
@@ -72,10 +73,10 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
     | Ok(rep) => {
       println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
       println!();
-    },
+    }
     | Err(e) => {
       eprintln!("error! {:#?}", e);
-    },
+    }
   }
 }
 
@@ -96,9 +97,9 @@ fn get_dropped(core: &mut Core<Std>) {
     | Ok(rep) => {
       println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
       println!();
-    },
+    }
     | Err(e) => {
       eprintln!("error! {:#?}", e);
-    },
+    }
   }
 }

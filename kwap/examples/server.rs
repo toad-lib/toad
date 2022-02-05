@@ -20,17 +20,18 @@ fn should_shutdown() -> bool {
 }
 
 pub fn spawn() -> JoinHandle<()> {
-  std::thread::Builder::new().stack_size(32 * 1024 * 1024)
-                             .spawn(|| {
-                               let p = std::panic::catch_unwind(|| {
-                                 server_main();
-                               });
+  std::thread::Builder::new()
+    .stack_size(32 * 1024 * 1024)
+    .spawn(|| {
+      let p = std::panic::catch_unwind(|| {
+        server_main();
+      });
 
-                               if p.is_err() {
-                                 eprintln!("server panicked! {:?}", p);
-                               }
-                             })
-                             .unwrap()
+      if p.is_err() {
+        eprintln!("server panicked! {:?}", p);
+      }
+    })
+    .unwrap()
 }
 
 fn server_main() {
@@ -56,16 +57,19 @@ fn server_main() {
       | Ok((n, addr)) => {
         let msg = config::Message::<Std>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
         let req = Req::<Std>::from(msg);
-        let path = req.get_option(11)
-                      .as_ref()
-                      .map(|o| &o.value.0)
-                      .map(|b| std::str::from_utf8(b).unwrap());
+        let path = req
+          .get_option(11)
+          .as_ref()
+          .map(|o| &o.value.0)
+          .map(|b| std::str::from_utf8(b).unwrap());
 
-        println!("server: got {:?} {} {} {} bytes",
-                 req.msg_type(),
-                 req.method(),
-                 path.unwrap_or("/"),
-                 req.payload_str().unwrap().len());
+        println!(
+          "server: got {:?} {} {} {} bytes",
+          req.msg_type(),
+          req.method(),
+          path.unwrap_or("/"),
+          req.payload_str().unwrap().len()
+        );
 
         let mut resp = Resp::<Std>::for_request(req.clone());
         let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
@@ -73,7 +77,7 @@ fn server_main() {
         match (req.msg_type(), req.method(), path) {
           | (Type::Non, Method::GET, Some("black_hole")) => {
             ();
-          },
+          }
           | (Type::Con, Method::GET, Some("dropped")) => {
             dropped_req_ct += 1;
             if dropped_req_ct >= 3 {
@@ -81,25 +85,25 @@ fn server_main() {
               resp.set_code(code::CONTENT);
               send(resp);
             }
-          },
+          }
           | (_, Method::GET, Some("hello")) => {
             resp.set_payload("hello, world!".bytes());
             resp.set_code(code::CONTENT);
             send(resp);
-          },
+          }
           // ping
           | (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
             resp.set_code(kwap_msg::Code::new(0, 0));
             let mut msg = config::Message::<Std>::from(resp);
             msg.ty = kwap_msg::Type::Reset;
             sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
-          },
+          }
           | _ => {
             resp.set_code(code::NOT_FOUND);
             send(resp);
-          },
+          }
         }
-      },
+      }
       | Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
       | Err(e) => panic!("{:?}", e),
     }

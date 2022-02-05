@@ -14,8 +14,9 @@ use crate::resp::Resp;
 /// - When invoked on an event type other than RecvDgram.
 /// - When an event handler took the dgram out of the event before this handler was called.
 pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
-  let data = ev.get_mut_dgram()
-               .expect("try_parse_message invoked on an event type other than RecvDgram");
+  let data = ev
+    .get_mut_dgram()
+    .expect("try_parse_message invoked on an event type other than RecvDgram");
   let (dgram, addr) = data.take().expect("Dgram was already taken out of the event");
 
   match config::Message::<Cfg>::try_from_bytes(dgram) {
@@ -35,15 +36,17 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
 /// - When an event handler took the data out of the event before this handler was called.
 pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
   // TODO: can these be statically guaranteed somehow?
-  let msg = ev.get_mut_msg()
-              .expect("resp_from_msg invoked on an event type other than RecvMsg");
+  let msg = ev
+    .get_mut_msg()
+    .expect("resp_from_msg invoked on an event type other than RecvMsg");
 
   // TODO: Code.is_resp / Code.is_req
   if msg.as_ref().map(|(m, _)| m.code.class > 1) == Some(true) {
-    let (msg, addr) = ev.get_mut_msg()
-                        .unwrap()
-                        .take()
-                        .expect("Message was already taken out of the event");
+    let (msg, addr) = ev
+      .get_mut_msg()
+      .unwrap()
+      .take()
+      .expect("Message was already taken out of the event");
     let resp = Resp::<Cfg>::from(msg);
     ep.fire(Event::RecvResp(Some((resp, addr))));
   }
@@ -80,15 +83,15 @@ mod tests {
     fn fire(&mut self, mut event: Event<Std>) {
       let ears = self.0.borrow();
       ears.iter().for_each(|(n, mat, ear)| {
-                   if mat.matches(&event) {
-                     unsafe {
-                       let n = n as *const _ as *mut usize;
-                       *n += 1usize;
-                       let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
-                       ear(me_mut, &mut event);
-                     }
-                   }
-                 })
+        if mat.matches(&event) {
+          unsafe {
+            let n = n as *const _ as *mut usize;
+            *n += 1usize;
+            let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
+            ear(me_mut, &mut event);
+          }
+        }
+      })
     }
 
     fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Std>)) {

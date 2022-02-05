@@ -38,16 +38,16 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
 
   fn perform(self, f: impl FnOnce(&T) -> ()) -> Result<T, E> {
     self.map(|t| {
-          f(&t);
-          t
-        })
+      f(&t);
+      t
+    })
   }
 
   fn perform_mut(self, f: impl FnOnce(&mut T) -> ()) -> Result<T, E> {
     self.map(|mut t| {
-          f(&mut t);
-          t
-        })
+      f(&mut t);
+      t
+    })
   }
 
   fn filter(self, pred: impl FnOnce(&T) -> bool, on_fail: impl FnOnce(&T) -> E) -> Result<T, E> {

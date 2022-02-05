@@ -63,16 +63,20 @@ pub struct Req<Cfg: Config> {
 
 impl<Cfg: Config> Req<Cfg> {
   fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    let msg = Message { ty: Type::Con,
-                        ver: Default::default(),
-                        code: method.0,
-                        id: crate::generate_id(),
-                        opts: Default::default(),
-                        payload: Payload(Default::default()),
-                        token: crate::generate_token() };
+    let msg = Message {
+      ty: Type::Con,
+      ver: Default::default(),
+      code: method.0,
+      id: crate::generate_id(),
+      opts: Default::default(),
+      payload: Payload(Default::default()),
+      token: crate::generate_token(),
+    };
 
-    let mut me = Self { msg,
-                        opts: Default::default() };
+    let mut me = Self {
+      msg,
+      opts: Default::default(),
+    };
 
     fn strbytes<'a, S: AsRef<str> + 'a>(s: &'a S) -> impl Iterator<Item = u8> + 'a {
       s.as_ref().as_bytes().iter().copied()
@@ -246,9 +250,10 @@ impl<Cfg: Config> Req<Cfg> {
   /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
   /// ```
   pub fn get_option(&self, n: u32) -> Option<&Opt<Cfg::OptBytes>> {
-    self.opts
-        .as_ref()
-        .and_then(|opts| opts.iter().find(|(num, _)| num.0 == n).map(|(_, o)| o))
+    self
+      .opts
+      .as_ref()
+      .and_then(|opts| opts.iter().find(|(num, _)| num.0 == n).map(|(_, o)| o))
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string

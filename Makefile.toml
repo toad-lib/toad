@@ -21,15 +21,9 @@ dependencies = ["install-fmt"]
 command = "cargo"
 args = ["--locked", "test", "--", "--quiet", "--show-output"]
 
-[tasks.tdd]
-install_crate = "cargo-watch"
+[tasks.test-quiet]
 command = "cargo"
-args = [ "watch"
-       , "--watch", "./src"
-       , "--watch", "./tests"
-       , "--delay", "0"
-       , "-x", "make -t test"
-       ]
+args = ["--locked", "test", "--", "--quiet"]
 
 [tasks.fmt-check]
 toolchain = "nightly"

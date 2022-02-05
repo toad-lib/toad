@@ -121,27 +121,31 @@ impl Client<Std> {
 impl<Cfg: Config> Client<Cfg> {
   /// Create a new request client
   pub fn new(ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
-    Self { core: Core::new(clock, sock) }
+    Self {
+      core: Core::new(clock, sock),
+    }
   }
 
   /// Ping an endpoint
   ///
   /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
-    self.core
-        .ping(host, port)
-        .map_err_into()
-        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err_into())
+    self
+      .core
+      .ping(host, port)
+      .map_err_into()
+      .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err_into())
   }
 
   /// Send a request
   ///
   /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>> {
-    self.core
-        .send_req(req)
-        .map_err_into()
-        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err_into())
+    self
+      .core
+      .send_req(req)
+      .map_err_into()
+      .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err_into())
   }
 
   /// Send a GET request

@@ -46,7 +46,9 @@ pub struct ReqBuilder<Cfg: Config> {
 
 impl<Cfg: Config> ReqBuilder<Cfg> {
   fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self { inner: Ok(Req::new(method, host, port, path)) }
+    Self {
+      inner: Ok(Req::new(method, host, port, path)),
+    }
   }
 
   /// Creates a GET request
@@ -74,15 +76,16 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   /// # Errors
   /// Causes the builder to error if the capacity of the options collection is exhausted.
   pub fn option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
-    self.inner
-        .as_mut()
-        .map(|inner| inner.set_option(number, value.to_coap_value::<Cfg::OptBytes>()))
-        .map_err(|e| *e)
-        .perform(|res| match res {
-          | Some(_) => self.inner = Err(Error::TooManyOptions),
-          | None => (),
-        })
-        .ok();
+    self
+      .inner
+      .as_mut()
+      .map(|inner| inner.set_option(number, value.to_coap_value::<Cfg::OptBytes>()))
+      .map_err(|e| *e)
+      .perform(|res| match res {
+        | Some(_) => self.inner = Err(Error::TooManyOptions),
+        | None => (),
+      })
+      .ok();
 
     self
   }
@@ -92,15 +95,16 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   /// # Errors
   /// Causes the builder to error if the capacity of the options collection is exhausted.
   pub fn add_option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
-    self.inner
-        .as_mut()
-        .map(|inner| inner.add_option(number, value.to_coap_value::<Cfg::OptBytes>()))
-        .map_err(|e| *e)
-        .perform(|res| match res {
-          | Some(_) => self.inner = Err(Error::TooManyOptions),
-          | None => (),
-        })
-        .ok();
+    self
+      .inner
+      .as_mut()
+      .map(|inner| inner.add_option(number, value.to_coap_value::<Cfg::OptBytes>()))
+      .map_err(|e| *e)
+      .perform(|res| match res {
+        | Some(_) => self.inner = Err(Error::TooManyOptions),
+        | None => (),
+      })
+      .ok();
 
     self
   }
