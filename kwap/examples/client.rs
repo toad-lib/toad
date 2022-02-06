@@ -4,7 +4,7 @@ use kwap::config::Std;
 use kwap::req::Req;
 use kwap::resp::Resp;
 
-#[path = "./server.rs"]
+#[path = "./server_no_core.rs"]
 mod server;
 
 trait Log {

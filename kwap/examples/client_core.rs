@@ -5,7 +5,7 @@ use kwap::config::Std;
 use kwap::core::Core;
 use kwap::req::{Req, ReqBuilder};
 
-#[path = "./server.rs"]
+#[path = "./server_no_core.rs"]
 mod server;
 
 macro_rules! block {

@@ -14,10 +14,28 @@ fn mk_ack<Cfg: Config>(tk: kwap_msg::Token, addr: SocketAddr) -> Addressed<confi
 }
 
 impl<Cfg: Config> Core<Cfg> {
-  /// Listens for RecvResp events and stores them on the runtime struct
+  /// Listen for RecvReq events and store incoming requests on the runtime struct
   ///
   /// # Panics
-  /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
+  /// - when the event is not RecvReq
+  /// - when the request has already been taken out of the event
+  /// - when the request queue limit has been reached
+  pub fn store_req(&mut self, ev: &mut Event<Cfg>) {
+    // TODO: check if the incoming message is a duplicate and do not store it
+    let (req, addr) = ev.get_mut_req().unwrap().take().unwrap();
+    if let Some(req) = self.reqs.try_push(Some(Addressed(req, addr))) {
+      self.reqs = self.reqs.iter_mut().filter_map(|o| o.take()).map(Some).collect();
+      self.reqs.push(req);
+    }
+  }
+
+  /// Listens for RecvResp events and stores them on the runtime struct
+  ///
+  ///
+  /// # Panics
+  /// - when the event is not RecvResp
+  /// - when the response has already been taken out of the event
+  /// - when the response queue limit has been reached
   pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
     if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
@@ -36,6 +54,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// # Panics
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
   pub fn ack(&mut self, ev: &mut Event<Cfg>) {
+    // TODO: this can be stateless and fire a magical "Fling" or "SendMsg" event
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
@@ -134,7 +153,7 @@ impl<Cfg: Config> Core<Cfg> {
                 _: kwap_msg::Token,
                 addr: SocketAddr)
                 -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
-    let still_qd = self.retry_q
+    let still_qd = self.outbound_con_q
                        .iter()
                        .filter_map(|o| o.as_ref())
                        .any(|Retryable(Addressed(con, con_addr), _)| con.id == req_id && addr == *con_addr);

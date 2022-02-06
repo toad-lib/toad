@@ -2,6 +2,7 @@ use kwap_msg::TryFromBytes;
 
 use super::{Event, Eventer};
 use crate::config::{self, Config};
+use crate::req::Req;
 use crate::resp::Resp;
 
 /// Accepts a [`Event::RecvDgram`] and fires either [`Event::RecvMsg`] or [`Event::MsgParseError`].
@@ -33,19 +34,42 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
 /// # Panics
 /// - When invoked on an event type other than RecvMsg.
 /// - When an event handler took the data out of the event before this handler was called.
-pub fn resp_from_msg<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
+pub fn try_parse_response<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
   // TODO: can these be statically guaranteed somehow?
-  let msg = ev.get_mut_msg()
-              .expect("resp_from_msg invoked on an event type other than RecvMsg");
+  let data = ev.get_mut_msg()
+               .expect("resp_from_msg invoked on an event type other than RecvMsg");
 
   // TODO: Code.is_resp / Code.is_req
-  if msg.as_ref().map(|(m, _)| m.code.class > 1) == Some(true) {
-    let (msg, addr) = ev.get_mut_msg()
-                        .unwrap()
-                        .take()
-                        .expect("Message was already taken out of the event");
-    let resp = Resp::<Cfg>::from(msg);
-    ep.fire(Event::RecvResp(Some((resp, addr))));
+  match data.take() {
+    | Some((msg @ kwap_msg::Message { code, .. }, addr)) if code.class > 1 => {
+      let resp = Resp::<Cfg>::from(msg);
+      ep.fire(Event::RecvResp(Some((resp, addr))));
+    },
+    | _ => (),
+  }
+}
+
+/// Accepts a [`Event::RecvMsg`] and fires [`Event::RecvReq`] when that message is a response.
+///
+/// # IO
+/// - Fires other events
+/// - Invokes [`Option.take()`] on the message in the [`Event::RecvMsg`].
+///
+/// # Panics
+/// - When invoked on an event type other than RecvMsg.
+/// - When an event handler took the data out of the event before this handler was called.
+pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
+  // TODO: can these be statically guaranteed somehow?
+  let data = ev.get_mut_msg()
+               .expect("req_from_msg invoked on an event type other than RecvMsg");
+
+  // TODO: Code.is_resp / Code.is_req
+  match data.take() {
+    | Some((msg @ kwap_msg::Message { code, .. }, addr)) if code.class == 0 => {
+      let req = Req::<Cfg>::from(msg);
+      ep.fire(Event::RecvReq(Some((req, addr))));
+    },
+    | _ => (),
   }
 }
 
@@ -72,7 +96,12 @@ mod tests {
 
   impl MockEventer {
     fn calls(&self, mat: MatchEvent) -> usize {
-      self.0.borrow().iter().find(|(_, mat_, _)| mat_ == &mat).unwrap().0
+      self.0
+          .borrow()
+          .iter()
+          .find(|(_, mat_, _)| mat_ == &mat)
+          .expect(&format!("expected a handler for {:?} but found none", mat))
+          .0
     }
   }
 
@@ -151,20 +180,17 @@ mod tests {
 
   #[test]
   fn resp_from_msg_ok() {
-    let msg = Message::<Std>::from(Req::<Std>::get("foo", 0, ""));
-    let bytes = msg.try_into_bytes().unwrap();
+    let req = Req::<Std>::get("foo", 0, "");
+    let resp = Resp::for_request(req);
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let mut evr = MockEventer::default();
 
-    evr.listen(MatchEvent::RecvDgram, try_parse_message);
-    evr.listen(MatchEvent::MsgParseError, panic);
-    evr.listen(MatchEvent::RecvMsg, nop);
+    evr.listen(MatchEvent::RecvMsg, try_parse_response);
+    evr.listen(MatchEvent::RecvResp, nop);
 
-    evr.fire(Event::RecvDgram(Some((bytes, addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into()))));
 
-    assert_eq!(evr.calls(MatchEvent::RecvDgram), 1);
-    assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
-    assert_eq!(evr.calls(MatchEvent::MsgParseError), 0);
+    assert_eq!(evr.calls(MatchEvent::RecvResp), 1);
   }
 
   #[test]
@@ -175,7 +201,7 @@ mod tests {
     for case in cases {
       let mut evr = MockEventer::default();
 
-      evr.listen(MatchEvent::RecvMsg, resp_from_msg);
+      evr.listen(MatchEvent::RecvMsg, try_parse_response);
       evr.listen(MatchEvent::RecvResp, nop);
 
       evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.into()))));
@@ -188,12 +214,61 @@ mod tests {
   #[test]
   fn resp_from_msg_does_not_panic_on_multiple_invocations() {
     let req = Req::<Std>::get("foo", 0, "");
+    let resp = Resp::for_request(req);
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
     let mut evr = MockEventer::default();
 
-    evr.listen(MatchEvent::RecvMsg, resp_from_msg);
-    evr.listen(MatchEvent::RecvMsg, resp_from_msg);
+    evr.listen(MatchEvent::RecvMsg, try_parse_response);
+    evr.listen(MatchEvent::RecvMsg, try_parse_response);
+
+    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into()))));
+  }
+
+  #[test]
+  fn req_from_msg_ok() {
+    let req = Req::<Std>::get("foo", 0, "");
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
+    let mut evr = MockEventer::default();
+
+    evr.listen(MatchEvent::RecvMsg, try_parse_request);
+    evr.listen(MatchEvent::RecvReq, nop);
+
+    evr.fire(Event::<Std>::RecvMsg(Some((req.into(), addr.into()))));
+
+    assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
+    assert_eq!(evr.calls(MatchEvent::RecvReq), 1);
+  }
+
+  #[test]
+  fn req_from_msg_nops_on_response() {
+    let cases = vec![Req::<Std>::get("foo", 0, ""), Req::<Std>::post("foo", 0, "")].into_iter()
+                                                                                   .map(Resp::for_request)
+                                                                                   .collect::<Vec<_>>();
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
+
+    for case in cases {
+      let mut evr = MockEventer::default();
+
+      evr.listen(MatchEvent::RecvMsg, try_parse_request);
+      evr.listen(MatchEvent::RecvReq, nop);
+
+      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.into()))));
+
+      assert_eq!(evr.calls(MatchEvent::RecvReq), 0);
+      assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
+    }
+  }
+
+  #[test]
+  fn req_from_msg_does_not_panic_on_multiple_invocations() {
+    let req = Req::<Std>::get("foo", 0, "");
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
+
+    let mut evr = MockEventer::default();
+
+    evr.listen(MatchEvent::RecvMsg, try_parse_request);
+    evr.listen(MatchEvent::RecvMsg, try_parse_request);
 
     evr.fire(Event::<Std>::RecvMsg(Some((req.into(), addr.into()))));
   }
@@ -204,7 +279,7 @@ mod tests {
     let mut evr = MockEventer::default();
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
 
-    evr.listen(MatchEvent::RecvDgram, resp_from_msg);
+    evr.listen(MatchEvent::RecvDgram, try_parse_response);
 
     evr.fire(Event::RecvDgram(Some((Default::default(), addr.into()))));
   }

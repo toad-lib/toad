@@ -5,9 +5,10 @@ use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
 use crate::config::{Config, Message};
+use crate::req::Req;
 use crate::resp::Resp;
 
-/// Event listeners useful across "Eventer" implemenations
+/// Event listeners that are not tied to a specific CoAP runtime implementation
 pub mod listeners;
 
 /// A thing that emits kwap events
@@ -37,8 +38,20 @@ pub enum Event<Cfg: Config> {
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
   RecvResp(Option<(Resp<Cfg>, SocketAddr)>),
+  /// Received a request
+  ///
+  /// This is an option to allow mutably [`take`](Option.take)ing
+  /// the bytes from the event, leaving `None` in its place.
+  RecvReq(Option<(Req<Cfg>, SocketAddr)>),
+  /// We have a new message to send! Woohoo!
+  ///
+  /// This is an option to allow mutably [`take`](Option.take)ing
+  /// the bytes from the event, leaving `None` in its place.
+  Send(Option<(Message<Cfg>, SocketAddr)>),
   /// Failed to parse message from dgram
   MsgParseError(kwap_msg::MessageParseError),
+  /// Clock has not been started
+  ClockError,
 }
 
 impl<Cfg: Config> Event<Cfg> {
@@ -62,7 +75,7 @@ impl<Cfg: Config> Event<Cfg> {
     }
   }
 
-  /// When this is a RecvResp event, yields a mutable reference to the bytes in the event.
+  /// When this is a RecvResp event, yields a mutable reference to the response we received.
   ///
   /// ```
   /// use kwap::config::{Message, Std};
@@ -80,6 +93,49 @@ impl<Cfg: Config> Event<Cfg> {
   pub fn get_mut_resp(&mut self) -> Option<&mut Option<(Resp<Cfg>, SocketAddr)>> {
     match self {
       | Self::RecvResp(e) => Some(e),
+      | _ => None,
+    }
+  }
+
+  /// When this is a Send event, yields a mutable reference to the message in the event.
+  ///
+  /// ```
+  /// use kwap::config::{Message, Std};
+  /// use kwap::core::event::Event;
+  /// use kwap::resp::Resp;
+  /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
+  ///
+  /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
+  /// let req = kwap::req::Req::<Std>::get("", 0, "");
+  /// let resp = Resp::for_request(req);
+  ///
+  /// let mut ev = Event::<Std>::Send(Some((resp.into(), addr)));
+  /// let msg: &mut Option<(Message<Std>, SocketAddr)> = ev.get_mut_send().unwrap();
+  /// ```
+  pub fn get_mut_send(&mut self) -> Option<&mut Option<(Message<Cfg>, SocketAddr)>> {
+    match self {
+      | Self::Send(e) => Some(e),
+      | _ => None,
+    }
+  }
+
+  /// When this is a RecvReq event, yields a mutable reference to the request we received.
+  ///
+  /// ```
+  /// use kwap::config::{Message, Std};
+  /// use kwap::core::event::Event;
+  /// use kwap::req::Req;
+  /// use no_std_net::{Ipv4Addr as Ip, SocketAddr, SocketAddrV4 as AddrV4};
+  ///
+  /// let addr: SocketAddr = AddrV4::new(Ip::new(0, 0, 0, 0), 1234).into();
+  /// let req = kwap::req::Req::<Std>::get("", 0, "");
+  ///
+  /// let mut ev = Event::<Std>::RecvReq(Some((req, addr)));
+  /// let msg: &mut Option<(Req<Std>, SocketAddr)> = ev.get_mut_req().unwrap();
+  /// ```
+  pub fn get_mut_req(&mut self) -> Option<&mut Option<(Req<Cfg>, SocketAddr)>> {
+    match self {
+      | Self::RecvReq(e) => Some(e),
       | _ => None,
     }
   }
@@ -157,6 +213,12 @@ pub enum MatchEvent {
   RecvMsg,
   /// see [`Event::RecvResp`]
   RecvResp,
+  /// see [`Event::RecvReq`]
+  RecvReq,
+  /// see [`Event::Send`]
+  Send,
+  /// see [`Event::ClockError`]
+  ClockError,
   /// Match any event, defer filtering to the handler
   ///
   /// This is discouraged and should only be used when a handler
@@ -195,12 +257,16 @@ impl MatchEvent {
   /// }
   /// ```
   pub fn matches<Cfg: Config>(&self, event: &Event<Cfg>) -> bool {
-    match *self {
-      | Self::All => true,
-      | Self::MsgParseError => matches!(event, Event::MsgParseError(_)),
-      | Self::RecvDgram => matches!(event, Event::RecvDgram(_)),
-      | Self::RecvMsg => matches!(event, Event::RecvMsg(_)),
-      | Self::RecvResp => matches!(event, Event::RecvResp(_)),
+    match (*self, event) {
+      | (Self::All, _) => true,
+      | (Self::MsgParseError, Event::MsgParseError(_))
+      | (Self::RecvDgram, Event::RecvDgram(_))
+      | (Self::RecvMsg, Event::RecvMsg(_))
+      | (Self::RecvResp, Event::RecvResp(_))
+      | (Self::Send, Event::Send(_))
+      | (Self::ClockError, Event::ClockError)
+      | (Self::RecvReq, Event::RecvReq(_)) => true,
+      | _ => false,
     }
   }
 }

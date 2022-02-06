@@ -1,11 +1,18 @@
-//! Core methods that manage outbound messages.
-//!
-//! For core methods that manage inbound messages, see [`super::inbound`].
+use no_std_net::SocketAddr;
 
 use super::*;
 use crate::config::Config;
 
 impl<Cfg: Config> Core<Cfg> {
+  /// TODO
+  pub fn queue_send(&mut self, msg: config::Message<Cfg>, addr: SocketAddr) {
+    if let Ok(item) = self.retryable(msg).map(|retry| retry.map(|msg| Addressed(msg, addr))) {
+      self.outbound_con_q.push(Some(item));
+    } else {
+      self.fire(Event::ClockError);
+    }
+  }
+
   /// Process all the queued outbound messages that **we will send once and never retry**.
   ///
   /// By default, we do not consider outbound NON-confirmable requests "flings" because
@@ -33,7 +40,7 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn send_retrys(&mut self) -> Result<(), Error<Cfg>> {
     use crate::retry::YouShould;
 
-    self.retry_q
+    self.outbound_con_q
         .iter_mut()
         .filter_map(|o| o.as_mut())
         .try_for_each(|Retryable(Addressed(msg, addr), retry)| {
@@ -89,7 +96,7 @@ impl<Cfg: Config> Core<Cfg> {
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .try_perform(|addr| {
                                  let t = Addressed(msg.clone(), *addr);
-                                 self.retryable(t).map(|bam| self.retry_q.push(Some(bam)))
+                                 self.retryable(t).map(|bam| self.outbound_con_q.push(Some(bam)))
                                })
                                .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(Error::ToBytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))

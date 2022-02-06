@@ -8,7 +8,6 @@ use tinyvec::ArrayVec;
 
 /// Events used by core
 pub mod event;
-use event::listeners::{resp_from_msg, try_parse_message};
 use event::{Event, Eventer, MatchEvent};
 
 mod error;
@@ -27,8 +26,6 @@ pub use inbound::*;
 #[doc(inline)]
 pub use outbound::*;
 
-#[cfg(test)]
-use self::event::listeners::log;
 use crate::config::{self, Config, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
@@ -62,7 +59,7 @@ pub struct Core<Cfg: Config> {
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
   fling_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
   /// Queue of confirmable messages to send at our earliest convenience
-  retry_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
+  outbound_con_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
 }
 
 // NOTE!
@@ -100,7 +97,7 @@ impl<Cfg: Config> Core<Cfg> {
            reqs: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
-           retry_q: Default::default() }
+           outbound_con_q: Default::default() }
   }
 
   /// Add the default behavior to a behaviorless Core
@@ -131,16 +128,23 @@ impl<Cfg: Config> Core<Cfg> {
   /// core.bootstrap()
   /// ```
   pub fn bootstrap(&mut self) {
-    //          RecvResp and RecvReq
-    //          vvvvvvvvvvvvvvv
-    self.listen(MatchEvent::All, Self::ack);
+    use event::listeners::try_parse_request;
+    use event::listeners::{try_parse_message, try_parse_response};
 
     self.listen(MatchEvent::RecvDgram, try_parse_message);
-    #[cfg(test)]
-    self.listen(MatchEvent::MsgParseError, log);
+
     self.listen(MatchEvent::RecvMsg, Self::process_acks);
-    self.listen(MatchEvent::RecvMsg, resp_from_msg);
+    self.listen(MatchEvent::RecvMsg, try_parse_response);
+    self.listen(MatchEvent::RecvMsg, try_parse_request);
+
+    self.listen(MatchEvent::RecvReq, Self::ack);
+    self.listen(MatchEvent::RecvReq, Self::store_req);
+
+    self.listen(MatchEvent::RecvResp, Self::ack);
     self.listen(MatchEvent::RecvResp, Self::store_resp);
+
+    #[cfg(test)]
+    self.listen(MatchEvent::All, event::listeners::log);
   }
 
   // TODO: use + implement crate-wide logging
@@ -148,7 +152,7 @@ impl<Cfg: Config> Core<Cfg> {
   #[cfg(feature = "std")]
   fn trace_con_q(&self) {
     use kwap_msg::EnumerateOptNumbers;
-    self.retry_q
+    self.outbound_con_q
         .iter()
         .filter_map(|o| o.as_ref())
         .inspect(|Retryable(Addressed(con, con_addr), _)| {
@@ -248,13 +252,13 @@ impl<Cfg: Config> Core<Cfg> {
 
   /// Mark an item in the retry_q as "succeeded" and do not retry it again.
   pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
-    if let Some((ix, _)) = self.retry_q
+    if let Some((ix, _)) = self.outbound_con_q
                                .iter()
                                .filter_map(|o| o.as_ref())
                                .enumerate()
                                .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
     {
-      self.retry_q.remove(ix);
+      self.outbound_con_q.remove(ix);
       Some(())
     } else {
       None

@@ -19,6 +19,15 @@ use crate::socket::Socket;
 #[derive(Debug, Clone, Copy)]
 pub struct Retryable<Cfg: Config, T>(pub T, pub crate::retry::RetryTimer<Cfg::Clock>);
 
+impl<Cfg: Config, T> Retryable<Cfg, T> {
+  /// Map the value contained within the retryable
+  pub fn map<R>(self, f: impl FnOnce(T) -> R) -> Retryable<Cfg, R> {
+    Retryable(f(self.0), self.1)
+  }
+}
+
+impl<Cfg: Config, T> Retryable<Cfg, T> {}
+
 /// Configures `kwap` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing
