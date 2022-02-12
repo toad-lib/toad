@@ -26,6 +26,9 @@ pub use inbound::*;
 #[doc(inline)]
 pub use outbound::*;
 
+#[cfg(test)]
+use self::event::listeners::log;
+use self::event::EventIO;
 use crate::config::{self, Config, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
@@ -51,7 +54,7 @@ pub struct Core<Cfg: Config> {
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   /// Event listeners
-  ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>))>; 16]>,
+  ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>) -> EventIO)>; 16]>,
   /// Received requests
   reqs: ArrayVec<[Option<Addressed<Req<Cfg>>>; 16]>,
   /// Received responses
@@ -206,7 +209,7 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// # Example
   /// See [`Core.fire()`](#method.fire)
-  pub fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>)) {
+  pub fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>) -> EventIO) {
     self.ears.push(Some((mat, listener)));
   }
 
@@ -216,19 +219,21 @@ impl<Cfg: Config> Core<Cfg> {
   /// use std::net::UdpSocket;
   ///
   /// use kwap::config::Std;
-  /// use kwap::core::event::{Event, MatchEvent};
+  /// use kwap::core::event::{Event, EventIO, MatchEvent};
   /// use kwap::core::Core;
   /// use kwap::std::Clock;
   /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
   ///
   /// static mut LOG_ERRS_CALLS: u8 = 0;
   ///
-  /// fn log_errs(_: &mut Core<Std>, ev: &mut Event<Std>) {
+  /// fn log_errs(_: &mut Core<Std>, ev: &mut Event<Std>) -> EventIO {
   ///   let err = ev.get_msg_parse_error().unwrap();
   ///   eprintln!("error! {:?}", err);
   ///   unsafe {
   ///     LOG_ERRS_CALLS += 1;
   ///   }
+  ///
+  ///   EventIO
   /// }
   ///
   /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
@@ -239,15 +244,17 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// unsafe { assert_eq!(LOG_ERRS_CALLS, 1) }
   /// ```
-  pub fn fire(&mut self, event: Event<Cfg>) {
+  pub fn fire(&mut self, event: Event<Cfg>) -> EventIO {
     let mut sound = event;
     let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
 
     ears.into_iter().flatten().for_each(|(mat, work)| {
                                 if mat.matches(&sound) {
-                                  work(self, &mut sound);
+                                  work(self, &mut sound).unwrap();
                                 }
                               });
+
+    EventIO
   }
 
   /// Mark an item in the retry_q as "succeeded" and do not retry it again.
@@ -279,11 +286,11 @@ impl<Cfg: Config> Core<Cfg> {
 }
 
 impl<Cfg: Config> Eventer<Cfg> for Core<Cfg> {
-  fn fire(&mut self, ev: Event<Cfg>) {
+  fn fire(&mut self, ev: Event<Cfg>) -> EventIO {
     Self::fire(self, ev)
   }
 
-  fn listen(&mut self, mat: MatchEvent, f: fn(&mut Self, &mut Event<Cfg>)) {
+  fn listen(&mut self, mat: MatchEvent, f: fn(&mut Self, &mut Event<Cfg>) -> EventIO) {
     self.listen(mat, f)
   }
 }
@@ -308,22 +315,24 @@ mod tests {
                                                     .unwrap();
     let mut client = Core::<Config>::behaviorless(crate::std::Clock::new(), TubeSock::new());
 
-    fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) {
-      panic!("{:?}", e)
+    fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) -> EventIO {
+      panic!("{:?}", e);
     }
 
     static mut CALLS: usize = 0;
-    fn on_dgram(_: &mut Core<Config>, _: &mut Event<Config>) {
+    fn on_dgram(_: &mut Core<Config>, _: &mut Event<Config>) -> EventIO {
       unsafe {
         CALLS += 1;
       }
+
+      EventIO
     }
 
     client.listen(MatchEvent::MsgParseError, on_err);
     client.listen(MatchEvent::RecvDgram, on_dgram);
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    client.fire(Event::RecvDgram(Some((bytes, addr.into()))));
+    client.fire(Event::RecvDgram(Some((bytes, addr.into())))).unwrap();
 
     unsafe {
       assert_eq!(CALLS, 1);
@@ -347,7 +356,7 @@ mod tests {
 
     let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
-    client.fire(Event::RecvDgram(Some((bytes, addr))));
+    client.fire(Event::RecvDgram(Some((bytes, addr)))).unwrap();
     client.poll_ping(id, addr).unwrap();
   }
 

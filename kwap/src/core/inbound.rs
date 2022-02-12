@@ -53,29 +53,32 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn ack(&mut self, ev: &mut Event<Cfg>) {
-    // TODO: this can be stateless and fire a magical "Fling" or "SendMsg" event
+  pub fn ack(&mut self, ev: &mut Event<Cfg>) -> EventIO {
     match ev {
       | Event::RecvResp(Some((ref resp, ref addr))) => {
         if resp.msg_type() == kwap_msg::Type::Con {
           self.fling_q.push(Some(mk_ack::<Cfg>(resp.token(), *addr)));
         }
       },
-      | _ => {},
-    }
+      | _ => (),
+    };
+
+    EventIO
   }
 
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
-  pub fn process_acks(&mut self, ev: &mut Event<Cfg>) {
+  pub fn process_acks(&mut self, ev: &mut Event<Cfg>) -> EventIO {
     let msg = ev.get_mut_msg().unwrap();
 
     // is the incoming message an ack?
     if let Some((kwap_msg::Message { id, ty: Type::Ack, .. }, addr)) = msg {
       self.unqueue_retry(*id, *addr);
     }
+
+    EventIO
   }
 
   /// Poll for a response to a sent request
@@ -118,7 +121,7 @@ impl<Cfg: Config> Core<Cfg> {
         .map(|polled| {
           if let Some(dgram) = polled {
             // allow the state machine to process the incoming message
-            self.fire(Event::RecvDgram(Some(dgram)));
+            self.fire(Event::RecvDgram(Some(dgram))).unwrap();
           }
           ()
         })

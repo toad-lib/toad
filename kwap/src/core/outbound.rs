@@ -4,12 +4,11 @@ use super::*;
 use crate::config::Config;
 
 impl<Cfg: Config> Core<Cfg> {
-  /// TODO
   pub fn queue_send(&mut self, msg: config::Message<Cfg>, addr: SocketAddr) {
     if let Ok(item) = self.retryable(msg).map(|retry| retry.map(|msg| Addressed(msg, addr))) {
-      self.outbound_con_q.push(Some(item));
+      self.fire(Send);
     } else {
-      self.fire(Event::ClockError);
+      self.fire(Event::Error(Error {inner: ErrorKind::ClockError, ctx: error::Context::SendingMessage(addr, msg.id, msg.token), msg: Some("Clock has not been started yet.")}));
     }
   }
 
@@ -21,23 +20,24 @@ impl<Cfg: Config> Core<Cfg> {
   /// We treat outbound NON and CON requests the same way in the core so that
   /// we can allow for users to choose whether a NON that was transmitted multiple times
   /// without a response is an error condition or good enough.
-  pub fn send_flings(&mut self) -> Result<(), Error<Cfg>> {
+  pub fn send_flings(&mut self) -> Result<EventIO, ErrorKind<Cfg>> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
         .try_for_each(|Addressed(msg, addr)| {
           msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(Error::ToBytes)
-             .bind(|bytes| Self::send(&mut self.sock, addr, bytes))
+             .map_err(ErrorKind::ToBytes)
+             .bind(|bytes| Self::q_send(&mut self.sock, addr, bytes))
              .map(|_| ())
         })
+        .map(|_| EventIO)
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
   ///
   /// The expectation is that when these messages are Acked, an event handler
   /// will remove them from storage.
-  pub fn send_retrys(&mut self) -> Result<(), Error<Cfg>> {
+  pub fn send_retrys(&mut self) -> Result<(), ErrorKind<Cfg>> {
     use crate::retry::YouShould;
 
     self.outbound_con_q
@@ -46,16 +46,16 @@ impl<Cfg: Config> Core<Cfg> {
         .try_for_each(|Retryable(Addressed(msg, addr), retry)| {
           msg.clone()
              .try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(Error::ToBytes)
+             .map_err(ErrorKind::ToBytes)
              .tupled(|_| {
                self.clock
                    .try_now()
-                   .map_err(|_| Error::ClockError)
+                   .map_err(|_| ErrorKind::ClockError)
                    .map(|now| retry.what_should_i_do(now))
              })
              .bind(|(bytes, should)| match should {
                | Ok(YouShould::Retry) => Self::send(&mut self.sock, *addr, bytes).map(|_| ()),
-               | Ok(YouShould::Cry) => Err(Error::MessageNeverAcked),
+               | Ok(YouShould::Cry) => Err(ErrorKind::MessageNeverAcked),
                | Err(nb::Error::WouldBlock) => Ok(()),
                | _ => unreachable!(),
              })
@@ -91,16 +91,17 @@ impl<Cfg: Config> Core<Cfg> {
 
     let msg = config::Message::<Cfg>::from(req);
 
-    core::str::from_utf8(&host).map_err(Error::HostInvalidUtf8)
-                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| Error::HostInvalidIpAddress))
+    core::str::from_utf8(&host).map_err(ErrorKind::HostInvalidUtf8)
+                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| ErrorKind::HostInvalidIpAddress))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .try_perform(|addr| {
                                  let t = Addressed(msg.clone(), *addr);
                                  self.retryable(t).map(|bam| self.outbound_con_q.push(Some(bam)))
                                })
-                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(Error::ToBytes))
+                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(ErrorKind::ToBytes))
                                .bind(|(addr, bytes)| Self::send(&mut self.sock, addr, bytes))
                                .map(|addr| (token, addr))
+                               .map_err(|inner| Error::of(inner, "Core::send_req", MatchEvent::All))
   }
 
   /// Send a raw message down the wire to some remote host.
@@ -109,11 +110,11 @@ impl<Cfg: Config> Core<Cfg> {
   pub(super) fn send(sock: &mut Cfg::Socket,
                      addr: SocketAddr,
                      bytes: impl Array<Item = u8>)
-                     -> Result<SocketAddr, Error<Cfg>> {
+                     -> Result<SocketAddr, ErrorKind<Cfg>> {
     // TODO: uncouple from ipv4
     sock.connect(addr)
-        .map_err(Error::SockError)
-        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(Error::SockError))
+        .map_err(ErrorKind::SockError)
+        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(ErrorKind::SockError))
         .map(|_| addr)
   }
 
@@ -143,9 +144,10 @@ impl<Cfg: Config> Core<Cfg> {
 
     let id = msg.id;
     msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-       .map_err(Error::ToBytes)
-       .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| Error::HostInvalidIpAddress))
+       .map_err(ErrorKind::ToBytes)
+       .tupled(|_| Ipv4Addr::from_str(host.as_ref()).map_err(|_| ErrorKind::HostInvalidIpAddress))
        .bind(|(bytes, host)| Self::send(&mut self.sock, SocketAddr::V4(SocketAddrV4::new(host, port)), bytes))
        .map(|addr| (id, addr))
+       .map_err(|inner| Error::of(inner, "Core::ping", MatchEvent::All))
   }
 }

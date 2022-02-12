@@ -1,6 +1,6 @@
 use kwap_msg::TryFromBytes;
 
-use super::{Event, Eventer};
+use super::{Event, EventIO, Eventer};
 use crate::config::{self, Config};
 use crate::req::Req;
 use crate::resp::Resp;
@@ -14,7 +14,7 @@ use crate::resp::Resp;
 /// # Panics
 /// - When invoked on an event type other than RecvDgram.
 /// - When an event handler took the dgram out of the event before this handler was called.
-pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
+pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) -> EventIO {
   let data = ev.get_mut_dgram()
                .expect("try_parse_message invoked on an event type other than RecvDgram");
   let (dgram, addr) = data.take().expect("Dgram was already taken out of the event");
@@ -34,7 +34,7 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
 /// # Panics
 /// - When invoked on an event type other than RecvMsg.
 /// - When an event handler took the data out of the event before this handler was called.
-pub fn try_parse_response<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
+pub fn try_parse_response<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) -> EventIO {
   // TODO: can these be statically guaranteed somehow?
   let data = ev.get_mut_msg()
                .expect("resp_from_msg invoked on an event type other than RecvMsg");
@@ -58,7 +58,7 @@ pub fn try_parse_response<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut
 /// # Panics
 /// - When invoked on an event type other than RecvMsg.
 /// - When an event handler took the data out of the event before this handler was called.
-pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) {
+pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut Event<Cfg>) -> EventIO {
   // TODO: can these be statically guaranteed somehow?
   let data = ev.get_mut_msg()
                .expect("req_from_msg invoked on an event type other than RecvMsg");
@@ -71,12 +71,15 @@ pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
     },
     | _ => (),
   }
+
+  EventIO
 }
 
 /// Logs an event using println
 #[cfg(any(test, feature = "std"))]
-pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &mut Evr, ev: &mut Event<Cfg>) {
+pub fn log<Cfg: Config, Evr: Eventer<Cfg>>(_: &mut Evr, ev: &mut Event<Cfg>) -> EventIO {
   println!("Event: {:?}", ev);
+  EventIO
 }
 
 #[cfg(test)]
@@ -92,7 +95,7 @@ mod tests {
   use crate::core::event::MatchEvent;
   use crate::req::Req;
   #[derive(Default)]
-  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&mut Self, &mut Event<Std>))>>);
+  struct MockEventer(pub RefCell<Vec<(usize, MatchEvent, fn(&mut Self, &mut Event<Std>) -> EventIO)>>);
 
   impl MockEventer {
     fn calls(&self, mat: MatchEvent) -> usize {
@@ -106,7 +109,7 @@ mod tests {
   }
 
   impl Eventer<Std> for MockEventer {
-    fn fire(&mut self, mut event: Event<Std>) {
+    fn fire(&mut self, mut event: Event<Std>) -> EventIO {
       let ears = self.0.borrow();
       ears.iter().for_each(|(n, mat, ear)| {
                    if mat.matches(&event) {
@@ -114,23 +117,26 @@ mod tests {
                        let n = n as *const _ as *mut usize;
                        *n += 1usize;
                        let me_mut = (self as *const Self as *mut Self).as_mut().unwrap();
-                       ear(me_mut, &mut event);
+                       ear(me_mut, &mut event).unwrap();
                      }
                    }
-                 })
+                 });
+      EventIO
     }
 
-    fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Std>)) {
+    fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Std>) -> EventIO) {
       let mut ears = self.0.borrow_mut();
       ears.push((0, mat, listener));
     }
   }
 
-  fn panic<E: Eventer<Std>>(_: &mut E, event: &mut Event<Std>) {
+  fn panic<E: Eventer<Std>>(_: &mut E, event: &mut Event<Std>) -> EventIO {
     panic!("{:?}", event)
   }
 
-  fn nop<E: Eventer<Std>>(_: &mut E, _: &mut Event<Std>) {}
+  fn nop<E: Eventer<Std>>(_: &mut E, _: &mut Event<Std>) -> EventIO {
+    EventIO
+  }
 
   #[test]
   fn try_parse_message_ok() {
@@ -143,7 +149,7 @@ mod tests {
     evr.listen(MatchEvent::MsgParseError, panic);
     evr.listen(MatchEvent::RecvMsg, nop);
 
-    evr.fire(Event::RecvDgram(Some(data)));
+    evr.fire(Event::RecvDgram(Some(data))).unwrap();
 
     assert_eq!(evr.calls(MatchEvent::RecvDgram), 1);
     assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
@@ -161,7 +167,8 @@ mod tests {
     evr.listen(MatchEvent::RecvDgram, try_parse_message);
     evr.listen(MatchEvent::RecvDgram, try_parse_message);
 
-    evr.fire(Event::RecvDgram(Some((ArrayVec::new(), addr.into()))));
+    evr.fire(Event::RecvDgram(Some((ArrayVec::new(), addr.into()))))
+       .unwrap();
   }
 
   #[test]
@@ -175,7 +182,7 @@ mod tests {
     // and the second attempts to and panics
     evr.listen(MatchEvent::RecvMsg, try_parse_message);
 
-    evr.fire(Event::<Std>::RecvMsg(Some((msg, addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((msg, addr.into())))).unwrap();
   }
 
   #[test]
@@ -188,7 +195,7 @@ mod tests {
     evr.listen(MatchEvent::RecvMsg, try_parse_response);
     evr.listen(MatchEvent::RecvResp, nop);
 
-    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into())))).unwrap();
 
     assert_eq!(evr.calls(MatchEvent::RecvResp), 1);
   }
@@ -204,7 +211,8 @@ mod tests {
       evr.listen(MatchEvent::RecvMsg, try_parse_response);
       evr.listen(MatchEvent::RecvResp, nop);
 
-      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.into()))));
+      evr.fire(Event::<Std>::RecvMsg(Some((case.into(), addr.into()))))
+         .unwrap();
 
       assert_eq!(evr.calls(MatchEvent::RecvResp), 0);
       assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
@@ -270,7 +278,8 @@ mod tests {
     evr.listen(MatchEvent::RecvMsg, try_parse_request);
     evr.listen(MatchEvent::RecvMsg, try_parse_request);
 
-    evr.fire(Event::<Std>::RecvMsg(Some((req.into(), addr.into()))));
+    evr.fire(Event::<Std>::RecvMsg(Some((req.into(), addr.into()))))
+       .unwrap();
   }
 
   #[test]
@@ -281,6 +290,7 @@ mod tests {
 
     evr.listen(MatchEvent::RecvDgram, try_parse_response);
 
-    evr.fire(Event::RecvDgram(Some((Default::default(), addr.into()))));
+    evr.fire(Event::RecvDgram(Some((Default::default(), addr.into()))))
+       .unwrap();
   }
 }
