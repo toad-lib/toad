@@ -1,7 +1,8 @@
 use crate::config::Config;
 #[cfg(feature = "std")]
 use crate::config::Std;
-use crate::core::Core;
+use crate::core::event::Event;
+use crate::core::{Core, Error};
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 use crate::result_ext::{MapErrInto, ResultExt};
@@ -32,61 +33,24 @@ pub struct Client<Cfg: Config> {
 
 /// Result of fallible Client operation
 ///
-/// `core::result::Result<T, kwap::blocking::client::Error>`
-pub type Result<T> = core::result::Result<T, Error>;
+/// `core::result::Result<T, kwap_core::Error>`
+pub type Result<Cfg, T> = core::result::Result<T, Error<Cfg>>;
 
 /// Helper methods on Client Results
-pub trait ClientResultExt<T> {
+pub trait ClientResultExt<Cfg: Config, T> {
   /// If we timed out waiting for a response, consider that Ok(None).
   ///
   /// Usually used to handle sending non-confirmable requests that
   /// the server may have received but not responded to.
-  fn timeout_ok(self) -> Result<Option<T>>;
+  fn timeout_ok(self) -> Result<Cfg, Option<T>>;
 }
 
-impl<T> ClientResultExt<T> for Result<T> {
-  fn timeout_ok(self) -> Result<Option<T>> {
+impl<Cfg: Config, T> ClientResultExt<Cfg, T> for Result<Cfg, T> {
+  fn timeout_ok(self) -> Result<Cfg, Option<T>> {
     match self {
       | Ok(t) => Ok(Some(t)),
-      | Err(Error::TimedOut) => Ok(None),
+      | Err(Error::MessageNeverAcked) => Ok(None),
       | Err(e) => Err(e),
-    }
-  }
-}
-
-/// Errors that could be encountered when sending requests or receiving responses.
-#[derive(Copy, Clone, Debug)]
-pub enum Error {
-  /// There was an issue along the network somewhere
-  NetworkError,
-  /// A message we tried to send was invalid
-  MessageInvalid,
-  /// We timed out waiting for our request to be sent, or for a response to a request.
-  TimedOut,
-  /// The host you provided is not a valid utf8 string
-  HostInvalidUtf8(core::str::Utf8Error),
-  /// The host you provided is not a valid ip address
-  HostInvalidIpAddress,
-  /// Some other error
-  Other,
-}
-
-impl<Cfg: Config> From<crate::core::Error<Cfg>> for Error {
-  fn from(e: crate::core::Error<Cfg>) -> Self {
-    Self::from(&e)
-  }
-}
-
-impl<'a, Cfg: Config> From<&'a crate::core::Error<Cfg>> for Error {
-  fn from(e: &'a crate::core::Error<Cfg>) -> Self {
-    use crate::core::Error::*;
-    match e {
-      | SockError(_) => Self::NetworkError,
-      | ToBytes(_) => Self::MessageInvalid,
-      | MessageNeverAcked => Self::TimedOut,
-      | HostInvalidUtf8(e) => Self::HostInvalidUtf8(*e),
-      | HostInvalidIpAddress => Self::HostInvalidIpAddress,
-      | ClockError => Self::Other,
     }
   }
 }
@@ -127,7 +91,7 @@ impl<Cfg: Config> Client<Cfg> {
   /// Ping an endpoint
   ///
   /// Note: this will eventually not require Client to be borrowed mutably.
-  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<()> {
+  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<Cfg, ()> {
     self.core
         .ping(host, port)
         .map_err_into()
@@ -137,11 +101,15 @@ impl<Cfg: Config> Client<Cfg> {
   /// Send a request
   ///
   /// Note: this will eventually not require Client to be borrowed mutably.
-  pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>> {
+  pub fn send(&mut self, req: Req<Cfg>) -> Result<Cfg, Resp<Cfg>> {
     self.core
         .send_req(req)
         .map_err_into()
-        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err_into())
+        .bind(|(token, addr)| nb::block!(self.core.poll_event(|e: Event<Cfg>| match e {
+          Event::Error(e) => Matched(Err(e)), // TODO: is the error related to this request?
+          Event::RecvResp(Some((resp, addr_))) if addr_ == addr && resp.token() == token => Matched(Ok(resp)),
+          _ => Unmatched(e),
+        })).map_err_into())
   }
 
   /// Send a GET request

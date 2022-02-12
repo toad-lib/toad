@@ -36,6 +36,8 @@ use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
 use crate::socket::{Addressed, Socket};
 
+use self::event::EventIO;
+
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
@@ -253,7 +255,6 @@ impl<Cfg: Config> Core<Cfg> {
                                   work(self, &mut sound).unwrap();
                                 }
                               });
-
     EventIO
   }
 
@@ -272,7 +273,7 @@ impl<Cfg: Config> Core<Cfg> {
     }
   }
 
-  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
+  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, ErrorKind<Cfg>> {
     self.clock
         .try_now()
         .map(|now| {
@@ -280,7 +281,7 @@ impl<Cfg: Config> Core<Cfg> {
                           crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
                           crate::retry::Attempts(5))
         })
-        .map_err(|_| Error::ClockError)
+        .map_err(|_| ErrorKind::ClockError)
         .map(|timer| Retryable(t, timer))
   }
 }
@@ -328,7 +329,7 @@ mod tests {
       EventIO
     }
 
-    client.listen(MatchEvent::MsgParseError, on_err);
+    client.listen(MatchEvent::Error, on_err);
     client.listen(MatchEvent::RecvDgram, on_dgram);
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);

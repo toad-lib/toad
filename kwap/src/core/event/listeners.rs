@@ -1,7 +1,8 @@
 use kwap_msg::TryFromBytes;
 
-use super::{Event, EventIO, Eventer};
+use super::{Event, Eventer, MatchEvent, EventIO};
 use crate::config::{self, Config};
+use crate::core::{Error, Context, ErrorKind};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -21,7 +22,7 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
 
   match config::Message::<Cfg>::try_from_bytes(dgram) {
     | Ok(msg) => ep.fire(Event::<Cfg>::RecvMsg(Some((msg, addr)))),
-    | Err(e) => ep.fire(Event::MsgParseError(e)),
+    | Err(e) => ep.fire(Event::Error(Error { inner: ErrorKind::FromBytes(e), msg: Some("failed to parse incoming message"), ctx: Context::ParsingMessage(addr)})),
   }
 }
 
@@ -43,9 +44,9 @@ pub fn try_parse_response<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut
   match data.take() {
     | Some((msg @ kwap_msg::Message { code, .. }, addr)) if code.class > 1 => {
       let resp = Resp::<Cfg>::from(msg);
-      ep.fire(Event::RecvResp(Some((resp, addr))));
+      ep.fire(Event::RecvResp(Some((resp, addr))))
     },
-    | _ => (),
+    | _ => EventIO,
   }
 }
 
@@ -67,9 +68,9 @@ pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
   match data.take() {
     | Some((msg @ kwap_msg::Message { code, .. }, addr)) if code.class == 0 => {
       let req = Req::<Cfg>::from(msg);
-      ep.fire(Event::RecvReq(Some((req, addr))));
+      ep.fire(Event::RecvReq(Some((req, addr))))
     },
-    | _ => (),
+    | _ => EventIO,
   }
 
   EventIO

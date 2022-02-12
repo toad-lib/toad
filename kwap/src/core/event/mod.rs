@@ -8,6 +8,8 @@ use crate::config::{Config, Message};
 use crate::req::Req;
 use crate::resp::Resp;
 
+use super::Error;
+
 /// Event listeners that are not tied to a specific CoAP runtime implementation
 pub mod listeners;
 
@@ -31,7 +33,7 @@ pub trait Eventer<Cfg: Config> {
 }
 
 /// A state transition for a message in the CoAP runtime
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Event<Cfg: Config> {
   /// Received a datagram from the socket
   ///
@@ -58,10 +60,8 @@ pub enum Event<Cfg: Config> {
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
   Send(Option<(Message<Cfg>, SocketAddr)>),
-  /// Failed to parse message from dgram
-  MsgParseError(kwap_msg::MessageParseError),
-  /// Clock has not been started
-  ClockError,
+  /// An error occurred while trying to process an event
+  Error(Error<Cfg>),
 }
 
 impl<Cfg: Config> Event<Cfg> {
@@ -183,7 +183,7 @@ impl<Cfg: Config> Event<Cfg> {
   /// ```
   pub fn get_msg_parse_error(&self) -> Option<&MessageParseError> {
     match self {
-      | Self::MsgParseError(e) => Some(e),
+      | Self::Error(error) => error.message_parse_error(),
       | _ => None,
     }
   }
@@ -217,8 +217,6 @@ impl<Cfg: Config> Event<Cfg> {
 pub enum MatchEvent {
   /// see [`Event::RecvDgram`]
   RecvDgram,
-  /// see [`Event::MsgParseError`]
-  MsgParseError,
   /// see [`Event::RecvMsg`]
   RecvMsg,
   /// see [`Event::RecvResp`]
@@ -227,8 +225,8 @@ pub enum MatchEvent {
   RecvReq,
   /// see [`Event::Send`]
   Send,
-  /// see [`Event::ClockError`]
-  ClockError,
+  /// see [`Event::Error`]
+  Error,
   /// Match any event, defer filtering to the handler
   ///
   /// This is discouraged and should only be used when a handler
@@ -268,13 +266,12 @@ impl MatchEvent {
   /// ```
   pub fn matches<Cfg: Config>(&self, event: &Event<Cfg>) -> bool {
     match (*self, event) {
-      | (Self::All, _) => true,
-      | (Self::MsgParseError, Event::MsgParseError(_))
+      | (Self::All, _)
       | (Self::RecvDgram, Event::RecvDgram(_))
       | (Self::RecvMsg, Event::RecvMsg(_))
       | (Self::RecvResp, Event::RecvResp(_))
       | (Self::Send, Event::Send(_))
-      | (Self::ClockError, Event::ClockError)
+      | (Self::Error, Event::Error(_))
       | (Self::RecvReq, Event::RecvReq(_)) => true,
       | _ => false,
     }

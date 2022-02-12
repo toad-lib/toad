@@ -104,7 +104,7 @@ impl<Cfg: Config> Core<Cfg> {
   ///  |        |
   /// ```
   pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<Cfg>> {
-    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
+    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping).map_err(|inner| Error::of(inner, "Core::poll_ping", MatchEvent::All))
   }
 
   fn poll<R>(&mut self,
@@ -115,7 +115,7 @@ impl<Cfg: Config> Core<Cfg> {
                 kwap_msg::Id,
                 kwap_msg::Token,
                 SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
-             -> nb::Result<R, Error<Cfg>> {
+             -> nb::Result<R, ErrorKind<Cfg>> {
     self.sock
         .poll()
         .map(|polled| {
@@ -125,11 +125,11 @@ impl<Cfg: Config> Core<Cfg> {
           }
           ()
         })
-        .map_err(Error::SockError)
+        .map_err(ErrorKind::SockError)
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
+        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(ErrorKind::SockError)))
   }
 
   fn try_get_resp(&mut self,
