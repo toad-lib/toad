@@ -37,6 +37,10 @@ impl<Cfg: Config> Core<Cfg> {
   /// - when the response has already been taken out of the event
   /// - when the response queue limit has been reached
   pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
+=======
+  /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
+  pub fn store_resp(&mut self, ev: &mut Event<Cfg>) -> EventIO {
+>>>>>>> main
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
     if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
       // arrayvec is full, remove nones
@@ -45,6 +49,8 @@ impl<Cfg: Config> Core<Cfg> {
       // panic if we're still full
       self.resps.push(resp);
     }
+
+    EventIO
   }
 
   /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.

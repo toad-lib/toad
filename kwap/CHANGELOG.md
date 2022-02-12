@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.3.7 (2022-02-12)
+
+
+### Bug Fixes
+
+* **kwap:** add EventIO type marker for fns that fire events ([#67](https://github.com/clov-coffee/kwap/issues/67)) ([5ed5d9c](https://github.com/clov-coffee/kwap/commit/5ed5d9c5db2c93afa20aa0034ad734789d400d87))
+
 ### 0.3.6 (2022-02-05)
 
 ### 0.3.5 (2022-02-04)
