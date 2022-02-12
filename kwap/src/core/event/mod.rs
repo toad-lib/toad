@@ -10,13 +10,23 @@ use crate::resp::Resp;
 /// Event listeners useful across "Eventer" implemenations
 pub mod listeners;
 
+/// A type-level marker that a function may fire events.
+#[derive(Debug, Clone, Copy)]
+#[must_use = "EventIO must be returned or unwrapped."]
+pub struct EventIO;
+
+impl EventIO {
+  /// Discard the EventIO, ignoring the fact that it is the result of firing an event.
+  pub fn unwrap(self) -> () {}
+}
+
 /// A thing that emits kwap events
 pub trait Eventer<Cfg: Config> {
   /// Fire an event
-  fn fire(&mut self, event: Event<Cfg>);
+  fn fire(&mut self, event: Event<Cfg>) -> EventIO;
 
   /// Attach a listener function that will be invoked on events that match `mat`.
-  fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>));
+  fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>) -> EventIO);
 }
 
 /// A state transition for a message in the CoAP runtime
