@@ -36,8 +36,6 @@ use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
 use crate::socket::{Addressed, Socket};
 
-use self::event::EventIO;
-
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
@@ -133,8 +131,7 @@ impl<Cfg: Config> Core<Cfg> {
   /// core.bootstrap()
   /// ```
   pub fn bootstrap(&mut self) {
-    use event::listeners::try_parse_request;
-    use event::listeners::{try_parse_message, try_parse_response};
+    use event::listeners::{try_parse_message, try_parse_request, try_parse_response};
 
     self.listen(MatchEvent::RecvDgram, try_parse_message);
 

@@ -1,11 +1,10 @@
 use kwap_msg::to_bytes::MessageToBytesError;
-use kwap_msg::{TryIntoBytes, TryFromBytes, MessageParseError};
+use kwap_msg::{MessageParseError, TryFromBytes, TryIntoBytes};
 use no_std_net::SocketAddr;
 
+use super::event::MatchEvent;
 use crate::config::{self, Config};
 use crate::socket::Socket;
-
-use super::event::MatchEvent;
 
 /// An error encounterable from within Core
 #[derive(Debug)]
@@ -21,21 +20,29 @@ pub struct Error<Cfg: Config> {
 /// The context that an error occurred in
 #[derive(Debug, Clone, Copy)]
 pub enum Context {
-  SendingMessage(
-      SocketAddr
-        , kwap_msg::Id, kwap_msg::Token),
-  ParsingMessage(
-      SocketAddr
-       ),
+  SendingMessage(Option<SocketAddr>, kwap_msg::Id, kwap_msg::Token),
+  ParsingMessage(SocketAddr),
 }
 
 impl<Cfg: Config> Error<Cfg> {
   /// Is this error `FromBytes`?
   pub fn message_parse_error(&self) -> Option<&MessageParseError> {
     match self.inner {
-      ErrorKind::FromBytes(ref e) => Some(e),
-      _ => None
+      | ErrorKind::FromBytes(ref e) => Some(e),
+      | _ => None,
     }
+  }
+
+  /// Modify the context of the error
+  pub fn map_ctx(mut self, f: impl FnOnce(Context) -> Context) -> Self {
+    self.ctx = f(self.ctx);
+    self
+  }
+
+  /// Modify the inner error
+  pub fn map_inner(mut self, f: impl FnOnce(ErrorKind<Cfg>) -> ErrorKind<Cfg>) -> Self {
+    self.inner = f(self.inner);
+    self
   }
 }
 

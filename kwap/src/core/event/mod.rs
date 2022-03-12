@@ -4,11 +4,10 @@ use kwap_msg::MessageParseError;
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
+use super::Error;
 use crate::config::{Config, Message};
 use crate::req::Req;
 use crate::resp::Resp;
-
-use super::Error;
 
 /// Event listeners that are not tied to a specific CoAP runtime implementation
 pub mod listeners;

@@ -9,6 +9,10 @@ pub(crate) trait ResultExt<T, E>: Sized {
   fn tupled<R>(self, f: impl FnOnce(&T) -> Result<R, E>) -> Result<(T, R), E> {
     self.bind(|t| f(&t).map(|r| (t, r)))
   }
+
+  fn map_tuple_2<A, B>(a: Result<A, E>, b: Result<B, E>) -> Result<(A, B), E> {
+    a.and_then(|a| b.map(|b| (a, b)))
+  }
 }
 
 pub(crate) trait MapErrInto<T, E: Into<R>, R> {

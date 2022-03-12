@@ -1,8 +1,8 @@
 use kwap_msg::TryFromBytes;
 
-use super::{Event, Eventer, MatchEvent, EventIO};
+use super::{Event, EventIO, Eventer, MatchEvent};
 use crate::config::{self, Config};
-use crate::core::{Error, Context, ErrorKind};
+use crate::core::{Context, Error, ErrorKind};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -22,7 +22,9 @@ pub fn try_parse_message<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
 
   match config::Message::<Cfg>::try_from_bytes(dgram) {
     | Ok(msg) => ep.fire(Event::<Cfg>::RecvMsg(Some((msg, addr)))),
-    | Err(e) => ep.fire(Event::Error(Error { inner: ErrorKind::FromBytes(e), msg: Some("failed to parse incoming message"), ctx: Context::ParsingMessage(addr)})),
+    | Err(e) => ep.fire(Event::Error(Error { inner: ErrorKind::FromBytes(e),
+                                             msg: Some("failed to parse incoming message"),
+                                             ctx: Context::ParsingMessage(addr) })),
   }
 }
 
@@ -72,8 +74,6 @@ pub fn try_parse_request<Cfg: Config, Evr: Eventer<Cfg>>(ep: &mut Evr, ev: &mut 
     },
     | _ => EventIO,
   }
-
-  EventIO
 }
 
 /// Logs an event using println
@@ -147,14 +147,14 @@ mod tests {
     let mut evr = MockEventer::default();
 
     evr.listen(MatchEvent::RecvDgram, try_parse_message);
-    evr.listen(MatchEvent::MsgParseError, panic);
+    evr.listen(MatchEvent::Error, panic);
     evr.listen(MatchEvent::RecvMsg, nop);
 
     evr.fire(Event::RecvDgram(Some(data))).unwrap();
 
     assert_eq!(evr.calls(MatchEvent::RecvDgram), 1);
     assert_eq!(evr.calls(MatchEvent::RecvMsg), 1);
-    assert_eq!(evr.calls(MatchEvent::MsgParseError), 0);
+    assert_eq!(evr.calls(MatchEvent::Error), 0);
   }
 
   #[test]
@@ -196,7 +196,8 @@ mod tests {
     evr.listen(MatchEvent::RecvMsg, try_parse_response);
     evr.listen(MatchEvent::RecvResp, nop);
 
-    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into())))).unwrap();
+    evr.fire(Event::<Std>::RecvMsg(Some((resp.into(), addr.into()))))
+       .unwrap();
 
     assert_eq!(evr.calls(MatchEvent::RecvResp), 1);
   }

@@ -20,13 +20,15 @@ impl<Cfg: Config> Core<Cfg> {
   /// - when the event is not RecvReq
   /// - when the request has already been taken out of the event
   /// - when the request queue limit has been reached
-  pub fn store_req(&mut self, ev: &mut Event<Cfg>) {
+  pub fn store_req(&mut self, ev: &mut Event<Cfg>) -> EventIO {
     // TODO: check if the incoming message is a duplicate and do not store it
     let (req, addr) = ev.get_mut_req().unwrap().take().unwrap();
     if let Some(req) = self.reqs.try_push(Some(Addressed(req, addr))) {
       self.reqs = self.reqs.iter_mut().filter_map(|o| o.take()).map(Some).collect();
       self.reqs.push(req);
     }
+
+    EventIO
   }
 
   /// Listens for RecvResp events and stores them on the runtime struct
@@ -36,11 +38,8 @@ impl<Cfg: Config> Core<Cfg> {
   /// - when the event is not RecvResp
   /// - when the response has already been taken out of the event
   /// - when the response queue limit has been reached
-  pub fn store_resp(&mut self, ev: &mut Event<Cfg>) {
-=======
   /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
   pub fn store_resp(&mut self, ev: &mut Event<Cfg>) -> EventIO {
->>>>>>> main
     let resp = ev.get_mut_resp().unwrap().take().unwrap();
     if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
       // arrayvec is full, remove nones
@@ -110,7 +109,8 @@ impl<Cfg: Config> Core<Cfg> {
   ///  |        |
   /// ```
   pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<Cfg>> {
-    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping).map_err(|inner| Error::of(inner, "Core::poll_ping", MatchEvent::All))
+    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
+        .map_err(|inner| Error::of(inner, "Core::poll_ping", MatchEvent::All))
   }
 
   fn poll<R>(&mut self,

@@ -102,14 +102,13 @@ impl<Cfg: Config> Client<Cfg> {
   ///
   /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn send(&mut self, req: Req<Cfg>) -> Result<Cfg, Resp<Cfg>> {
-    self.core
-        .send_req(req)
-        .map_err_into()
-        .bind(|(token, addr)| nb::block!(self.core.poll_event(|e: Event<Cfg>| match e {
+    self.core.send_req(req).map_err_into().bind(|(token, addr)| {
+                                            nb::block!(self.core.poll_event(|e: Event<Cfg>| match e {
           Event::Error(e) => Matched(Err(e)), // TODO: is the error related to this request?
           Event::RecvResp(Some((resp, addr_))) if addr_ == addr && resp.token() == token => Matched(Ok(resp)),
           _ => Unmatched(e),
-        })).map_err_into())
+        })).map_err_into()
+                                          })
   }
 
   /// Send a GET request
