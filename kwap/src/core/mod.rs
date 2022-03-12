@@ -266,7 +266,7 @@ impl<Cfg: Config> Core<Cfg> {
     }
   }
 
-  fn retryable<T>(&self, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
+  fn retryable<T>(&self, when: When, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
     self.clock
         .try_now()
         .map(|now| {
@@ -274,7 +274,7 @@ impl<Cfg: Config> Core<Cfg> {
                           crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
                           crate::retry::Attempts(5))
         })
-        .map_err(|_| Error::ClockError)
+        .map_err(|_| when.what(What::ClockError))
         .map(|timer| Retryable(t, timer))
   }
 }

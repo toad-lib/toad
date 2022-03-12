@@ -100,6 +100,7 @@ impl<Cfg: Config> Core<Cfg> {
                 kwap_msg::Token,
                 SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
              -> nb::Result<R, Error<Cfg>> {
+    let when = When::Polling;
     self.sock
         .poll()
         .map(|polled| {
@@ -109,11 +110,11 @@ impl<Cfg: Config> Core<Cfg> {
           }
           ()
         })
-        .map_err(Error::SockError)
+        .map_err(|e| when.what(What::SockError(e)))
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
+        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(|e| when.what(What::SockError(e)))))
   }
 
   fn try_get_resp(&mut self,
