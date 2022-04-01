@@ -1,5 +1,11 @@
 use super::*;
 
+type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
+                               kwap_msg::Id,
+                               kwap_msg::Token,
+                               SocketAddr)
+                               -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>;
+
 fn mk_ack<Cfg: Config>(tk: kwap_msg::Token, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
   use kwap_msg::*;
   let msg = config::Message::<Cfg> { id: crate::generate_id(),
@@ -95,25 +101,23 @@ impl<Cfg: Config> Core<Cfg> {
              req_id: kwap_msg::Id,
              addr: SocketAddr,
              token: kwap_msg::Token,
-             f: fn(&mut Self,
-                kwap_msg::Id,
-                kwap_msg::Token,
-                SocketAddr) -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>)
+             f: DgramHandler<R, Cfg>)
              -> nb::Result<R, Error<Cfg>> {
+    let when = When::Polling;
     self.sock
         .poll()
         .map(|polled| {
-          if let Some(dgram) = polled {
+          if let Some(Addressed(dgram, sock)) = polled {
             // allow the state machine to process the incoming message
-            self.fire(Event::RecvDgram(Some(dgram))).unwrap();
+            self.fire(Event::RecvDgram(Some((dgram, sock)))).unwrap();
           }
           ()
         })
-        .map_err(Error::SockError)
+        .map_err(|e| when.what(What::SockError(e)))
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(Error::SockError)))
+        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(|e| when.what(What::SockError(e)))))
   }
 
   fn try_get_resp(&mut self,
@@ -129,7 +133,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
-          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
+          | o @ Some(_) if resp_matches(o) => Option::take(o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)

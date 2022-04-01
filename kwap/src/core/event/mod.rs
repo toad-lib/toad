@@ -29,14 +29,17 @@ pub trait Eventer<Cfg: Config> {
   fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>) -> EventIO);
 }
 
+type RecvDgramData = Option<(ArrayVec<[u8; 1152]>, SocketAddr)>;
+
 /// A state transition for a message in the CoAP runtime
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum Event<Cfg: Config> {
   /// Received a datagram from the socket
   ///
   /// This is an option to allow mutably [`take`](Option.take)ing
   /// the bytes from the event, leaving `None` in its place.
-  RecvDgram(Option<(ArrayVec<[u8; 1152]>, SocketAddr)>),
+  RecvDgram(RecvDgramData),
   /// Received a message, this should be transitioned into either "RecvResp", or "RecvReq"
   ///
   /// This is an option to allow mutably [`take`](Option.take)ing
@@ -107,7 +110,7 @@ impl<Cfg: Config> Event<Cfg> {
   /// let mut ev = Event::<Std>::RecvDgram(Some((ArrayVec::default(), addr)));
   /// let msg: &mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)> = ev.get_mut_dgram().unwrap();
   /// ```
-  pub fn get_mut_dgram(&mut self) -> Option<&mut Option<(ArrayVec<[u8; 1152]>, SocketAddr)>> {
+  pub fn get_mut_dgram(&mut self) -> Option<&mut RecvDgramData> {
     match self {
       | Self::RecvDgram(e) => Some(e),
       | _ => None,

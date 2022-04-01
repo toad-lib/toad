@@ -1,6 +1,7 @@
 use kwap::blocking::client::ClientResultExt;
 use kwap::blocking::Client;
 use kwap::config::Std;
+use kwap::core::Error;
 use kwap::req::Req;
 use kwap::resp::Resp;
 
@@ -11,7 +12,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for kwap::blocking::client::Result<Resp<Std>> {
+impl Log for Result<Resp<Std>, kwap::core::Error<Std>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
@@ -27,7 +28,7 @@ impl Log for kwap::blocking::client::Result<Resp<Std>> {
   }
 }
 
-impl Log for kwap::blocking::client::Result<Option<Resp<Std>>> {
+impl Log for Result<Option<Resp<Std>>, Error<Std>> {
   fn log(self) {
     match self {
       | Ok(None) => {
