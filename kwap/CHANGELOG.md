@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.4.0 (2022-04-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** errors should be more ergonomic (#68)
+
+### Features
+
+* **kwap:** errors should be more ergonomic ([#68](https://github.com/clov-coffee/kwap/issues/68)) ([cdb018d](https://github.com/clov-coffee/kwap/commit/cdb018ddd04de63f385f22940e3e1f313a27d3b5))
+
 ### 0.3.7 (2022-02-12)
 
 
