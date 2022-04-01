@@ -1,8 +1,8 @@
-use kwap_msg::MessageParseError;
 use kwap_msg::to_bytes::MessageToBytesError;
+use kwap_msg::MessageParseError;
 use no_std_net::SocketAddr;
 
-use crate::config::{Config};
+use crate::config::Config;
 use crate::socket::Socket;
 
 /// The context that an error occurred in
@@ -17,7 +17,7 @@ pub enum When {
 impl When {
   /// Construct a specific error from the context the error occurred in
   pub fn what<Cfg: Config>(self, what: What<Cfg>) -> Error<Cfg> {
-    Error {when: self, what}
+    Error { when: self, what }
   }
 }
 

@@ -91,14 +91,17 @@ impl<Cfg: Config> Core<Cfg> {
     let msg = config::Message::<Cfg>::from(req);
     let when = When::SendingMessage(None, msg.id, msg.token);
 
-    core::str::from_utf8(&host).map_err(|err|when.what(What::HostInvalidUtf8(err)))
+    core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .bind(|host| Ipv4Addr::from_str(host).map_err(|_| when.what(What::HostInvalidIpAddress)))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .try_perform(|addr| {
                                  let t = Addressed(msg.clone(), *addr);
                                  self.retryable(when, t).map(|bam| self.retry_q.push(Some(bam)))
                                })
-                               .tupled(|_| msg.try_into_bytes::<ArrayVec<[u8; 1152]>>().map_err(|err| when.what(What::ToBytes(err))))
+                               .tupled(|_| {
+                                 msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
+                                    .map_err(|err| when.what(What::ToBytes(err)))
+                               })
                                .bind(|(addr, bytes)| Self::send(when, &mut self.sock, addr, bytes))
                                .map(|addr| (token, addr))
   }
@@ -106,7 +109,8 @@ impl<Cfg: Config> Core<Cfg> {
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  pub(super) fn send(when: When, sock: &mut Cfg::Socket,
+  pub(super) fn send(when: When,
+                     sock: &mut Cfg::Socket,
                      addr: SocketAddr,
                      bytes: impl Array<Item = u8>)
                      -> Result<SocketAddr, Error<Cfg>> {

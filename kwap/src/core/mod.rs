@@ -37,7 +37,10 @@ use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
 use crate::socket::{Addressed, Socket};
 
-// TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING_RATE
+// TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING
+
+type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
+type EventHandler<Cfg> = fn(&mut Core<Cfg>, &mut Event<Cfg>) -> EventIO;
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -55,15 +58,13 @@ pub struct Core<Cfg: Config> {
   //
   // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
   /// Event listeners
-  ears: ArrayVec<[Option<(MatchEvent, fn(&mut Self, &mut Event<Cfg>) -> EventIO)>; 16]>,
-  /// Received requests
-  reqs: ArrayVec<[Option<Addressed<Req<Cfg>>>; 16]>,
+  ears: Buffer<(MatchEvent, EventHandler<Cfg>), 16>,
   /// Received responses
-  resps: ArrayVec<[Option<Addressed<Resp<Cfg>>>; 16]>,
+  resps: Buffer<Addressed<Resp<Cfg>>, 16>,
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
-  fling_q: ArrayVec<[Option<Addressed<config::Message<Cfg>>>; 16]>,
+  fling_q: Buffer<Addressed<config::Message<Cfg>>, 16>,
   /// Queue of confirmable messages to send at our earliest convenience
-  retry_q: ArrayVec<[Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>>; 16]>,
+  retry_q: Buffer<Retryable<Cfg, Addressed<config::Message<Cfg>>>, 16>,
 }
 
 // NOTE!
@@ -98,7 +99,6 @@ impl<Cfg: Config> Core<Cfg> {
     Self { sock,
            clock,
            ears: Default::default(),
-           reqs: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
@@ -152,7 +152,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.retry_q
         .iter()
         .filter_map(|o| o.as_ref())
-        .inspect(|Retryable(Addressed(con, con_addr), _)| {
+        .for_each(|Retryable(Addressed(con, con_addr), _)| {
           println!("still qd: {con_non:?} {meth} {addr} {route}",
                    con_non = con.ty,
                    meth = con.code.to_string(),
@@ -168,8 +168,7 @@ impl<Cfg: Config> Core<Cfg> {
                                                        .iter()
                                                        .copied()
                                                        .collect::<Vec<_>>()));
-        })
-        .for_each(|_| ());
+        });
   }
 
   #[allow(dead_code)]
@@ -179,7 +178,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.fling_q
         .iter()
         .filter_map(|o| o.as_ref())
-        .inspect(|Addressed(con, con_addr)| {
+        .for_each(|Addressed(con, con_addr)| {
           println!("still qd: {con_non:?} {meth} {addr} {route}",
                    con_non = con.ty,
                    meth = con.code.to_string(),
@@ -195,8 +194,7 @@ impl<Cfg: Config> Core<Cfg> {
                                                        .iter()
                                                        .copied()
                                                        .collect::<Vec<_>>()));
-        })
-        .for_each(|_| ());
+        });
   }
 
   /// Listen for an event

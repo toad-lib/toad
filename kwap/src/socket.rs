@@ -5,6 +5,8 @@ use tinyvec::ArrayVec;
 #[derive(Debug, Clone, Copy)]
 pub struct Addressed<T>(pub T, pub SocketAddr);
 
+type Dgram = ArrayVec<[u8; 1152]>;
+
 /// A CoAP network socket
 ///
 /// This mirrors the Udp socket traits in embedded-nal, but allows us to implement them for foreign types (like `std::net::UdpSocket`).
@@ -25,12 +27,12 @@ pub trait Socket {
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
 
   /// Poll the socket for a datagram
-  fn poll(&self) -> Result<Option<(ArrayVec<[u8; 1152]>, SocketAddr)>, Self::Error> {
+  fn poll(&self) -> Result<Option<Addressed<Dgram>>, Self::Error> {
     let mut buf = [0u8; 1152];
     let recvd = self.recv(&mut buf);
 
     match recvd {
-      | Ok((n, addr)) => Ok(Some((buf.into_iter().take(n).collect(), addr))),
+      | Ok((n, addr)) => Ok(Some(Addressed(buf.into_iter().take(n).collect(), addr))),
       | Err(nb::Error::WouldBlock) => Ok(None),
       | Err(nb::Error::Other(e)) => Err(e),
     }

@@ -43,7 +43,8 @@ impl<T, Cfg: Config> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
   fn timeout_ok(self) -> Result<Option<T>, Error<Cfg>> {
     match self {
       | Ok(t) => Ok(Some(t)),
-      | Err(Error {what: What::MessageNeverAcked, ..}) => Ok(None),
+      | Err(Error { what: What::MessageNeverAcked,
+                    .. }) => Ok(None),
       | Err(e) => Err(e),
     }
   }
@@ -58,16 +59,14 @@ impl Client<Std> {
   /// use kwap::req::ReqBuilder;
   /// use kwap::ContentFormat;
   ///
-  /// fn main() {
-  ///   let mut client = Client::new_std();
-  ///   let req = ReqBuilder::get("127.0.0.1", 5683, "hello").accept(ContentFormat::Text)
-  ///                                                        .build()
-  ///                                                        .unwrap();
+  /// let mut client = Client::new_std();
+  /// let req = ReqBuilder::get("127.0.0.1", 5683, "hello").accept(ContentFormat::Text)
+  ///                                                      .build()
+  ///                                                      .unwrap();
   ///
-  ///   let rep = client.send(req).unwrap();
+  /// let rep = client.send(req).unwrap();
   ///
-  ///   println!("Hello, {}!", rep.payload_string().unwrap());
-  /// }
+  /// println!("Hello, {}!", rep.payload_string().unwrap());
   /// ```
   pub fn new_std() -> Self {
     let clock = crate::std::Clock::new();
