@@ -1,8 +1,7 @@
 use kwap_msg::TryFromBytes;
 
-use crate::util::{ignore, const_};
-
 use super::*;
+use crate::util::{const_, ignore};
 
 type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
                                kwap_msg::Id,
@@ -51,13 +50,21 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
   pub fn process_acks(&mut self, msg: &Addressed<config::Message<Cfg>>) {
-    // is the incoming message an ack?
     if msg.data().ty == Type::Ack {
-      self.unqueue_retry(msg.data().id, msg.addr());
+      let (id, addr) = (msg.data().id, msg.addr());
+      let ix = self.retry_q
+                   .iter()
+                   .filter_map(|o| o.as_ref())
+                   .enumerate()
+                   .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+                   .map(|(ix, _)| ix);
+
+      if let Some(ix) = ix {
+        self.retry_q.remove(ix);
+      } else {
+        // TODO: RESET if we get an ACK for a message we don't expect an ACK for?
+      }
     }
   }
 
@@ -88,13 +95,14 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   fn dgram_recvd(&mut self, when: error::When, dgram: Addressed<crate::socket::Dgram>) -> Result<(), Error<Cfg>> {
-    config::Message::<Cfg>::try_from_bytes(dgram.data())
-      .map(|msg| dgram.map(const_(msg)))
-      .map_err(|err| when.what(error::What::FromBytes(err)))
-      .map(|msg| self.msg_recvd(msg))
+    config::Message::<Cfg>::try_from_bytes(dgram.data()).map(|msg| dgram.map(const_(msg)))
+                                                        .map_err(|err| when.what(error::What::FromBytes(err)))
+                                                        .map(|msg| self.msg_recvd(msg))
   }
 
   fn msg_recvd(&mut self, msg: Addressed<config::Message<Cfg>>) -> () {
+    self.process_acks(&msg);
+
     if msg.as_ref().map(|m| m.code.class > 1).data() == &true {
       let resp = msg.map(Resp::<Cfg>::from);
       self.store_resp(resp);
@@ -108,12 +116,11 @@ impl<Cfg: Config> Core<Cfg> {
              f: DgramHandler<R, Cfg>)
              -> nb::Result<R, Error<Cfg>> {
     let when = When::Polling;
+
     self.sock
         .poll()
         .map_err(|e| when.what(What::SockError(e)))
-        .try_perform(|polled| {
-          polled.map(|dgram| self.dgram_recvd(when, dgram)).unwrap_or(Ok(()))
-        })
+        .try_perform(|polled| polled.map(|dgram| self.dgram_recvd(when, dgram)).unwrap_or(Ok(())))
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)

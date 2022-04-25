@@ -12,7 +12,7 @@
 ///     .map(const_("it worked!".into())) // equivalent to:
 /// }
 /// ```
-#[allow( unreachable_pub )]
+#[allow(unreachable_pub)]
 pub fn const_<T, R>(r: R) -> impl FnOnce(T) -> R {
   |_| r
 }
@@ -32,7 +32,7 @@ pub fn const_<T, R>(r: R) -> impl FnOnce(T) -> R {
 ///     .map(|_| ())
 /// }
 /// ```
-#[allow( unreachable_pub )]
+#[allow(unreachable_pub)]
 pub fn ignore<T>(_: T) {
   ()
 }

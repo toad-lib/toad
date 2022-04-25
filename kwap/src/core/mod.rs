@@ -127,24 +127,6 @@ impl<Cfg: Config> Core<Cfg> {
         });
   }
 
-  /// Mark an item in the retry_q as "succeeded" and do not retry it again.
-  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>> {
-    let ix = self.retry_q
-                 .iter()
-                 .filter_map(|o| o.as_ref())
-                 .enumerate()
-                 .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
-                 .map(|(ix, _)| ix);
-
-    if let Some(ix) = ix
-    {
-      let removed = self.retry_q.remove(ix);
-      removed
-    } else {
-      None
-    }
-  }
-
   fn retryable<T>(&self, when: When, t: T) -> Result<Retryable<Cfg, T>, Error<Cfg>> {
     self.clock
         .try_now()

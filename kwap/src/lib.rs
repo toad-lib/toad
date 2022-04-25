@@ -26,10 +26,8 @@
 #![doc(html_root_url = "https://docs.rs/kwap/0.4.0")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test),
-            deny(missing_debug_implementations,
-                 unsafe_code,
-                 missing_copy_implementations))]
-#![cfg_attr(not(test), warn( unreachable_pub,))]
+            deny(missing_debug_implementations, unsafe_code, missing_copy_implementations))]
+#![cfg_attr(not(test), warn(unreachable_pub,))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 // - prefer explicit effectful statements that and in a () expr
