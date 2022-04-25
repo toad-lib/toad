@@ -6,11 +6,6 @@ use kwap_msg::{TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
-/// Events used by core
-pub mod event;
-use event::listeners::{resp_from_msg, try_parse_message};
-use event::{Event, Eventer, MatchEvent};
-
 mod error;
 /// Core methods that manage inbound messages.
 ///
@@ -27,9 +22,6 @@ pub use inbound::*;
 #[doc(inline)]
 pub use outbound::*;
 
-#[cfg(test)]
-use self::event::listeners::log;
-use self::event::EventIO;
 use crate::config::{self, Config, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
@@ -39,8 +31,11 @@ use crate::socket::{Addressed, Socket};
 
 // TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING
 
+// Option for these collections provides a Default implementation,
+// which is required by ArrayVec.
+//
+// This also allows us efficiently take owned responses from the collection without reindexing the other elements.
 type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
-type EventHandler<Cfg> = fn(&mut Core<Cfg>, &mut Event<Cfg>) -> EventIO;
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 ///
@@ -53,12 +48,6 @@ pub struct Core<Cfg: Config> {
   sock: Cfg::Socket,
   /// Clock used for timing
   clock: Cfg::Clock,
-  // Option for these collections provides a Default implementation,
-  // which is required by ArrayVec.
-  //
-  // This also allows us efficiently take owned responses from the collection without reindexing the other elements.
-  /// Event listeners
-  ears: Buffer<(MatchEvent, EventHandler<Cfg>), 16>,
   /// Received responses
   resps: Buffer<Addressed<Resp<Cfg>>, 16>,
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
@@ -98,7 +87,6 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn behaviorless(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
     Self { sock,
            clock,
-           ears: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
@@ -134,14 +122,14 @@ impl<Cfg: Config> Core<Cfg> {
   pub fn bootstrap(&mut self) {
     //          RecvResp and RecvReq
     //          vvvvvvvvvvvvvvv
-    self.listen(MatchEvent::All, Self::ack);
+    // self.listen(MatchEvent::All, Self::ack);
 
-    self.listen(MatchEvent::RecvDgram, try_parse_message);
-    #[cfg(test)]
-    self.listen(MatchEvent::MsgParseError, log);
-    self.listen(MatchEvent::RecvMsg, Self::process_acks);
-    self.listen(MatchEvent::RecvMsg, resp_from_msg);
-    self.listen(MatchEvent::RecvResp, Self::store_resp);
+    // self.listen(MatchEvent::RecvDgram, try_parse_message);
+    // #[cfg(test)]
+    // self.listen(MatchEvent::MsgParseError, log);
+    // self.listen(MatchEvent::RecvMsg, Self::process_acks);
+    // self.listen(MatchEvent::RecvMsg, resp_from_msg);
+    // self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
   // TODO: use + implement crate-wide logging
@@ -197,68 +185,19 @@ impl<Cfg: Config> Core<Cfg> {
         });
   }
 
-  /// Listen for an event
-  ///
-  /// # Example
-  /// See [`Core.fire()`](#method.fire)
-  pub fn listen(&mut self, mat: MatchEvent, listener: fn(&mut Self, &mut Event<Cfg>) -> EventIO) {
-    self.ears.push(Some((mat, listener)));
-  }
-
-  /// Fire an event
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::config::Std;
-  /// use kwap::core::event::{Event, EventIO, MatchEvent};
-  /// use kwap::core::Core;
-  /// use kwap::std::Clock;
-  /// use kwap_msg::MessageParseError::UnexpectedEndOfStream;
-  ///
-  /// static mut LOG_ERRS_CALLS: u8 = 0;
-  ///
-  /// fn log_errs(_: &mut Core<Std>, ev: &mut Event<Std>) -> EventIO {
-  ///   let err = ev.get_msg_parse_error().unwrap();
-  ///   eprintln!("error! {:?}", err);
-  ///   unsafe {
-  ///     LOG_ERRS_CALLS += 1;
-  ///   }
-  ///
-  ///   EventIO
-  /// }
-  ///
-  /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
-  /// let mut client = Core::behaviorless(Clock::new(), sock);
-  ///
-  /// client.listen(MatchEvent::MsgParseError, log_errs);
-  /// client.fire(Event::<Std>::MsgParseError(UnexpectedEndOfStream));
-  ///
-  /// unsafe { assert_eq!(LOG_ERRS_CALLS, 1) }
-  /// ```
-  pub fn fire(&mut self, event: Event<Cfg>) -> EventIO {
-    let mut sound = event;
-    let ears: ArrayVec<[_; 16]> = self.ears.iter().copied().collect();
-
-    ears.into_iter().flatten().for_each(|(mat, work)| {
-                                if mat.matches(&sound) {
-                                  work(self, &mut sound).unwrap();
-                                }
-                              });
-
-    EventIO
-  }
-
   /// Mark an item in the retry_q as "succeeded" and do not retry it again.
-  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<()> {
-    if let Some((ix, _)) = self.retry_q
-                               .iter()
-                               .filter_map(|o| o.as_ref())
-                               .enumerate()
-                               .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+  pub fn unqueue_retry(&mut self, id: kwap_msg::Id, addr: SocketAddr) -> Option<Retryable<Cfg, Addressed<config::Message<Cfg>>>> {
+    let ix = self.retry_q
+                 .iter()
+                 .filter_map(|o| o.as_ref())
+                 .enumerate()
+                 .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+                 .map(|(ix, _)| ix);
+
+    if let Some(ix) = ix
     {
-      self.retry_q.remove(ix);
-      Some(())
+      let removed = self.retry_q.remove(ix);
+      removed
     } else {
       None
     }
@@ -277,16 +216,6 @@ impl<Cfg: Config> Core<Cfg> {
   }
 }
 
-impl<Cfg: Config> Eventer<Cfg> for Core<Cfg> {
-  fn fire(&mut self, ev: Event<Cfg>) -> EventIO {
-    Self::fire(self, ev)
-  }
-
-  fn listen(&mut self, mat: MatchEvent, f: fn(&mut Self, &mut Event<Cfg>) -> EventIO) {
-    self.listen(mat, f)
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use kwap_msg::TryIntoBytes;
@@ -299,37 +228,6 @@ mod tests {
   use crate::test::TubeSock;
 
   type Config = Alloc<crate::std::Clock, TubeSock>;
-
-  #[test]
-  fn eventer() {
-    let req = Req::<Config>::get("0.0.0.0", 1234, "");
-    let bytes = config::Message::<Config>::from(req).try_into_bytes::<ArrayVec<[u8; 1152]>>()
-                                                    .unwrap();
-    let mut client = Core::<Config>::behaviorless(crate::std::Clock::new(), TubeSock::new());
-
-    fn on_err(_: &mut Core<Config>, e: &mut Event<Config>) -> EventIO {
-      panic!("{:?}", e);
-    }
-
-    static mut CALLS: usize = 0;
-    fn on_dgram(_: &mut Core<Config>, _: &mut Event<Config>) -> EventIO {
-      unsafe {
-        CALLS += 1;
-      }
-
-      EventIO
-    }
-
-    client.listen(MatchEvent::MsgParseError, on_err);
-    client.listen(MatchEvent::RecvDgram, on_dgram);
-
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    client.fire(Event::RecvDgram(Some((bytes, addr.into())))).unwrap();
-
-    unsafe {
-      assert_eq!(CALLS, 1);
-    }
-  }
 
   #[test]
   fn ping() {
@@ -346,9 +244,9 @@ mod tests {
                      payload: kwap_msg::Payload(Default::default()),
                      opts: Default::default() };
 
-    let bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
+    let _bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();
 
-    client.fire(Event::RecvDgram(Some((bytes, addr)))).unwrap();
+    // client.fire(Event::RecvDgram(Some((bytes, addr)))).unwrap();
     client.poll_ping(id, addr).unwrap();
   }
 

@@ -27,9 +27,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test),
             deny(missing_debug_implementations,
-                 unreachable_pub,
                  unsafe_code,
                  missing_copy_implementations))]
+#![cfg_attr(not(test), warn( unreachable_pub,))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 #![deny(missing_docs)]
 // - prefer explicit effectful statements that and in a () expr
@@ -38,6 +38,8 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
+
+mod util;
 
 /// Blocking CoAP client & server
 pub mod blocking;

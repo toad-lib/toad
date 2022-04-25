@@ -97,8 +97,7 @@ impl<Cfg: Config> Client<Cfg> {
   pub fn send(&mut self, req: Req<Cfg>) -> Result<Resp<Cfg>, Error<Cfg>> {
     self.core
         .send_req(req)
-        .map_err_into()
-        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)).map_err_into())
+        .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)))
   }
 
   /// Send a GET request
