@@ -67,69 +67,11 @@ pub struct Core<Cfg: Config> {
 impl<Cfg: Config> Core<Cfg> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
-    let mut me = Self::behaviorless(clock, sock);
-    me.bootstrap();
-    me
-  }
-
-  /// Create a new runtime without any actual behavior
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::config::Std;
-  /// use kwap::core::Core;
-  /// use kwap::std::Clock;
-  ///
-  /// let sock = UdpSocket::bind("0.0.0.0:12345").unwrap();
-  /// Core::<Std>::behaviorless(Clock::new(), sock);
-  /// ```
-  pub fn behaviorless(clock: Cfg::Clock, sock: Cfg::Socket) -> Self {
     Self { sock,
            clock,
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
-  }
-
-  /// Add the default behavior to a behaviorless Core
-  ///
-  /// # Example
-  /// See `./examples/client.rs`
-  ///
-  /// # Event handlers registered
-  ///
-  /// | Event type | Handler | Should then fire | Remarks |
-  /// | -- | -- | -- | -- |
-  /// | [`Event::RecvDgram`] | [`try_parse_message`] | [`Event::MsgParseError`] or [`Event::RecvMsg`] | None |
-  /// | [`Event::MsgParseError`] | [`log`] | None | only when crate feature `no_std` is not enabled |
-  /// | [`Event::RecvMsg`] | [`resp_from_msg`] | [`Event::RecvResp`] or nothing | None |
-  /// | [`Event::RecvResp`] | [`Core::store_resp`](#method.store_resp) | nothing (yet) | Manages internal state used to match request ids (see [`Core.poll_resp()`](#method.poll_resp)) |
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::config::Std;
-  /// use kwap::core::Core;
-  /// use kwap::std::Clock;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8003)).unwrap();
-  ///
-  /// // Note: this is the same as Core::new().
-  /// let mut core = Core::<Std>::behaviorless(Clock::new(), sock);
-  /// core.bootstrap()
-  /// ```
-  pub fn bootstrap(&mut self) {
-    //          RecvResp and RecvReq
-    //          vvvvvvvvvvvvvvv
-    // self.listen(MatchEvent::All, Self::ack);
-
-    // self.listen(MatchEvent::RecvDgram, try_parse_message);
-    // #[cfg(test)]
-    // self.listen(MatchEvent::MsgParseError, log);
-    // self.listen(MatchEvent::RecvMsg, Self::process_acks);
-    // self.listen(MatchEvent::RecvMsg, resp_from_msg);
-    // self.listen(MatchEvent::RecvResp, Self::store_resp);
   }
 
   // TODO: use + implement crate-wide logging
