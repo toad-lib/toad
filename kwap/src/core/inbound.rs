@@ -1,4 +1,7 @@
+use kwap_msg::TryFromBytes;
+
 use super::*;
+use crate::util::{const_, ignore};
 
 type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
                                kwap_msg::Id,
@@ -24,17 +27,14 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// # Panics
   /// panics when response tracking limit reached (e.g. 64 requests were sent and we haven't polled for a response of a single one)
-  pub fn store_resp(&mut self, ev: &mut Event<Cfg>) -> EventIO {
-    let resp = ev.get_mut_resp().unwrap().take().unwrap();
-    if let Some(resp) = self.resps.try_push(Some(Addressed(resp.0, resp.1))) {
+  pub fn store_resp(&mut self, resp: Addressed<Resp<Cfg>>) -> () {
+    if let Some(resp) = self.resps.try_push(Some(resp)) {
       // arrayvec is full, remove nones
       self.resps = self.resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
 
       // panic if we're still full
       self.resps.push(resp);
     }
-
-    EventIO
   }
 
   /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
@@ -43,32 +43,29 @@ impl<Cfg: Config> Core<Cfg> {
   ///
   /// # Panics
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn ack(&mut self, ev: &mut Event<Cfg>) -> EventIO {
-    match ev {
-      | Event::RecvResp(Some((ref resp, ref addr))) => {
-        if resp.msg_type() == kwap_msg::Type::Con {
-          self.fling_q.push(Some(mk_ack::<Cfg>(resp.token(), *addr)));
-        }
-      },
-      | _ => (),
-    };
-
-    EventIO
+  pub fn ack(&mut self, resp: Addressed<Resp<Cfg>>) {
+    if resp.data().msg_type() == kwap_msg::Type::Con {
+      self.fling_q.push(Some(mk_ack::<Cfg>(resp.data().token(), resp.addr())));
+    }
   }
 
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. 64 pings were sent and we haven't polled for a response of a single one)
-  pub fn process_acks(&mut self, ev: &mut Event<Cfg>) -> EventIO {
-    let msg = ev.get_mut_msg().unwrap();
+  pub fn process_acks(&mut self, msg: &Addressed<config::Message<Cfg>>) {
+    if msg.data().ty == Type::Ack {
+      let (id, addr) = (msg.data().id, msg.addr());
+      let ix = self.retry_q
+                   .iter()
+                   .filter_map(|o| o.as_ref())
+                   .enumerate()
+                   .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
+                   .map(|(ix, _)| ix);
 
-    // is the incoming message an ack?
-    if let Some((kwap_msg::Message { id, ty: Type::Ack, .. }, addr)) = msg {
-      self.unqueue_retry(*id, *addr);
+      if let Some(ix) = ix {
+        self.retry_q.remove(ix);
+      } else {
+        // TODO: RESET if we get an ACK for a message we don't expect an ACK for?
+      }
     }
-
-    EventIO
   }
 
   /// Poll for a response to a sent request
@@ -97,6 +94,21 @@ impl<Cfg: Config> Core<Cfg> {
     self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
   }
 
+  fn dgram_recvd(&mut self, when: error::When, dgram: Addressed<crate::socket::Dgram>) -> Result<(), Error<Cfg>> {
+    config::Message::<Cfg>::try_from_bytes(dgram.data()).map(|msg| dgram.map(const_(msg)))
+                                                        .map_err(|err| when.what(error::What::FromBytes(err)))
+                                                        .map(|msg| self.msg_recvd(msg))
+  }
+
+  fn msg_recvd(&mut self, msg: Addressed<config::Message<Cfg>>) -> () {
+    self.process_acks(&msg);
+
+    if msg.as_ref().map(|m| m.code.class > 1).data() == &true {
+      let resp = msg.map(Resp::<Cfg>::from);
+      self.store_resp(resp);
+    }
+  }
+
   fn poll<R>(&mut self,
              req_id: kwap_msg::Id,
              addr: SocketAddr,
@@ -104,16 +116,11 @@ impl<Cfg: Config> Core<Cfg> {
              f: DgramHandler<R, Cfg>)
              -> nb::Result<R, Error<Cfg>> {
     let when = When::Polling;
+
     self.sock
         .poll()
-        .map(|polled| {
-          if let Some(Addressed(dgram, sock)) = polled {
-            // allow the state machine to process the incoming message
-            self.fire(Event::RecvDgram(Some((dgram, sock)))).unwrap();
-          }
-          ()
-        })
         .map_err(|e| when.what(What::SockError(e)))
+        .try_perform(|polled| polled.map(|dgram| self.dgram_recvd(when, dgram)).unwrap_or(Ok(())))
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)

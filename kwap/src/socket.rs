@@ -1,11 +1,44 @@
 use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
-/// Something that is associated with some network socket
+/// Data that came from a network socket
 #[derive(Debug, Clone, Copy)]
 pub struct Addressed<T>(pub T, pub SocketAddr);
 
-type Dgram = ArrayVec<[u8; 1152]>;
+impl<T> Addressed<T> {
+  /// Borrow the contents of this Addressed
+  pub fn as_ref(&self) -> Addressed<&T> {
+    Addressed(self.data(), self.addr())
+  }
+
+  /// Discard the socket and get the data in this Addressed
+  pub fn unwrap(self) -> T {
+    self.0
+  }
+
+  /// Map the data contained in this Addressed
+  pub fn map<R>(self, f: impl FnOnce(T) -> R) -> Addressed<R> {
+    Addressed(f(self.0), self.1)
+  }
+
+  /// Map the data contained in this Addressed (with a copy of the address)
+  pub fn map_with_addr<R>(self, f: impl FnOnce(T, SocketAddr) -> R) -> Addressed<R> {
+    Addressed(f(self.0, self.1), self.1)
+  }
+
+  /// Borrow the contents of the addressed item
+  pub fn data(&self) -> &T {
+    &self.0
+  }
+
+  /// Copy the socket address for the data
+  pub fn addr(&self) -> SocketAddr {
+    self.1
+  }
+}
+
+/// TODO
+pub type Dgram = ArrayVec<[u8; 1152]>;
 
 /// A CoAP network socket
 ///
