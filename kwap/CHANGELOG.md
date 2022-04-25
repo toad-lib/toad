@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.5.0 (2022-04-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** reduce complexity (#69)
+
+### Features
+
+* **kwap:** reduce complexity ([#69](https://github.com/clov-coffee/kwap/issues/69)) ([2762226](https://github.com/clov-coffee/kwap/commit/2762226634e2a538bb3c3f3173792c32e7c4b8b9))
+
 ## 0.4.0 (2022-04-01)
 
 
