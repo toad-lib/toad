@@ -8,8 +8,7 @@
 /// }
 ///
 /// fn do_stuff() -> Result<String, std::io::Error> {
-///   try_get_string().map(const_("it worked!".to_string())) // equivalent to:
-///                   .map(|_| "it worked!".to_string())
+///   try_get_string().map(const_("it worked!".into())) // equivalent to:
 /// }
 /// ```
 pub fn const_<T, R>(r: R) -> impl FnOnce(T) -> R {
