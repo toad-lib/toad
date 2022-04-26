@@ -1,6 +1,6 @@
 //! Common structs and abstractions used by `kwap`
 
-#![doc(html_root_url = "https://docs.rs/kwap-common/0.6.0")]
+#![doc(html_root_url = "https://docs.rs/kwap-common/0.6.1")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
