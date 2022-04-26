@@ -4,11 +4,26 @@
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
+#![allow(clippy::unused_unit)]
 #![deny(missing_docs)]
 
 extern crate alloc;
 use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut};
+
+/// Extensions to Result
+pub mod result;
+
+/// Function utils
+pub mod fns;
+
+/// `kwap` prelude
+pub mod prelude {
+  pub use fns::*;
+  pub use result::*;
+
+  pub use super::*;
+}
 
 /// An ordered indexable collection of some type `Item`
 ///
