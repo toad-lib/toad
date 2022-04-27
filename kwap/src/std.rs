@@ -2,16 +2,14 @@
 
 use std::io::{self, Error, ErrorKind};
 use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
-use std::time::Instant;
 
-use embedded_time as emb_time;
+use kwap_common::prelude::*;
 
-use crate::result_ext::ResultExt;
 use crate::socket::Socket;
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
-pub struct Clock(Instant);
+pub struct Clock(std::time::Instant);
 
 impl Default for Clock {
   fn default() -> Self {
@@ -22,19 +20,19 @@ impl Default for Clock {
 impl Clock {
   /// Create a new clock
   pub fn new() -> Self {
-    Self(Instant::now())
+    Self(std::time::Instant::now())
   }
 }
 
-impl emb_time::Clock for Clock {
+impl embedded_time::Clock for Clock {
   type T = u64;
 
-  const SCALING_FACTOR: emb_time::rate::Fraction = emb_time::rate::Fraction::new(1, 1_000_000_000);
+  const SCALING_FACTOR: embedded_time::rate::Fraction = embedded_time::rate::Fraction::new(1, 1_000_000_000);
 
-  fn try_now(&self) -> Result<emb_time::Instant<Self>, emb_time::clock::Error> {
-    let now = Instant::now();
+  fn try_now(&self) -> Result<embedded_time::Instant<Self>, embedded_time::clock::Error> {
+    let now = std::time::Instant::now();
     let elapsed = now.duration_since(self.0);
-    Ok(emb_time::Instant::new(elapsed.as_nanos() as u64))
+    Ok(embedded_time::Instant::new(elapsed.as_nanos() as u64))
   }
 }
 
@@ -72,36 +70,36 @@ fn std_addr_v4_from_no_std(no_std: no_std_net::SocketAddrV4) -> std::net::Socket
   std::net::SocketAddr::V4(std::net::SocketAddrV4::new(ip, no_std.port()))
 }
 
-fn std_addr_v6_from_no_std(sock: no_std_net::SocketAddrV6) -> std::net::SocketAddr {
-  let [a, b, c, d, e, f, g, h] = sock.ip().segments();
+fn std_addr_v6_from_no_std(no_std: no_std_net::SocketAddrV6) -> std::net::SocketAddr {
+  let [a, b, c, d, e, f, g, h] = no_std.ip().segments();
   let ip = Ipv6Addr::new(a, b, c, d, e, f, g, h);
-  std::net::SocketAddr::V6(std::net::SocketAddrV6::new(ip, sock.port(), sock.flowinfo(), sock.scope_id()))
+  std::net::SocketAddr::V6(std::net::SocketAddrV6::new(ip, no_std.port(), no_std.flowinfo(), no_std.scope_id()))
 }
 
-fn std_addr_from_no_std<A: no_std_net::ToSocketAddrs>(a: A) -> Option<Vec<SocketAddr>> {
-  a.to_socket_addrs().ok().map(|iter| {
-                            iter.map(|addr| match addr {
-                                  | no_std_net::SocketAddr::V4(sock) => std_addr_v4_from_no_std(sock),
-                                  | no_std_net::SocketAddr::V6(sock) => std_addr_v6_from_no_std(sock),
-                                })
-                                .collect()
-                          })
+fn std_addr_from_no_std<A: no_std_net::ToSocketAddrs>(no_std: A) -> Option<Vec<SocketAddr>> {
+  no_std.to_socket_addrs().ok().map(|iter| {
+                                 iter.map(|addr| match addr {
+                                       | no_std_net::SocketAddr::V4(sock) => std_addr_v4_from_no_std(sock),
+                                       | no_std_net::SocketAddr::V6(sock) => std_addr_v6_from_no_std(sock),
+                                     })
+                                     .collect()
+                               })
 }
 
-fn no_std_addr_v4_from_std(no_std: SocketAddrV4) -> no_std_net::SocketAddr {
-  let [a, b, c, d] = no_std.ip().octets();
+fn no_std_addr_v4_from_std(std: SocketAddrV4) -> no_std_net::SocketAddr {
+  let [a, b, c, d] = std.ip().octets();
   let ip = no_std_net::Ipv4Addr::new(a, b, c, d);
-  no_std_net::SocketAddr::V4(no_std_net::SocketAddrV4::new(ip, no_std.port()))
+  no_std_net::SocketAddr::V4(no_std_net::SocketAddrV4::new(ip, std.port()))
 }
 
-fn no_std_addr_v6_from_std(sock: SocketAddrV6) -> no_std_net::SocketAddr {
-  let [a, b, c, d, e, f, g, h] = sock.ip().segments();
+fn no_std_addr_v6_from_std(std: SocketAddrV6) -> no_std_net::SocketAddr {
+  let [a, b, c, d, e, f, g, h] = std.ip().segments();
   let ip = no_std_net::Ipv6Addr::new(a, b, c, d, e, f, g, h);
-  no_std_net::SocketAddr::V6(no_std_net::SocketAddrV6::new(ip, sock.port(), sock.flowinfo(), sock.scope_id()))
+  no_std_net::SocketAddr::V6(no_std_net::SocketAddrV6::new(ip, std.port(), std.flowinfo(), std.scope_id()))
 }
 
-fn no_std_addr_from_std(addr: SocketAddr) -> no_std_net::SocketAddr {
-  match addr {
+fn no_std_addr_from_std(std: SocketAddr) -> no_std_net::SocketAddr {
+  match std {
     | SocketAddr::V4(sock) => no_std_addr_v4_from_std(sock),
     | SocketAddr::V6(sock) => no_std_addr_v6_from_std(sock),
   }

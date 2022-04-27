@@ -1,10 +1,11 @@
+use kwap_common::prelude::*;
+
 use crate::config::Config;
 #[cfg(feature = "std")]
 use crate::config::Std;
 use crate::core::{Core, Error, What};
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
-use crate::result_ext::{MapErrInto, ResultExt};
 
 /// Config struct containing things needed to make a new Client.
 ///
@@ -87,8 +88,7 @@ impl<Cfg: Config> Client<Cfg> {
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(), Error<Cfg>> {
     self.core
         .ping(host, port)
-        .map_err_into()
-        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)).map_err_into())
+        .bind(|(id, addr)| nb::block!(self.core.poll_ping(id, addr)))
   }
 
   /// Send a request
