@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "kwap"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "embedded-time",
  "kwap-common 0.6.0",
