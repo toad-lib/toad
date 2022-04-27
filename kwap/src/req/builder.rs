@@ -1,7 +1,8 @@
+use kwap_common::prelude::*;
+
 use super::{Method, Req};
 use crate::config::Config;
 use crate::option::common_options;
-use crate::result_ext::ResultExt;
 use crate::ToCoapValue;
 
 /// Errors encounterable while using ReqBuilder

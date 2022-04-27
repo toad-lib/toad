@@ -1,7 +1,7 @@
 use core::str::FromStr;
 
 use embedded_time::Clock;
-use kwap_common::Array;
+use kwap_common::prelude::*;
 use kwap_msg::{TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
@@ -25,7 +25,6 @@ pub use outbound::*;
 use crate::config::{self, Config, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::result_ext::ResultExt;
 use crate::retry::RetryTimer;
 use crate::socket::{Addressed, Socket};
 

@@ -1,7 +1,6 @@
 use kwap_msg::TryFromBytes;
 
 use super::*;
-use crate::util::{const_, ignore};
 
 type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
                                kwap_msg::Id,
