@@ -142,8 +142,10 @@ impl TryFrom<u8> for Byte1 {
 
 impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Id {
   type Error = MessageParseError;
+
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
     let taken_bytes = bytes.take(2).collect::<ArrayVec<[_; 2]>>();
+
     if taken_bytes.is_full() {
       Ok(taken_bytes.into_inner()).map(|bs| Id(u16::from_be_bytes(bs)))
     } else {
@@ -161,6 +163,7 @@ impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for Token {
     Ok(Token(token))
   }
 }
+
 impl<I: Iterator<Item = u8>> TryConsumeBytes<I> for OptDelta {
   type Error = OptParseError;
 
