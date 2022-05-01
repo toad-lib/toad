@@ -23,19 +23,31 @@
 //! - Because UDP is a "connectionless" protocol, it offers no guarantee of "conversation" between traditional client and server roles. All the UDP transport layer gives you is a method to listen for messages thrown at you, and to throw messages at someone. Owing to this, CoAP machines are expected to perform both client and server roles (or more accurately, _sender_ and _receiver_ roles)
 //! - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
+// docs ==>
 #![doc(html_root_url = "https://docs.rs/kwap/0.5.2")]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(test),
-            deny(missing_debug_implementations, unsafe_code, missing_copy_implementations))]
-#![cfg_attr(not(test), warn(unreachable_pub,))]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
-#![deny(missing_docs)]
-// - prefer explicit effectful statements that and in a () expr
-// - prefer `fn foo() -> ()` to `fn foo()`
+// <== docs
+// style ==>
 #![allow(clippy::unused_unit)]
+// <== style
+// deny ==>
+#![deny(missing_docs)]
+#![deny(missing_debug_implementations)]
+#![deny(missing_copy_implementations)]
+#![cfg_attr(not(test), deny(unsafe_code))]
+// <== deny
+// warnings ==>
+#![cfg_attr(not(test), warn(unreachable_pub))]
+// <== warnings
+// features ==>
+#![cfg_attr(not(feature = "std"), no_std)]
+// <== features
 
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
+
+#[doc(hidden)]
+pub mod todo;
 
 /// Blocking CoAP client & server
 pub mod blocking;
