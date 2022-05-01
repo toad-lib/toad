@@ -1,4 +1,5 @@
-//! Extensions that will end up moving to another crate but are developed and used by kwap temporarily.
+//! Future inherent methods on structs in other crates
+
 use kwap_common::Array;
 use kwap_msg::*;
 
