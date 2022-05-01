@@ -1,7 +1,7 @@
 use kwap_msg::TryFromBytes;
 
 use super::*;
-use crate::todo::Message;
+use crate::todo::{Code, CodeKind, Message};
 
 type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
                                kwap_msg::Id,
@@ -45,7 +45,7 @@ impl<Cfg: Config> Core<Cfg> {
       let (id, addr) = (msg.data().id, msg.addr());
       let ix = self.retry_q
                    .iter()
-                   .filter_map(|o| o.as_ref())
+                   .filter_map(Option::as_ref)
                    .enumerate()
                    .find(|(_, Retryable(Addressed(con, con_addr), _))| *con_addr == addr && con.id == id)
                    .map(|(ix, _)| ix);
@@ -53,7 +53,7 @@ impl<Cfg: Config> Core<Cfg> {
       if let Some(ix) = ix {
         self.retry_q.remove(ix);
       } else {
-        // TODO: RESET if we get an ACK for a message we don't expect an ACK for?
+        // TODO(#76): we got an ACK for a message we don't know about. What do we do?
       }
     }
   }
@@ -85,7 +85,7 @@ impl<Cfg: Config> Core<Cfg> {
   }
 
   fn dgram_recvd(&mut self, when: error::When, dgram: Addressed<crate::socket::Dgram>) -> Result<(), Error<Cfg>> {
-    config::Message::<Cfg>::try_from_bytes(dgram.data()).map(|msg| dgram.map(const_(msg)))
+    config::Message::<Cfg>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
                                                         .map_err(|err| when.what(error::What::FromBytes(err)))
                                                         .map(|msg| self.msg_recvd(msg))
   }
@@ -93,9 +93,8 @@ impl<Cfg: Config> Core<Cfg> {
   fn msg_recvd(&mut self, msg: Addressed<config::Message<Cfg>>) -> () {
     self.process_acks(&msg);
 
-    if msg.as_ref().map(|m| m.code.class > 1).data() == &true {
-      let resp = msg.map(Resp::<Cfg>::from);
-      self.store_resp(resp);
+    if msg.data().code.kind() == CodeKind::Response {
+      self.store_resp(msg.map(Into::into));
     }
   }
 

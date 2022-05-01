@@ -114,7 +114,7 @@ impl<Cfg: Config> Core<Cfg> {
                      addr: SocketAddr,
                      bytes: impl Array<Item = u8>)
                      -> Result<SocketAddr, Error<Cfg>> {
-    // TODO: uncouple from ipv4
+    // TODO(#77): support ipv6
     sock.connect(addr)
         .map_err(|err| when.what(What::SockError(err)))
         .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(|err| when.what(What::SockError(err))))

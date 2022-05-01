@@ -28,7 +28,14 @@ use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::socket::{Addressed, Socket};
 
-// TODO: support ACK_TIMEOUT, ACK_RANDOM_FACTOR, MAX_RETRANSMIT, NSTART, DEFAULT_LEISURE, PROBING
+// TODO(#81):
+//   support environment variables:
+//   - ACK_TIMEOUT
+//   - ACK_RANDOM_FACTOR
+//   - MAX_RETRANSMIT
+//   - NSTART
+//   - DEFAULT_LEISURE
+//   - PROBING
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -73,7 +80,7 @@ impl<Cfg: Config> Core<Cfg> {
            retry_q: Default::default() }
   }
 
-  // TODO: use + implement crate-wide logging
+  // TODO(#78): use + implement crate-wide logging
   #[allow(dead_code)]
   #[cfg(feature = "std")]
   fn trace_con_q(&self) {

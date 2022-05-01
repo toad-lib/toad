@@ -37,7 +37,10 @@ impl<T> Addressed<T> {
   }
 }
 
-/// TODO
+/// A packet recieved over a UDP socket.
+///
+/// Currently the capacity is hard-coded at 1152 bytes,
+/// but this will eventually be configurable at compile-time.
 pub type Dgram = ArrayVec<[u8; 1152]>;
 
 /// A CoAP network socket
