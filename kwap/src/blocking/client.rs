@@ -24,10 +24,10 @@ pub struct ClientConfig<Cfg: Config> {
   pub sock: Cfg::Socket,
 }
 
+// TODO(#80): Make clients usable by multiple threads (Send)
 /// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
 pub struct Client<Cfg: Config> {
-  // TODO: wrap with refcell on non-std or mutex on std
   core: Core<Cfg>,
 }
 

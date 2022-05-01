@@ -3,6 +3,48 @@
 use kwap_common::Array;
 use kwap_msg::*;
 
+/// Whether a code is for a request, response, or empty message
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeKind {
+  /// A request code
+  Request,
+  /// A response code
+  Response,
+  /// EMPTY
+  Empty,
+}
+
+/// Future methods on [`kwap_msg::Code`]
+pub trait Code {
+  /// Get whether this code is for a request, response, or empty message
+  ///
+  /// ```
+  /// use kwap_msg::Code;
+  /// # use kwap::todo::{CodeKind, Code as TodoCode};
+  ///
+  /// let empty: Code = Code::new(0, 0);
+  /// assert_eq!(empty.kind(), CodeKind::Empty);
+  ///
+  /// let req = Code::new(1, 1); // GET
+  /// assert_eq!(req.kind(), CodeKind::Request);
+  ///
+  /// let resp = Code::new(2, 5); // OK CONTENT
+  /// assert_eq!(resp.kind(), CodeKind::Response);
+  /// ```
+  fn kind(&self) -> CodeKind;
+}
+
+impl Code for kwap_msg::Code {
+  fn kind(&self) -> CodeKind {
+    match self.class {
+      | 0 => CodeKind::Empty,
+      | 1 => CodeKind::Request,
+      | _ => CodeKind::Response,
+    }
+  }
+}
+
+/// Future methods on [`kwap_msg::Message`]
 pub trait Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>> {
   /// Create a new message that ACKs this one.
   ///
@@ -54,7 +96,7 @@ impl<PayloadC: Array<Item = u8> + Clone,
            token: self.token,
            ver: Default::default(),
            ty: Type::Ack,
-           code: Code::new(0, 0),
+           code: kwap_msg::Code::new(0, 0),
            payload: Payload(Default::default()),
            opts: Default::default() }
   }
