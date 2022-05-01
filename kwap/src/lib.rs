@@ -37,6 +37,9 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
+#[doc(hidden)]
+pub mod todo;
+
 /// Blocking CoAP client & server
 pub mod blocking;
 

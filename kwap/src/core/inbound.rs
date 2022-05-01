@@ -1,25 +1,13 @@
 use kwap_msg::TryFromBytes;
 
 use super::*;
+use crate::todo::Message;
 
 type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
                                kwap_msg::Id,
                                kwap_msg::Token,
                                SocketAddr)
                                -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>;
-
-fn mk_ack<Cfg: Config>(tk: kwap_msg::Token, addr: SocketAddr) -> Addressed<config::Message<Cfg>> {
-  use kwap_msg::*;
-  let msg = config::Message::<Cfg> { id: crate::generate_id(),
-                                     token: tk,
-                                     ver: Default::default(),
-                                     ty: Type::Ack,
-                                     code: Code::new(0, 0),
-                                     payload: Payload(Default::default()),
-                                     opts: Default::default() };
-
-  Addressed(msg, addr)
-}
 
 impl<Cfg: Config> Core<Cfg> {
   /// Listens for RecvResp events and stores them on the runtime struct
@@ -44,7 +32,10 @@ impl<Cfg: Config> Core<Cfg> {
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
   pub fn ack(&mut self, resp: Addressed<Resp<Cfg>>) {
     if resp.data().msg_type() == kwap_msg::Type::Con {
-      self.fling_q.push(Some(mk_ack::<Cfg>(resp.data().token(), resp.addr())));
+      let ack_id = crate::generate_id();
+      let ack = resp.map(|resp| resp.msg.ack(ack_id));
+
+      self.fling_q.push(Some(ack));
     }
   }
 
