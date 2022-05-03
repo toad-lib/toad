@@ -1,3 +1,5 @@
+use core::str::Utf8Error;
+
 use kwap_common::Array;
 use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
 
@@ -93,6 +95,11 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get the request method
   pub fn method(&self) -> Method {
     Method(self.msg.code)
+  }
+
+  /// Get the request path (Uri-Path option)
+  pub fn path(&self) -> Result<Option<&str>, core::str::Utf8Error> {
+    self.get_option(11).map(|o| core::str::from_utf8(&o.value.0).map(Some)).unwrap_or(Ok(None))
   }
 
   /// Get the request type (confirmable, non-confirmable)
