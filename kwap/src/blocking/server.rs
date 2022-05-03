@@ -1,6 +1,8 @@
 use kwap_common::Array;
 
-use crate::config::{self, Config, Std};
+#[cfg(feature = "std")]
+use crate::config::Std;
+use crate::config::{self, Config};
 use crate::core::Core;
 use crate::req::Req;
 use crate::socket::Addressed;
@@ -34,6 +36,7 @@ pub struct Server<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed
   middleware: Middleware,
 }
 
+#[cfg(feature = "std")]
 impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Action<Std>)>> {
   /// Create a new Server
   ///
