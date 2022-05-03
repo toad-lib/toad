@@ -89,8 +89,37 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
 impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
   Server<'a, Cfg, Middleware>
 {
-  /// TODO
-  pub fn middleware(&mut self, f: <Middleware as Array>::Item) -> () {
+  /// Add a function that will be called with incoming messages.
+  ///
+  /// These functions, "middleware," perform [`Action`]s and indicate
+  /// whether the message should [`Continue`] to be processed by the next
+  /// middleware function or not.
+  ///
+  /// Middleware functions are called in the order that they were registered.
+  ///
+  /// ```compile_fail
+  /// fn hello(Addressed<Req<Cfg>>) -> (Continue, Action) {
+  ///   /*
+  ///     path == "hello"
+  ///     ? (Continue::No, Action::Send(2.05 CONTENT))
+  ///     : (Continue::Yes, Action::Nop)
+  ///   */
+  /// }
+  ///
+  /// fn not_found(Addressed<Req<Cfg>>) -> (Continue, Action) {
+  ///   // always returns (Continue::No, Send(4.04 NOT FOUND))
+  /// }
+  ///
+  /// // This will try to respond to /hello, and if the hello middleware
+  /// // fails to process the request then we respond 4.04
+  /// server.middleware(hello);
+  /// server.middleware(not_found);
+  ///
+  /// // GOTCHA! This will always respond 4.04
+  /// server.middleware(not_found);
+  /// server.middleware(hello);
+  /// ```
+  pub fn middleware(&mut self, f: &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)) -> () {
     self.middleware.push(f);
   }
 }
