@@ -3,11 +3,11 @@ use kwap_msg::TryFromBytes;
 use super::*;
 use crate::todo::{Code, CodeKind, Message};
 
-type DgramHandler<R, Cfg> = fn(&mut Core<Cfg>,
-                               kwap_msg::Id,
-                               kwap_msg::Token,
-                               SocketAddr)
-                               -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>;
+type DgramMethod<R, Cfg> = fn(&mut Core<Cfg>,
+                              kwap_msg::Id,
+                              kwap_msg::Token,
+                              SocketAddr)
+                              -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>;
 
 impl<Cfg: Config> Core<Cfg> {
   /// Listens for RecvResp events and stores them on the runtime struct
@@ -102,7 +102,7 @@ impl<Cfg: Config> Core<Cfg> {
              req_id: kwap_msg::Id,
              addr: SocketAddr,
              token: kwap_msg::Token,
-             f: DgramHandler<R, Cfg>)
+             f: DgramMethod<R, Cfg>)
              -> nb::Result<R, Error<Cfg>> {
     let when = When::Polling;
 
@@ -122,14 +122,19 @@ impl<Cfg: Config> Core<Cfg> {
                   sock: SocketAddr)
                   -> nb::Result<Resp<Cfg>, <<Cfg as Config>::Socket as Socket>::Error> {
     let resp_matches = |o: &Option<Addressed<Resp<Cfg>>>| {
-      let Addressed(resp, sock_stored) = o.as_ref().unwrap();
-      resp.msg.token == token && *sock_stored == sock
+      o.as_ref()
+       .map(|rep| {
+         rep.as_ref()
+            .map_with_addr(|rep, addr| rep.msg.token == token && addr == sock)
+            .unwrap()
+       })
+       .unwrap_or(false)
     };
 
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
-          | o @ Some(_) if resp_matches(o) => Option::take(o).map(|Addressed(resp, _)| resp),
+          | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
         .ok_or(nb::Error::WouldBlock)
