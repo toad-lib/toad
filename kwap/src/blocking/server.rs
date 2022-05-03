@@ -1,6 +1,6 @@
 use kwap_common::Array;
 
-use crate::config::{Config, Std, self};
+use crate::config::{self, Config, Std};
 use crate::core::Core;
 use crate::req::Req;
 use crate::socket::Addressed;
@@ -26,7 +26,8 @@ pub enum Action<Cfg: Config> {
 
 /// Foo
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>> {
+pub struct Server<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
+{
   core: Core<Cfg>,
   middleware: Middleware,
 }
@@ -35,34 +36,31 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
   /// Create a new Server
   ///
   /// ```no_run
-  /// use kwap::ContentFormat;
-  /// use kwap::config::{Std, Message};
-  /// use kwap::socket::Addressed;
+  /// use kwap::blocking::server::{Action, Continue, Server};
+  /// use kwap::config::{Message, Std};
   /// use kwap::req::Req;
-  /// use kwap::resp::{Resp, code};
-  ///
-  /// use kwap::blocking::server::{Server, Continue, Action};
+  /// use kwap::resp::{code, Resp};
+  /// use kwap::socket::Addressed;
+  /// use kwap::ContentFormat;
   ///
   /// fn hello(req: Addressed<Req<Std>>) -> (Continue, Action<Std>) {
-  ///    match req.data().path() {
-  ///      Ok(Some("hello")) => {
-  ///        let mut resp = Resp::for_request(req.data().clone());
-  ///        resp.set_code(code::CONTENT);
+  ///   match req.data().path() {
+  ///     | Ok(Some("hello")) => {
+  ///       let mut resp = Resp::for_request(req.data().clone());
+  ///       resp.set_code(code::CONTENT);
   ///
-  ///        resp.set_option(
-  ///          12, // Content-Format
-  ///          ContentFormat::Json.bytes()
-  ///        );
+  ///       resp.set_option(12, // Content-Format
+  ///                       ContentFormat::Json.bytes());
   ///
-  ///        let payload = r#"{ "hello": "world" }"#;
-  ///        resp.set_payload(payload.bytes());
+  ///       let payload = r#"{ "hello": "world" }"#;
+  ///       resp.set_payload(payload.bytes());
   ///
-  ///        let msg: Addressed<Message<Std>> = req.as_ref().map(|_| resp.into());
+  ///       let msg: Addressed<Message<Std>> = req.as_ref().map(|_| resp.into());
   ///
-  ///        (Continue::No, Action::Send(msg))
-  ///      },
-  ///      _ => (Continue::Yes, Action::Nop)
-  ///    }
+  ///       (Continue::No, Action::Send(msg))
+  ///     },
+  ///     | _ => (Continue::Yes, Action::Nop),
+  ///   }
   /// }
   ///
   /// fn not_found(req: Addressed<Req<Std>>) -> (Continue, Action<Std>) {
@@ -83,11 +81,14 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
     let sock = std::net::UdpSocket::bind((ip, port))?;
     let core = Core::<Std>::new(clock, sock);
 
-    Ok(Self {core, middleware: vec![]})
+    Ok(Self { core,
+              middleware: vec![] })
   }
 }
 
-impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>> Server<'a, Cfg, Middleware> {
+impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
+  Server<'a, Cfg, Middleware>
+{
   /// TODO
   pub fn middleware(&mut self, f: <Middleware as Array>::Item) -> () {
     self.middleware.push(f);
@@ -95,4 +96,4 @@ impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -
 }
 
 #[cfg(test)]
-mod tests { }
+mod tests {}
