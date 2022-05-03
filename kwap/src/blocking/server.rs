@@ -24,7 +24,9 @@ pub enum Action<Cfg: Config> {
   Nop,
 }
 
-/// Foo
+/// A barebones CoAP server.
+///
+/// See the documentation for [`Server.try_new`] for example usage.
 #[allow(missing_debug_implementations)]
 pub struct Server<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
 {
@@ -47,15 +49,12 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       let mut resp = Resp::for_request(req.data().clone());
+  ///
   ///       resp.set_code(code::CONTENT);
+  ///       resp.set_option(12, ContentFormat::Json.bytes());
+  ///       resp.set_payload(r#"{ "hello": "world" }"#.bytes());
   ///
-  ///       resp.set_option(12, // Content-Format
-  ///                       ContentFormat::Json.bytes());
-  ///
-  ///       let payload = r#"{ "hello": "world" }"#;
-  ///       resp.set_payload(payload.bytes());
-  ///
-  ///       let msg: Addressed<Message<Std>> = req.as_ref().map(|_| resp.into());
+  ///       let msg = req.as_ref().map(|_| Message::<Std>::from(resp));
   ///
   ///       (Continue::No, Action::Send(msg))
   ///     },
@@ -74,11 +73,13 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
   /// server.middleware(&hello);
   /// server.middleware(&not_found);
   /// ```
-  pub fn try_new([a, b, c, d]: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
-    let clock = crate::std::Clock::new();
-
+  pub fn try_new(ip: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
+    let [a, b, c, d] = ip;
     let ip = std::net::Ipv4Addr::new(a, b, c, d);
     let sock = std::net::UdpSocket::bind((ip, port))?;
+
+    let clock = crate::std::Clock::new();
+
     let core = Core::<Std>::new(clock, sock);
 
     Ok(Self { core,
