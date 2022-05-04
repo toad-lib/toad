@@ -3,6 +3,7 @@
 use std::io::{self, Error, ErrorKind};
 use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
 
+use embedded_time::rate::Fraction;
 use kwap_common::prelude::*;
 
 use crate::socket::Socket;
@@ -27,7 +28,8 @@ impl Clock {
 impl embedded_time::Clock for Clock {
   type T = u64;
 
-  const SCALING_FACTOR: embedded_time::rate::Fraction = embedded_time::rate::Fraction::new(1, 1_000_000_000);
+  // nanos
+  const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000_000);
 
   fn try_now(&self) -> Result<embedded_time::Instant<Self>, embedded_time::clock::Error> {
     let now = std::time::Instant::now();

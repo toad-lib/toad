@@ -7,6 +7,9 @@ use crate::core::Core;
 use crate::req::Req;
 use crate::socket::Addressed;
 
+/// Type alias for a server middleware function. See [`Server.middleware`]
+pub type Middleware<Cfg> = dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>);
+
 /// Should the middleware chain stop or continue processing this message?
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Continue {
@@ -30,14 +33,13 @@ pub enum Action<Cfg: Config> {
 ///
 /// See the documentation for [`Server.try_new`] for example usage.
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
-{
+pub struct Server<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> {
   core: Core<Cfg>,
-  middleware: Middleware,
+  middleware: Middlewares,
 }
 
 #[cfg(feature = "std")]
-impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Action<Std>)>> {
+impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// Create a new Server
   ///
   /// ```no_run
@@ -79,20 +81,22 @@ impl<'a> Server<'a, Std, Vec<&'a dyn Fn(Addressed<Req<Std>>) -> (Continue, Actio
   pub fn try_new(ip: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
     let [a, b, c, d] = ip;
     let ip = std::net::Ipv4Addr::new(a, b, c, d);
-    let sock = std::net::UdpSocket::bind((ip, port))?;
 
-    let clock = crate::std::Clock::new();
-
-    let core = Core::<Std>::new(clock, sock);
-
-    Ok(Self { core,
-              middleware: vec![] })
+    std::net::UdpSocket::bind((ip, port)).map(|sock| Self::new(sock, crate::std::Clock::new()))
   }
 }
 
-impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)>>
-  Server<'a, Cfg, Middleware>
-{
+impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
+  /// Construct a new Server for the current platform.
+  ///
+  /// If the standard library is available, see [`Server.try_new`].
+  pub fn new(sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
+    let core = Core::<Cfg>::new(clock, sock);
+
+    Self { core,
+           middleware: Default::default() }
+  }
+
   /// Add a function that will be called with incoming messages.
   ///
   /// These functions, "middleware," perform [`Action`]s and indicate
@@ -123,10 +127,21 @@ impl<'a, Cfg: Config, Middleware: Array<Item = &'a dyn Fn(Addressed<Req<Cfg>>) -
   /// server.middleware(not_found);
   /// server.middleware(hello);
   /// ```
-  pub fn middleware(&mut self, f: &'a dyn Fn(Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>)) -> () {
+  pub fn middleware(&mut self, f: &'a Middleware<Cfg>) -> () {
     self.middleware.push(f);
   }
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+  use super::*;
+
+  type TestServer<'a> = Server<'a, crate::test::Config, Vec<&'a Middleware<crate::test::Config>>>;
+
+  #[test]
+  fn new_server() {
+    let sock = crate::test::SockMock::new();
+    let clock = crate::test::ClockMock::new();
+    TestServer::new(sock, clock);
+  }
+}

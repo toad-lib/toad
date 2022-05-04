@@ -155,15 +155,15 @@ mod tests {
   use crate::config;
   use crate::config::Alloc;
   use crate::req::Req;
-  use crate::test::TubeSock;
+  use crate::test::SockMock;
 
-  type Config = Alloc<crate::std::Clock, TubeSock>;
+  type Config = Alloc<crate::std::Clock, SockMock>;
 
   #[test]
   fn ping() {
     type Msg = config::Message<Config>;
 
-    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::new());
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), SockMock::new());
     let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
     let resp = Msg { id,
@@ -190,7 +190,7 @@ mod tests {
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<Config>::new(crate::std::Clock::new(), TubeSock::init(addr.into(), bytes.clone()));
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), SockMock::init(addr.into(), bytes.clone()));
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

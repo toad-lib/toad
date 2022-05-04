@@ -115,20 +115,48 @@ pub(crate) use code;
 
 #[cfg(test)]
 pub(crate) mod test {
+  use ::core::cell::Cell;
+  use embedded_time::rate::Fraction;
+  use embedded_time::Instant;
   use no_std_net::{SocketAddr, ToSocketAddrs};
   use socket::*;
 
   use super::*;
 
+  /// Config implementor using mocks for clock and sock
+  pub type Config = crate::config::Alloc<ClockMock, SockMock>;
+
+  pub struct ClockMock(pub Cell<u64>);
+
+  impl ClockMock {
+    pub fn new() -> Self {
+      Self(Cell::new(0))
+    }
+
+    pub fn set(&self, to: u64) {
+      self.0.set(to);
+    }
+  }
+
+  impl embedded_time::Clock for ClockMock {
+    type T = u64;
+
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000_000);
+
+    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
+      Ok(Instant::new(self.0.get()))
+    }
+  }
+
   /// A mocked socket
   #[derive(Clone, Debug, Default)]
-  pub struct TubeSock {
+  pub struct SockMock {
     pub addr: Option<SocketAddr>,
     pub rx: Vec<u8>,
     pub tx: Vec<u8>,
   }
 
-  impl TubeSock {
+  impl SockMock {
     pub fn new() -> Self {
       Self { addr: None,
              rx: Default::default(),
@@ -143,7 +171,7 @@ pub(crate) mod test {
     }
   }
 
-  impl Socket for TubeSock {
+  impl Socket for SockMock {
     type Error = Option<()>;
 
     fn connect<A: ToSocketAddrs>(&mut self, a: A) -> Result<(), Self::Error> {
