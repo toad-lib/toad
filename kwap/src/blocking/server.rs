@@ -62,6 +62,7 @@ pub enum Action<Cfg: Config> {
 /// A barebones CoAP server.
 ///
 /// See the documentation for [`Server.try_new`] for example usage.
+// TODO(#85): allow opt-out of always piggybacked ack responses
 #[allow(missing_debug_implementations)]
 pub struct Server<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> {
   core: Core<Cfg>,
@@ -242,18 +243,13 @@ mod tests {
 
       cancel_timeout();
 
-      let outbound_rep = {
-        let bytes = outbound_bytes.lock().unwrap();
-        let msg = config::Message::<Test>::try_from_bytes(bytes.deref()).unwrap();
-        Resp::<Test>::from(msg)
-      };
+      let outbound_rep: Resp::<Test> = SockMock::get_msg::<Test>(&outbound_bytes).unwrap().into();
 
       assert_eq!(outbound_rep.code(), code::NOT_FOUND);
     });
 
     let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    let msg: config::Message<Test> = req.into();
-    inbound_bytes.lock().unwrap().append(&mut msg.try_into_bytes().unwrap());
+    SockMock::send_msg::<Test>(&inbound_bytes, req.into());
 
     timeout.wait();
     handle.join().unwrap();

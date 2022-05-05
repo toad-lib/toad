@@ -122,7 +122,8 @@ pub(crate) mod test {
   use ::std::sync::Mutex;
   use embedded_time::rate::Fraction;
   use embedded_time::Instant;
-  use no_std_net::{SocketAddr, ToSocketAddrs};
+  use kwap_msg::{TryIntoBytes, TryFromBytes};
+use no_std_net::{SocketAddr, ToSocketAddrs};
   use socket::*;
   use std_alloc::sync::Arc;
 
@@ -206,6 +207,19 @@ pub(crate) mod test {
       *me.rx.lock().unwrap() = rx;
       me
     }
+
+    pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<u8>>>, msg: config::Message<Cfg>) {
+      rx.lock().unwrap().append(&mut msg.try_into_bytes().unwrap());
+    }
+
+    pub fn get_msg<Cfg: config::Config>(tx: &Arc<Mutex<Vec<u8>>>) -> Option<config::Message<Cfg>> {
+      let bytes = tx.lock().unwrap();
+      if bytes.is_empty() {
+        None
+      } else {
+        Some(config::Message::<Cfg>::try_from_bytes(bytes.deref()).unwrap())
+      }
+    }
   }
 
   impl Socket for SockMock {
@@ -240,7 +254,7 @@ pub(crate) mod test {
   #[test]
   #[should_panic]
   fn times_out() {
-    let timeout = Timeout::new(Duration::from_secs(1));
+    let timeout = Timeout::new(Duration::from_millis(100));
     ::std::thread::spawn(|| loop {});
     timeout.wait();
   }
