@@ -224,17 +224,20 @@ mod tests {
 
   #[test]
   fn server_not_found() {
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let sock = SockMock::init(addr.into(), vec![]);
     let clock = ClockMock::new();
 
     let timeout = Timeout::new(Duration::from_secs(1));
-
     let cancel_timeout = timeout.eject_canceler();
+
+    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
+    let sock = SockMock::init(addr.into(), vec![]);
     let inbound_bytes = sock.rx.clone();
     let outbound_bytes = sock.tx.clone();
 
-    let handle = thread::spawn(move || {
+    let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    SockMock::send_msg::<Test>(&inbound_bytes, req.into());
+
+    let work = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
 
       server.middleware(&not_found);
@@ -243,15 +246,13 @@ mod tests {
 
       cancel_timeout();
 
-      let outbound_rep: Resp::<Test> = SockMock::get_msg::<Test>(&outbound_bytes).unwrap().into();
+      let outbound_rep: Resp<Test> = SockMock::get_msg::<Test>(&outbound_bytes).unwrap().into();
 
       assert_eq!(outbound_rep.code(), code::NOT_FOUND);
+      assert_eq!(outbound_rep.msg_type(), kwap_msg::Type::Ack);
     });
 
-    let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    SockMock::send_msg::<Test>(&inbound_bytes, req.into());
-
     timeout.wait();
-    handle.join().unwrap();
+    work.join().unwrap();
   }
 }

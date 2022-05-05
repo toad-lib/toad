@@ -122,8 +122,8 @@ pub(crate) mod test {
   use ::std::sync::Mutex;
   use embedded_time::rate::Fraction;
   use embedded_time::Instant;
-  use kwap_msg::{TryIntoBytes, TryFromBytes};
-use no_std_net::{SocketAddr, ToSocketAddrs};
+  use kwap_msg::{TryFromBytes, TryIntoBytes};
+  use no_std_net::{SocketAddr, ToSocketAddrs};
   use socket::*;
   use std_alloc::sync::Arc;
 

@@ -14,6 +14,26 @@ categories = ["network-programming"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[[example]]
+name = "raw_client"
+path = "examples/raw/client.rs"
+
+[[example]]
+name = "raw_client_core"
+path = "examples/raw/client_core.rs"
+
+[[example]]
+name = "raw_server"
+path = "examples/raw/server.rs"
+
+[[example]]
+name = "blocking_server"
+path = "examples/blocking/server.rs"
+
+[[example]]
+name = "blocking_client"
+path = "examples/blocking/client.rs"
+
 [features]
 default = ["std"]
 std = ["alloc"]
@@ -29,5 +49,3 @@ kwap-macros = "0.1.6"
 no-std-net = "0.6"
 embedded-time = "0.12"
 nb = "1"
-
-[dev-dependencies]

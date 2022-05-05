@@ -37,6 +37,8 @@ use crate::socket::{Addressed, Socket};
 //   - DEFAULT_LEISURE
 //   - PROBING
 
+// TODO(#86): handle ping requests silently
+
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
 //
