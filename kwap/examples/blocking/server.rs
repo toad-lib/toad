@@ -7,11 +7,11 @@ use kwap::resp::{code, Resp};
 use kwap::socket::Addressed;
 
 fn exit_respond(req: &Addressed<Req<Std>>) -> (Continue, Action<Std>) {
-      let resp = req.as_ref().map(|req| Resp::for_request(req.clone())).map(|mut resp| {
-                                                                         resp.set_code(code::CONTENT);
-                                                                         resp.set_payload("goodbye, world!".bytes());
-                                                                         resp
-                                                                       });
+  let resp = req.as_ref().map(|req| Resp::for_request(req.clone())).map(|mut resp| {
+                                                                     resp.set_code(code::CONTENT);
+                                                                     resp.set_payload("goodbye, world!".bytes());
+                                                                     resp
+                                                                   });
   match req.data().path().unwrap() {
     | Some("exit") => (Continue::Yes, Action::Send(resp.map(Into::into))),
     | _ => (Continue::Yes, Action::Nop),

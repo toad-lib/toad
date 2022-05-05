@@ -189,10 +189,8 @@ impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a,
 #[cfg(test)]
 mod tests {
   use core::time::Duration;
-  use std::ops::Deref;
   use std::thread;
 
-  use kwap_msg::{TryFromBytes, TryIntoBytes};
   use no_std_net::{Ipv4Addr, SocketAddrV4};
 
   use super::*;

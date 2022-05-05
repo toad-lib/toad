@@ -44,7 +44,7 @@ docs = []
 [dependencies]
 kwap-msg = "0.4.5"
 kwap-common = "0.6.1"
-tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
+tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
 kwap-macros = "0.1.6"
 no-std-net = "0.6"
 embedded-time = "0.12"

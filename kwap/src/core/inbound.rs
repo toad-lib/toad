@@ -75,7 +75,7 @@ impl<Cfg: Config> Core<Cfg> {
                                                        .map_err(nb::Error::Other)
                                                        .map(|msg| Addressed(msg, addr))
         })
-        .map(|addrd| addrd.map(|msg| Req::from(msg)))
+        .map(|addrd| addrd.map(Req::from))
   }
 
   /// Poll for an empty message in response to a sent empty message (CoAP ping)
