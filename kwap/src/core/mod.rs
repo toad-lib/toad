@@ -80,6 +80,19 @@ impl<Cfg: Config> Core<Cfg> {
            retry_q: Default::default() }
   }
 
+  fn tick(&mut self) -> nb::Result<Option<Addressed<crate::socket::Dgram>>, Error<Cfg>> {
+    let when = When::Polling;
+
+    self.sock
+        .poll()
+        .map_err(|e| when.what(What::SockError(e)))
+        // TODO: This is a /bad/ copy.
+        .try_perform(|polled| polled.map(|ref dgram| self.dgram_recvd(when, *dgram)).unwrap_or(Ok(())))
+        .try_perform(|_| self.send_flings())
+        .try_perform(|_| self.send_retrys())
+        .map_err(nb::Error::Other)
+  }
+
   // TODO(#78): use + implement crate-wide logging
   #[allow(dead_code)]
   #[cfg(feature = "std")]

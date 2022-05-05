@@ -3,12 +3,6 @@ use kwap_msg::TryFromBytes;
 use super::*;
 use crate::todo::{Code, CodeKind, Message};
 
-type DgramMethod<R, Cfg> = fn(&mut Core<Cfg>,
-                              kwap_msg::Id,
-                              kwap_msg::Token,
-                              SocketAddr)
-                              -> nb::Result<R, <<Cfg as Config>::Socket as Socket>::Error>;
-
 impl<Cfg: Config> Core<Cfg> {
   /// Listens for RecvResp events and stores them on the runtime struct
   ///
@@ -63,7 +57,25 @@ impl<Cfg: Config> Core<Cfg> {
   /// # Example
   /// See `./examples/client.rs`
   pub fn poll_resp(&mut self, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<Cfg>, Error<Cfg>> {
-    self.poll(kwap_msg::Id(0), sock, token, Self::try_get_resp)
+    self.tick().bind(|_| {
+                 self.try_get_resp(token, sock)
+                     .map_err(|nb_err| nb_err.map(What::SockError).map(|what| When::Polling.what(what)))
+               })
+  }
+
+  /// Poll for an incoming request
+  pub fn poll_req(&mut self) -> nb::Result<Addressed<Req<Cfg>>, Error<Cfg>> {
+    let when = When::Polling;
+
+    self.tick()
+        .bind(|dgram| dgram.ok_or(nb::Error::WouldBlock))
+        .bind(|Addressed(dgram, addr)| {
+          config::Message::<Cfg>::try_from_bytes(dgram).map_err(What::FromBytes)
+                                                       .map_err(|what| when.what(what))
+                                                       .map_err(nb::Error::Other)
+                                                       .map(|msg| Addressed(msg, addr))
+        })
+        .map(|addrd| addrd.map(|msg| Req::from(msg)))
   }
 
   /// Poll for an empty message in response to a sent empty message (CoAP ping)
@@ -81,12 +93,19 @@ impl<Cfg: Config> Core<Cfg> {
   ///  |        |
   /// ```
   pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<Cfg>> {
-    self.poll(req_id, addr, kwap_msg::Token(Default::default()), Self::check_ping)
+    self.tick().bind(|_| {
+                 self.check_ping(req_id, addr)
+                     .map_err(|nb_err| nb_err.map(What::SockError).map(|what| When::Polling.what(what)))
+               })
   }
 
-  fn dgram_recvd(&mut self, when: error::When, dgram: Addressed<crate::socket::Dgram>) -> Result<(), Error<Cfg>> {
+  pub(super) fn dgram_recvd(&mut self,
+                            when: error::When,
+                            dgram: Addressed<crate::socket::Dgram>)
+                            -> Result<(), Error<Cfg>> {
     config::Message::<Cfg>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
-                                                        .map_err(|err| when.what(error::What::FromBytes(err)))
+                                                        .map_err(What::FromBytes)
+                                                        .map_err(|what| when.what(what))
                                                         .map(|msg| self.msg_recvd(msg))
   }
 
@@ -94,30 +113,14 @@ impl<Cfg: Config> Core<Cfg> {
     self.process_acks(&msg);
 
     if msg.data().code.kind() == CodeKind::Response {
+      // TODO(#84):
+      //   I don't think we need to store responses and whatnot at all now
+      //   that the event system is dead
       self.store_resp(msg.map(Into::into));
     }
   }
 
-  fn poll<R>(&mut self,
-             req_id: kwap_msg::Id,
-             addr: SocketAddr,
-             token: kwap_msg::Token,
-             f: DgramMethod<R, Cfg>)
-             -> nb::Result<R, Error<Cfg>> {
-    let when = When::Polling;
-
-    self.sock
-        .poll()
-        .map_err(|e| when.what(What::SockError(e)))
-        .try_perform(|polled| polled.map(|dgram| self.dgram_recvd(when, dgram)).unwrap_or(Ok(())))
-        .try_perform(|_| self.send_flings())
-        .try_perform(|_| self.send_retrys())
-        .map_err(nb::Error::Other)
-        .bind(|_| f(self, req_id, token, addr).map_err(|e| e.map(|e| when.what(What::SockError(e)))))
-  }
-
   fn try_get_resp(&mut self,
-                  _: kwap_msg::Id,
                   token: kwap_msg::Token,
                   sock: SocketAddr)
                   -> nb::Result<Resp<Cfg>, <<Cfg as Config>::Socket as Socket>::Error> {
@@ -134,6 +137,7 @@ impl<Cfg: Config> Core<Cfg> {
     self.resps
         .iter_mut()
         .find_map(|rep| match rep {
+          #[allow(clippy::needless_borrow)]
           | mut o @ Some(_) if resp_matches(&o) => Option::take(&mut o).map(|Addressed(resp, _)| resp),
           | _ => None,
         })
@@ -142,7 +146,6 @@ impl<Cfg: Config> Core<Cfg> {
 
   fn check_ping(&mut self,
                 req_id: kwap_msg::Id,
-                _: kwap_msg::Token,
                 addr: SocketAddr)
                 -> nb::Result<(), <<Cfg as Config>::Socket as Socket>::Error> {
     let still_qd = self.retry_q

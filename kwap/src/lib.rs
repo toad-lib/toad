@@ -116,12 +116,49 @@ pub(crate) use code;
 #[cfg(test)]
 pub(crate) mod test {
   use ::core::cell::Cell;
+  use ::core::ops::Deref;
+  use ::core::pin::Pin;
+  use ::core::time::Duration;
+  use ::std::sync::Mutex;
   use embedded_time::rate::Fraction;
   use embedded_time::Instant;
   use no_std_net::{SocketAddr, ToSocketAddrs};
   use socket::*;
+  use std_alloc::sync::Arc;
 
   use super::*;
+
+  #[derive(PartialEq, Eq)]
+  enum TimeoutState {
+    Canceled,
+    WillPanic,
+  }
+
+  pub struct Timeout(Pin<Box<Mutex<TimeoutState>>>, Duration);
+
+  impl Timeout {
+    pub fn new(dur: Duration) -> Self {
+      Self(Box::pin(Mutex::new(TimeoutState::WillPanic)), dur)
+    }
+
+    pub fn eject_canceler(&self) -> Box<dyn FnOnce() + Send + 'static> {
+      let canceler: Box<dyn FnOnce() + Send> = Box::new(|| *self.0.lock().unwrap() = TimeoutState::Canceled);
+      unsafe { ::std::mem::transmute(canceler) }
+    }
+
+    pub fn wait(&self) {
+      if self.0.lock().unwrap().deref() == &TimeoutState::Canceled {
+        return;
+      };
+
+      ::std::thread::sleep(self.1);
+      if self.0.lock().unwrap().deref() == &TimeoutState::WillPanic {
+        panic!("test timed out");
+      } else {
+        ()
+      }
+    }
+  }
 
   /// Config implementor using mocks for clock and sock
   pub type Config = crate::config::Alloc<ClockMock, SockMock>;
@@ -149,24 +186,24 @@ pub(crate) mod test {
   }
 
   /// A mocked socket
-  #[derive(Clone, Debug, Default)]
+  #[derive(Debug)]
   pub struct SockMock {
     pub addr: Option<SocketAddr>,
-    pub rx: Vec<u8>,
-    pub tx: Vec<u8>,
+    pub rx: Arc<Mutex<Vec<u8>>>,
+    pub tx: Arc<Mutex<Vec<u8>>>,
   }
 
   impl SockMock {
     pub fn new() -> Self {
       Self { addr: None,
-             rx: Default::default(),
-             tx: Default::default() }
+             rx: Arc::new(Default::default()),
+             tx: Arc::new(Default::default()) }
     }
 
     pub fn init(addr: SocketAddr, rx: Vec<u8>) -> Self {
       let mut me = Self::new();
       me.addr = Some(addr);
-      me.rx = rx;
+      *me.rx.lock().unwrap() = rx;
       me
     }
   }
@@ -180,30 +217,39 @@ pub(crate) mod test {
     }
 
     fn recv(&self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
-      if self.addr.is_none() || self.rx.is_empty() {
-        println!("TubeSock recv invoked without sending first");
+      let mut rx = self.rx.lock().unwrap();
+
+      if self.addr.is_none() || rx.is_empty() {
         return Err(nb::Error::WouldBlock);
       }
 
-      let n = self.rx.len();
-      let vec = &self.rx as *const _ as *mut Vec<u8>;
-      unsafe {
-        vec.as_mut()
-           .unwrap()
-           .drain(..)
-           .enumerate()
-           .for_each(|(ix, el)| buf[ix] = el);
-      }
+      let n = rx.len();
+
+      rx.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
 
       Ok((n, self.addr.unwrap()))
     }
 
     fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {
-      let vec = &self.tx as *const _ as *mut Vec<u8>;
-      unsafe {
-        *vec = buf.iter().copied().collect();
-      }
+      let mut vec = self.tx.lock().unwrap();
+      *vec = buf.iter().copied().collect();
       Ok(())
     }
+  }
+
+  #[test]
+  #[should_panic]
+  fn times_out() {
+    let timeout = Timeout::new(Duration::from_secs(1));
+    ::std::thread::spawn(|| loop {});
+    timeout.wait();
+  }
+
+  #[test]
+  fn doesnt_time_out() {
+    let timeout = Timeout::new(Duration::from_secs(1));
+    let cancel_timeout = timeout.eject_canceler();
+    cancel_timeout();
+    timeout.wait();
   }
 }

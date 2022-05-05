@@ -106,10 +106,22 @@ impl<Cfg: Config> Core<Cfg> {
                                .map(|addr| (token, addr))
   }
 
+  /// TODO
+  pub fn send_msg(&mut self, msg: Addressed<config::Message<Cfg>>) -> Result<(), Error<Cfg>> {
+    let addr = msg.addr();
+    let when = When::SendingMessage(Some(msg.addr()), msg.data().id, msg.data().token);
+    msg.unwrap()
+       .try_into_bytes::<ArrayVec<[u8; 1152]>>()
+       .map_err(What::<Cfg>::ToBytes)
+       .map_err(|what| when.what(what))
+       .bind(|bytes| Self::send(when, &mut self.sock, addr, bytes))
+       .map(|_| ())
+  }
+
   /// Send a raw message down the wire to some remote host.
   ///
   /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
-  pub(super) fn send(when: When,
+  pub(crate) fn send(when: When,
                      sock: &mut Cfg::Socket,
                      addr: SocketAddr,
                      bytes: impl Array<Item = u8>)

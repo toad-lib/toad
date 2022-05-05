@@ -1,5 +1,3 @@
-use core::str::Utf8Error;
-
 use kwap_common::Array;
 use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
 
