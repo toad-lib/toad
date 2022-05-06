@@ -115,8 +115,8 @@ pub(crate) use code;
 
 #[cfg(test)]
 pub(crate) mod test {
-  use ::core::{cell::Cell, ops::Add};
-  use ::core::ops::Deref;
+  use ::core::cell::Cell;
+  use ::core::ops::{Add, Deref};
   use ::core::pin::Pin;
   use ::core::time::Duration;
   use ::std::sync::Mutex;
@@ -201,16 +201,20 @@ pub(crate) mod test {
              tx: Default::default() }
     }
 
-    pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>, msg: Addressed<config::Message<Cfg>>) {
+    pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>,
+                                         msg: Addressed<config::Message<Cfg>>) {
       rx.lock().unwrap().push(msg.map(|msg| msg.try_into_bytes().unwrap()));
     }
 
-    pub fn get_msg<Cfg: config::Config>(addr: SocketAddr, tx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>) -> Option<config::Message<Cfg>> {
-      tx.lock().unwrap().iter().find(|bytes| bytes.addr() == addr)
-          .and_then(|bytes| if bytes.data().is_empty() {
-            None
-          } else {Some(bytes)})
-          .map(|bytes| config::Message::<Cfg>::try_from_bytes(bytes.data()).unwrap())
+    pub fn get_msg<Cfg: config::Config>(addr: SocketAddr,
+                                        tx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>)
+                                        -> Option<config::Message<Cfg>> {
+      tx.lock()
+        .unwrap()
+        .iter()
+        .find(|bytes| bytes.addr() == addr)
+        .and_then(|bytes| if bytes.data().is_empty() { None } else { Some(bytes) })
+        .map(|bytes| config::Message::<Cfg>::try_from_bytes(bytes.data()).unwrap())
     }
   }
 

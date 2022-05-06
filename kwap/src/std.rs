@@ -6,7 +6,7 @@ use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
 use embedded_time::rate::Fraction;
 use kwap_common::prelude::*;
 
-use crate::socket::{Socket, Addressed};
+use crate::socket::{Addressed, Socket};
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
@@ -44,7 +44,8 @@ impl Socket for UdpSocket {
   fn send(&self, msg: Addressed<&[u8]>) -> nb::Result<(), Self::Error> {
     self.set_nonblocking(true)
         .bind(|_| UdpSocket::send_to(self, msg.data(), std_socket_addr_from_no_std(msg.addr())))
-        .map(|_| ()).map_err(io_to_nb)
+        .map(|_| ())
+        .map_err(io_to_nb)
   }
 
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error> {

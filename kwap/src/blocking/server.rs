@@ -191,7 +191,7 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
-  use no_std_net::{Ipv4Addr, SocketAddrV4, SocketAddr};
+  use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
   use crate::resp::{code, Resp};

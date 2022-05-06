@@ -127,9 +127,8 @@ impl<Cfg: Config> Core<Cfg> {
                      bytes: impl Array<Item = u8>)
                      -> Result<SocketAddr, Error<Cfg>> {
     // TODO(#77): support ipv6
-    nb::block!(sock.send(Addressed(&bytes, addr)))
-        .map_err(|err| when.what(What::SockError(err)))
-        .map(|_| addr)
+    nb::block!(sock.send(Addressed(&bytes, addr))).map_err(|err| when.what(What::SockError(err)))
+                                                  .map(|_| addr)
   }
 
   /// Send a ping message to some remote coap server
