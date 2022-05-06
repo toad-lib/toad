@@ -106,7 +106,7 @@ impl<Cfg: Config> Core<Cfg> {
                                .map(|addr| (token, addr))
   }
 
-  /// TODO
+  /// Send a message to a remote socket
   pub fn send_msg(&mut self, msg: Addressed<config::Message<Cfg>>) -> Result<(), Error<Cfg>> {
     let addr = msg.addr();
     let when = When::SendingMessage(Some(msg.addr()), msg.data().id, msg.data().token);
@@ -127,9 +127,8 @@ impl<Cfg: Config> Core<Cfg> {
                      bytes: impl Array<Item = u8>)
                      -> Result<SocketAddr, Error<Cfg>> {
     // TODO(#77): support ipv6
-    sock.connect(addr)
+    nb::block!(sock.send(Addressed(&bytes, addr)))
         .map_err(|err| when.what(What::SockError(err)))
-        .try_perform(|_| nb::block!(sock.send(&bytes)).map_err(|err| when.what(What::SockError(err))))
         .map(|_| addr)
   }
 

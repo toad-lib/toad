@@ -191,7 +191,7 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
-  use no_std_net::{Ipv4Addr, SocketAddrV4};
+  use no_std_net::{Ipv4Addr, SocketAddrV4, SocketAddr};
 
   use super::*;
   use crate::resp::{code, Resp};
@@ -227,13 +227,13 @@ mod tests {
     let timeout = Timeout::new(Duration::from_secs(1));
     let cancel_timeout = timeout.eject_canceler();
 
-    let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let sock = SockMock::init(addr.into(), vec![]);
+    let sock = SockMock::new();
     let inbound_bytes = sock.rx.clone();
     let outbound_bytes = sock.tx.clone();
 
+    let addr: SocketAddr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234).into();
     let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    SockMock::send_msg::<Test>(&inbound_bytes, req.into());
+    SockMock::send_msg::<Test>(&inbound_bytes, Addressed(req.into(), addr.clone()));
 
     let work = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -244,7 +244,7 @@ mod tests {
 
       cancel_timeout();
 
-      let outbound_rep: Resp<Test> = SockMock::get_msg::<Test>(&outbound_bytes).unwrap().into();
+      let outbound_rep: Resp<Test> = SockMock::get_msg::<Test>(addr, &outbound_bytes).unwrap().into();
 
       assert_eq!(outbound_rep.code(), code::NOT_FOUND);
       assert_eq!(outbound_rep.msg_type(), kwap_msg::Type::Ack);

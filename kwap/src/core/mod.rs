@@ -205,7 +205,9 @@ mod tests {
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
-    let mut client = Core::<Config>::new(crate::std::Clock::new(), SockMock::init(addr.into(), bytes.clone()));
+    let sock = SockMock::new();
+    sock.rx.lock().unwrap().push(Addressed(bytes.clone(), addr.into()));
+    let mut client = Core::<Config>::new(crate::std::Clock::new(), sock);
 
     let rep = client.poll_resp(token, addr.into()).unwrap();
     assert_eq!(bytes, Msg::from(rep).try_into_bytes::<Vec<u8>>().unwrap());

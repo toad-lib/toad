@@ -115,7 +115,7 @@ pub(crate) use code;
 
 #[cfg(test)]
 pub(crate) mod test {
-  use ::core::cell::Cell;
+  use ::core::{cell::Cell, ops::Add};
   use ::core::ops::Deref;
   use ::core::pin::Pin;
   use ::core::time::Duration;
@@ -189,64 +189,51 @@ pub(crate) mod test {
   /// A mocked socket
   #[derive(Debug)]
   pub struct SockMock {
-    pub addr: Option<SocketAddr>,
-    pub rx: Arc<Mutex<Vec<u8>>>,
-    pub tx: Arc<Mutex<Vec<u8>>>,
+    /// Inbound bytes from remote sockets. Address represents the sender
+    pub rx: Arc<Mutex<Vec<Addressed<Vec<u8>>>>>,
+    /// Outbound bytes to remote sockets. Address represents the destination
+    pub tx: Arc<Mutex<Vec<Addressed<Vec<u8>>>>>,
   }
 
   impl SockMock {
     pub fn new() -> Self {
-      Self { addr: None,
-             rx: Arc::new(Default::default()),
-             tx: Arc::new(Default::default()) }
+      Self { rx: Default::default(),
+             tx: Default::default() }
     }
 
-    pub fn init(addr: SocketAddr, rx: Vec<u8>) -> Self {
-      let mut me = Self::new();
-      me.addr = Some(addr);
-      *me.rx.lock().unwrap() = rx;
-      me
+    pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>, msg: Addressed<config::Message<Cfg>>) {
+      rx.lock().unwrap().push(msg.map(|msg| msg.try_into_bytes().unwrap()));
     }
 
-    pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<u8>>>, msg: config::Message<Cfg>) {
-      rx.lock().unwrap().append(&mut msg.try_into_bytes().unwrap());
-    }
-
-    pub fn get_msg<Cfg: config::Config>(tx: &Arc<Mutex<Vec<u8>>>) -> Option<config::Message<Cfg>> {
-      let bytes = tx.lock().unwrap();
-      if bytes.is_empty() {
-        None
-      } else {
-        Some(config::Message::<Cfg>::try_from_bytes(bytes.deref()).unwrap())
-      }
+    pub fn get_msg<Cfg: config::Config>(addr: SocketAddr, tx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>) -> Option<config::Message<Cfg>> {
+      tx.lock().unwrap().iter().find(|bytes| bytes.addr() == addr)
+          .and_then(|bytes| if bytes.data().is_empty() {
+            None
+          } else {Some(bytes)})
+          .map(|bytes| config::Message::<Cfg>::try_from_bytes(bytes.data()).unwrap())
     }
   }
 
   impl Socket for SockMock {
     type Error = Option<()>;
 
-    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> Result<(), Self::Error> {
-      self.addr = a.to_socket_addrs().unwrap().next();
-      Ok(())
-    }
-
-    fn recv(&self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
+    fn recv(&self, buf: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error> {
       let mut rx = self.rx.lock().unwrap();
 
-      if self.addr.is_none() || rx.is_empty() {
+      if rx.is_empty() {
         return Err(nb::Error::WouldBlock);
       }
 
-      let n = rx.len();
+      let dgram = rx.drain(0..1).next().unwrap();
 
-      rx.drain(..).enumerate().for_each(|(ix, el)| buf[ix] = el);
+      dgram.data().iter().enumerate().for_each(|(ix, byte)| buf[ix] = *byte);
 
-      Ok((n, self.addr.unwrap()))
+      Ok(dgram.map(|bytes| bytes.len()))
     }
 
-    fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {
+    fn send(&self, buf: Addressed<&[u8]>) -> nb::Result<(), Self::Error> {
       let mut vec = self.tx.lock().unwrap();
-      *vec = buf.iter().copied().collect();
+      vec.push(buf.map(Vec::from));
       Ok(())
     }
   }

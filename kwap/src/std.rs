@@ -6,7 +6,7 @@ use std::net::{Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket};
 use embedded_time::rate::Fraction;
 use kwap_common::prelude::*;
 
-use crate::socket::Socket;
+use crate::socket::{Socket, Addressed};
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
@@ -41,20 +41,14 @@ impl embedded_time::Clock for Clock {
 impl Socket for UdpSocket {
   type Error = io::Error;
 
-  fn connect<A: no_std_net::ToSocketAddrs>(&mut self, addr: A) -> Result<(), Self::Error> {
-    let invalid_addr_error = || Error::new(ErrorKind::InvalidInput, "invalid socket addrs".to_string());
-
-    std_addr_from_no_std(addr).ok_or_else(invalid_addr_error)
-                              .try_perform(|_| self.set_nonblocking(true))
-                              .bind(|addrs| UdpSocket::connect(self, &*addrs))
+  fn send(&self, msg: Addressed<&[u8]>) -> nb::Result<(), Self::Error> {
+    self.set_nonblocking(true)
+        .bind(|_| UdpSocket::send_to(self, msg.data(), std_socket_addr_from_no_std(msg.addr())))
+        .map(|_| ()).map_err(io_to_nb)
   }
 
-  fn send(&self, msg: &[u8]) -> nb::Result<(), Self::Error> {
-    UdpSocket::send(self, msg).map(|_| ()).map_err(io_to_nb)
-  }
-
-  fn recv(&self, buffer: &mut [u8]) -> nb::Result<(usize, no_std_net::SocketAddr), Self::Error> {
-    UdpSocket::recv_from(self, buffer).map(|(n, addr)| (n, no_std_addr_from_std(addr)))
+  fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error> {
+    UdpSocket::recv_from(self, buffer).map(|(n, addr)| Addressed(n, no_std_addr_from_std(addr)))
                                       .map_err(io_to_nb)
   }
 }
@@ -104,5 +98,12 @@ fn no_std_addr_from_std(std: SocketAddr) -> no_std_net::SocketAddr {
   match std {
     | SocketAddr::V4(sock) => no_std_addr_v4_from_std(sock),
     | SocketAddr::V6(sock) => no_std_addr_v6_from_std(sock),
+  }
+}
+
+fn std_socket_addr_from_no_std(no_std: no_std_net::SocketAddr) -> SocketAddr {
+  match no_std {
+    | no_std_net::SocketAddr::V4(sock) => std_addr_v4_from_no_std(sock),
+    | no_std_net::SocketAddr::V6(sock) => std_addr_v6_from_no_std(sock),
   }
 }
