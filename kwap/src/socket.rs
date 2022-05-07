@@ -1,4 +1,4 @@
-use no_std_net::{SocketAddr, ToSocketAddrs};
+use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket

@@ -116,14 +116,14 @@ pub(crate) use code;
 #[cfg(test)]
 pub(crate) mod test {
   use ::core::cell::Cell;
-  use ::core::ops::{Add, Deref};
+  use ::core::ops::Deref;
   use ::core::pin::Pin;
   use ::core::time::Duration;
   use ::std::sync::Mutex;
   use embedded_time::rate::Fraction;
   use embedded_time::Instant;
   use kwap_msg::{TryFromBytes, TryIntoBytes};
-  use no_std_net::{SocketAddr, ToSocketAddrs};
+  use no_std_net::SocketAddr;
   use socket::*;
   use std_alloc::sync::Arc;
 

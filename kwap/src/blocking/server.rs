@@ -136,7 +136,7 @@ impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a,
   ///
   /// Middleware functions are called in the order that they were registered.
   ///
-  /// ```compile_fail
+  /// ```ignore
   /// fn hello(Addressed<Req<Cfg>>) -> (Continue, Action) {
   ///   /*
   ///     path == "hello"
