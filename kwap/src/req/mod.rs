@@ -95,6 +95,13 @@ impl<Cfg: Config> Req<Cfg> {
     Method(self.msg.code)
   }
 
+  /// Get the request path (Uri-Path option)
+  pub fn path(&self) -> Result<Option<&str>, core::str::Utf8Error> {
+    self.get_option(11)
+        .map(|o| core::str::from_utf8(&o.value.0).map(Some))
+        .unwrap_or(Ok(None))
+  }
+
   /// Get the request type (confirmable, non-confirmable)
   pub fn msg_type(&self) -> kwap_msg::Type {
     self.msg.ty

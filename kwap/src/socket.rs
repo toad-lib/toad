@@ -1,4 +1,4 @@
-use no_std_net::{SocketAddr, ToSocketAddrs};
+use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket
@@ -53,22 +53,19 @@ pub trait Socket {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
 
-  /// Connect as a client to some remote host
-  fn connect<A: ToSocketAddrs>(&mut self, addr: A) -> Result<(), Self::Error>;
-
-  /// Send a message to the `connect`ed host
-  fn send(&self, msg: &[u8]) -> nb::Result<(), Self::Error>;
+  /// Send a message to a remote address
+  fn send(&self, msg: Addressed<&[u8]>) -> nb::Result<(), Self::Error>;
 
   /// Pull a buffered datagram from the socket, along with the address to the sender.
-  fn recv(&self, buffer: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error>;
+  fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error>;
 
-  /// Poll the socket for a datagram
+  /// Poll the socket for a datagram from the `connect`ed host
   fn poll(&self) -> Result<Option<Addressed<Dgram>>, Self::Error> {
     let mut buf = [0u8; 1152];
     let recvd = self.recv(&mut buf);
 
     match recvd {
-      | Ok((n, addr)) => Ok(Some(Addressed(buf.into_iter().take(n).collect(), addr))),
+      | Ok(Addressed(n, addr)) => Ok(Some(Addressed(buf.into_iter().take(n).collect(), addr))),
       | Err(nb::Error::WouldBlock) => Ok(None),
       | Err(nb::Error::Other(e)) => Err(e),
     }

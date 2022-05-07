@@ -48,6 +48,9 @@ extern crate alloc as std_alloc;
 #[doc(hidden)]
 pub mod todo;
 
+#[cfg(test)]
+pub(crate) mod test;
+
 /// Blocking CoAP client & server
 pub mod blocking;
 
@@ -112,70 +115,3 @@ macro_rules! code {
 }
 
 pub(crate) use code;
-
-#[cfg(test)]
-pub(crate) mod test {
-  use no_std_net::{SocketAddr, ToSocketAddrs};
-  use socket::*;
-
-  use super::*;
-
-  /// A mocked socket
-  #[derive(Clone, Debug, Default)]
-  pub struct TubeSock {
-    pub addr: Option<SocketAddr>,
-    pub rx: Vec<u8>,
-    pub tx: Vec<u8>,
-  }
-
-  impl TubeSock {
-    pub fn new() -> Self {
-      Self { addr: None,
-             rx: Default::default(),
-             tx: Default::default() }
-    }
-
-    pub fn init(addr: SocketAddr, rx: Vec<u8>) -> Self {
-      let mut me = Self::new();
-      me.addr = Some(addr);
-      me.rx = rx;
-      me
-    }
-  }
-
-  impl Socket for TubeSock {
-    type Error = Option<()>;
-
-    fn connect<A: ToSocketAddrs>(&mut self, a: A) -> Result<(), Self::Error> {
-      self.addr = a.to_socket_addrs().unwrap().next();
-      Ok(())
-    }
-
-    fn recv(&self, buf: &mut [u8]) -> nb::Result<(usize, SocketAddr), Self::Error> {
-      if self.addr.is_none() || self.rx.is_empty() {
-        println!("TubeSock recv invoked without sending first");
-        return Err(nb::Error::WouldBlock);
-      }
-
-      let n = self.rx.len();
-      let vec = &self.rx as *const _ as *mut Vec<u8>;
-      unsafe {
-        vec.as_mut()
-           .unwrap()
-           .drain(..)
-           .enumerate()
-           .for_each(|(ix, el)| buf[ix] = el);
-      }
-
-      Ok((n, self.addr.unwrap()))
-    }
-
-    fn send(&self, buf: &[u8]) -> nb::Result<(), Self::Error> {
-      let vec = &self.tx as *const _ as *mut Vec<u8>;
-      unsafe {
-        *vec = buf.iter().copied().collect();
-      }
-      Ok(())
-    }
-  }
-}

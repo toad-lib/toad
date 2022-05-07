@@ -24,7 +24,8 @@ pub struct ClientConfig<Cfg: Config> {
   pub sock: Cfg::Socket,
 }
 
-// TODO(#80): Make clients usable by multiple threads (Send)
+// TODO(#80): Make clients usable by multiple threads
+// (Send + methods ask for &self and not &mut self)
 /// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
 pub struct Client<Cfg: Config> {
