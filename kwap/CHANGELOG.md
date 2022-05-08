@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.6.0 (2022-05-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** make module and type names more ergonomic (#88)
+
+### Features
+
+* **kwap:** make module and type names more ergonomic ([#88](https://github.com/clov-coffee/kwap/issues/88)) ([8d33a64](https://github.com/clov-coffee/kwap/commit/8d33a64884ddecce41b8c58e734d5edaa5b5c609))
+
 ### 0.5.5 (2022-05-07)
 
 ### 0.5.4 (2022-05-01)

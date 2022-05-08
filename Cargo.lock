@@ -281,7 +281,7 @@ dependencies = [
 
 [[package]]
 name = "kwap"
-version = "0.5.5"
+version = "0.6.0"
 dependencies = [
  "embedded-time",
  "kwap-common 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
