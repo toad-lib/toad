@@ -15,12 +15,12 @@ pub mod builder;
 #[doc(inline)]
 pub use builder::*;
 
-use crate::config::{self, Config};
+use crate::platform::{self, Platform};
 
 /// A CoAP request
 ///
 /// ```
-/// use kwap::config::Std;
+/// use kwap::platform::Std;
 /// use kwap::req::Req;
 /// use kwap::resp::Resp;
 ///
@@ -56,12 +56,12 @@ use crate::config::{self, Config};
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct Req<Cfg: Config> {
-  pub(crate) msg: config::Message<Cfg>,
-  opts: Option<Cfg::OptMap>,
+pub struct Req<P: Platform> {
+  pub(crate) msg: platform::Message<P>,
+  opts: Option<P::NumberedOptions>,
 }
 
-impl<Cfg: Config> Req<Cfg> {
+impl<P: Platform> Req<P> {
   fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
@@ -120,7 +120,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get a copy of the message id for this request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
@@ -141,7 +141,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
@@ -167,7 +167,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new GET request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let _req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
@@ -179,7 +179,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new POST request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
@@ -192,7 +192,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new PUT request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
@@ -205,7 +205,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Creates a new DELETE request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let _req = Req::<Std>::delete("1.1.1.1", 5683, "/users/john");
@@ -217,20 +217,20 @@ impl<Cfg: Config> Req<Cfg> {
   /// Add a payload to this request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn set_payload<P: ToCoapValue>(&mut self, payload: P) {
-    self.msg.payload = Payload(payload.to_coap_value::<Cfg::PayloadBuffer>());
+  pub fn set_payload<Bytes: ToCoapValue>(&mut self, payload: Bytes) {
+    self.msg.payload = Payload(payload.to_coap_value::<P::MessagePayload>());
   }
 
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
@@ -245,14 +245,14 @@ impl<Cfg: Config> Req<Cfg> {
   /// Read an option by its number from the request
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
   /// let uri_host = req.get_option(3).unwrap();
   /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
   /// ```
-  pub fn get_option(&self, n: u32) -> Option<&Opt<Cfg::OptBytes>> {
+  pub fn get_option(&self, n: u32) -> Option<&Opt<P::MessageOptionBytes>> {
     self.opts
         .as_ref()
         .and_then(|opts| opts.iter().find(|(num, _)| num.0 == n).map(|(_, o)| o))
@@ -261,7 +261,7 @@ impl<Cfg: Config> Req<Cfg> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
@@ -281,28 +281,28 @@ impl<Cfg: Config> Req<Cfg> {
   }
 
   /// Iterate over the options attached to this request
-  pub fn opts(&self) -> impl Iterator<Item = &(OptNumber, Opt<Cfg::OptBytes>)> {
+  pub fn opts(&self) -> impl Iterator<Item = &(OptNumber, Opt<P::MessageOptionBytes>)> {
     self.opts.iter().flat_map(|opts| opts.iter())
   }
 }
 
-impl<Cfg: Config> From<Req<Cfg>> for config::Message<Cfg> {
-  fn from(mut req: Req<Cfg>) -> Self {
+impl<P: Platform> From<Req<P>> for platform::Message<P> {
+  fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
     req.msg
   }
 }
 
-impl<Cfg: Config> TryIntoBytes for Req<Cfg> {
-  type Error = <config::Message<Cfg> as TryIntoBytes>::Error;
+impl<P: Platform> TryIntoBytes for Req<P> {
+  type Error = <platform::Message<P> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
-    config::Message::<Cfg>::from(self).try_into_bytes()
+    platform::Message::<P>::from(self).try_into_bytes()
   }
 }
 
-impl<Cfg: Config> From<config::Message<Cfg>> for Req<Cfg> {
-  fn from(mut msg: config::Message<Cfg>) -> Self {
+impl<P: Platform> From<platform::Message<P>> for Req<P> {
+  fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
 

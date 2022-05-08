@@ -6,7 +6,26 @@ use kwap_msg::{Opt, OptNumber};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 
-use crate::socket::Socket;
+use crate::net::Socket;
+
+/// kwap configuration trait
+pub trait Platform: Sized + 'static + core::fmt::Debug {
+  /// What type should we use to store the message payloads?
+  type MessagePayload: Array<Item = u8> + Clone + Debug;
+  /// What type should we use to store the option values?
+  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug;
+  /// What type should we use to store the options?
+  type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug;
+
+  /// What type should we use to keep track of options before serializing?
+  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)> + Clone + Debug;
+
+  /// What should we use to keep track of time?
+  type Clock: Clock<T = u64>;
+
+  /// What should we use for networking?
+  type Socket: Socket;
+}
 
 /// Used to associate a value with a RetryTimer.
 ///
@@ -16,14 +35,14 @@ use crate::socket::Socket;
 /// we've attempted to send this request and whether we
 /// should consider it poisoned.
 #[derive(Debug, Clone, Copy)]
-pub struct Retryable<Cfg: Config, T>(pub T, pub crate::retry::RetryTimer<Cfg::Clock>);
+pub struct Retryable<P: Platform, T>(pub T, pub crate::retry::RetryTimer<P::Clock>);
 
 /// Configures `kwap` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing
 ///
 /// ```
-/// use kwap::config::Std;
+/// use kwap::platform::Std;
 /// use kwap::req::Req;
 ///
 /// Req::<Std>::get("192.168.0.1", 5683, "/hello");
@@ -50,11 +69,11 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk,
 }
 
 #[cfg(feature = "alloc")]
-impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk, Sock> {
-  type PayloadBuffer = Vec<u8>;
-  type OptBytes = Vec<u8>;
-  type Opts = Vec<Opt<Vec<u8>>>;
-  type OptMap = Vec<(OptNumber, Opt<Vec<u8>>)>;
+impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Platform for Alloc<Clk, Sock> {
+  type MessagePayload = Vec<u8>;
+  type MessageOptionBytes = Vec<u8>;
+  type MessageOptions = Vec<Opt<Vec<u8>>>;
+  type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clk;
   type Socket = Sock;
 }
@@ -64,7 +83,7 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk
 /// and [`crate::std::Clock`] for timing
 ///
 /// ```
-/// use kwap::config::Std;
+/// use kwap::platform::Std;
 /// use kwap::req::Req;
 ///
 /// Req::<Std>::get("192.168.0.1", 5683, "/hello");
@@ -73,25 +92,7 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Config for Alloc<Clk
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 
-/// kwap configuration trait
-pub trait Config: Sized + 'static + core::fmt::Debug {
-  /// What type should we use to store the message payloads?
-  type PayloadBuffer: Array<Item = u8> + Clone + Debug;
-  /// What type should we use to store the option values?
-  type OptBytes: Array<Item = u8> + 'static + Clone + Debug;
-  /// What type should we use to store the options?
-  type Opts: Array<Item = Opt<Self::OptBytes>> + Clone + Debug;
-
-  /// What type should we use to keep track of options before serializing?
-  type OptMap: Array<Item = (OptNumber, Opt<Self::OptBytes>)> + Clone + Debug;
-
-  /// What should we use to keep track of time?
-  type Clock: Clock<T = u64>;
-
-  /// What should we use for networking?
-  type Socket: Socket;
-}
-
 /// Type alias using Config instead of explicit type parameters for [`kwap_msg::Message`]
-pub type Message<Cfg> =
-  kwap_msg::Message<<Cfg as Config>::PayloadBuffer, <Cfg as Config>::OptBytes, <Cfg as Config>::Opts>;
+pub type Message<P> = kwap_msg::Message<<P as Platform>::MessagePayload,
+                                        <P as Platform>::MessageOptionBytes,
+                                        <P as Platform>::MessageOptions>;

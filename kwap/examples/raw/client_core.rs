@@ -1,8 +1,8 @@
 use std::net::UdpSocket;
 use std::time::Instant;
 
-use kwap::config::Std;
 use kwap::core::Core;
+use kwap::platform::Std;
 use kwap::req::{Req, ReqBuilder};
 
 #[path = "./server.rs"]

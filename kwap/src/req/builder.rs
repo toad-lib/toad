@@ -1,8 +1,8 @@
 use kwap_common::prelude::*;
 
 use super::{Method, Req};
-use crate::config::Config;
 use crate::option::common_options;
+use crate::platform::Platform;
 use crate::ToCoapValue;
 
 /// Errors encounterable while using ReqBuilder
@@ -17,7 +17,7 @@ pub enum Error {
 /// NOTE: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
-/// use kwap::config::Std;
+/// use kwap::platform::Std;
 /// use kwap::req::ReqBuilder;
 /// use kwap::ContentFormat;
 ///
@@ -41,11 +41,11 @@ pub enum Error {
 /// # }
 /// ```
 #[derive(Clone, Debug)]
-pub struct ReqBuilder<Cfg: Config> {
-  inner: Result<Req<Cfg>, Error>,
+pub struct ReqBuilder<P: Platform> {
+  inner: Result<Req<P>, Error>,
 }
 
-impl<Cfg: Config> ReqBuilder<Cfg> {
+impl<P: Platform> ReqBuilder<P> {
   fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     Self { inner: Ok(Req::new(method, host, port, path)) }
   }
@@ -77,7 +77,7 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   pub fn option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
     self.inner
         .as_mut()
-        .map(|inner| inner.set_option(number, value.to_coap_value::<Cfg::OptBytes>()))
+        .map(|inner| inner.set_option(number, value.to_coap_value::<P::MessageOptionBytes>()))
         .map_err(|e| *e)
         .perform(|res| match res {
           | Some(_) => self.inner = Err(Error::TooManyOptions),
@@ -95,7 +95,7 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   pub fn add_option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
     self.inner
         .as_mut()
-        .map(|inner| inner.add_option(number, value.to_coap_value::<Cfg::OptBytes>()))
+        .map(|inner| inner.add_option(number, value.to_coap_value::<P::MessageOptionBytes>()))
         .map_err(|e| *e)
         .perform(|res| match res {
           | Some(_) => self.inner = Err(Error::TooManyOptions),
@@ -113,9 +113,9 @@ impl<Cfg: Config> ReqBuilder<Cfg> {
   }
 
   /// Unwrap the builder into the built request
-  pub fn build(self) -> Result<Req<Cfg>, Error> {
+  pub fn build(self) -> Result<Req<P>, Error> {
     self.inner
   }
 
-  common_options!(Cfg);
+  common_options!(P);
 }

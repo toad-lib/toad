@@ -8,8 +8,8 @@ use ::std::sync::Mutex;
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
 use kwap_msg::{TryFromBytes, TryIntoBytes};
+use net::*;
 use no_std_net::SocketAddr;
-use socket::*;
 use std_alloc::sync::Arc;
 
 use super::*;
@@ -47,7 +47,7 @@ impl Timeout {
 }
 
 /// Config implementor using mocks for clock and sock
-pub type Config = crate::config::Alloc<ClockMock, SockMock>;
+pub type Config = crate::platform::Alloc<ClockMock, SockMock>;
 
 pub struct ClockMock(pub Cell<u64>);
 
@@ -75,9 +75,9 @@ impl embedded_time::Clock for ClockMock {
 #[derive(Debug)]
 pub struct SockMock {
   /// Inbound bytes from remote sockets. Address represents the sender
-  pub rx: Arc<Mutex<Vec<Addressed<Vec<u8>>>>>,
+  pub rx: Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
   /// Outbound bytes to remote sockets. Address represents the destination
-  pub tx: Arc<Mutex<Vec<Addressed<Vec<u8>>>>>,
+  pub tx: Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
 }
 
 impl SockMock {
@@ -86,26 +86,26 @@ impl SockMock {
            tx: Default::default() }
   }
 
-  pub fn send_msg<Cfg: config::Config>(rx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>, msg: Addressed<config::Message<Cfg>>) {
+  pub fn send_msg<P: platform::Platform>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>, msg: Addrd<platform::Message<P>>) {
     rx.lock().unwrap().push(msg.map(|msg| msg.try_into_bytes().unwrap()));
   }
 
-  pub fn get_msg<Cfg: config::Config>(addr: SocketAddr,
-                                      tx: &Arc<Mutex<Vec<Addressed<Vec<u8>>>>>)
-                                      -> Option<config::Message<Cfg>> {
+  pub fn get_msg<P: platform::Platform>(addr: SocketAddr,
+                                        tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
+                                        -> Option<platform::Message<P>> {
     tx.lock()
       .unwrap()
       .iter()
       .find(|bytes| bytes.addr() == addr)
       .and_then(|bytes| if bytes.data().is_empty() { None } else { Some(bytes) })
-      .map(|bytes| config::Message::<Cfg>::try_from_bytes(bytes.data()).unwrap())
+      .map(|bytes| platform::Message::<P>::try_from_bytes(bytes.data()).unwrap())
   }
 }
 
 impl Socket for SockMock {
   type Error = Option<()>;
 
-  fn recv(&self, buf: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error> {
+  fn recv(&self, buf: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
     let mut rx = self.rx.lock().unwrap();
 
     if rx.is_empty() {
@@ -119,7 +119,7 @@ impl Socket for SockMock {
     Ok(dgram.map(|bytes| bytes.len()))
   }
 
-  fn send(&self, buf: Addressed<&[u8]>) -> nb::Result<(), Self::Error> {
+  fn send(&self, buf: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     let mut vec = self.tx.lock().unwrap();
     vec.push(buf.map(Vec::from));
     Ok(())

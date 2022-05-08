@@ -6,7 +6,7 @@ use std::net::UdpSocket;
 use embedded_time::rate::Fraction;
 use kwap_common::prelude::*;
 
-use crate::socket::{Addressed, Socket};
+use crate::net::{Addrd, Socket};
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
@@ -41,15 +41,15 @@ impl embedded_time::Clock for Clock {
 impl Socket for UdpSocket {
   type Error = io::Error;
 
-  fn send(&self, msg: Addressed<&[u8]>) -> nb::Result<(), Self::Error> {
+  fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     self.set_nonblocking(true)
         .bind(|_| UdpSocket::send_to(self, msg.data(), std_addr_from_no_std(msg.addr())))
         .map(|_| ())
         .map_err(io_to_nb)
   }
 
-  fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addressed<usize>, Self::Error> {
-    UdpSocket::recv_from(self, buffer).map(|(n, addr)| Addressed(n, no_std_addr_from_std(addr)))
+  fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
+    UdpSocket::recv_from(self, buffer).map(|(n, addr)| Addrd(n, no_std_addr_from_std(addr)))
                                       .map_err(io_to_nb)
   }
 }

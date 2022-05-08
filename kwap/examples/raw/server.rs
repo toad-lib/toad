@@ -2,7 +2,7 @@ use std::net::UdpSocket;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::JoinHandle;
 
-use kwap::config::{self, Std};
+use kwap::platform::{self, Std};
 use kwap::req::{Method, Req};
 use kwap::resp::{code, Resp};
 use kwap_msg::{TryFromBytes, TryIntoBytes, Type};
@@ -54,7 +54,7 @@ fn server_main() {
 
     match sock.recv_from(&mut buf) {
       | Ok((n, addr)) => {
-        let msg = config::Message::<Std>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
+        let msg = platform::Message::<Std>::try_from_bytes(buf.iter().copied().take(n)).unwrap();
         let req = Req::<Std>::from(msg);
         let path = req.get_option(11)
                       .as_ref()
@@ -90,7 +90,7 @@ fn server_main() {
           // ping
           | (Type::Con, Method::EMPTY, None) if req.payload().is_empty() => {
             resp.set_code(kwap_msg::Code::new(0, 0));
-            let mut msg = config::Message::<Std>::from(resp);
+            let mut msg = platform::Message::<Std>::from(resp);
             msg.ty = kwap_msg::Type::Reset;
             sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
           },

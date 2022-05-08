@@ -1,17 +1,17 @@
 use kwap_common::prelude::*;
 
-use crate::config::Config;
-#[cfg(feature = "std")]
-use crate::config::Std;
 use crate::core::{Core, Error, What};
+use crate::platform::Platform;
+#[cfg(feature = "std")]
+use crate::platform::Std;
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 
-/// Config struct containing things needed to make a new Client.
+/// Platform struct containing things needed to make a new Client.
 ///
 /// This is used for bring-your-own platform use cases, like embedded.
 #[derive(Clone, Debug)]
-pub struct ClientConfig<Cfg: Config> {
+pub struct ClientConfig<Cfg: Platform> {
   /// The clock that the kwap runtime will use
   /// to keep track of time.
   ///
@@ -28,12 +28,12 @@ pub struct ClientConfig<Cfg: Config> {
 // (Send + methods ask for &self and not &mut self)
 /// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
-pub struct Client<Cfg: Config> {
+pub struct Client<Cfg: Platform> {
   core: Core<Cfg>,
 }
 
 /// Helper methods on Client Results
-pub trait ClientResultExt<T, Cfg: Config> {
+pub trait ClientResultExt<T, Cfg: Platform> {
   /// If we timed out waiting for a response, consider that Ok(None).
   ///
   /// Usually used to handle sending non-confirmable requests that
@@ -41,7 +41,7 @@ pub trait ClientResultExt<T, Cfg: Config> {
   fn timeout_ok(self) -> Result<Option<T>, Error<Cfg>>;
 }
 
-impl<T, Cfg: Config> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
+impl<T, Cfg: Platform> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
   fn timeout_ok(self) -> Result<Option<T>, Error<Cfg>> {
     match self {
       | Ok(t) => Ok(Some(t)),
@@ -77,7 +77,7 @@ impl Client<Std> {
   }
 }
 
-impl<Cfg: Config> Client<Cfg> {
+impl<Cfg: Platform> Client<Cfg> {
   /// Create a new request client
   pub fn new(ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
     Self { core: Core::new(clock, sock) }

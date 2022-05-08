@@ -2,8 +2,8 @@ use kwap_msg::to_bytes::MessageToBytesError;
 use kwap_msg::MessageParseError;
 use no_std_net::SocketAddr;
 
-use crate::config::Config;
-use crate::socket::Socket;
+use crate::net::Socket;
+use crate::platform::Platform;
 
 /// The context that an error occurred in
 #[derive(Debug, Clone, Copy)]
@@ -16,21 +16,21 @@ pub enum When {
 
 impl When {
   /// Construct a specific error from the context the error occurred in
-  pub fn what<Cfg: Config>(self, what: What<Cfg>) -> Error<Cfg> {
+  pub fn what<P: Platform>(self, what: What<P>) -> Error<P> {
     Error { when: self, what }
   }
 }
 
 /// An error encounterable from within Core
 #[derive(Debug)]
-pub struct Error<Cfg: Config> {
+pub struct Error<P: Platform> {
   /// What happened?
-  pub what: What<Cfg>,
+  pub what: What<P>,
   /// What were we doing when it happened?
   pub when: When,
 }
 
-impl<Cfg: Config> Error<Cfg> {
+impl<P: Platform> Error<P> {
   /// Is this error `FromBytes`?
   pub fn message_parse_error(&self) -> Option<&MessageParseError> {
     match self.what {
@@ -42,9 +42,9 @@ impl<Cfg: Config> Error<Cfg> {
 
 /// A contextless error with some additional debug data attached.
 #[derive(Debug)]
-pub enum What<Cfg: Config> {
+pub enum What<P: Platform> {
   /// Some socket operation (e.g. connecting to host) failed
-  SockError(<<Cfg as Config>::Socket as Socket>::Error),
+  SockError(<<P as Platform>::Socket as Socket>::Error),
   /// Serializing a message from bytes failed
   FromBytes(MessageParseError),
   /// Serializing a message to bytes failed
