@@ -1,7 +1,7 @@
 use kwap::blocking::client::ClientResultExt;
 use kwap::blocking::Client;
-use kwap::config::Std;
 use kwap::core::Error;
+use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::Resp;
 

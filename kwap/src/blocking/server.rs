@@ -1,23 +1,23 @@
 use kwap_common::Array;
 
-#[cfg(feature = "std")]
-use crate::config::Std;
-use crate::config::{self, Config};
 use crate::core::{Core, Error};
+use crate::net::Addrd;
+#[cfg(feature = "std")]
+use crate::platform::Std;
+use crate::platform::{self, Platform};
 use crate::req::Req;
-use crate::socket::Addressed;
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
 #[derive(Debug)]
-enum Status<Cfg: Config> {
+enum Status<Cfg: Platform> {
   Err(Error<Cfg>),
   Continue,
   Stop,
   Exit,
 }
 
-impl<Cfg: Config> Status<Cfg> {
+impl<Cfg: Platform> Status<Cfg> {
   fn from_continue(cont: Continue) -> Self {
     match cont {
       | Continue::Yes => Self::Continue,
@@ -36,7 +36,7 @@ impl<Cfg: Config> Status<Cfg> {
 }
 
 /// Type alias for a server middleware function. See [`Server.middleware`]
-pub type Middleware<Cfg> = dyn Fn(&Addressed<Req<Cfg>>) -> (Continue, Action<Cfg>);
+pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> (Continue, Action<Cfg>);
 
 /// Should the middleware chain stop or continue processing this message?
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,9 +50,9 @@ pub enum Continue {
 
 /// Action to perform as a result of middleware
 #[derive(Clone, Debug)]
-pub enum Action<Cfg: Config> {
+pub enum Action<Cfg: Platform> {
   /// Send a message
-  Send(Addressed<config::Message<Cfg>>),
+  Send(Addrd<platform::Message<Cfg>>),
   /// Stop the server completely
   Exit,
   /// Do nothing
@@ -64,7 +64,7 @@ pub enum Action<Cfg: Config> {
 /// See the documentation for [`Server.try_new`] for example usage.
 // TODO(#85): allow opt-out of always piggybacked ack responses
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> {
+pub struct Server<'a, Cfg: Platform, Middlewares: Array<Item = &'a Middleware<Cfg>>> {
   core: Core<Cfg>,
   fns: Middlewares,
 }
@@ -75,13 +75,13 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///
   /// ```no_run
   /// use kwap::blocking::server::{Action, Continue, Server};
-  /// use kwap::config::{Message, Std};
+  /// use kwap::net::Addrd;
+  /// use kwap::platform::{Message, Std};
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
-  /// use kwap::socket::Addressed;
   /// use kwap::ContentFormat;
   ///
-  /// fn hello(req: &Addressed<Req<Std>>) -> (Continue, Action<Std>) {
+  /// fn hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       let mut resp = Resp::for_request(req.data().clone());
@@ -98,10 +98,10 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addressed<Req<Std>>) -> (Continue, Action<Std>) {
+  /// fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   ///   let mut resp = Resp::for_request(req.data().clone());
   ///   resp.set_code(code::NOT_FOUND);
-  ///   let msg: Addressed<Message<Std>> = req.as_ref().map(|_| resp.into());
+  ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
   ///   (Continue::No, Action::Send(msg))
   /// }
   ///
@@ -117,7 +117,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   }
 }
 
-impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
+impl<'a, Cfg: Platform, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
   /// Construct a new Server for the current platform.
   ///
   /// If the standard library is available, see [`Server.try_new`].
@@ -137,7 +137,7 @@ impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a,
   /// Middleware functions are called in the order that they were registered.
   ///
   /// ```ignore
-  /// fn hello(Addressed<Req<Cfg>>) -> (Continue, Action) {
+  /// fn hello(Addrd<Req<Cfg>>) -> (Continue, Action) {
   ///   /*
   ///     path == "hello"
   ///     ? (Continue::No, Action::Send(2.05 CONTENT))
@@ -145,7 +145,7 @@ impl<'a, Cfg: Config, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a,
   ///   */
   /// }
   ///
-  /// fn not_found(Addressed<Req<Cfg>>) -> (Continue, Action) {
+  /// fn not_found(Addrd<Req<Cfg>>) -> (Continue, Action) {
   ///   // always returns (Continue::No, Send(4.04 NOT FOUND))
   /// }
   ///
@@ -199,7 +199,7 @@ mod tests {
 
   type TestServer<'a> = Server<'a, Test, Vec<&'a Middleware<Test>>>;
 
-  fn not_found(req: &Addressed<Req<Test>>) -> (Continue, Action<Test>) {
+  fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
     let reply = req.as_ref().map(|req| {
                               let mut resp = Resp::<Test>::for_request(req.clone());
                               resp.set_code(code::NOT_FOUND);
@@ -209,7 +209,7 @@ mod tests {
     (Continue::Yes, Action::Send(reply))
   }
 
-  fn exit(_: &Addressed<Req<Test>>) -> (Continue, Action<Test>) {
+  fn exit(_: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
     (Continue::No, Action::Exit)
   }
 
@@ -233,7 +233,7 @@ mod tests {
 
     let addr: SocketAddr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234).into();
     let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    SockMock::send_msg::<Test>(&inbound_bytes, Addressed(req.into(), addr.clone()));
+    SockMock::send_msg::<Test>(&inbound_bytes, Addrd(req.into(), addr.clone()));
 
     let work = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);

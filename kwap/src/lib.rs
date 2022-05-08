@@ -51,26 +51,26 @@ pub mod todo;
 #[cfg(test)]
 pub(crate) mod test;
 
-/// Blocking CoAP client & server
+/// Blocking rust CoAP client & server
 pub mod blocking;
 
-/// Customizable retrying of fallible operations
+/// customizable retrying of fallible operations
 pub mod retry;
 
-/// CoAP response messages
+/// responses
 pub mod resp;
 
-/// CoAP request messages
+/// requests
 pub mod req;
 
-/// CoAP client
+/// low-level coap behavior
 pub mod core;
 
-/// kwap configuration
-pub mod config;
+/// platform configuration
+pub mod platform;
 
-/// sockets
-pub mod socket;
+/// network abstractions
+pub mod net;
 
 /// `std`-only kwap stuff
 #[cfg(feature = "std")]

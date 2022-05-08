@@ -3,7 +3,7 @@ use kwap_msg::{EnumerateOptNumbers, Message, Payload, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
-use crate::config::{self, Config};
+use crate::platform::{self, Platform};
 use crate::req::Req;
 
 /// Response codes
@@ -12,7 +12,7 @@ pub mod code;
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use kwap::config::Std;
+/// use kwap::platform::Std;
 /// use kwap::resp::Resp;
 /// # use kwap_msg::*;
 /// # main();
@@ -40,16 +40,16 @@ pub mod code;
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Resp<Cfg: Config> {
-  pub(crate) msg: config::Message<Cfg>,
-  opts: Option<Cfg::OptMap>,
+pub struct Resp<P: Platform> {
+  pub(crate) msg: platform::Message<P>,
+  opts: Option<P::NumberedOptions>,
 }
 
-impl<Cfg: Config> Resp<Cfg> {
+impl<P: Platform> Resp<P> {
   /// Create a new response for a given request
   ///
   /// ```
-  /// use kwap::config::{Message, Std};
+  /// use kwap::platform::{Message, Std};
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
@@ -67,7 +67,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
-  pub fn for_request(req: Req<Cfg>) -> Self {
+  pub fn for_request(req: Req<P>) -> Self {
     let req = Message::from(req);
 
     let msg = Message { ty: match req.ty {
@@ -80,7 +80,7 @@ impl<Cfg: Config> Resp<Cfg> {
                         } else {
                           crate::generate_id()
                         },
-                        opts: Cfg::Opts::default(),
+                        opts: P::MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
@@ -92,7 +92,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
@@ -131,7 +131,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
@@ -151,7 +151,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Get the response code
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
   ///
@@ -168,7 +168,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Change the response code
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
   ///
@@ -188,7 +188,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
@@ -208,7 +208,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// Add a payload to this response
   ///
   /// ```
-  /// use kwap::config::Std;
+  /// use kwap::platform::Std;
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
@@ -222,7 +222,7 @@ impl<Cfg: Config> Resp<Cfg> {
   /// // Or a string:
   /// resp.set_payload("hello!".bytes());
   /// ```
-  pub fn set_payload<P: IntoIterator<Item = u8>>(&mut self, payload: P) {
+  pub fn set_payload<Bytes: IntoIterator<Item = u8>>(&mut self, payload: Bytes) {
     self.msg.payload = Payload(payload.into_iter().collect());
   }
 
@@ -234,15 +234,15 @@ impl<Cfg: Config> Resp<Cfg> {
   }
 }
 
-impl<Cfg: Config> From<Resp<Cfg>> for config::Message<Cfg> {
-  fn from(mut rep: Resp<Cfg>) -> Self {
+impl<P: Platform> From<Resp<P>> for platform::Message<P> {
+  fn from(mut rep: Resp<P>) -> Self {
     rep.normalize_opts();
     rep.msg
   }
 }
 
-impl<Cfg: Config> From<config::Message<Cfg>> for Resp<Cfg> {
-  fn from(mut msg: config::Message<Cfg>) -> Self {
+impl<P: Platform> From<platform::Message<P>> for Resp<P> {
+  fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
 
@@ -250,10 +250,10 @@ impl<Cfg: Config> From<config::Message<Cfg>> for Resp<Cfg> {
   }
 }
 
-impl<Cfg: Config> TryIntoBytes for Resp<Cfg> {
-  type Error = <config::Message<Cfg> as TryIntoBytes>::Error;
+impl<P: Platform> TryIntoBytes for Resp<P> {
+  type Error = <platform::Message<P> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
-    config::Message::<Cfg>::from(self).try_into_bytes()
+    platform::Message::<P>::from(self).try_into_bytes()
   }
 }

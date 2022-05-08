@@ -127,7 +127,7 @@ macro_rules! builder_method {
   ) => {
     #[doc = $doc]
     pub fn $name<S: AsRef<str>>(self) -> Self {
-      self.option($nr, &*<$cfg>::OptBytes::default())
+      self.option($nr, &*<$cfg>::MessageOptionBytes::default())
     }
   };
   (
