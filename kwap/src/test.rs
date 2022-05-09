@@ -2,7 +2,6 @@
 
 use ::core::cell::Cell;
 use ::core::ops::Deref;
-use ::core::pin::Pin;
 use ::core::time::Duration;
 use ::std::sync::Mutex;
 use embedded_time::rate::Fraction;
@@ -14,31 +13,34 @@ use std_alloc::sync::Arc;
 
 use super::*;
 
-#[derive(PartialEq, Eq)]
-enum TimeoutState {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TimeoutState {
   Canceled,
   WillPanic,
 }
 
-pub struct Timeout(Pin<Box<Mutex<TimeoutState>>>, Duration);
+pub struct Timeout {
+  pub state: Arc<Mutex<TimeoutState>>,
+  dur: Duration,
+}
 
 impl Timeout {
   pub fn new(dur: Duration) -> Self {
-    Self(Box::pin(Mutex::new(TimeoutState::WillPanic)), dur)
+    Self { state: Arc::new(Mutex::new(TimeoutState::WillPanic)),
+           dur }
   }
 
-  pub fn eject_canceler(&self) -> Box<dyn FnOnce() + Send + 'static> {
-    let canceler: Box<dyn FnOnce() + Send> = Box::new(|| *self.0.lock().unwrap() = TimeoutState::Canceled);
-    unsafe { ::std::mem::transmute(canceler) }
+  pub fn cancel(state: Arc<Mutex<TimeoutState>>) {
+    *state.lock().unwrap() = TimeoutState::Canceled;
   }
 
   pub fn wait(&self) {
-    if self.0.lock().unwrap().deref() == &TimeoutState::Canceled {
+    if self.state.lock().unwrap().deref() == &TimeoutState::Canceled {
       return;
     };
 
-    ::std::thread::sleep(self.1);
-    if self.0.lock().unwrap().deref() == &TimeoutState::WillPanic {
+    ::std::thread::sleep(self.dur);
+    if self.state.lock().unwrap().deref() == &TimeoutState::WillPanic {
       panic!("test timed out");
     } else {
       ()
@@ -90,15 +92,22 @@ impl SockMock {
     rx.lock().unwrap().push(msg.map(|msg| msg.try_into_bytes().unwrap()));
   }
 
-  pub fn get_msg<P: platform::Platform>(addr: SocketAddr,
-                                        tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
-                                        -> Option<platform::Message<P>> {
-    tx.lock()
-      .unwrap()
-      .iter()
-      .find(|bytes| bytes.addr() == addr)
-      .and_then(|bytes| if bytes.data().is_empty() { None } else { Some(bytes) })
-      .map(|bytes| platform::Message::<P>::try_from_bytes(bytes.data()).unwrap())
+  pub fn await_msg<P: platform::Platform>(addr: SocketAddr,
+                                          tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
+                                          -> platform::Message<P> {
+    let attempt = || {
+      tx.lock()
+        .unwrap()
+        .iter_mut()
+        .find(|bytes| bytes.addr() == addr && !bytes.data().is_empty())
+        .map(|Addrd(bytes, _)| platform::Message::<P>::try_from_bytes(bytes.drain(..).collect::<Vec<_>>()).unwrap())
+    };
+
+    loop {
+      if let Some(msg) = attempt() {
+        break msg;
+      }
+    }
   }
 }
 
@@ -137,7 +146,7 @@ fn times_out() {
 #[test]
 fn doesnt_time_out() {
   let timeout = Timeout::new(Duration::from_secs(1));
-  let cancel_timeout = timeout.eject_canceler();
-  cancel_timeout();
+  let state = timeout.state.clone();
+  Timeout::cancel(state);
   timeout.wait();
 }
