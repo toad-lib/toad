@@ -281,12 +281,12 @@ dependencies = [
 
 [[package]]
 name = "kwap"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "embedded-time",
  "kwap-common 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "kwap-msg 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kwap-msg 0.4.6",
  "nb",
  "no-std-net",
  "tinyvec",
@@ -331,12 +331,9 @@ dependencies = [
 [[package]]
 name = "kwap-msg"
 version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcf7abae290d55fb61a391572a554ded01bafc65936504617983535a1a417664"
 dependencies = [
- "arrayvec",
- "coap-lite",
- "criterion",
- "heapless",
- "itertools",
  "kwap-common 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinyvec",
@@ -344,10 +341,13 @@ dependencies = [
 
 [[package]]
 name = "kwap-msg"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcf7abae290d55fb61a391572a554ded01bafc65936504617983535a1a417664"
+version = "0.4.7"
 dependencies = [
+ "arrayvec",
+ "coap-lite",
+ "criterion",
+ "heapless",
+ "itertools",
  "kwap-common 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinyvec",
