@@ -194,63 +194,163 @@ mod tests {
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
+  use crate::req::method::Method;
   use crate::resp::{code, Resp};
   use crate::test::{ClockMock, Config as Test, SockMock, Timeout};
 
   type TestServer<'a> = Server<'a, Test, Vec<&'a Middleware<Test>>>;
 
-  fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
-    let reply = req.as_ref().map(|req| {
-                              let mut resp = Resp::<Test>::for_request(req.clone());
-                              resp.set_code(code::NOT_FOUND);
-                              resp.into()
-                            });
+  mod ware {
+    use super::*;
+    pub fn panics(_: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+      panic!()
+    }
+    pub fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+      let reply = req.as_ref().map(|req| {
+                                let mut resp = Resp::<Test>::for_request(req.clone());
+                                resp.set_code(code::NOT_FOUND);
+                                resp.into()
+                              });
 
-    (Continue::Yes, Action::Send(reply))
+      (Continue::Yes, Action::Send(reply))
+    }
+
+    pub fn hello(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+      if req.0.method() == Method::GET && req.0.path().unwrap() == Some("hello") {
+        let reply = req.as_ref().map(|req| {
+                                  let mut resp = Resp::<Test>::for_request(req.clone());
+                                  resp.set_payload("hello!".bytes());
+                                  resp.set_code(code::CONTENT);
+                                  resp.into()
+                                });
+
+        (Continue::No, Action::Send(reply))
+      } else {
+        (Continue::Yes, Action::Nop)
+      }
+    }
+
+    pub fn exit(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+      if req.0.path().unwrap() == Some("exit") {
+        (Continue::No, Action::Exit)
+      } else {
+        (Continue::Yes, Action::Nop)
+      }
+    }
   }
 
-  fn exit(_: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
-    (Continue::No, Action::Exit)
-  }
-
-  #[test]
-  fn test_new() {
-    let sock = SockMock::new();
+  fn setup(timeout: Duration) -> (ClockMock, Timeout, SockMock, SocketAddr) {
     let clock = ClockMock::new();
-    TestServer::new(sock, clock);
-  }
-
-  #[test]
-  fn server_not_found() {
-    let clock = ClockMock::new();
-
-    let timeout = Timeout::new(Duration::from_secs(1));
-    let cancel_timeout = timeout.eject_canceler();
-
+    let timeout = Timeout::new(timeout);
     let sock = SockMock::new();
-    let inbound_bytes = sock.rx.clone();
-    let outbound_bytes = sock.tx.clone();
-
     let addr: SocketAddr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234).into();
-    let req = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    SockMock::send_msg::<Test>(&inbound_bytes, Addrd(req.into(), addr.clone()));
 
-    let work = thread::spawn(move || {
+    (clock, timeout, sock, addr)
+  }
+
+  #[test]
+  fn new_does_not_panic() {
+    let sock = SockMock::new();
+    let clock = ClockMock::new();
+    let mut srv = TestServer::new(sock, clock);
+    srv.middleware(&ware::panics);
+  }
+
+  #[test]
+  fn exit() {
+    let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
+    let inbound_bytes = sock.rx.clone();
+    let timeout_state = timeout.state.clone();
+
+    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+
+    SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+
+    let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
 
-      server.middleware(&not_found);
-      server.middleware(&exit);
+      server.middleware(&ware::exit);
       server.start().unwrap();
 
-      cancel_timeout();
-
-      let outbound_rep: Resp<Test> = SockMock::get_msg::<Test>(addr, &outbound_bytes).unwrap().into();
-
-      assert_eq!(outbound_rep.code(), code::NOT_FOUND);
-      assert_eq!(outbound_rep.msg_type(), kwap_msg::Type::Ack);
+      Timeout::cancel(timeout_state);
     });
 
     timeout.wait();
+    server.join().unwrap();
+  }
+
+  #[test]
+  fn not_found_fallback() {
+    let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
+    let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
+    let timeout_state = timeout.state.clone();
+
+    let say_hello = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+
+    let server = thread::spawn(move || {
+      let mut server = TestServer::new(sock, clock);
+
+      server.middleware(&ware::not_found);
+      server.middleware(&ware::exit);
+      server.start().unwrap();
+
+      Timeout::cancel(timeout_state);
+    });
+
+    let work = thread::spawn(move || {
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello.into(), addr.clone()));
+
+      let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
+
+      assert_eq!(rep.code(), code::NOT_FOUND);
+      assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
+
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+    });
+
+    timeout.wait();
+    work.join().unwrap();
+    server.join().unwrap();
+  }
+
+  #[test]
+  fn hello() {
+    let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
+    let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
+    let timeout_state = timeout.state.clone();
+
+    let say_hello_con = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    let mut say_hello_non = say_hello_con.clone();
+    say_hello_non.non();
+    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+
+    let server = thread::spawn(move || {
+      let mut server = TestServer::new(sock, clock);
+
+      server.middleware(&ware::hello);
+      server.middleware(&ware::exit);
+      server.start().unwrap();
+
+      Timeout::cancel(timeout_state);
+    });
+
+    let work = thread::spawn(move || {
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_non.into(), addr.clone()));
+      let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
+      assert_eq!(rep.code(), code::CONTENT);
+      assert_eq!(rep.msg_type(), kwap_msg::Type::Con);
+
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_con.into(), addr.clone()));
+      let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
+      assert_eq!(rep.code(), code::CONTENT);
+      assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
+
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+    });
+
+    timeout.wait();
+    server.join().unwrap();
     work.join().unwrap();
   }
 }

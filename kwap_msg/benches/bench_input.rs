@@ -35,12 +35,11 @@ impl<'a> From<&'a TestInput> for VecMessage {
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     VecMessage { id: Id(1),
-                 ty: Type(0),
+                 ty: Type::Non,
                  ver: Default::default(),
                  token: Token(token),
                  code: Code { class: 2, detail: 5 },
                  opts,
-                 __optc: Default::default(),
                  payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }
@@ -56,12 +55,11 @@ impl<'a, const P: usize, const N: usize, const O: usize> From<&'a TestInput> for
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
     ArrayVecMessage { id: Id(1),
-                      ty: Type(0),
+                      ty: Type::Non,
                       ver: Default::default(),
                       token: Token(token),
                       code: Code { class: 2, detail: 5 },
                       opts,
-                      __optc: Default::default(),
                       payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }
