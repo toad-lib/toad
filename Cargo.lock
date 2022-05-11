@@ -309,6 +309,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kwap-core"
+version = "0.0.0"
+
+[[package]]
 name = "kwap-macros"
 version = "0.1.7"
 dependencies = [

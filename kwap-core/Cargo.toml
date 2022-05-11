@@ -1,0 +1,24 @@
+[package]
+name = "kwap-core"
+version = "0.0.0"
+edition = "2021"
+description = "Low-level abstractions for a platformless CoAP implementation"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/kwap/kwap"
+repository = "https://github.com/clov-coffee/kwap/kwap"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+test = []
+docs = []
+
+[dependencies]
