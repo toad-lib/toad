@@ -27,91 +27,6 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 - Because UDP is a "connectionless" protocol, it offers no guarantee of "conversation" between traditional client and server roles. All the UDP transport layer gives you is a method to listen for messages thrown at you, and to throw messages at someone. Owing to this, CoAP machines are expected to perform both client and server roles (or more accurately, _sender_ and _receiver_ roles)
 - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
-## Work to be done
-a `?` indicates that a feature is not blocking for a stable release, and may be implemented at a later date.
-
- - [ ] library structure
-   - [x] standardize features
-     - [x] `std` enables the standard library, and is enabled by default
-     - [x] `--no-default-features` + `alloc` enables allocator without `std`
-     - [x] `--no-default-features` disables allocator and std
-   - [ ] `kwap_core` (_see [future library structure](#future-library-structure)_)
-   - [ ] `kwap` (_see [future library structure](#future-library-structure)_)
- - [x] parse messages
- - [x] ipv4
- - [ ] caching?
- - [ ] proxying?
- - [ ] ipv6?
- - [ ] multicast?
- - [ ] there exists a solution for dns resolution on embedded?
- - [ ] coaps? (coap over dtls)
- - [ ] observe
- - [ ] client flow
-   - [x] send a ping message
-   - [x] send confirmable requests
-   - [x] send nonconfirmable requests
-   - [x] retry send
-   - [x] poll for matching piggybacked ack response
-   - [x] poll for matching con response
-   - [x] ack con response
-   - [x] send nons without expecting a response (fling nons into the void)
-   - [ ] transmission variables (`ACK_TIMEOUT`, `ACK_RANDOM_FACTOR`, etc)
-   - [ ] aggregate [`Block`](https://core-wg.github.io/new-block/draft-ietf-core-new-block.html)ed responses
-   - [ ] support silently resending messages upon receiving a RESET to a CON or NON request
- - [ ] server flow
-   - [ ] send piggybacked responses to requests
-   - [ ] send separate ack & con resps
-   - [ ] retry send resps
- - [ ] high-level `reqwest::Client` analogue
-   - [x] blocking MVP that just sends requests
-   - [ ] async MVP that just sends requests
-   - [ ] support JSON
-   - [ ] support CBOR
-   - [ ] support configuring transmission variables
-   - [ ] inline request building
-
-### Future Library Structure
-I plan on restructuring the modules soon(ish) to move the "core runtime" to its own crate to declutter
-the module namespace and code footprint of `kwap`. This would leave `kwap` as a pleasant high-level crate for
-rust users.
-```
-kwap_core
-├── Config (config::Config)
-├── config
-│  ├── Alloc
-│  ├── Config
-│  └── Std
-├── Core
-├── Req (req::Req)
-├── req
-│  ├── Method
-│  └── Req
-├── Resp (resp::Resp)
-└── resp
-   ├── code
-   │  ├── OK_CONTENT
-   │  └── other codes...
-   └── Resp
-
-kwap
-├── async_std
-│  ├── Client
-│  ├── ClientBuilder
-│  ├── Server
-│  └── ServerBuilder
-├── blocking
-│  ├── Client
-│  ├── ClientBuilder
-│  ├── Server
-│  └── ServerBuilder
-├── req
-│  ├── ReqBuilder
-│  └── (dump kwap_core::req)
-└── resp
-   ├── RespBuilder
-   └── (dump kwap_core::resp)
-```
-
 ## How it works (at the moment)
 `kwap` contains the core CoAP runtime that drives client & server behavior.
 
@@ -124,7 +39,7 @@ It represents the flow of messages through the system as a state machine, allowi
 #### Server flow
 <details>
   <summary>Click to expand</summary>
-  
+
 ```
 RecvDgram
     |
