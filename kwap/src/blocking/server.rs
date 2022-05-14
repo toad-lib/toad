@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{Type, TryIntoBytes};
+use kwap_msg::{TryIntoBytes, Type};
 
 use crate::core::{Core, Error};
 use crate::net::Addrd;
@@ -125,7 +125,8 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
   pub fn new(sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
     let core = Core::<Cfg>::new(clock, sock);
 
-    let mut self_ = Self { core, fns: Default::default() };
+    let mut self_ = Self { core,
+                           fns: Default::default() };
     self_.middleware(&Self::respond_ping);
 
     self_
@@ -137,15 +138,13 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
   pub fn respond_ping(req: &Addrd<Req<Cfg>>) -> (Continue, Action<Cfg>) {
     match (req.data().method(), req.data().msg_type()) {
       | (Method::EMPTY, Type::Con) => {
-        let resp = platform::Message::<Cfg> {
-          ver: Default::default(),
-          ty: Type::Reset,
-          id: req.data().msg_id(),
-          token: kwap_msg::Token(Default::default()),
-          code: kwap_msg::Code::new(0, 0),
-          opts: Default::default(),
-          payload: kwap_msg::Payload(Default::default()),
-        };
+        let resp = platform::Message::<Cfg> { ver: Default::default(),
+                                              ty: Type::Reset,
+                                              id: req.data().msg_id(),
+                                              token: kwap_msg::Token(Default::default()),
+                                              code: kwap_msg::Code::new(0, 0),
+                                              opts: Default::default(),
+                                              payload: kwap_msg::Payload(Default::default()) };
 
         (Continue::No, Action::Send(req.as_ref().map(|_| resp)))
       },
