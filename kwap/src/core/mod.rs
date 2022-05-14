@@ -26,8 +26,6 @@ use crate::todo::{Code, CodeKind, Message};
 //   - DEFAULT_LEISURE
 //   - PROBING
 
-// TODO(#86): handle ping requests silently
-
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
 //
@@ -119,20 +117,23 @@ impl<P: Platform> Core<P> {
 
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
   pub fn process_acks(&mut self, msg: &Addrd<platform::Message<P>>) {
-    if msg.data().ty == Type::Ack {
-      let (id, addr) = (msg.data().id, msg.addr());
-      let ix = self.retry_q
-                   .iter()
-                   .filter_map(Option::as_ref)
-                   .enumerate()
-                   .find(|(_, Retryable(Addrd(con, con_addr), _))| *con_addr == addr && con.id == id)
-                   .map(|(ix, _)| ix);
+    match msg.data().ty {
+      | Type::Ack | Type::Reset => {
+        let (id, addr) = (msg.data().id, msg.addr());
+        let ix = self.retry_q
+                     .iter()
+                     .filter_map(Option::as_ref)
+                     .enumerate()
+                     .find(|(_, Retryable(Addrd(con, con_addr), _))| *con_addr == addr && con.id == id)
+                     .map(|(ix, _)| ix);
 
-      if let Some(ix) = ix {
-        self.retry_q.remove(ix);
-      } else {
-        // TODO(#76): we got an ACK for a message we don't know about. What do we do?
-      }
+        if let Some(ix) = ix {
+          self.retry_q.remove(ix);
+        } else {
+          // TODO(#76): we got an ACK for a message we don't know about. What do we do?
+        }
+      },
+      | _ => (),
     }
   }
 

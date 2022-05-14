@@ -62,7 +62,8 @@ pub struct Req<P: Platform> {
 }
 
 impl<P: Platform> Req<P> {
-  fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
+  /// Create a request
+  pub fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
