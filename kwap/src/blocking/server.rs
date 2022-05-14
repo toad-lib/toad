@@ -1,11 +1,12 @@
 use kwap_common::Array;
+use kwap_msg::{Type, TryIntoBytes};
 
 use crate::core::{Core, Error};
 use crate::net::Addrd;
 #[cfg(feature = "std")]
 use crate::platform::Std;
 use crate::platform::{self, Platform};
-use crate::req::Req;
+use crate::req::{Method, Req};
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
@@ -64,7 +65,7 @@ pub enum Action<Cfg: Platform> {
 /// See the documentation for [`Server.try_new`] for example usage.
 // TODO(#85): allow opt-out of always piggybacked ack responses
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, Cfg: Platform, Middlewares: Array<Item = &'a Middleware<Cfg>>> {
+pub struct Server<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>> {
   core: Core<Cfg>,
   fns: Middlewares,
 }
@@ -117,15 +118,39 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   }
 }
 
-impl<'a, Cfg: Platform, Middlewares: Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
+impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
   /// Construct a new Server for the current platform.
   ///
   /// If the standard library is available, see [`Server.try_new`].
   pub fn new(sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
     let core = Core::<Cfg>::new(clock, sock);
 
-    Self { core,
-           fns: Default::default() }
+    let mut self_ = Self { core, fns: Default::default() };
+    self_.middleware(&Self::respond_ping);
+
+    self_
+  }
+
+  /// Middleware function that responds to CoAP pings (EMPTY Confirmable messages)
+  ///
+  /// This is included when Server::new is invoked.
+  pub fn respond_ping(req: &Addrd<Req<Cfg>>) -> (Continue, Action<Cfg>) {
+    match (req.data().method(), req.data().msg_type()) {
+      | (Method::EMPTY, Type::Con) => {
+        let resp = platform::Message::<Cfg> {
+          ver: Default::default(),
+          ty: Type::Reset,
+          id: req.data().msg_id(),
+          token: kwap_msg::Token(Default::default()),
+          code: kwap_msg::Code::new(0, 0),
+          opts: Default::default(),
+          payload: kwap_msg::Payload(Default::default()),
+        };
+
+        (Continue::No, Action::Send(req.as_ref().map(|_| resp)))
+      },
+      | _ => (Continue::Yes, Action::Nop),
+    }
   }
 
   /// Add a function that will be called with incoming messages.
@@ -191,9 +216,11 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
+  use kwap_msg::Type;
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
+  use crate::req;
   use crate::req::method::Method;
   use crate::resp::{code, Resp};
   use crate::test::{ClockMock, Config as Test, SockMock, Timeout};
@@ -305,6 +332,39 @@ mod tests {
 
       assert_eq!(rep.code(), code::NOT_FOUND);
       assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
+
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+    });
+
+    timeout.wait();
+    work.join().unwrap();
+    server.join().unwrap();
+  }
+
+  #[test]
+  fn ping() {
+    let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
+    let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
+    let timeout_state = timeout.state.clone();
+
+    let ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0", 1234, "");
+    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+
+    let server = thread::spawn(move || {
+      let mut server = TestServer::new(sock, clock);
+
+      server.middleware(&ware::exit);
+      server.start().unwrap();
+
+      Timeout::cancel(timeout_state);
+    });
+
+    let work = thread::spawn(move || {
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(ping.into(), addr.clone()));
+
+      let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
+
+      assert_eq!(rep.msg_type(), Type::Reset);
 
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
     });
