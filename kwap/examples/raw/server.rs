@@ -71,9 +71,7 @@ fn server_main() {
         let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
         match (req.msg_type(), req.method(), path) {
-          | (Type::Non, Method::GET, Some("black_hole")) => {
-            ();
-          },
+          | (Type::Non, Method::GET, Some("black_hole")) => (),
           | (Type::Con, Method::GET, Some("dropped")) => {
             dropped_req_ct += 1;
             if dropped_req_ct >= 3 {

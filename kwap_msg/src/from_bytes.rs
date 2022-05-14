@@ -243,7 +243,7 @@ mod tests {
 
   #[test]
   fn parse_token() {
-    let valid_a: [u8; 1] = [0b_00000001u8];
+    let valid_a: [u8; 1] = [0b0000_0001_u8];
     let valid_a = Token::try_consume_bytes(&mut valid_a.iter().copied()).unwrap();
     assert_eq!(valid_a, Token(tinyvec::array_vec!([u8; 8] => 1)));
   }

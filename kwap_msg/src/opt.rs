@@ -257,9 +257,9 @@ mod tests {
     let del_2bytes = OptDelta::try_consume_bytes(&mut del_2bytes).unwrap();
     assert_eq!(del_2bytes, OptDelta(12345));
 
-    let errs = [[0b11010000u8].as_ref().into_iter(),             // delta is 13 but no byte following
-                [0b11100000u8, 0b00000001].as_ref().into_iter(), // delta is 14 but only 1 byte following
-                [].as_ref().into_iter()];
+    let errs = [[0b11010000u8].as_ref().iter(),             // delta is 13 but no byte following
+                [0b11100000u8, 0b00000001].as_ref().iter(), // delta is 14 but only 1 byte following
+                [].as_ref().iter()];
 
     errs.into_iter().for_each(|iter| {
                       let del = OptDelta::try_consume_bytes(&mut iter.copied());

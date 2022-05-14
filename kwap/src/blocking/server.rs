@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{TryIntoBytes, Type};
+use kwap_msg::Type;
 
 use crate::core::{Core, Error};
 use crate::net::Addrd;
@@ -219,7 +219,6 @@ mod tests {
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
-  use crate::req;
   use crate::req::method::Method;
   use crate::resp::{code, Resp};
   use crate::test::{ClockMock, Config as Test, SockMock, Timeout};
@@ -290,7 +289,7 @@ mod tests {
 
     let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
 
-    SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+    SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -325,14 +324,14 @@ mod tests {
     });
 
     let work = thread::spawn(move || {
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello.into(), addr));
 
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
 
       assert_eq!(rep.code(), code::NOT_FOUND);
       assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
 
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
     });
 
     timeout.wait();
@@ -359,13 +358,13 @@ mod tests {
     });
 
     let work = thread::spawn(move || {
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(ping.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(ping.into(), addr));
 
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
 
       assert_eq!(rep.msg_type(), Type::Reset);
 
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
     });
 
     timeout.wait();
@@ -395,17 +394,17 @@ mod tests {
     });
 
     let work = thread::spawn(move || {
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_non.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_non.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
       assert_eq!(rep.code(), code::CONTENT);
       assert_eq!(rep.msg_type(), kwap_msg::Type::Con);
 
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_con.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_con.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
       assert_eq!(rep.code(), code::CONTENT);
       assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
 
-      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr.clone()));
+      SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
     });
 
     timeout.wait();

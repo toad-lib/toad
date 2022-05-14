@@ -104,7 +104,7 @@ mod tests {
 
   #[test]
   fn parse_code() {
-    let byte = 0b_01_000101u8;
+    let byte = 0b0100_0101_u8;
     let code = Code::from(byte);
     assert_eq!(code, Code { class: 2, detail: 5 })
   }
@@ -113,7 +113,7 @@ mod tests {
   fn serialize_code() {
     let code = Code { class: 2, detail: 5 };
     let actual: u8 = code.into();
-    let expected = 0b_010_00101u8;
+    let expected = 0b0100_0101_u8;
     assert_eqb!(actual, expected)
   }
 }

@@ -55,7 +55,7 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
 fn gen_docstring(sec: String, rfc: &'static str) -> String {
   // Match {beginning of line}{section number} then capture everything until beginning of next section
   let section_rx =
-    Regex::new(format!(r"(?s)\n{}\.\s+(.*?)(\n\d|$)", sec.replace(".", "\\.")).as_str()).unwrap_or_else(|e| {
+    Regex::new(format!(r"(?s)\n{}\.\s+(.*?)(\n\d|$)", sec.replace('.', "\\.")).as_str()).unwrap_or_else(|e| {
                                                                                       panic!("Section {} invalid: {:?}", sec, e)
                                                                                     });
   let rfc_section = section_rx.captures_iter(rfc)
