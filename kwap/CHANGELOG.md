@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.6.2 (2022-05-14)
+
+
+### Features
+
+* **kwap:** servers should automatically respond to ping requests  ([#113](https://github.com/clov-coffee/kwap/issues/113)) ([91de497](https://github.com/clov-coffee/kwap/commit/91de4976db8289c4e1fe5cf8c2e29d7067a0a207))
+
 ### 0.6.1 (2022-05-10)
 
 ## 0.6.0 (2022-05-08)
