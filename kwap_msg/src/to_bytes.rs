@@ -177,7 +177,7 @@ mod tests {
   fn code() {
     let code = Code { class: 2, detail: 5 };
     let actual: u8 = code.into();
-    let expected = 0b_010_00101u8;
+    let expected = 0b0100_0101_u8;
     assert_eqb!(actual, expected)
   }
 

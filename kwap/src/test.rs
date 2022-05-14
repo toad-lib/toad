@@ -4,6 +4,7 @@ use ::core::cell::Cell;
 use ::core::ops::Deref;
 use ::core::time::Duration;
 use ::std::sync::Mutex;
+use ::std::thread;
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
 use kwap_msg::{TryFromBytes, TryIntoBytes};
@@ -39,7 +40,7 @@ impl Timeout {
       return;
     };
 
-    ::std::thread::sleep(self.dur);
+    thread::sleep(self.dur);
     if self.state.lock().unwrap().deref() == &TimeoutState::WillPanic {
       panic!("test timed out");
     } else {
@@ -139,7 +140,7 @@ impl Socket for SockMock {
 #[should_panic]
 fn times_out() {
   let timeout = Timeout::new(Duration::from_millis(100));
-  ::std::thread::spawn(|| loop {});
+  thread::spawn(|| thread::sleep(Duration::from_millis(110)));
   timeout.wait();
 }
 

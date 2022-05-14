@@ -285,11 +285,11 @@ pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
 
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
-  let header: [u8; 4] = 0b01_00_0001_01000101_0000000000000001u32.to_be_bytes();
+  let header: [u8; 4] = 0b0100_0001_0100_0101_0000_0000_0000_0001_u32.to_be_bytes();
   let token: [u8; 1] = [254u8];
   let content_format: &[u8] = b"application/json";
   let options: [&[u8]; 2] = [&[0b_1100_1101u8, 0b00000011u8], content_format];
-  let payload: [&[u8]; 2] = [&[0b_11111111u8], b"hello, world!"];
+  let payload: [&[u8]; 2] = [&[0b1111_1111_u8], b"hello, world!"];
   let bytes = [header.as_ref(),
                token.as_ref(),
                options.concat().as_ref(),
@@ -297,7 +297,7 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
 
   let mut opts = Vec::new();
   let opt = Opt { delta: OptDelta(12),
-                  value: OptValue(content_format.iter().copied().collect()) };
+                  value: OptValue(content_format.to_vec()) };
   opts.push(opt);
 
   let msg = VecMessage { id: Id(1),
@@ -306,7 +306,7 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                          token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                          opts,
                          code: Code { class: 2, detail: 5 },
-                         payload: Payload(b"hello, world!".into_iter().copied().collect()) };
+                         payload: Payload(b"hello, world!".to_vec()) };
   (msg, bytes)
 }
 

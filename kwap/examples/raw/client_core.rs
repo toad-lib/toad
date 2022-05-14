@@ -66,6 +66,7 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
   let (id, addr) = core.send_req(req).unwrap();
   println!("GET 127.0.0.1:5683/hello");
 
+  #[allow(clippy::no_effect)]
   let resp = block!(core.poll_resp(id, addr), on_wait {()});
 
   match resp {

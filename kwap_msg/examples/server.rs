@@ -21,6 +21,7 @@ fn main() {
       break bytes;
     }
   };
+
   println!("client: 📨 sent GET /hello {} bytes", bytes);
   println!("client: 📭 waiting for response...");
 
@@ -30,9 +31,7 @@ fn main() {
   let rep = Message::try_from_bytes(&buf[0..n]).unwrap();
   println!("client: 📨 received {} {}",
            rep.code.to_string(),
-           String::from_utf8(rep.payload.0.clone()).unwrap());
-
-  loop {}
+           String::from_utf8(rep.payload.0).unwrap());
 }
 
 fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
