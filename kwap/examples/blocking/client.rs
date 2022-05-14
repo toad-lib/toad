@@ -53,11 +53,10 @@ fn main() {
 
   let mut client = Client::new_std();
 
-  // TODO
-  // println!("client: PING");
-  // client.ping("127.0.0.1", 5683)
-  //       .map(|_| println!("client: pinged ok!\n"))
-  //       .unwrap();
+  println!("client: PING");
+  client.ping("127.0.0.1", 5683)
+        .map(|_| println!("client: pinged ok!\n"))
+        .unwrap();
 
   println!("client: CON GET /hello");
   let req = Req::get("127.0.0.1", 5683, "hello");
