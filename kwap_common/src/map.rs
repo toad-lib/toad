@@ -55,19 +55,19 @@ pub trait Map<K: Eq + Hash, V>:
   }
 
   /// See [`HashMap.iter`]
-  fn iter<'a>(&'a self) -> Iter<'a, K, V>;
+  fn iter(&self) -> Iter<'_, K, V>;
 
   /// See [`HashMap.iter_mut`]
-  fn iter_mut<'a>(&'a mut self) -> IterMut<'a, K, V>;
+  fn iter_mut(&mut self) -> IterMut<'_, K, V>;
 }
 
 impl<K: Eq + Hash, V> Map<K, V> for HashMap<K, V> {
-  fn iter<'a>(&'a self) -> Iter<'a, K, V> {
+  fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: None,
            hashmap_iter: Some(self.iter()) }
   }
 
-  fn iter_mut<'a>(&'a mut self) -> IterMut<'a, K, V> {
+  fn iter_mut(&mut self) -> IterMut<'_, K, V> {
     IterMut { array_iter: None,
               hashmap_iter: Some(self.iter_mut()) }
   }
@@ -75,7 +75,7 @@ impl<K: Eq + Hash, V> Map<K, V> for HashMap<K, V> {
   fn get<'a, Q: Hash + Eq>(&'a self, key: &Q) -> Option<&'a V>
     where K: Borrow<Q> + 'a
   {
-    self.get(&key)
+    self.get(key)
   }
 
   fn get_mut<'a, Q: Hash + Eq>(&'a mut self, key: &Q) -> Option<&'a mut V>
@@ -128,7 +128,7 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
     where K: Borrow<Q> + 'a
   {
     match self.iter().find(|(k, _)| Borrow::<Q>::borrow(*k) == key) {
-      | Some((_, ref v)) => Some(v),
+      | Some((_, v)) => Some(v),
       | None => None,
     }
   }
@@ -142,12 +142,12 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
     }
   }
 
-  fn iter<'a>(&'a self) -> Iter<'a, K, V> {
+  fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: Some(self.deref().iter().map(Iter::coerce_array_iter)),
            hashmap_iter: None }
   }
 
-  fn iter_mut<'a>(&'a mut self) -> IterMut<'a, K, V> {
+  fn iter_mut(&mut self) -> IterMut<'_, K, V> {
     IterMut { array_iter: Some(self.deref_mut().iter_mut().map(IterMut::coerce_array_iter)),
               hashmap_iter: None }
   }
@@ -168,6 +168,12 @@ impl<K: Eq + Hash, V> Reserve for HashMap<K, V> {
     Self::with_capacity(n)
   }
 }
+
+type ArrayIterCoercer<'a, K, V> = fn(&'a (K, V)) -> (&'a K, &'a V);
+type ArrayIterMapped<'a, K, V> = iter::Map<slice::Iter<'a, (K, V)>, ArrayIterCoercer<'a, K, V>>;
+
+type ArrayIterMutCoercer<'a, K, V> = fn(&'a mut (K, V)) -> (&'a K, &'a mut V);
+type ArrayIterMutMapped<'a, K, V> = iter::Map<slice::IterMut<'a, (K, V)>, ArrayIterMutCoercer<'a, K, V>>;
 
 /// An iterator over the entries of a `Map`.
 ///
@@ -193,7 +199,7 @@ impl<K: Eq + Hash, V> Reserve for HashMap<K, V> {
 pub struct Iter<'a, K: Eq + Hash, V> {
   // TODO: #[cfg(not(no_std))]?
   hashmap_iter: Option<hash_map::Iter<'a, K, V>>,
-  array_iter: Option<iter::Map<slice::Iter<'a, (K, V)>, fn(&'a (K, V)) -> (&'a K, &'a V)>>,
+  array_iter: Option<ArrayIterMapped<'a, K, V>>,
 }
 
 impl<'a, K: Eq + Hash, V> Iter<'a, K, V> {
@@ -240,7 +246,7 @@ impl<'a, K: Eq + Hash, V> Iterator for Iter<'a, K, V> {
 pub struct IterMut<'a, K: Eq + Hash, V> {
   // TODO: #[cfg(not(no_std))]?
   hashmap_iter: Option<hash_map::IterMut<'a, K, V>>,
-  array_iter: Option<iter::Map<slice::IterMut<'a, (K, V)>, fn(&'a mut (K, V)) -> (&'a K, &'a mut V)>>,
+  array_iter: Option<ArrayIterMutMapped<'a, K, V>>,
 }
 
 impl<'a, K: Eq + Hash, V> IterMut<'a, K, V> {
