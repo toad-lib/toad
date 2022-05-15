@@ -17,6 +17,10 @@ pub mod result;
 /// Function utils
 pub mod fns;
 
+/// Dictionary
+pub mod map;
+pub use map::*;
+
 /// `kwap` prelude
 pub mod prelude {
   pub use fns::*;
@@ -51,7 +55,6 @@ pub mod prelude {
 ///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
 pub trait Array:
   Default
-  + Insert<<Self as Array>::Item>
   + GetSize
   + Reserve
   + Deref<Target = [<Self as Array>::Item]>
@@ -62,13 +65,57 @@ pub trait Array:
 {
   /// The type of item contained in the collection
   type Item;
+
+  /// Insert a value at a particular index of a collection.
+  fn insert_at(&mut self, index: usize, value: <Self as Array>::Item);
+
+  /// Try to remove an entry from the collection.
+  ///
+  /// Returns `Some(Self::Item)` if `index` was in-bounds, `None` if `index` is out of bounds.
+  fn remove(&mut self, index: usize) -> Option<<Self as Array>::Item>;
+
+  /// Add a value to the end of a collection.
+  fn push(&mut self, value: <Self as Array>::Item);
 }
 
 impl<T> Array for Vec<T> {
   type Item = T;
+
+  fn insert_at(&mut self, index: usize, value: T) {
+    self.insert(index, value);
+  }
+
+  fn remove(&mut self, index: usize) -> Option<T> {
+    if index < self.len() {
+      Some(Vec::remove(self, index))
+    } else {
+      None
+    }
+  }
+
+  fn push(&mut self, value: T) {
+    self.push(value)
+  }
 }
+
 impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {
   type Item = T;
+
+  fn insert_at(&mut self, index: usize, value: A::Item) {
+    self.insert(index, value);
+  }
+
+  fn remove(&mut self, index: usize) -> Option<T> {
+    if index < self.len() {
+      Some(tinyvec::ArrayVec::remove(self, index))
+    } else {
+      None
+    }
+  }
+
+  fn push(&mut self, value: A::Item) {
+    self.push(value)
+  }
 }
 
 /// Get the runtime size of some data structure
@@ -180,45 +227,3 @@ impl<T> Reserve for Vec<T> {
 }
 
 impl<A: tinyvec::Array> Reserve for tinyvec::ArrayVec<A> {}
-
-/// Insert items into collections
-///
-/// ```
-/// use kwap_common::Insert;
-///
-/// let mut nums = vec![1, 2, 3];
-/// Insert::push(&mut nums, 4);
-/// assert_eq!(nums, vec![1, 2, 3, 4]);
-///
-/// nums.insert_at(0, 0);
-/// assert_eq!(nums, vec![0, 1, 2, 3, 4]);
-/// ```
-pub trait Insert<T>: GetSize {
-  /// Insert a value at a particular index of a collection.
-  fn insert_at(&mut self, index: usize, value: T);
-
-  /// Add a value to the end of a collection.
-  fn push(&mut self, value: T) {
-    self.insert_at(self.get_size(), value)
-  }
-}
-
-impl<T> Insert<T> for Vec<T> {
-  fn insert_at(&mut self, index: usize, value: T) {
-    self.insert(index, value);
-  }
-
-  fn push(&mut self, value: T) {
-    self.push(value)
-  }
-}
-
-impl<A: tinyvec::Array> Insert<A::Item> for tinyvec::ArrayVec<A> {
-  fn insert_at(&mut self, index: usize, value: A::Item) {
-    self.insert(index, value);
-  }
-
-  fn push(&mut self, value: A::Item) {
-    self.push(value)
-  }
-}
