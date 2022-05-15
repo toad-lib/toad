@@ -72,6 +72,9 @@ pub mod platform;
 /// network abstractions
 pub mod net;
 
+/// time abstractions
+pub mod time;
+
 /// `std`-only kwap stuff
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
@@ -79,27 +82,6 @@ pub mod std;
 
 mod option;
 pub use option::{ContentFormat, ToCoapValue};
-
-static mut ID: u16 = 0;
-static mut TOKEN: u64 = 0;
-
-// TODO(#79): Make token and ID generation use the Core's state and not mutable statics
-fn generate_id() -> kwap_msg::Id {
-  #[allow(unsafe_code)]
-  unsafe {
-    ID += 1;
-    kwap_msg::Id(ID)
-  }
-}
-
-// TODO(#79)
-fn generate_token() -> kwap_msg::Token {
-  #[allow(unsafe_code)]
-  unsafe {
-    TOKEN += 1;
-    kwap_msg::Token(TOKEN.to_be_bytes().into())
-  }
-}
 
 macro_rules! code {
   (rfc7252($section:literal) $name:ident = $c:literal.$d:literal) => {

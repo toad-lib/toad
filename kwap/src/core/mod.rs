@@ -2,7 +2,7 @@ use core::str::FromStr;
 
 use embedded_time::Clock;
 use kwap_common::prelude::*;
-use kwap_msg::{TryFromBytes, TryIntoBytes, Type};
+use kwap_msg::{Id, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -15,6 +15,7 @@ use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
+use crate::time::{Stamped, StampedIterator};
 use crate::todo::{Code, CodeKind, Message};
 
 // TODO(#81):
@@ -39,6 +40,10 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
+  /// message id <> address bookkeeping
+  msg_ids: P::MessageIdHistory,
+  /// message token <> address bookkeeping
+  msg_tokens: P::MessageTokenHistory,
   /// Networking socket that the CoAP runtime uses
   sock: P::Socket,
   /// Clock used for timing
@@ -56,9 +61,45 @@ impl<P: Platform> Core<P> {
   pub fn new(clock: P::Clock, sock: P::Socket) -> Self {
     Self { sock,
            clock,
+           msg_ids: Default::default(),
+           msg_tokens: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
+  }
+
+  fn next_id(&mut self, addr: SocketAddr) -> Id {
+    match self.msg_ids
+              .iter_mut()
+              .filter(|Stamped(Addrd(_, addr_b), _)| *addr_b == addr)
+              .map(Stamped::as_mut)
+              .latest()
+    {
+      | Some(id) => {
+        let next = Id(id.data().0 + 1);
+        *id = Addrd(next, addr);
+        next
+      },
+      | None => {
+        self.msg_ids.push(Addrd(Id(0), addr));
+        Id(0)
+      },
+    }
+  }
+
+  fn next_token(&mut self, addr: SocketAddr) -> Token {
+    match self.msg_tokens.iter_mut().find(|last| last.addr() == addr) {
+      | Some(token) => {
+        // TODO(#): generate opaque tokens instead of sequential
+        let next = Token(token.data().0 + 1);
+        *token = Addrd(next, addr);
+        next
+      },
+      | None => {
+        self.msg_tokens.push(Addrd(Token(0), addr));
+        Token(0)
+      },
+    }
   }
 
   fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
