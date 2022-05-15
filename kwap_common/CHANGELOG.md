@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.6.2 (2022-05-15)
+
+
+### Features
+
+* **common:** add Map trait ([#115](https://github.com/clov-coffee/kwap/issues/115)) ([82b8eec](https://github.com/clov-coffee/kwap/commit/82b8eecc3a3149c75db6dfed4f3a5a60ebf17fbd))
+
 ### 0.6.1 (2022-04-26)
 
 
