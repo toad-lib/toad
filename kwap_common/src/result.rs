@@ -3,6 +3,9 @@ pub trait ResultExt<T, E>: Sized {
   /// Alias for [`Result.and_then`]
   fn bind<R>(self, f: impl FnOnce(T) -> Result<R, E>) -> Result<R, E>;
 
+  /// Swap the Ok and Err variants
+  fn swap(self) -> Result<E, T>;
+
   /// Allows turning an Err back into Ok by binding on the Err variant
   fn recover<R>(self, f: impl FnOnce(E) -> Result<T, R>) -> Result<T, R>;
 
@@ -71,5 +74,12 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
 
   fn filter(self, pred: impl FnOnce(&T) -> bool, on_fail: impl FnOnce(&T) -> E) -> Result<T, E> {
     self.bind(|t| if pred(&t) { Err(on_fail(&t)) } else { Ok(t) })
+  }
+
+  fn swap(self) -> Result<E, T> {
+    match self {
+      | Ok(err) => Err(err),
+      | Err(ok) => Ok(ok),
+    }
   }
 }
