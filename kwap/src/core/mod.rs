@@ -15,7 +15,7 @@ use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
-use crate::time::{Stamped, StampedIterator};
+use crate::time::Stamped;
 use crate::todo::{Code, CodeKind, Message};
 
 // TODO(#81):
@@ -40,10 +40,10 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
-  /// message id <> address bookkeeping
-  msg_ids: P::MessageIdHistory,
-  /// message token <> address bookkeeping
-  msg_tokens: P::MessageTokenHistory,
+  /// Map<SocketAddr, [Stamped<Id>]>
+  msg_ids: P::MessageIdHistoryBySocket,
+  /// Map<SocketAddr, [Stamped<Token>]>
+  msg_tokens: P::MessageTokenHistoryBySocket,
   /// Networking socket that the CoAP runtime uses
   sock: P::Socket,
   /// Clock used for timing
@@ -69,38 +69,53 @@ impl<P: Platform> Core<P> {
   }
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
-    match self.msg_ids
-              .iter_mut()
-              .filter(|Stamped(Addrd(_, addr_b), _)| *addr_b == addr)
-              .map(Stamped::as_mut)
-              .latest()
-    {
-      | Some(id) => {
-        let next = Id(id.data().0 + 1);
-        *id = Addrd(next, addr);
-        next
+    // TODO: expiry
+    match self.msg_ids.get_mut(&addr).map(|ids| {
+                                       (ids,
+                                        ids.iter()
+                                           .map(Stamped::as_ref)
+                                           .fold(None, Stamped::find_latest)
+                                           .map(|Stamped(prev, _)| prev))
+                                     }) {
+      | Some((ids, Some(Id(prev_id)))) => {
+        let new = Id(prev_id + 1);
+        ids.push(Stamped::new(&self.clock, new).unwrap());
+
+        new
+      },
+      | Some((ids, None)) => {
+        ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
+
+        Id(0)
       },
       | None => {
-        self.msg_ids.push(Addrd(Id(0), addr));
+        let mut ids: P::MessageIdHistory = Default::default();
+        ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
+
+        self.msg_ids.insert(addr, ids).ok();
+
         Id(0)
       },
     }
   }
 
-  fn next_token(&mut self, addr: SocketAddr) -> Token {
-    match self.msg_tokens.iter_mut().find(|last| last.addr() == addr) {
-      | Some(token) => {
-        // TODO(#): generate opaque tokens instead of sequential
-        let next = Token(token.data().0 + 1);
-        *token = Addrd(next, addr);
-        next
-      },
-      | None => {
-        self.msg_tokens.push(Addrd(Token(0), addr));
-        Token(0)
-      },
-    }
-  }
+  // fn next_token(&mut self, addr: SocketAddr) -> Token {
+  //   // TODO: expiry
+  //   match self.msg_tokens
+  //             .get(&addr)
+  //             .map(|ids| ids.iter().map(Stamped::as_ref))
+  //             .and_then(Stamped::latest)
+  //   {
+  //     | Some(Stamped(Token(last_issued), _)) => Token(last_issued + 1),
+  //     | None => {
+  //       let mut ids: P::MessageIdHistory = Default::default();
+  //       ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
+
+  //       self.msg_ids.insert(addr, ids).ok();
+
+  //       Token(Default::default())
+  //     },
+  // }
 
   fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
     let when = When::Polling;

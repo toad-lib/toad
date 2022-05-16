@@ -2,7 +2,16 @@ use embedded_time::clock::Error;
 use embedded_time::{Clock, Instant};
 
 /// Data associated with a timestamp
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Stamped<C: Clock, T>(pub T, pub Instant<C>);
+
+impl<C: Clock, T: Clone> Clone for Stamped<C, T> {
+  fn clone(&self) -> Self {
+    Self(self.0.clone(), self.1)
+  }
+}
+
+impl<C: Clock, T: Copy> Copy for Stamped<C, T> {}
 
 impl<C: Clock, T> Stamped<C, T> {
   /// TODO
@@ -34,17 +43,8 @@ impl<C: Clock, T> Stamped<C, T> {
   pub fn map<R>(self, f: impl FnOnce(T) -> R) -> Stamped<C, R> {
     Stamped(f(self.0), self.1)
   }
-}
 
-/// TODO
-pub trait StampedIterator<C: Clock, T> {
-  fn latest(self) -> Option<Stamped<C, T>>;
-}
-
-impl<I: Iterator<Item = Stamped<C, T>>, C: Clock, T> StampedIterator<C, T> for I {
-  fn latest(self) -> Option<Stamped<C, T>> {
-    self.fold(None, |winner, new| {
-          Some(winner.filter(|Stamped(_, winner)| winner > &new.time()).unwrap_or(new))
-        })
+  pub fn find_latest(winner: Option<Stamped<C, T>>, cur: Stamped<C, T>) -> Option<Stamped<C, T>> {
+    Some(winner.filter(|Stamped(_, winner)| winner > &cur.time()).unwrap_or(cur))
   }
 }

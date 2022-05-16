@@ -1,13 +1,16 @@
 use core::fmt::Debug;
 
 use embedded_time::Clock;
-use kwap_common::Array;
+use kwap_common::prelude::*;
 use kwap_msg::{Id, Opt, OptNumber, Token};
+use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 
 use crate::net::{Addrd, Socket};
 use crate::time::Stamped;
+
+type BTreeMap<K, V> = Vec<(K, V)>;
 
 /// kwap configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
@@ -17,10 +20,15 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug;
   /// What type should we use to store the options?
   type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug;
+
   /// TODO
-  type MessageIdHistory: Array<Item = Stamped<Self::Clock, Addrd<Id>>> + Clone + Debug;
+  type MessageIdHistory: Array<Item = Stamped<Self::Clock, Id>> + Clone + Debug;
   /// TODO
-  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, Addrd<Token>>> + Clone + Debug;
+  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, Token>> + Clone + Debug;
+  /// TODO
+  type MessageIdHistoryBySocket: Map<SocketAddr, Self::MessageIdHistory> + Clone + Debug;
+  /// TODO
+  type MessageTokenHistoryBySocket: Map<SocketAddr, Self::MessageTokenHistory> + Clone + Debug;
 
   /// What type should we use to keep track of options before serializing?
   type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)> + Clone + Debug;
@@ -74,12 +82,14 @@ impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk,
 }
 
 #[cfg(feature = "alloc")]
-impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Platform for Alloc<Clk, Sock> {
+impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Clk, Sock> {
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = Vec<Opt<Vec<u8>>>;
-  type MessageIdHistory = Vec<Stamped<Self::Clock, Addrd<Id>>>;
-  type MessageTokenHistory = Vec<Stamped<Self::Clock, Addrd<Token>>>;
+  type MessageIdHistory = Vec<Stamped<Self::Clock, Id>>;
+  type MessageTokenHistory = Vec<Stamped<Self::Clock, Token>>;
+  type MessageIdHistoryBySocket = BTreeMap<SocketAddr, Self::MessageIdHistory>;
+  type MessageTokenHistoryBySocket = BTreeMap<SocketAddr, Self::MessageTokenHistory>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clk;
   type Socket = Sock;
