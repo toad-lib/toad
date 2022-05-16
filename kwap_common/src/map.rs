@@ -1,5 +1,5 @@
 use core::borrow::Borrow;
-use std::collections::{hash_map, HashMap};
+use std::collections::{btree_map, hash_map, BTreeMap, HashMap};
 use std::hash::Hash;
 use std::{iter, slice};
 
@@ -29,26 +29,26 @@ pub enum InsertError<V> {
 /// - [`GetSize`] for bound checks, empty checks, and accessing the length
 /// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the map
 /// - [`IntoIterator`] for iterating and destroying the map
-pub trait Map<K: Eq + Hash, V>:
+pub trait Map<K: Ord + Eq + Hash, V>:
   Default + GetSize + Reserve + Extend<(K, V)> + FromIterator<(K, V)> + IntoIterator<Item = (K, V)>
 {
   /// See [`HashMap.insert`]
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>>;
 
   /// See [`HashMap.remove`]
-  fn remove<Q: Hash + Eq>(&mut self, key: &Q) -> Option<V>
+  fn remove<Q: Hash + Eq + Ord>(&mut self, key: &Q) -> Option<V>
     where K: Borrow<Q>;
 
   /// See [`HashMap.get`]
-  fn get<'a, Q: Hash + Eq>(&'a self, key: &Q) -> Option<&'a V>
+  fn get<'a, Q: Hash + Eq + Ord>(&'a self, key: &Q) -> Option<&'a V>
     where K: Borrow<Q> + 'a;
 
   /// See [`HashMap.get_mut`]
-  fn get_mut<'a, Q: Hash + Eq>(&'a mut self, key: &Q) -> Option<&'a mut V>
+  fn get_mut<'a, Q: Hash + Eq + Ord>(&'a mut self, key: &Q) -> Option<&'a mut V>
     where K: Borrow<Q> + 'a;
 
   /// See [`HashMap.contains_key`]
-  fn has<Q: Hash + Eq>(&self, key: &Q) -> bool
+  fn has<Q: Hash + Eq + Ord>(&self, key: &Q) -> bool
     where K: Borrow<Q>
   {
     self.get(key).is_some()
@@ -61,24 +61,62 @@ pub trait Map<K: Eq + Hash, V>:
   fn iter_mut(&mut self) -> IterMut<'_, K, V>;
 }
 
-impl<K: Eq + Hash, V> Map<K, V> for HashMap<K, V> {
-  fn iter(&self) -> Iter<'_, K, V> {
-    Iter { array_iter: None,
-           hashmap_iter: Some(self.iter()) }
+impl<K: Eq + Hash + Ord, V> Map<K, V> for BTreeMap<K, V> {
+  fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
+    self.insert(key, val).map(InsertError::Exists).ok_or(()).swap()
   }
 
-  fn iter_mut(&mut self) -> IterMut<'_, K, V> {
-    IterMut { array_iter: None,
-              hashmap_iter: Some(self.iter_mut()) }
+  fn remove<Q: Ord>(&mut self, key: &Q) -> Option<V>
+    where K: Borrow<Q>
+  {
+    self.remove(key)
   }
 
-  fn get<'a, Q: Hash + Eq>(&'a self, key: &Q) -> Option<&'a V>
+  fn get<'a, Q: Hash + Eq + Ord>(&'a self, key: &Q) -> Option<&'a V>
     where K: Borrow<Q> + 'a
   {
     self.get(key)
   }
 
-  fn get_mut<'a, Q: Hash + Eq>(&'a mut self, key: &Q) -> Option<&'a mut V>
+  fn get_mut<'a, Q: Hash + Eq + Ord>(&'a mut self, key: &Q) -> Option<&'a mut V>
+    where K: Borrow<Q> + 'a
+  {
+    self.get_mut(key)
+  }
+
+  fn iter(&self) -> Iter<'_, K, V> {
+    Iter { array_iter: None,
+           hashmap_iter: None,
+           btreemap_iter: Some(self.iter()) }
+  }
+
+  fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+    IterMut { array_iter: None,
+              hashmap_iter: None,
+              btreemap_iter: Some(self.iter_mut()) }
+  }
+}
+
+impl<K: Eq + Hash + Ord, V> Map<K, V> for HashMap<K, V> {
+  fn iter(&self) -> Iter<'_, K, V> {
+    Iter { array_iter: None,
+           btreemap_iter: None,
+           hashmap_iter: Some(self.iter()) }
+  }
+
+  fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+    IterMut { array_iter: None,
+              btreemap_iter: None,
+              hashmap_iter: Some(self.iter_mut()) }
+  }
+
+  fn get<'a, Q: Hash + Eq + Ord>(&'a self, key: &Q) -> Option<&'a V>
+    where K: Borrow<Q> + 'a
+  {
+    self.get(key)
+  }
+
+  fn get_mut<'a, Q: Hash + Eq + Ord>(&'a mut self, key: &Q) -> Option<&'a mut V>
     where K: Borrow<Q> + 'a
   {
     self.get_mut(key)
@@ -88,14 +126,14 @@ impl<K: Eq + Hash, V> Map<K, V> for HashMap<K, V> {
     self.insert(key, val).map(InsertError::Exists).ok_or(()).swap()
   }
 
-  fn remove<Q: Hash + Eq>(&mut self, key: &Q) -> Option<V>
+  fn remove<Q: Hash + Eq + Ord>(&mut self, key: &Q) -> Option<V>
     where K: Borrow<Q>
   {
     self.remove(key)
   }
 }
 
-impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
+impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for T {
   fn insert(&mut self, key: K, mut val: V) -> Result<(), InsertError<V>> {
     match self.iter_mut().find(|(k, _)| k == &&key) {
       | Some((_, exist)) => {
@@ -112,7 +150,7 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
     }
   }
 
-  fn remove<Q: Hash + Eq>(&mut self, key: &Q) -> Option<V>
+  fn remove<Q: Hash + Eq + Ord>(&mut self, key: &Q) -> Option<V>
     where K: Borrow<Q>
   {
     match self.iter()
@@ -124,7 +162,7 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
     }
   }
 
-  fn get<'a, Q: Hash + Eq>(&'a self, key: &Q) -> Option<&'a V>
+  fn get<'a, Q: Hash + Eq + Ord>(&'a self, key: &Q) -> Option<&'a V>
     where K: Borrow<Q> + 'a
   {
     match self.iter().find(|(k, _)| Borrow::<Q>::borrow(*k) == key) {
@@ -133,7 +171,7 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
     }
   }
 
-  fn get_mut<'a, Q: Hash + Eq>(&'a mut self, key: &Q) -> Option<&'a mut V>
+  fn get_mut<'a, Q: Hash + Eq + Ord>(&'a mut self, key: &Q) -> Option<&'a mut V>
     where K: Borrow<Q> + 'a
   {
     match self.iter_mut().find(|(k, _)| Borrow::<Q>::borrow(*k) == key) {
@@ -144,16 +182,29 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash, V> Map<K, V> for T {
 
   fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: Some(self.deref().iter().map(Iter::coerce_array_iter)),
+           btreemap_iter: None,
            hashmap_iter: None }
   }
 
   fn iter_mut(&mut self) -> IterMut<'_, K, V> {
     IterMut { array_iter: Some(self.deref_mut().iter_mut().map(IterMut::coerce_array_iter)),
+              btreemap_iter: None,
               hashmap_iter: None }
   }
 }
 
 impl<K: Eq + Hash, V> GetSize for HashMap<K, V> {
+  fn get_size(&self) -> usize {
+    self.len()
+  }
+
+  fn max_size(&self) -> Option<usize> {
+    None
+  }
+}
+
+impl<K, V> Reserve for BTreeMap<K, V> {}
+impl<K, V> GetSize for BTreeMap<K, V> {
   fn get_size(&self) -> usize {
     self.len()
   }
@@ -199,6 +250,8 @@ type ArrayIterMutMapped<'a, K, V> = iter::Map<slice::IterMut<'a, (K, V)>, ArrayI
 pub struct Iter<'a, K: Eq + Hash, V> {
   // TODO: #[cfg(not(no_std))]?
   hashmap_iter: Option<hash_map::Iter<'a, K, V>>,
+  // TODO: #[cfg(alloc)]?
+  btreemap_iter: Option<btree_map::Iter<'a, K, V>>,
   array_iter: Option<ArrayIterMapped<'a, K, V>>,
 }
 
@@ -209,8 +262,10 @@ impl<'a, K: Eq + Hash, V> Iter<'a, K, V> {
   }
 
   fn get_iter(&mut self) -> &mut dyn Iterator<Item = (&'a K, &'a V)> {
-    let (a, b) = (self.hashmap_iter.as_mut().map(|a| a as &mut _), self.array_iter.as_mut().map(|a| a as &mut _));
-    a.or(b).unwrap()
+    let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
+                     self.array_iter.as_mut().map(|a| a as &mut _),
+                     self.btreemap_iter.as_mut().map(|a| a as &mut _));
+    a.or(b).or(c).unwrap()
   }
 }
 
@@ -246,6 +301,8 @@ impl<'a, K: Eq + Hash, V> Iterator for Iter<'a, K, V> {
 pub struct IterMut<'a, K: Eq + Hash, V> {
   // TODO: #[cfg(not(no_std))]?
   hashmap_iter: Option<hash_map::IterMut<'a, K, V>>,
+  // TODO: #[cfg(alloc)]?
+  btreemap_iter: Option<btree_map::IterMut<'a, K, V>>,
   array_iter: Option<ArrayIterMutMapped<'a, K, V>>,
 }
 
@@ -256,8 +313,10 @@ impl<'a, K: Eq + Hash, V> IterMut<'a, K, V> {
   }
 
   fn get_iter(&mut self) -> &mut dyn Iterator<Item = (&'a K, &'a mut V)> {
-    let (a, b) = (self.hashmap_iter.as_mut().map(|a| a as &mut _), self.array_iter.as_mut().map(|a| a as &mut _));
-    a.or(b).unwrap()
+    let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
+                     self.array_iter.as_mut().map(|a| a as &mut _),
+                     self.btreemap_iter.as_mut().map(|a| a as &mut _));
+    a.or(b).or(c).unwrap()
   }
 }
 
@@ -273,17 +332,23 @@ impl<'a, K: Eq + Hash, V> Iterator for IterMut<'a, K, V> {
 mod tests {
   use super::*;
 
-  fn impls() -> (impl Map<String, String>, impl Map<String, String>, impl Map<String, String>) {
+  fn impls(
+    )
+      -> (impl Map<String, String>, impl Map<String, String>, impl Map<String, String>, impl Map<String, String>)
+  {
     (HashMap::<String, String>::from([("foo".into(), "bar".into())]),
+     BTreeMap::<String, String>::from([("foo".into(), "bar".into())]),
      tinyvec::array_vec!([(String, String); 16] => ("foo".into(), "bar".into())),
      vec![("foo".to_string(), "bar".to_string())])
   }
 
   macro_rules! each_impl {
     ($work:expr) => {{
-      let (hm, av, vc) = impls();
+      let (hm, bt, av, vc) = impls();
       println!("hashmap");
       $work(hm);
+      println!("btreemap");
+      $work(bt);
       println!("arrayvec");
       $work(av);
       println!("vec");
