@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.6.3 (2022-05-16)
+
+
+### Features
+
+* **common:** impl Map for BTreeMap ([#116](https://github.com/clov-coffee/kwap/issues/116)) ([7ccc1f6](https://github.com/clov-coffee/kwap/commit/7ccc1f6d47dc2211d28f7b18f3f71b10ea356582))
+
 ### 0.6.2 (2022-05-15)
 
 
