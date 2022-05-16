@@ -1,8 +1,10 @@
 use core::str::FromStr;
 
+use blake2::digest::consts::U8;
+use blake2::{Blake2b, Digest};
 use embedded_time::Clock;
 use kwap_common::prelude::*;
-use kwap_msg::{Id, TryFromBytes, TryIntoBytes, Type};
+use kwap_msg::{Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -70,13 +72,15 @@ impl<P: Platform> Core<P> {
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
     // TODO: expiry
-    match self.msg_ids.get_mut(&addr).map(|ids| {
-                                       (ids,
-                                        ids.iter()
-                                           .map(Stamped::as_ref)
-                                           .fold(None, Stamped::find_latest)
-                                           .map(|Stamped(prev, _)| prev))
-                                     }) {
+    let ids_and_prev = self.msg_ids.get_mut(&addr).map(|ids| {
+                                                    (ids,
+                                                     ids.iter()
+                                                        .map(Stamped::as_ref)
+                                                        .fold(None, Stamped::find_latest)
+                                                        .map(|Stamped(prev, _)| prev))
+                                                  });
+
+    match ids_and_prev {
       | Some((ids, Some(Id(prev_id)))) => {
         let new = Id(prev_id + 1);
         ids.push(Stamped::new(&self.clock, new).unwrap());
@@ -86,6 +90,7 @@ impl<P: Platform> Core<P> {
       | Some((ids, None)) => {
         ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
 
+        // TODO: Random starting point?
         Id(0)
       },
       | None => {
@@ -99,23 +104,47 @@ impl<P: Platform> Core<P> {
     }
   }
 
-  // fn next_token(&mut self, addr: SocketAddr) -> Token {
-  //   // TODO: expiry
-  //   match self.msg_tokens
-  //             .get(&addr)
-  //             .map(|ids| ids.iter().map(Stamped::as_ref))
-  //             .and_then(Stamped::latest)
-  //   {
-  //     | Some(Stamped(Token(last_issued), _)) => Token(last_issued + 1),
-  //     | None => {
-  //       let mut ids: P::MessageIdHistory = Default::default();
-  //       ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
+  fn hash_token(data: u32) -> Token {
+    let blake = Blake2b::<U8>::new();
+    blake.update(data.to_be_bytes());
+    Token(Into::<[u8; 8]>::into(blake.finalize()).into())
+  }
 
-  //       self.msg_ids.insert(addr, ids).ok();
+  fn next_token(&mut self, addr: SocketAddr) -> Token {
+    // TODO: expiry
+    let tks_and_prev = self.msg_tokens.get_mut(&addr).map(|tks| {
+                                                       (tks,
+                                                        tks.iter()
+                                                           .map(Stamped::as_ref)
+                                                           .fold(None, Stamped::find_latest)
+                                                           .map(|Stamped(prev, _)| prev))
+                                                     });
 
-  //       Token(Default::default())
-  //     },
-  // }
+    match tks_and_prev {
+      | Some((tks, Some(last_token))) => {
+        let new_prehash = last_token + 1;
+        let new = Self::hash_token(new_prehash);
+        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
+        new
+      },
+      | Some((tks, None)) => {
+        let new_prehash = 0;
+        let new = Self::hash_token(new_prehash);
+        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
+        new
+      },
+      | None => {
+        let mut tks: P::MessageTokenHistory = Default::default();
+        let new_prehash = 0;
+        let new = Self::hash_token(new_prehash);
+        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
+
+        self.msg_tokens.insert(addr, tks).ok();
+
+        new
+      },
+    }
+  }
 
   fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
     let when = When::Polling;
