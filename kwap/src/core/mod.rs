@@ -1,8 +1,7 @@
 use core::str::FromStr;
 
-use blake2::digest::consts::U8;
-use blake2::{Blake2b, Digest};
 use embedded_time::Clock;
+use embedded_time::duration::Milliseconds;
 use kwap_common::prelude::*;
 use kwap_msg::{Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -42,6 +41,8 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
+  /// See [`Core.next_token`] for info on our implementation of token generation.
+  token_seed: u16,
   /// Map<SocketAddr, [Stamped<Id>]>
   msg_ids: P::MessageIdHistoryBySocket,
   /// Map<SocketAddr, [Stamped<Token>]>
@@ -61,7 +62,8 @@ pub struct Core<P: Platform> {
 impl<P: Platform> Core<P> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: P::Clock, sock: P::Socket) -> Self {
-    Self { sock,
+    Self { token_seed: 0,
+           sock,
            clock,
            msg_ids: Default::default(),
            msg_tokens: Default::default(),
@@ -70,83 +72,81 @@ impl<P: Platform> Core<P> {
            retry_q: Default::default() }
   }
 
+  fn seen_id(&mut self, id: Addrd<Id>) {
+    if !self.msg_ids.has(&id.addr()) {
+      self.msg_ids.insert(id.addr(), Default::default()).unwrap();
+    }
+
+    self.msg_ids
+        .get_mut(&id.addr())
+        .unwrap()
+        .push(Stamped::new(&self.clock, *id.data()).unwrap())
+  }
+
+  fn seen_token(&mut self, token: Addrd<Token>) {
+    if !self.msg_tokens.has(&token.addr()) {
+      self.msg_tokens.insert(token.addr(), Default::default()).unwrap();
+    }
+
+    self.msg_tokens
+        .get_mut(&token.addr())
+        .unwrap()
+        .push(Stamped::new(&self.clock, *token.data()).unwrap())
+  }
+
   fn next_id(&mut self, addr: SocketAddr) -> Id {
     // TODO: expiry
-    let ids_and_prev = self.msg_ids.get_mut(&addr).map(|ids| {
-                                                    (ids.iter()
-                                                        .map(Stamped::as_ref)
-                                                        .fold(None, Stamped::find_latest)
-                                                        .map(|Stamped(prev, _)| *prev),
-                                                     ids)
-                                                  });
+    let last_seen = self.msg_ids.get(&addr).and_then(|ids| {
+                                             ids.iter()
+                                                .map(Stamped::as_ref)
+                                                .fold(None, Stamped::find_latest)
+                                                .map(|Stamped(prev, _)| *prev)
+                                           });
 
-    match ids_and_prev {
-      | Some((Some(Id(prev_id)), ids)) => {
-        let new = Id(prev_id + 1);
-        ids.push(Stamped::new(&self.clock, new).unwrap());
-
-        new
-      },
-      | Some((None, ids)) => {
-        ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
-
+    let new = match last_seen {
+      | Some(Id(last_seen)) => Id(last_seen + 1),
+      | None => {
         // TODO: Random starting point?
         Id(0)
       },
-      | None => {
-        let mut ids: P::MessageIdHistory = Default::default();
-        ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
+    };
 
-        self.msg_ids.insert(addr, ids).ok();
-
-        Id(0)
-      },
-    }
+    self.seen_id(Addrd(new, addr));
+    new
   }
 
-  fn hash_token(data: u32) -> Token {
-    let mut blake = Blake2b::<U8>::new();
-    blake.update(data.to_be_bytes());
-    Token(Into::<[u8; 8]>::into(blake.finalize()).into())
-  }
 
+  /// Token Generation
+  ///
+  /// First, we smoosh together the 2-byte token_seed
+  /// and an 8-byte timestamp obtained from the system clock
+  ///
+  /// Core.token_seed
+  /// ||
+  /// xx xxxxxxxx
+  ///    |      |
+  ///    timestamp
+  ///
+  /// Then apply the BLAKE2 hashing algorithm to have an opaque 8 byte token.
+  ///
+  /// token_seed may be 0, a random integer, or a machine identifier.
+  /// The purpose of the seed is to prevent someone with visibility into
+  /// unencrypted CoAP traffic from guessing identifiers.
   fn next_token(&mut self, addr: SocketAddr) -> Token {
     // TODO: expiry
-    let tks_and_prev = self.msg_tokens
-                           .get_mut(&addr)
-                           .map(|tks| {
-                             (tks.iter()
-                                 .map(Stamped::as_ref)
-                                 .fold(None, Stamped::find_latest)
-                                 .map(|Stamped(prev, _)| *prev),
-                              tks)
-                           })
-                           .map(|(prev, tks)| (tks, prev));
 
-    match tks_and_prev {
-      | Some((tks, Some(last_token))) => {
-        let new_prehash = last_token + 1;
-        let new = Self::hash_token(new_prehash);
-        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
-        new
-      },
-      | Some((tks, None)) => {
-        let new_prehash = 0;
-        let new = Self::hash_token(new_prehash);
-        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
-        new
-      },
-      | None => {
-        let mut tks: P::MessageTokenHistory = Default::default();
-        let new_prehash = 0;
-        let new = Self::hash_token(new_prehash);
-        tks.push(Stamped::new(&self.clock, new_prehash).unwrap());
+    let now_millis: Milliseconds<u64> = self.clock.try_now().unwrap().duration_since_epoch().try_into().unwrap();
+    let now_millis: u64 = now_millis.0;
+    let bytes = {
+      // TODO: probably a better way to do this
+      let ([a,b], [c,d,e,f,g,h,i,j]) = (self.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+      [a, b, c, d, e, f, g, h, i, j]
+    };
 
-        self.msg_tokens.insert(addr, tks).ok();
+    let token = crate::todo::Token::opaque(&bytes);
+    self.seen_token(Addrd(token, addr));
 
-        new
-      },
-    }
+    token
   }
 
   fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
@@ -280,6 +280,9 @@ impl<P: Platform> Core<P> {
   }
 
   fn msg_recvd(&mut self, msg: Addrd<platform::Message<P>>) -> () {
+    self.seen_id(msg.as_ref().map(|msg| msg.id));
+    self.seen_token(msg.as_ref().map(|msg| msg.token));
+
     self.process_acks(&msg);
 
     if msg.data().code.kind() == CodeKind::Response {
@@ -399,7 +402,6 @@ impl<P: Platform> Core<P> {
   /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
   pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
-    let token = req.msg_token();
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
@@ -424,22 +426,23 @@ impl<P: Platform> Core<P> {
                                  if req.token.is_none() {
                                    req.token = Some(self.next_token(host));
                                  }
-                                 host
+                                 (req.msg_token(), host)
                                })
-                               .and_then(|addr| {
+                               .and_then(|(token, addr)| {
                                  let msg = platform::Message::<P>::from(req);
                                  let t = Addrd(msg.clone(), addr);
                                  self.retryable(when, t)
                                      .map(|bam| self.retry_q.push(Some(bam)))
-                                     .map(|_| (addr, msg))
+                                     .map(|_| (token, addr, msg))
                                })
-                               .and_then(|(addr, msg)| {
+                               .and_then(|(token, addr, msg)| {
                                  msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
                                     .map_err(|err| when.what(What::ToBytes(err)))
-                                    .map(|bytes| (addr, bytes))
+                                    .map(|bytes| (token, addr, bytes))
                                })
-                               .bind(|(addr, bytes)| Self::send(when, &mut self.sock, addr, bytes))
-                               .map(|addr| (token, addr))
+                               .bind(|(token, addr, bytes)| {
+                                 Self::send(when, &mut self.sock, addr, bytes).map(|addr| (token, addr))
+                               })
   }
 
   /// Send a message to a remote socket

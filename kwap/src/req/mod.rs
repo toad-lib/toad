@@ -132,12 +132,12 @@ impl<P: Platform> Req<P> {
   /// let _msg_id = req.msg_id();
   /// ```
   pub fn msg_id(&self) -> kwap_msg::Id {
-    self.msg.id
+    self.id.unwrap_or(self.msg.id)
   }
 
   /// Get a copy of the message token for this request
   pub fn msg_token(&self) -> kwap_msg::Token {
-    self.msg.token
+    self.token.unwrap_or(self.msg.token)
   }
 
   /// Add a custom option to this request

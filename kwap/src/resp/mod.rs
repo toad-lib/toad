@@ -67,24 +67,49 @@ impl<P: Platform> Resp<P> {
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
-  pub fn for_request(req: Req<P>) -> Self {
-    let req = Message::from(req);
+  pub fn for_request(req: &Req<P>) -> Option<Self> {
+    match req.msg_type() {
+      | Type::Con => Some(Self::ack(req)),
+      | Type::Non => Some(Self::non(req)),
+      | _ => None,
+    }
+  }
 
-    let msg = Message { ty: match req.ty {
-                          | Type::Con => Type::Ack,
-                          | Type::Non => Type::Con,
-                          | _ => req.ty,
-                        },
-                        id: if req.ty == Type::Con {
-                          req.id
-                        } else {
-                          Id(Default::default())
-                        },
+  /// TODO
+  pub fn ack(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Ack,
+                        id: req.msg_id(),
                         opts: P::MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.token };
+                        token: req.msg_token() };
+
+    Self { msg, opts: None }
+  }
+
+  /// TODO
+  pub fn con(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Con,
+                        id: Id(Default::default()),
+                        opts: P::MessageOptions::default(),
+                        code: code::CONTENT,
+                        ver: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: req.msg_token() };
+
+    Self { msg, opts: None }
+  }
+
+  /// TODO
+  pub fn non(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Non,
+                        id: Id(Default::default()),
+                        opts: P::MessageOptions::default(),
+                        code: code::CONTENT,
+                        ver: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: req.msg_token() };
 
     Self { msg, opts: None }
   }
@@ -237,9 +262,6 @@ impl<P: Platform> Resp<P> {
 impl<P: Platform> From<Resp<P>> for platform::Message<P> {
   fn from(mut rep: Resp<P>) -> Self {
     rep.normalize_opts();
-    if rep.msg.id == Id(Default::default()) {
-      panic!("{:#?}", rep)
-    }
     rep.msg
   }
 }

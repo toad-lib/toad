@@ -24,7 +24,7 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// TODO
   type MessageIdHistory: Array<Item = Stamped<Self::Clock, Id>> + Clone + Debug;
   /// TODO
-  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, u32>> + Clone + Debug;
+  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, Token>> + Clone + Debug;
   /// TODO
   type MessageIdHistoryBySocket: Map<SocketAddr, Self::MessageIdHistory> + Clone + Debug;
   /// TODO
@@ -87,7 +87,7 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = Vec<Opt<Vec<u8>>>;
   type MessageIdHistory = Vec<Stamped<Self::Clock, Id>>;
-  type MessageTokenHistory = Vec<Stamped<Self::Clock, u32>>;
+  type MessageTokenHistory = Vec<Stamped<Self::Clock, Token>>;
   type MessageIdHistoryBySocket = BTreeMap<SocketAddr, Self::MessageIdHistory>;
   type MessageTokenHistoryBySocket = BTreeMap<SocketAddr, Self::MessageTokenHistory>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;

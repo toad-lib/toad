@@ -5,17 +5,25 @@ use kwap::net::Addrd;
 use kwap::platform::{self, Std};
 use kwap::req::Req;
 use kwap::resp::{code, Resp};
+use kwap_msg::Type;
 
 fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  let resp = req.as_ref().map(|req| Resp::for_request(req.clone())).map(|mut resp| {
-                                                                     resp.set_code(code::CONTENT);
-                                                                     resp.set_payload("goodbye, world!".bytes());
-                                                                     resp
-                                                                   });
-  match req.data().path().unwrap() {
-    | Some("exit") => (Continue::Yes, Action::Send(resp.map(Into::into))),
-    | _ => (Continue::Yes, Action::Nop),
-  }
+  let Addrd(resp, addr) = req.as_ref().map(|req| match req.msg_type() {
+                                        | Type::Con => Some(Resp::ack(req)),
+                                        | Type::Non => Some(Resp::con(req)),
+                                        | _ => None,
+                                      });
+
+  resp.map(|mut resp| {
+        resp.set_code(code::CONTENT);
+        resp.set_payload("goodbye, world!".bytes());
+
+        match req.data().path().unwrap() {
+          | Some("exit") => (Continue::Yes, Action::Send(Addrd(resp.into(), addr))),
+          | _ => (Continue::Yes, Action::Nop),
+        }
+      })
+      .unwrap_or((Continue::Yes, Action::Nop))
 }
 
 fn exit(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
@@ -32,7 +40,7 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   match req.data().path().unwrap() {
     | Some("hello") => {
       println!("a client said hello");
-      let resp = req.as_ref().map(|req| Resp::for_request(req.clone())).map(|mut resp| {
+      let resp = req.as_ref().map(|req| Resp::for_request(req)).map(Option::unwrap).map(|mut resp| {
                                                                          resp.set_code(code::CONTENT);
                                                                          resp.set_payload("hello, world!".bytes());
                                                                          resp
@@ -45,7 +53,7 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 
 fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   println!("not found");
-  let resp = req.as_ref().map(|req| Resp::for_request(req.clone())).map(|mut resp| {
+  let resp = req.as_ref().map(|req| Resp::for_request(req)).map(Option::unwrap).map(|mut resp| {
                                                                      resp.set_code(code::NOT_FOUND);
                                                                      resp
                                                                    });

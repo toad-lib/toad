@@ -3,6 +3,30 @@
 use kwap_common::Array;
 use kwap_msg::*;
 
+/// Future methods on [`kwap_msg::Token`]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Token;
+
+impl Token {
+  /// Take an arbitrary-length sequence of bytes and turn it into an opaque message token
+  ///
+  /// Currently uses the BLAKE2 hashing algorithm, but this may change in the future.
+  ///
+  /// ```
+  /// # use kwap::todo::Token;
+  ///
+  /// let my_token = Token::opaque([0, 1, 2]);
+  /// ```
+  pub fn opaque(data: &[u8]) -> kwap_msg::Token {
+    use blake2::digest::consts::U8;
+    use blake2::{Blake2b, Digest};
+
+    let mut digest = Blake2b::<U8>::new();
+    digest.update(data);
+    kwap_msg::Token(Into::<[u8; 8]>::into(digest.finalize()).into())
+  }
+}
+
 /// Whether a code is for a request, response, or empty message
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CodeKind {
