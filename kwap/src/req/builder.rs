@@ -1,4 +1,5 @@
 use kwap_common::prelude::*;
+use kwap_msg::{Id, Token};
 
 use super::{Method, Req};
 use crate::option::common_options;
@@ -14,7 +15,7 @@ pub enum Error {
 
 /// Build a request
 ///
-/// NOTE: this is highly experimental and will likely move and change roles. Do not use.
+/// note: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
 /// use kwap::platform::Std;

@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Payload, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -78,7 +78,7 @@ impl<P: Platform> Resp<P> {
                         id: if req.ty == Type::Con {
                           req.id
                         } else {
-                          crate::generate_id()
+                          Id(Default::default())
                         },
                         opts: P::MessageOptions::default(),
                         code: code::CONTENT,
@@ -237,6 +237,9 @@ impl<P: Platform> Resp<P> {
 impl<P: Platform> From<Resp<P>> for platform::Message<P> {
   fn from(mut rep: Resp<P>) -> Self {
     rep.normalize_opts();
+    if rep.msg.id == Id(Default::default()) {
+      panic!("{:#?}", rep)
+    }
     rep.msg
   }
 }

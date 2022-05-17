@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers, Id, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
 
 use crate::ToCoapValue;
 
@@ -58,7 +58,9 @@ use crate::platform::{self, Platform};
 #[derive(Debug, Clone)]
 pub struct Req<P: Platform> {
   pub(crate) msg: platform::Message<P>,
-  opts: Option<P::NumberedOptions>,
+  pub(crate) id: Option<Id>,
+  pub(crate) token: Option<Token>,
+  pub(crate) opts: Option<P::NumberedOptions>,
 }
 
 impl<P: Platform> Req<P> {
@@ -67,13 +69,15 @@ impl<P: Platform> Req<P> {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
-                        id: crate::generate_id(),
+                        id: Id(Default::default()),
                         opts: Default::default(),
                         payload: Payload(Default::default()),
-                        token: crate::generate_token() };
+                        token: Token(Default::default()) };
 
     let mut me = Self { msg,
-                        opts: Default::default() };
+                        opts: Default::default(),
+                        id: None,
+                        token: None };
 
     fn strbytes<'a, S: AsRef<str> + 'a>(s: &'a S) -> impl Iterator<Item = u8> + 'a {
       s.as_ref().as_bytes().iter().copied()
@@ -290,6 +294,8 @@ impl<P: Platform> Req<P> {
 impl<P: Platform> From<Req<P>> for platform::Message<P> {
   fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
+    req.msg.id = req.id.unwrap();
+    req.msg.token = req.token.unwrap();
     req.msg
   }
 }
@@ -306,7 +312,11 @@ impl<P: Platform> From<platform::Message<P>> for Req<P> {
   fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
+    let (id, token) = (msg.id, msg.token);
 
-    Self { msg, opts: Some(opts) }
+    Self { msg,
+           opts: Some(opts),
+           id: Some(id),
+           token: Some(token) }
   }
 }

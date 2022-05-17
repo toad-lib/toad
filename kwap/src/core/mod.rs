@@ -73,21 +73,21 @@ impl<P: Platform> Core<P> {
   fn next_id(&mut self, addr: SocketAddr) -> Id {
     // TODO: expiry
     let ids_and_prev = self.msg_ids.get_mut(&addr).map(|ids| {
-                                                    (ids,
-                                                     ids.iter()
+                                                    (ids.iter()
                                                         .map(Stamped::as_ref)
                                                         .fold(None, Stamped::find_latest)
-                                                        .map(|Stamped(prev, _)| prev))
+                                                        .map(|Stamped(prev, _)| *prev),
+                                                     ids)
                                                   });
 
     match ids_and_prev {
-      | Some((ids, Some(Id(prev_id)))) => {
+      | Some((Some(Id(prev_id)), ids)) => {
         let new = Id(prev_id + 1);
         ids.push(Stamped::new(&self.clock, new).unwrap());
 
         new
       },
-      | Some((ids, None)) => {
+      | Some((None, ids)) => {
         ids.push(Stamped::new(&self.clock, Id(0)).unwrap());
 
         // TODO: Random starting point?
@@ -105,20 +105,23 @@ impl<P: Platform> Core<P> {
   }
 
   fn hash_token(data: u32) -> Token {
-    let blake = Blake2b::<U8>::new();
+    let mut blake = Blake2b::<U8>::new();
     blake.update(data.to_be_bytes());
     Token(Into::<[u8; 8]>::into(blake.finalize()).into())
   }
 
   fn next_token(&mut self, addr: SocketAddr) -> Token {
     // TODO: expiry
-    let tks_and_prev = self.msg_tokens.get_mut(&addr).map(|tks| {
-                                                       (tks,
-                                                        tks.iter()
-                                                           .map(Stamped::as_ref)
-                                                           .fold(None, Stamped::find_latest)
-                                                           .map(|Stamped(prev, _)| prev))
-                                                     });
+    let tks_and_prev = self.msg_tokens
+                           .get_mut(&addr)
+                           .map(|tks| {
+                             (tks.iter()
+                                 .map(Stamped::as_ref)
+                                 .fold(None, Stamped::find_latest)
+                                 .map(|Stamped(prev, _)| *prev),
+                              tks)
+                           })
+                           .map(|(prev, tks)| (tks, prev));
 
     match tks_and_prev {
       | Some((tks, Some(last_token))) => {
@@ -193,7 +196,7 @@ impl<P: Platform> Core<P> {
   /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
   pub fn ack(&mut self, resp: Addrd<Resp<P>>) {
     if resp.data().msg_type() == kwap_msg::Type::Con {
-      let ack_id = crate::generate_id();
+      let ack_id = self.next_id(resp.addr());
       let ack = resp.map(|resp| resp.msg.ack(ack_id));
 
       self.fling_q.push(Some(ack));
@@ -395,7 +398,7 @@ impl<P: Platform> Core<P> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
-  pub fn send_req(&mut self, req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+  pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let token = req.msg_token();
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
@@ -409,19 +412,31 @@ impl<P: Platform> Core<P> {
                                        .copied()
                                        .collect();
 
-    let msg = platform::Message::<P>::from(req);
-    let when = When::SendingMessage(None, msg.id, msg.token);
+    let when = When::None;
 
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .bind(|host| Ipv4Addr::from_str(host).map_err(|_| when.what(What::HostInvalidIpAddress)))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
-                               .try_perform(|addr| {
-                                 let t = Addrd(msg.clone(), *addr);
-                                 self.retryable(when, t).map(|bam| self.retry_q.push(Some(bam)))
+                               .map(|host| {
+                                 if req.id.is_none() {
+                                   req.id = Some(self.next_id(host));
+                                 }
+                                 if req.token.is_none() {
+                                   req.token = Some(self.next_token(host));
+                                 }
+                                 host
                                })
-                               .tupled(|_| {
+                               .and_then(|addr| {
+                                 let msg = platform::Message::<P>::from(req);
+                                 let t = Addrd(msg.clone(), addr);
+                                 self.retryable(when, t)
+                                     .map(|bam| self.retry_q.push(Some(bam)))
+                                     .map(|_| (addr, msg))
+                               })
+                               .and_then(|(addr, msg)| {
                                  msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
                                     .map_err(|err| when.what(What::ToBytes(err)))
+                                    .map(|bytes| (addr, bytes))
                                })
                                .bind(|(addr, bytes)| Self::send(when, &mut self.sock, addr, bytes))
                                .map(|addr| (token, addr))
@@ -471,24 +486,27 @@ impl<P: Platform> Core<P> {
   /// // core.poll_ping(id);
   /// ```
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
-    let mut msg: platform::Message<P> = Req::<P>::get(host.as_ref(), port, "").into();
-    msg.token = kwap_msg::Token(Default::default());
-    msg.opts = Default::default();
-    msg.code = kwap_msg::Code::new(0, 0);
+    let when = When::None;
 
-    let (id, token) = (msg.id, msg.token);
-    let when = When::SendingMessage(None, id, token);
+    Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress))
+                                     .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
+                                     .map(|addr| (addr, self.next_id(addr)))
+                                     .and_then(|(addr, id)| {
+                                       let mut req = Req::<P>::get(host, port, "");
+                                       req.id = Some(id);
+                                       req.token = Some(Token(Default::default()));
 
-    let bytes = msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-                   .map_err(|err| when.what(What::ToBytes(err)));
+                                       let mut msg: platform::Message<P> = req.into();
+                                       msg.opts = Default::default();
+                                       msg.code = kwap_msg::Code::new(0, 0);
 
-    let host = Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress));
-
-    Result::two(bytes, host).map(|(bytes, host)| (bytes, SocketAddr::V4(SocketAddrV4::new(host, port))))
-                            .bind(|(bytes, host)| {
-                              Self::send(When::SendingMessage(Some(host), id, token), &mut self.sock, host, bytes)
-                            })
-                            .map(|addr| (id, addr))
+                                       msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
+                                          .map_err(|err| when.what(What::ToBytes(err)))
+                                          .map(|bytes| (addr, id, bytes))
+                                     })
+                                     .bind(|(addr, id, bytes)| {
+                                       Self::send(When::None, &mut self.sock, addr, bytes).map(|addr| (id, addr))
+                                     })
   }
 }
 
