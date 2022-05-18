@@ -42,7 +42,7 @@ test = []
 docs = []
 
 [dependencies]
-kwap-msg = "0.4.5"
+kwap-msg = "0.4.7"
 kwap-common = "0.6.3"
 tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
 kwap-macros = "0.1.6"

@@ -18,7 +18,7 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-use crate::todo::{Code, CodeKind, Message};
+use crate::todo::{Code, CodeKind};
 
 // TODO(#81):
 //   support environment variables:
