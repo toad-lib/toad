@@ -46,7 +46,13 @@ pub struct Resp<P: Platform> {
 }
 
 impl<P: Platform> Resp<P> {
-  /// Create a new response for a given request
+  /// Create a new response for a given request.
+  ///
+  /// If the request is CONfirmable, this will return Some(ACK).
+  ///
+  /// If the request is NONconfirmable, this will return Some(NON).
+  ///
+  /// If the request is EMPTY or RESET, this will return None.
   ///
   /// ```
   /// use kwap::platform::{Message, Std};
@@ -78,7 +84,15 @@ impl<P: Platform> Resp<P> {
     }
   }
 
-  /// TODO
+  /// Create a response ACKnowledging an incoming request.
+  ///
+  /// An ack response must be used when you receive
+  /// a CON request.
+  ///
+  /// You may choose to include the response payload in an ACK,
+  /// but keep in mind that you might receive duplicate
+  /// If you do need to ensure they receive your response,
+  /// you
   pub fn ack(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Ack,
                         id: req.msg_id(),
@@ -91,7 +105,18 @@ impl<P: Platform> Resp<P> {
     Self { msg, opts: None }
   }
 
-  /// TODO
+  /// Create a CONfirmable response for an incoming request.
+  ///
+  /// A confirmable response should be used when
+  /// you receive a NON request and want to ensure
+  /// the client receives your response
+  ///
+  /// Note that it would be odd to respond to a CON request
+  /// with an ACK followed by a CON response, because the client
+  /// will keep resending the request until they receive the ACK.
+  ///
+  /// The `kwap` runtime will continually retry sending this until
+  /// an ACKnowledgement from the client is received.
   pub fn con(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Con,
                         id: Id(Default::default()),
@@ -104,7 +129,11 @@ impl<P: Platform> Resp<P> {
     Self { msg, opts: None }
   }
 
-  /// TODO
+  /// Create a NONconfirmable response for an incoming request.
+  ///
+  /// A non-confirmable response should be used when:
+  /// - you receive a NON request and don't need to ensure the client received the response
+  /// - you receive a CON request and don't need to ensure the client received the response (**you _must_ ACK this type of request separately**)
   pub fn non(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Non,
                         id: Id(Default::default()),
