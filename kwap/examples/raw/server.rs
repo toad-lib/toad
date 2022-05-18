@@ -67,7 +67,7 @@ fn server_main() {
                  path.unwrap_or("/"),
                  req.payload_str().unwrap().len());
 
-        let mut resp = Resp::<Std>::for_request(req.clone());
+        let mut resp = Resp::<Std>::for_request(&req).unwrap();
         let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
 
         match (req.msg_type(), req.method(), path) {

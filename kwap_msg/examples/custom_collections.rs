@@ -26,30 +26,11 @@ pub(crate) mod collection_heapless_vec {
   use std::ops::{Deref, DerefMut, Index, IndexMut};
   use std::ptr;
 
-  use kwap_common::Insert;
-
   use super::*;
   #[derive(Debug, Default, PartialEq, Clone)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
   impl<T: Default, const N: usize> Array for HeaplessVec<T, N> {
     type Item = T;
-  }
-
-  impl<T: Default, const N: usize> Deref for HeaplessVec<T, N> {
-    type Target = [T];
-    fn deref(&self) -> &[T] {
-      &self.0
-    }
-  }
-  impl<T: Default, const N: usize> DerefMut for HeaplessVec<T, N> {
-    fn deref_mut(&mut self) -> &mut [T] {
-      &mut self.0
-    }
-  }
-
-  impl<T: Default, const N: usize> Insert<T> for HeaplessVec<T, N> {
-    // we can use the default implementation of Insert::push because `insert` invokes push for us
-
     fn insert_at(&mut self, index: usize, value: T) {
       if index == self.0.len() {
         self.push(value);
@@ -75,6 +56,27 @@ pub(crate) mod collection_heapless_vec {
                      });
 
       *self = Self(buffer);
+    }
+
+    fn remove(&mut self, index: usize) -> Option<<Self as Array>::Item> {
+      Some(()).filter(|_| self.0.len() > index)
+              .map(|_| self.0.swap_remove(index))
+    }
+
+    fn push(&mut self, value: <Self as Array>::Item) {
+      self.0.push(value).unwrap_or(());
+    }
+  }
+
+  impl<T: Default, const N: usize> Deref for HeaplessVec<T, N> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+      &self.0
+    }
+  }
+  impl<T: Default, const N: usize> DerefMut for HeaplessVec<T, N> {
+    fn deref_mut(&mut self) -> &mut [T] {
+      &mut self.0
     }
   }
 

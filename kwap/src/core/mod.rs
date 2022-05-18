@@ -582,7 +582,7 @@ mod tests {
 
     let req = Req::<Config>::get("0.0.0.0", 1234, "");
     let token = req.msg.token;
-    let resp = Resp::<Config>::for_request(req);
+    let resp = Resp::<Config>::for_request(&req).unwrap();
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);

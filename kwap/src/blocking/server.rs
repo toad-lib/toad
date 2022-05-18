@@ -215,7 +215,7 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
-  use kwap_msg::Type;
+  use kwap_msg::{Id, Token, Type};
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
@@ -230,9 +230,10 @@ mod tests {
     pub fn panics(_: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
       panic!()
     }
+
     pub fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
       let reply = req.as_ref().map(|req| {
-                                let mut resp = Resp::<Test>::for_request(req.clone());
+                                let mut resp = Resp::<Test>::for_request(&req).unwrap();
                                 resp.set_code(code::NOT_FOUND);
                                 resp.into()
                               });
@@ -243,7 +244,7 @@ mod tests {
     pub fn hello(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
       if req.0.method() == Method::GET && req.0.path().unwrap() == Some("hello") {
         let reply = req.as_ref().map(|req| {
-                                  let mut resp = Resp::<Test>::for_request(req.clone());
+                                  let mut resp = Resp::<Test>::for_request(&req).unwrap();
                                   resp.set_payload("hello!".bytes());
                                   resp.set_code(code::CONTENT);
                                   resp.into()
@@ -287,7 +288,9 @@ mod tests {
     let inbound_bytes = sock.rx.clone();
     let timeout_state = timeout.state.clone();
 
-    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    say_exit.token = Some(Token(Default::default()));
+    say_exit.id = Some(Id(1));
 
     SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
 
@@ -310,8 +313,13 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let say_hello = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_hello = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    say_hello.token = Some(Token(Default::default()));
+    say_hello.id = Some(Id(1));
+
+    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    say_exit.token = Some(Token(Default::default()));
+    say_exit.id = Some(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -345,8 +353,12 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0", 1234, "");
-    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0", 1234, "");
+    ping.token = Some(Token(Default::default()));
+    ping.id = Some(Id(1));
+    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    say_exit.token = Some(Token(Default::default()));
+    say_exit.id = Some(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -378,10 +390,16 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let say_hello_con = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    let mut say_hello_con = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    say_hello_con.token = Some(Token(Default::default()));
+    say_hello_con.id = Some(Id(1));
     let mut say_hello_non = say_hello_con.clone();
     say_hello_non.non();
-    let say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    say_hello_non.token = Some(Token(Default::default()));
+    say_hello_non.id = Some(Id(2));
+    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    say_exit.token = Some(Token(Default::default()));
+    say_exit.id = Some(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -397,7 +415,7 @@ mod tests {
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_non.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
       assert_eq!(rep.code(), code::CONTENT);
-      assert_eq!(rep.msg_type(), kwap_msg::Type::Con);
+      assert_eq!(rep.msg_type(), kwap_msg::Type::Non);
 
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_con.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();

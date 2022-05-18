@@ -294,8 +294,8 @@ impl<P: Platform> Req<P> {
 impl<P: Platform> From<Req<P>> for platform::Message<P> {
   fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
-    req.msg.id = req.id.unwrap();
-    req.msg.token = req.token.unwrap();
+    req.msg.id = req.id.expect("Request ID was None");
+    req.msg.token = req.token.expect("Request Token was None");
     req.msg
   }
 }
