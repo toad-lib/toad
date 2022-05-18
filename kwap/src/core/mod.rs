@@ -1,7 +1,8 @@
+use core::mem;
 use core::str::FromStr;
 
-use embedded_time::Clock;
 use embedded_time::duration::Milliseconds;
+use embedded_time::Clock;
 use kwap_common::prelude::*;
 use kwap_msg::{Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
@@ -45,6 +46,7 @@ pub struct Core<P: Platform> {
   token_seed: u16,
   /// Map<SocketAddr, [Stamped<Id>]>
   msg_ids: P::MessageIdHistoryBySocket,
+  largest_msg_id_seen: Option<u16>,
   /// Map<SocketAddr, [Stamped<Token>]>
   msg_tokens: P::MessageTokenHistoryBySocket,
   /// Networking socket that the CoAP runtime uses
@@ -66,6 +68,7 @@ impl<P: Platform> Core<P> {
            sock,
            clock,
            msg_ids: Default::default(),
+           largest_msg_id_seen: None,
            msg_tokens: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
@@ -77,10 +80,22 @@ impl<P: Platform> Core<P> {
       self.msg_ids.insert(id.addr(), Default::default()).unwrap();
     }
 
-    self.msg_ids
-        .get_mut(&id.addr())
-        .unwrap()
-        .push(Stamped::new(&self.clock, *id.data()).unwrap())
+    let ids_in_map = self.msg_ids.get_mut(&id.addr()).unwrap();
+
+    let mut ids = P::MessageIdHistory::default();
+    mem::swap(ids_in_map, &mut ids);
+
+    let (mut ids, largest) = ids.into_iter()
+                                .fold((P::MessageIdHistory::default(), None), |(mut ids, largest), id| {
+                                  ids.push(id);
+                                  (ids, Some(largest.filter(|large| *large > id.data().0).unwrap_or(id.data().0)))
+                                });
+
+    self.largest_msg_id_seen = largest.or(Some(id.data().0));
+
+    ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
+
+    mem::swap(ids_in_map, &mut ids);
   }
 
   fn seen_token(&mut self, token: Addrd<Token>) {
@@ -88,23 +103,37 @@ impl<P: Platform> Core<P> {
       self.msg_tokens.insert(token.addr(), Default::default()).unwrap();
     }
 
-    self.msg_tokens
-        .get_mut(&token.addr())
-        .unwrap()
-        .push(Stamped::new(&self.clock, *token.data()).unwrap())
+    let tokens_in_map = self.msg_tokens.get_mut(&token.addr()).unwrap();
+
+    let mut tokens = P::MessageTokenHistory::default();
+    mem::swap(tokens_in_map, &mut tokens);
+
+    tokens = tokens.into_iter()
+                   .filter(|token_b| token_b.data() != token.data())
+                   .collect();
+    tokens.push(Stamped::new(&self.clock, *token.data()).unwrap());
+
+    mem::swap(tokens_in_map, &mut tokens);
+  }
+  fn log_ids(msg_ids: &P::MessageIdHistoryBySocket) {
+    println!("{:?}",
+             msg_ids.iter()
+                    .map(|(addr, ids)| (addr,
+                                        format!("{:?}",
+                                                ids.iter()
+                                                   .map(|Stamped(id, time)| {
+                                                     (id,
+                                                   Milliseconds::<u64>::try_from(time.duration_since_epoch()).unwrap())
+                                                   })
+                                                   .collect::<Vec<_>>())))
+                    .collect::<Vec<_>>());
   }
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
     // TODO: expiry
-    let last_seen = self.msg_ids.get(&addr).and_then(|ids| {
-                                             ids.iter()
-                                                .map(Stamped::as_ref)
-                                                .fold(None, Stamped::find_latest)
-                                                .map(|Stamped(prev, _)| *prev)
-                                           });
 
-    let new = match last_seen {
-      | Some(Id(last_seen)) => Id(last_seen + 1),
+    let new = match self.largest_msg_id_seen {
+      | Some(id) => Id(id + 1),
       | None => {
         // TODO: Random starting point?
         Id(0)
@@ -114,7 +143,6 @@ impl<P: Platform> Core<P> {
     self.seen_id(Addrd(new, addr));
     new
   }
-
 
   /// Token Generation
   ///
@@ -139,7 +167,7 @@ impl<P: Platform> Core<P> {
     let now_millis: u64 = now_millis.0;
     let bytes = {
       // TODO: probably a better way to do this
-      let ([a,b], [c,d,e,f,g,h,i,j]) = (self.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+      let ([a, b], [c, d, e, f, g, h, i, j]) = (self.token_seed.to_be_bytes(), now_millis.to_be_bytes());
       [a, b, c, d, e, f, g, h, i, j]
     };
 
@@ -449,6 +477,7 @@ impl<P: Platform> Core<P> {
   pub fn send_msg(&mut self, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::SendingMessage(Some(msg.addr()), msg.data().id, msg.data().token);
+
     msg.unwrap()
        .try_into_bytes::<ArrayVec<[u8; 1152]>>()
        .map_err(What::<P>::ToBytes)
