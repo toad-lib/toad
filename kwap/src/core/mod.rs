@@ -425,15 +425,17 @@ impl<P: Platform> Core<P> {
                                    req.set_msg_id(self.next_id(host));
                                  }
                                  if req.token.is_none() {
-                                   req.token = Some(self.next_token(host));
+                                   req.set_msg_token(self.next_token(host));
                                  }
+
                                  (req.msg_token(), host)
                                })
                                .and_then(|(token, addr)| {
                                  let msg = platform::Message::<P>::from(req);
-                                 let t = Addrd(msg.clone(), addr);
-                                 self.retryable(when, t)
-                                     .map(|bam| self.retry_q.push(Some(bam)))
+                                 // TODO: avoid this clone?
+                                 let msg = Addrd(msg.clone(), addr);
+                                 self.retryable(when, msg)
+                                     .map(|msg| self.retry_q.push(Some(msg)))
                                      .map(|_| (token, addr, msg))
                                })
                                .and_then(|(token, addr, msg)| {
