@@ -115,19 +115,6 @@ impl<P: Platform> Core<P> {
 
     mem::swap(tokens_in_map, &mut tokens);
   }
-  fn log_ids(msg_ids: &P::MessageIdHistoryBySocket) {
-    println!("{:?}",
-             msg_ids.iter()
-                    .map(|(addr, ids)| (addr,
-                                        format!("{:?}",
-                                                ids.iter()
-                                                   .map(|Stamped(id, time)| {
-                                                     (id,
-                                                   Milliseconds::<u64>::try_from(time.duration_since_epoch()).unwrap())
-                                                   })
-                                                   .collect::<Vec<_>>())))
-                    .collect::<Vec<_>>());
-  }
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
     // TODO: expiry
@@ -216,21 +203,6 @@ impl<P: Platform> Core<P> {
     }
   }
 
-  /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
-  ///
-  /// These ACKs are processed whenever the socket is polled (e.g. [`poll_resp`](#method.poll_resp))
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn ack(&mut self, resp: Addrd<Resp<P>>) {
-    if resp.data().msg_type() == kwap_msg::Type::Con {
-      let ack_id = self.next_id(resp.addr());
-      let ack = resp.map(|resp| resp.msg.ack(ack_id));
-
-      self.fling_q.push(Some(ack));
-    }
-  }
-
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
   pub fn process_acks(&mut self, msg: &Addrd<platform::Message<P>>) {
     match msg.data().ty {
@@ -249,6 +221,7 @@ impl<P: Platform> Core<P> {
           // TODO(#76): we got an ACK for a message we don't know about. What do we do?
         }
       },
+      // TODO: ACK incoming CON responses
       | _ => (),
     }
   }
@@ -449,7 +422,7 @@ impl<P: Platform> Core<P> {
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .map(|host| {
                                  if req.id.is_none() {
-                                   req.id = Some(self.next_id(host));
+                                   req.set_msg_id(self.next_id(host));
                                  }
                                  if req.token.is_none() {
                                    req.token = Some(self.next_token(host));
@@ -525,8 +498,8 @@ impl<P: Platform> Core<P> {
                                      .map(|addr| (addr, self.next_id(addr)))
                                      .and_then(|(addr, id)| {
                                        let mut req = Req::<P>::get(host, port, "");
-                                       req.id = Some(id);
-                                       req.token = Some(Token(Default::default()));
+                                       req.set_msg_id(id);
+                                       req.set_msg_token(Token(Default::default()));
 
                                        let mut msg: platform::Message<P> = req.into();
                                        msg.opts = Default::default();

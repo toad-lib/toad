@@ -19,7 +19,7 @@ pub mod code;
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::<Std>::for_request(req);
+///     let mut resp = Resp::<Std>::for_request(&req).unwrap();
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
@@ -54,8 +54,11 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Std>::for_request(req.clone());
+  /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// req.set_msg_id(kwap_msg::Id(0));
+  /// req.set_msg_token(kwap_msg::Token(Default::default()));
+  ///
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// let req_msg = Message::<Std>::from(req);
   /// let resp_msg = Message::<Std>::from(resp);
@@ -124,7 +127,7 @@ impl<P: Platform> Resp<P> {
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let resp = Resp::<Std>::for_request(req);
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// let data: Vec<u8> = resp.payload().copied().collect();
   /// ```
@@ -163,7 +166,7 @@ impl<P: Platform> Resp<P> {
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   /// resp.set_payload("hello!".bytes());
   ///
   /// let data: String = resp.payload_string().unwrap();
@@ -182,7 +185,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Std>::for_request(req);
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
@@ -199,7 +202,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
@@ -219,7 +222,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
@@ -239,7 +242,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// // Maybe you have some bytes:
   /// resp.set_payload(vec![1, 2, 3]);

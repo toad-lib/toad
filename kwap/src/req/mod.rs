@@ -30,7 +30,7 @@ use crate::platform::{self, Platform};
 ///   let mut req = Req::<Std>::post("coap://myfunnyserver.com", 5632, "hello");
 ///   req.set_payload("john".bytes());
 ///
-///   let resp = client.send(req);
+///   let resp = client.send(&req);
 ///   let resp_body = resp.payload_string().unwrap();
 ///   assert_eq!(resp_body, "Hello, john!".to_string())
 /// }
@@ -46,10 +46,10 @@ use crate::platform::{self, Platform};
 ///     # Self {__field: ()}
 ///   }
 ///
-///   fn send(&self, req: Req<Std>) -> Resp<Std> {
+///   fn send(&self, req: &Req<Std>) -> Resp<Std> {
 ///     // send the request
 ///     # let body = req.payload_str().unwrap().to_string();
-///     # let mut resp = Resp::for_request(req);
+///     # let mut resp = Resp::for_request(&req).unwrap();
 ///     # resp.set_payload(format!("Hello, {}!", body).bytes());
 ///     # resp
 ///   }
@@ -93,6 +93,76 @@ impl<P: Platform> Req<P> {
     me.set_option(11, strbytes(&path));
 
     me
+  }
+
+  /// Updates the Message ID for this request
+  ///
+  /// NOTE:
+  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// first calling `set_msg_id` and `set_msg_token` will panic.
+  ///
+  /// These 2 methods will always be invoked for you by the kwap runtime.
+  ///
+  /// ```should_panic
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  ///
+  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// // Panics!!
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  ///
+  /// ```
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  /// use kwap_msg::{Id, Token};
+  ///
+  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// req.set_msg_id(Id(0));
+  /// req.set_msg_token(Token(Default::default()));
+  ///
+  /// // Works B)
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  pub fn set_msg_id(&mut self, id: Id) {
+    self.id = Some(id);
+  }
+
+  /// Updates the Message Token for this request
+  ///
+  /// NOTE:
+  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// first calling `set_msg_id` and `set_msg_token` will panic.
+  ///
+  /// These 2 methods will always be invoked for you by the kwap runtime.
+  ///
+  /// ```should_panic
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  ///
+  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// // Panics!!
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  ///
+  /// ```
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  /// use kwap_msg::{Id, Token};
+  ///
+  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// req.set_msg_id(Id(0));
+  /// req.set_msg_token(Token(Default::default()));
+  ///
+  /// // Works B)
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  pub fn set_msg_token(&mut self, token: Token) {
+    self.token = Some(token);
   }
 
   /// Get the request method

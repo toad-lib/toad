@@ -15,7 +15,7 @@ impl Token {
   /// ```
   /// # use kwap::todo::Token;
   ///
-  /// let my_token = Token::opaque([0, 1, 2]);
+  /// let my_token = Token::opaque(&[0, 1, 2]);
   /// ```
   pub fn opaque(data: &[u8]) -> kwap_msg::Token {
     use blake2::digest::consts::U8;

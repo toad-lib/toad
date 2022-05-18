@@ -5,12 +5,10 @@ use kwap_common::prelude::*;
 use kwap_msg::{Id, Opt, OptNumber, Token};
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
-use std_alloc::vec::Vec;
+use std_alloc::{collections::BTreeMap, vec::Vec};
 
-use crate::net::{Addrd, Socket};
+use crate::net::Socket;
 use crate::time::Stamped;
-
-type BTreeMap<K, V> = Vec<(K, V)>;
 
 /// kwap configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {

@@ -85,7 +85,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// fn hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
-  ///       let mut resp = Resp::for_request(req.data().clone());
+  ///       let mut resp = Resp::for_request(req.data()).unwrap();
   ///
   ///       resp.set_code(code::CONTENT);
   ///       resp.set_option(12, ContentFormat::Json.bytes());
@@ -100,7 +100,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// }
   ///
   /// fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  ///   let mut resp = Resp::for_request(req.data().clone());
+  ///   let mut resp = Resp::for_request(req.data()).unwrap();
   ///   resp.set_code(code::NOT_FOUND);
   ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
   ///   (Continue::No, Action::Send(msg))
@@ -289,8 +289,8 @@ mod tests {
     let timeout_state = timeout.state.clone();
 
     let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
-    say_exit.token = Some(Token(Default::default()));
-    say_exit.id = Some(Id(1));
+    say_exit.set_msg_token(Token(Default::default()));
+    say_exit.set_msg_id(Id(1));
 
     SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
 
@@ -314,12 +314,12 @@ mod tests {
     let timeout_state = timeout.state.clone();
 
     let mut say_hello = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    say_hello.token = Some(Token(Default::default()));
-    say_hello.id = Some(Id(1));
+    say_hello.set_msg_token(Token(Default::default()));
+    say_hello.set_msg_id(Id(1));
 
     let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
-    say_exit.token = Some(Token(Default::default()));
-    say_exit.id = Some(Id(2));
+    say_exit.set_msg_token(Token(Default::default()));
+    say_exit.set_msg_id(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -354,11 +354,11 @@ mod tests {
     let timeout_state = timeout.state.clone();
 
     let mut ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0", 1234, "");
-    ping.token = Some(Token(Default::default()));
-    ping.id = Some(Id(1));
+    ping.set_msg_token(Token(Default::default()));
+    ping.set_msg_id(Id(1));
     let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
-    say_exit.token = Some(Token(Default::default()));
-    say_exit.id = Some(Id(2));
+    say_exit.set_msg_token(Token(Default::default()));
+    say_exit.set_msg_id(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
@@ -391,15 +391,15 @@ mod tests {
     let timeout_state = timeout.state.clone();
 
     let mut say_hello_con = Req::<Test>::get("0.0.0.0", 1234, "hello");
-    say_hello_con.token = Some(Token(Default::default()));
-    say_hello_con.id = Some(Id(1));
+    say_hello_con.set_msg_token(Token(Default::default()));
+    say_hello_con.set_msg_id(Id(1));
     let mut say_hello_non = say_hello_con.clone();
     say_hello_non.non();
-    say_hello_non.token = Some(Token(Default::default()));
-    say_hello_non.id = Some(Id(2));
+    say_hello_non.set_msg_token(Token(Default::default()));
+    say_hello_non.set_msg_id(Id(2));
     let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
-    say_exit.token = Some(Token(Default::default()));
-    say_exit.id = Some(Id(2));
+    say_exit.set_msg_token(Token(Default::default()));
+    say_exit.set_msg_id(Id(2));
 
     let server = thread::spawn(move || {
       let mut server = TestServer::new(sock, clock);
