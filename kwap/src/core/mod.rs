@@ -433,8 +433,7 @@ impl<P: Platform> Core<P> {
                                .and_then(|(token, addr)| {
                                  let msg = platform::Message::<P>::from(req);
                                  // TODO: avoid this clone?
-                                 let msg = Addrd(msg.clone(), addr);
-                                 self.retryable(when, msg)
+                                 self.retryable(when, Addrd(msg.clone(), addr))
                                      .map(|msg| self.retry_q.push(Some(msg)))
                                      .map(|_| (token, addr, msg))
                                })
