@@ -4,7 +4,7 @@ use core::str::FromStr;
 use embedded_time::duration::Milliseconds;
 use embedded_time::Clock;
 use kwap_common::prelude::*;
-use kwap_msg::{Id, Token, TryFromBytes, TryIntoBytes, Type};
+use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -18,7 +18,6 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-use crate::todo::{Code, CodeKind};
 
 // TODO(#81):
 //   support environment variables:
@@ -158,7 +157,7 @@ impl<P: Platform> Core<P> {
       [a, b, c, d, e, f, g, h, i, j]
     };
 
-    let token = crate::todo::Token::opaque(&bytes);
+    let token = Token::opaque(&bytes);
     self.seen_token(Addrd(token, addr));
 
     token
