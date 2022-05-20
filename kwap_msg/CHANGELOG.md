@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.5.1 (2022-05-20)
+
+
+### Features
+
+* **kwap-msg:** add Token::opaque, Message::ack, Code.kind  ([#118](https://github.com/clov-coffee/kwap/issues/118)) ([3119233](https://github.com/clov-coffee/kwap/commit/31192330fa712d26147b61ef184f17ba3c534554))
+
 ## 0.5.0 (2022-05-20)
 
 
