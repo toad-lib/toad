@@ -19,13 +19,14 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the options?
   type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug;
 
-  /// TODO
+  /// What type should we use to keep track of message IDs we've seen with a remote socket?
   type MessageIdHistory: Array<Item = Stamped<Self::Clock, Id>> + Clone + Debug;
-  /// TODO
-  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, Token>> + Clone + Debug;
-  /// TODO
+  /// How do we track socket <> id histories?
   type MessageIdHistoryBySocket: Map<SocketAddr, Self::MessageIdHistory> + Clone + Debug;
-  /// TODO
+
+  /// What type should we use to keep track of message Tokens we've seen with a remote socket?
+  type MessageTokenHistory: Array<Item = Stamped<Self::Clock, Token>> + Clone + Debug;
+  /// How do we track socket <> token histories?
   type MessageTokenHistoryBySocket: Map<SocketAddr, Self::MessageTokenHistory> + Clone + Debug;
 
   /// What type should we use to keep track of options before serializing?
