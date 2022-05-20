@@ -404,6 +404,7 @@ dependencies = [
 name = "kwap"
 version = "0.7.0"
 dependencies = [
+ "blake2",
  "embedded-time",
  "kwap-common 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
