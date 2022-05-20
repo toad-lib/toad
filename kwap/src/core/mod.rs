@@ -1,8 +1,10 @@
+use core::mem;
 use core::str::FromStr;
 
+use embedded_time::duration::Milliseconds;
 use embedded_time::Clock;
 use kwap_common::prelude::*;
-use kwap_msg::{TryFromBytes, TryIntoBytes, Type};
+use kwap_msg::{Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use tinyvec::ArrayVec;
 
@@ -15,7 +17,8 @@ use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
-use crate::todo::{Code, CodeKind, Message};
+use crate::time::Stamped;
+use crate::todo::{Code, CodeKind};
 
 // TODO(#81):
 //   support environment variables:
@@ -39,6 +42,13 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
+  /// See [`Core.next_token`] for info on our implementation of token generation.
+  token_seed: u16,
+  /// Map<SocketAddr, [Stamped<Id>]>
+  msg_ids: P::MessageIdHistoryBySocket,
+  largest_msg_id_seen: Option<u16>,
+  /// Map<SocketAddr, [Stamped<Token>]>
+  msg_tokens: P::MessageTokenHistoryBySocket,
   /// Networking socket that the CoAP runtime uses
   sock: P::Socket,
   /// Clock used for timing
@@ -54,11 +64,104 @@ pub struct Core<P: Platform> {
 impl<P: Platform> Core<P> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: P::Clock, sock: P::Socket) -> Self {
-    Self { sock,
+    Self { token_seed: 0,
+           sock,
            clock,
+           msg_ids: Default::default(),
+           largest_msg_id_seen: None,
+           msg_tokens: Default::default(),
            resps: Default::default(),
            fling_q: Default::default(),
            retry_q: Default::default() }
+  }
+
+  fn seen_id(&mut self, id: Addrd<Id>) {
+    if !self.msg_ids.has(&id.addr()) {
+      self.msg_ids.insert(id.addr(), Default::default()).unwrap();
+    }
+
+    let ids_in_map = self.msg_ids.get_mut(&id.addr()).unwrap();
+
+    let mut ids = P::MessageIdHistory::default();
+    mem::swap(ids_in_map, &mut ids);
+
+    let (mut ids, largest) = ids.into_iter()
+                                .fold((P::MessageIdHistory::default(), None), |(mut ids, largest), id| {
+                                  ids.push(id);
+                                  (ids, Some(largest.filter(|large| *large > id.data().0).unwrap_or(id.data().0)))
+                                });
+
+    self.largest_msg_id_seen = largest.or(Some(id.data().0));
+
+    ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
+
+    mem::swap(ids_in_map, &mut ids);
+  }
+
+  fn seen_token(&mut self, token: Addrd<Token>) {
+    if !self.msg_tokens.has(&token.addr()) {
+      self.msg_tokens.insert(token.addr(), Default::default()).unwrap();
+    }
+
+    let tokens_in_map = self.msg_tokens.get_mut(&token.addr()).unwrap();
+
+    let mut tokens = P::MessageTokenHistory::default();
+    mem::swap(tokens_in_map, &mut tokens);
+
+    tokens = tokens.into_iter()
+                   .filter(|token_b| token_b.data() != token.data())
+                   .collect();
+    tokens.push(Stamped::new(&self.clock, *token.data()).unwrap());
+
+    mem::swap(tokens_in_map, &mut tokens);
+  }
+
+  fn next_id(&mut self, addr: SocketAddr) -> Id {
+    // TODO: expiry
+
+    let new = match self.largest_msg_id_seen {
+      | Some(id) => Id(id + 1),
+      | None => {
+        // TODO: Random starting point?
+        Id(0)
+      },
+    };
+
+    self.seen_id(Addrd(new, addr));
+    new
+  }
+
+  /// Token Generation
+  ///
+  /// First, we smoosh together the 2-byte token_seed
+  /// and an 8-byte timestamp obtained from the system clock
+  ///
+  /// Core.token_seed
+  /// ||
+  /// xx xxxxxxxx
+  ///    |      |
+  ///    timestamp
+  ///
+  /// Then apply the BLAKE2 hashing algorithm to have an opaque 8 byte token.
+  ///
+  /// token_seed may be 0, a random integer, or a machine identifier.
+  /// The purpose of the seed is to prevent someone with visibility into
+  /// unencrypted CoAP traffic from guessing identifiers.
+  fn next_token(&mut self, addr: SocketAddr) -> Token {
+    // TODO: expiry
+
+    let now_millis: Milliseconds<u64> = self.clock.try_now().unwrap().duration_since_epoch().try_into().unwrap();
+    let now_millis: u64 = now_millis.0;
+    let bytes = {
+      // TODO: probably a better way to do this
+      let ([a, b], [c, d, e, f, g, h, i, j]) = (self.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+      [a, b, c, d, e, f, g, h, i, j]
+    };
+
+    let token = crate::todo::Token::opaque(&bytes);
+    self.seen_token(Addrd(token, addr));
+
+    token
   }
 
   fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
@@ -100,21 +203,6 @@ impl<P: Platform> Core<P> {
     }
   }
 
-  /// Listens for incoming CONfirmable messages and places them on a queue to reply to with ACKs.
-  ///
-  /// These ACKs are processed whenever the socket is polled (e.g. [`poll_resp`](#method.poll_resp))
-  ///
-  /// # Panics
-  /// panics when msg storage limit reached (e.g. we receive >16 CON requests and have not acked any)
-  pub fn ack(&mut self, resp: Addrd<Resp<P>>) {
-    if resp.data().msg_type() == kwap_msg::Type::Con {
-      let ack_id = crate::generate_id();
-      let ack = resp.map(|resp| resp.msg.ack(ack_id));
-
-      self.fling_q.push(Some(ack));
-    }
-  }
-
   /// Listens for incoming ACKs and removes any matching CON messages queued for retry.
   pub fn process_acks(&mut self, msg: &Addrd<platform::Message<P>>) {
     match msg.data().ty {
@@ -133,6 +221,7 @@ impl<P: Platform> Core<P> {
           // TODO(#76): we got an ACK for a message we don't know about. What do we do?
         }
       },
+      // TODO: ACK incoming CON responses
       | _ => (),
     }
   }
@@ -192,6 +281,9 @@ impl<P: Platform> Core<P> {
   }
 
   fn msg_recvd(&mut self, msg: Addrd<platform::Message<P>>) -> () {
+    self.seen_id(msg.as_ref().map(|msg| msg.id));
+    self.seen_token(msg.as_ref().map(|msg| msg.token));
+
     self.process_acks(&msg);
 
     if msg.data().code.kind() == CodeKind::Response {
@@ -310,8 +402,7 @@ impl<P: Platform> Core<P> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
   /// ```
-  pub fn send_req(&mut self, req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
-    let token = req.msg_token();
+  pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
@@ -324,28 +415,43 @@ impl<P: Platform> Core<P> {
                                        .copied()
                                        .collect();
 
-    let msg = platform::Message::<P>::from(req);
-    let when = When::SendingMessage(None, msg.id, msg.token);
+    let when = When::None;
 
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .bind(|host| Ipv4Addr::from_str(host).map_err(|_| when.what(What::HostInvalidIpAddress)))
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
-                               .try_perform(|addr| {
-                                 let t = Addrd(msg.clone(), *addr);
-                                 self.retryable(when, t).map(|bam| self.retry_q.push(Some(bam)))
+                               .map(|host| {
+                                 if req.id.is_none() {
+                                   req.set_msg_id(self.next_id(host));
+                                 }
+                                 if req.token.is_none() {
+                                   req.set_msg_token(self.next_token(host));
+                                 }
+
+                                 (req.msg_token(), host)
                                })
-                               .tupled(|_| {
+                               .and_then(|(token, addr)| {
+                                 let msg = platform::Message::<P>::from(req);
+                                 // TODO: avoid this clone?
+                                 self.retryable(when, Addrd(msg.clone(), addr))
+                                     .map(|msg| self.retry_q.push(Some(msg)))
+                                     .map(|_| (token, addr, msg))
+                               })
+                               .and_then(|(token, addr, msg)| {
                                  msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
                                     .map_err(|err| when.what(What::ToBytes(err)))
+                                    .map(|bytes| (token, addr, bytes))
                                })
-                               .bind(|(addr, bytes)| Self::send(when, &mut self.sock, addr, bytes))
-                               .map(|addr| (token, addr))
+                               .bind(|(token, addr, bytes)| {
+                                 Self::send(when, &mut self.sock, addr, bytes).map(|addr| (token, addr))
+                               })
   }
 
   /// Send a message to a remote socket
   pub fn send_msg(&mut self, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::SendingMessage(Some(msg.addr()), msg.data().id, msg.data().token);
+
     msg.unwrap()
        .try_into_bytes::<ArrayVec<[u8; 1152]>>()
        .map_err(What::<P>::ToBytes)
@@ -386,24 +492,27 @@ impl<P: Platform> Core<P> {
   /// // core.poll_ping(id);
   /// ```
   pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
-    let mut msg: platform::Message<P> = Req::<P>::get(host.as_ref(), port, "").into();
-    msg.token = kwap_msg::Token(Default::default());
-    msg.opts = Default::default();
-    msg.code = kwap_msg::Code::new(0, 0);
+    let when = When::None;
 
-    let (id, token) = (msg.id, msg.token);
-    let when = When::SendingMessage(None, id, token);
+    Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress))
+                                     .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
+                                     .map(|addr| (addr, self.next_id(addr)))
+                                     .and_then(|(addr, id)| {
+                                       let mut req = Req::<P>::get(host, port, "");
+                                       req.set_msg_id(id);
+                                       req.set_msg_token(Token(Default::default()));
 
-    let bytes = msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-                   .map_err(|err| when.what(What::ToBytes(err)));
+                                       let mut msg: platform::Message<P> = req.into();
+                                       msg.opts = Default::default();
+                                       msg.code = kwap_msg::Code::new(0, 0);
 
-    let host = Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress));
-
-    Result::two(bytes, host).map(|(bytes, host)| (bytes, SocketAddr::V4(SocketAddrV4::new(host, port))))
-                            .bind(|(bytes, host)| {
-                              Self::send(When::SendingMessage(Some(host), id, token), &mut self.sock, host, bytes)
-                            })
-                            .map(|addr| (id, addr))
+                                       msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
+                                          .map_err(|err| when.what(What::ToBytes(err)))
+                                          .map(|bytes| (addr, id, bytes))
+                                     })
+                                     .bind(|(addr, id, bytes)| {
+                                       Self::send(When::None, &mut self.sock, addr, bytes).map(|addr| (id, addr))
+                                     })
   }
 }
 
@@ -447,7 +556,7 @@ mod tests {
 
     let req = Req::<Config>::get("0.0.0.0", 1234, "");
     let token = req.msg.token;
-    let resp = Resp::<Config>::for_request(req);
+    let resp = Resp::<Config>::for_request(&req).unwrap();
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);

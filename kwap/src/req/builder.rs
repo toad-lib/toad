@@ -14,7 +14,7 @@ pub enum Error {
 
 /// Build a request
 ///
-/// NOTE: this is highly experimental and will likely move and change roles. Do not use.
+/// note: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
 /// use kwap::platform::Std;
@@ -32,10 +32,10 @@ pub enum Error {
 ///                                                                     .build()
 ///                                                                     .unwrap();
 ///
-/// let rep = send(request);
+/// let rep = send(&request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
-/// # fn send(req: kwap::req::Req<Std>) -> kwap::resp::Resp<Std> {
-/// #   let mut rep = kwap::resp::Resp::for_request(req);
+/// # fn send(req: &kwap::req::Req<Std>) -> kwap::resp::Resp<Std> {
+/// #   let mut rep = kwap::resp::Resp::for_request(req).unwrap();
 /// #   rep.set_payload("Hello, Jameson!".bytes());
 /// #   rep
 /// # }

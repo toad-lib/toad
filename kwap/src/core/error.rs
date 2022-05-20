@@ -12,6 +12,8 @@ pub enum When {
   Polling,
   /// We were sending a message
   SendingMessage(Option<SocketAddr>, kwap_msg::Id, kwap_msg::Token),
+  /// Not sure that `When` is valuable anymore
+  None,
 }
 
 impl When {

@@ -22,7 +22,7 @@ impl Log for Result<Resp<Std>, kwap::core::Error<Std>> {
         println!();
       },
       | Err(e) => {
-        eprintln!("client: error! {:#?}", e);
+        eprintln!("client: error! {:?}", e);
       },
     }
   }
@@ -42,7 +42,7 @@ impl Log for Result<Option<Resp<Std>>, Error<Std>> {
         println!();
       },
       | Err(e) => {
-        eprintln!("client: error! {:#?}", e);
+        eprintln!("client: error! {:?}", e);
       },
     }
   }

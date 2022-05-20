@@ -47,8 +47,8 @@ harness = false
 
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
-kwap-macros = "^0.1"
-kwap-common = "^0.6"
+kwap-macros = "0.1.7"
+kwap-common = "0.6.3"
 
 [dev-dependencies]
 itertools = "0.10"

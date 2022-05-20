@@ -52,6 +52,7 @@ impl Timeout {
 /// Config implementor using mocks for clock and sock
 pub type Config = crate::platform::Alloc<ClockMock, SockMock>;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClockMock(pub Cell<u64>);
 
 impl ClockMock {

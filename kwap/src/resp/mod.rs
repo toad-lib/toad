@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Payload, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -19,7 +19,7 @@ pub mod code;
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::<Std>::for_request(req);
+///     let mut resp = Resp::<Std>::for_request(&req).unwrap();
 ///
 ///     resp.set_code(kwap::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
@@ -46,7 +46,13 @@ pub struct Resp<P: Platform> {
 }
 
 impl<P: Platform> Resp<P> {
-  /// Create a new response for a given request
+  /// Create a new response for a given request.
+  ///
+  /// If the request is CONfirmable, this will return Some(ACK).
+  ///
+  /// If the request is NONconfirmable, this will return Some(NON).
+  ///
+  /// If the request is EMPTY or RESET, this will return None.
   ///
   /// ```
   /// use kwap::platform::{Message, Std};
@@ -54,8 +60,11 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Std>::for_request(req.clone());
+  /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// req.set_msg_id(kwap_msg::Id(0));
+  /// req.set_msg_token(kwap_msg::Token(Default::default()));
+  ///
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// let req_msg = Message::<Std>::from(req);
   /// let resp_msg = Message::<Std>::from(resp);
@@ -67,24 +76,72 @@ impl<P: Platform> Resp<P> {
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
-  pub fn for_request(req: Req<P>) -> Self {
-    let req = Message::from(req);
+  pub fn for_request(req: &Req<P>) -> Option<Self> {
+    match req.msg_type() {
+      | Type::Con => Some(Self::ack(req)),
+      | Type::Non => Some(Self::non(req)),
+      | _ => None,
+    }
+  }
 
-    let msg = Message { ty: match req.ty {
-                          | Type::Con => Type::Ack,
-                          | Type::Non => Type::Con,
-                          | _ => req.ty,
-                        },
-                        id: if req.ty == Type::Con {
-                          req.id
-                        } else {
-                          crate::generate_id()
-                        },
+  /// Create a response ACKnowledging an incoming request.
+  ///
+  /// An ack response must be used when you receive
+  /// a CON request.
+  ///
+  /// You may choose to include the response payload in an ACK,
+  /// but keep in mind that you might receive duplicate
+  /// If you do need to ensure they receive your response,
+  /// you
+  pub fn ack(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Ack,
+                        id: req.msg_id(),
                         opts: P::MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.token };
+                        token: req.msg_token() };
+
+    Self { msg, opts: None }
+  }
+
+  /// Create a CONfirmable response for an incoming request.
+  ///
+  /// A confirmable response should be used when
+  /// you receive a NON request and want to ensure
+  /// the client receives your response
+  ///
+  /// Note that it would be odd to respond to a CON request
+  /// with an ACK followed by a CON response, because the client
+  /// will keep resending the request until they receive the ACK.
+  ///
+  /// The `kwap` runtime will continually retry sending this until
+  /// an ACKnowledgement from the client is received.
+  pub fn con(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Con,
+                        id: Id(Default::default()),
+                        opts: P::MessageOptions::default(),
+                        code: code::CONTENT,
+                        ver: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: req.msg_token() };
+
+    Self { msg, opts: None }
+  }
+
+  /// Create a NONconfirmable response for an incoming request.
+  ///
+  /// A non-confirmable response should be used when:
+  /// - you receive a NON request and don't need to ensure the client received the response
+  /// - you receive a CON request and don't need to ensure the client received the response (**you _must_ ACK this type of request separately**)
+  pub fn non(req: &Req<P>) -> Self {
+    let msg = Message { ty: Type::Non,
+                        id: Id(Default::default()),
+                        opts: P::MessageOptions::default(),
+                        code: code::CONTENT,
+                        ver: Default::default(),
+                        payload: Payload(Default::default()),
+                        token: req.msg_token() };
 
     Self { msg, opts: None }
   }
@@ -99,7 +156,7 @@ impl<P: Platform> Resp<P> {
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let resp = Resp::<Std>::for_request(req);
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// let data: Vec<u8> = resp.payload().copied().collect();
   /// ```
@@ -138,7 +195,7 @@ impl<P: Platform> Resp<P> {
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   /// resp.set_payload("hello!".bytes());
   ///
   /// let data: String = resp.payload_string().unwrap();
@@ -157,7 +214,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let resp = Resp::<Std>::for_request(req);
+  /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
@@ -174,7 +231,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
@@ -194,7 +251,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
@@ -214,7 +271,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
-  /// let mut resp = Resp::<Std>::for_request(req);
+  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// // Maybe you have some bytes:
   /// resp.set_payload(vec![1, 2, 3]);

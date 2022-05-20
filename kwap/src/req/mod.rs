@@ -1,5 +1,5 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Message, Opt, OptNumber, Payload, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers, Id, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
 
 use crate::ToCoapValue;
 
@@ -30,7 +30,7 @@ use crate::platform::{self, Platform};
 ///   let mut req = Req::<Std>::post("coap://myfunnyserver.com", 5632, "hello");
 ///   req.set_payload("john".bytes());
 ///
-///   let resp = client.send(req);
+///   let resp = client.send(&req);
 ///   let resp_body = resp.payload_string().unwrap();
 ///   assert_eq!(resp_body, "Hello, john!".to_string())
 /// }
@@ -46,10 +46,10 @@ use crate::platform::{self, Platform};
 ///     # Self {__field: ()}
 ///   }
 ///
-///   fn send(&self, req: Req<Std>) -> Resp<Std> {
+///   fn send(&self, req: &Req<Std>) -> Resp<Std> {
 ///     // send the request
 ///     # let body = req.payload_str().unwrap().to_string();
-///     # let mut resp = Resp::for_request(req);
+///     # let mut resp = Resp::for_request(&req).unwrap();
 ///     # resp.set_payload(format!("Hello, {}!", body).bytes());
 ///     # resp
 ///   }
@@ -58,7 +58,9 @@ use crate::platform::{self, Platform};
 #[derive(Debug, Clone)]
 pub struct Req<P: Platform> {
   pub(crate) msg: platform::Message<P>,
-  opts: Option<P::NumberedOptions>,
+  pub(crate) id: Option<Id>,
+  pub(crate) token: Option<Token>,
+  pub(crate) opts: Option<P::NumberedOptions>,
 }
 
 impl<P: Platform> Req<P> {
@@ -67,13 +69,15 @@ impl<P: Platform> Req<P> {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
-                        id: crate::generate_id(),
+                        id: Id(Default::default()),
                         opts: Default::default(),
                         payload: Payload(Default::default()),
-                        token: crate::generate_token() };
+                        token: Token(Default::default()) };
 
     let mut me = Self { msg,
-                        opts: Default::default() };
+                        opts: Default::default(),
+                        id: None,
+                        token: None };
 
     fn strbytes<'a, S: AsRef<str> + 'a>(s: &'a S) -> impl Iterator<Item = u8> + 'a {
       s.as_ref().as_bytes().iter().copied()
@@ -89,6 +93,76 @@ impl<P: Platform> Req<P> {
     me.set_option(11, strbytes(&path));
 
     me
+  }
+
+  /// Updates the Message ID for this request
+  ///
+  /// NOTE:
+  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// first calling `set_msg_id` and `set_msg_token` will panic.
+  ///
+  /// These 2 methods will always be invoked for you by the kwap runtime.
+  ///
+  /// ```should_panic
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  ///
+  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// // Panics!!
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  ///
+  /// ```
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  /// use kwap_msg::{Id, Token};
+  ///
+  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// req.set_msg_id(Id(0));
+  /// req.set_msg_token(Token(Default::default()));
+  ///
+  /// // Works B)
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  pub fn set_msg_id(&mut self, id: Id) {
+    self.id = Some(id);
+  }
+
+  /// Updates the Message Token for this request
+  ///
+  /// NOTE:
+  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// first calling `set_msg_id` and `set_msg_token` will panic.
+  ///
+  /// These 2 methods will always be invoked for you by the kwap runtime.
+  ///
+  /// ```should_panic
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  ///
+  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// // Panics!!
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  ///
+  /// ```
+  /// use kwap::platform;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  /// use kwap_msg::{Id, Token};
+  ///
+  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// req.set_msg_id(Id(0));
+  /// req.set_msg_token(Token(Default::default()));
+  ///
+  /// // Works B)
+  /// let msg: platform::Message<Std> = req.into();
+  /// ```
+  pub fn set_msg_token(&mut self, token: Token) {
+    self.token = Some(token);
   }
 
   /// Get the request method
@@ -128,12 +202,12 @@ impl<P: Platform> Req<P> {
   /// let _msg_id = req.msg_id();
   /// ```
   pub fn msg_id(&self) -> kwap_msg::Id {
-    self.msg.id
+    self.id.unwrap_or(self.msg.id)
   }
 
   /// Get a copy of the message token for this request
   pub fn msg_token(&self) -> kwap_msg::Token {
-    self.msg.token
+    self.token.unwrap_or(self.msg.token)
   }
 
   /// Add a custom option to this request
@@ -290,6 +364,8 @@ impl<P: Platform> Req<P> {
 impl<P: Platform> From<Req<P>> for platform::Message<P> {
   fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
+    req.msg.id = req.id.expect("Request ID was None");
+    req.msg.token = req.token.expect("Request Token was None");
     req.msg
   }
 }
@@ -306,7 +382,11 @@ impl<P: Platform> From<platform::Message<P>> for Req<P> {
   fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
+    let (id, token) = (msg.id, msg.token);
 
-    Self { msg, opts: Some(opts) }
+    Self { msg,
+           opts: Some(opts),
+           id: Some(id),
+           token: Some(token) }
   }
 }
