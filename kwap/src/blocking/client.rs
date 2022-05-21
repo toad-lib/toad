@@ -75,7 +75,7 @@ impl Client<Std> {
     Client::<Std>::new_std_config(Config::default())
   }
 
-  /// TODO
+  /// Create a new std client with a specific runtime config
   pub fn new_std_config(config: Config) -> Self {
     let clock = crate::std::Clock::new();
     let sock = std::net::UdpSocket::bind("127.0.0.1:4812").unwrap();
@@ -89,7 +89,7 @@ impl<Cfg: Platform> Client<Cfg> {
     Self { core: Core::new(clock, sock) }
   }
 
-  /// Create a new request client
+  /// Create a new request client with a specific runtime config
   pub fn new_config(config: Config, ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
     Self { core: Core::new_config(config, clock, sock) }
   }

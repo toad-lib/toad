@@ -115,7 +115,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
     Self::try_new_config(Config::default(), ip, port)
   }
 
-/// TODO
+  /// Create a new std server with a specific runtime config
   pub fn try_new_config(config: Config, ip: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
     let [a, b, c, d] = ip;
     let ip = std::net::Ipv4Addr::new(a, b, c, d);
@@ -132,7 +132,7 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
     Self::new_config(Config::default(), sock, clock)
   }
 
-  /// TODO
+  /// Create a new server with a specific runtime config
   pub fn new_config(config: Config, sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
     let core = Core::<Cfg>::new_config(config, clock, sock);
 
