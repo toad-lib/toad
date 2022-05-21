@@ -2,10 +2,11 @@ use core::mem;
 use core::str::FromStr;
 
 use embedded_time::duration::Milliseconds;
-use embedded_time::Clock;
+use embedded_time::{Clock, Instant};
 use kwap_common::prelude::*;
 use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
 
 mod error;
@@ -27,27 +28,26 @@ use crate::time::Stamped;
 type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
-///
-/// Defined as a state machine with state transitions ([`Event`]s).
-///
-/// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
-  /// Map<SocketAddr, [Stamped<Id>]>
+  /// Map<SocketAddr, Array<Stamped<Id>>>
   msg_ids: P::MessageIdHistoryBySocket,
-  largest_msg_id_seen: Option<u16>,
-  /// Map<SocketAddr, [Stamped<Token>]>
+  /// Map<SocketAddr, Array<Stamped<Token>>>
   msg_tokens: P::MessageTokenHistoryBySocket,
-  /// Networking socket that the CoAP runtime uses
-  sock: P::Socket,
-  /// Clock used for timing
-  clock: P::Clock,
+
   /// Received responses
   resps: Buffer<Addrd<Resp<P>>, 16>,
+
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
   fling_q: Buffer<Addrd<platform::Message<P>>, 16>,
   /// Queue of confirmable messages that have not been ACKed and need to be sent again
   retry_q: Buffer<Retryable<P, Addrd<platform::Message<P>>>, 16>,
+
+  sock: P::Socket,
+  clock: P::Clock,
+
+  largest_msg_id_seen: Option<u16>,
+  rand: rand_chacha::ChaCha8Rng,
   config: ConfigData,
 }
 
@@ -60,6 +60,7 @@ impl<P: Platform> Core<P> {
   /// Create a new core with custom runtime behavior
   pub fn new_config(config: Config, clock: P::Clock, sock: P::Socket) -> Self {
     Self { config: config.into(),
+           rand: rand_chacha::ChaCha8Rng::seed_from_u64(0),
            sock,
            clock,
            msg_ids: Default::default(),
@@ -71,6 +72,14 @@ impl<P: Platform> Core<P> {
   }
 
   fn seen_id(&mut self, id: Addrd<Id>) {
+    let now = self.clock.try_now().unwrap();
+    let millis_since = |other: &Instant<P::Clock>| {
+      now.checked_duration_since(other)
+         .and_then(|dur| Milliseconds::<u64>::try_from(dur).ok())
+         .unwrap()
+         .0
+    };
+
     if !self.msg_ids.has(&id.addr()) {
       self.msg_ids.insert(id.addr(), Default::default()).unwrap();
     }
@@ -81,6 +90,7 @@ impl<P: Platform> Core<P> {
     mem::swap(ids_in_map, &mut ids);
 
     let (mut ids, largest) = ids.into_iter()
+                                .filter(|id| millis_since(&id.time()) < self.config.exchange_lifetime_millis() as u64)
                                 .fold((P::MessageIdHistory::default(), None), |(mut ids, largest), id| {
                                   ids.push(id);
                                   (ids, Some(largest.filter(|large| *large > id.data().0).unwrap_or(id.data().0)))
@@ -94,6 +104,14 @@ impl<P: Platform> Core<P> {
   }
 
   fn seen_token(&mut self, token: Addrd<Token>) {
+    let now = self.clock.try_now().unwrap();
+    let millis_since = |other: &Instant<P::Clock>| {
+      now.checked_duration_since(other)
+         .and_then(|dur| Milliseconds::<u64>::try_from(dur).ok())
+         .unwrap()
+         .0
+    };
+
     if !self.msg_tokens.has(&token.addr()) {
       self.msg_tokens.insert(token.addr(), Default::default()).unwrap();
     }
@@ -104,22 +122,24 @@ impl<P: Platform> Core<P> {
     mem::swap(tokens_in_map, &mut tokens);
 
     tokens = tokens.into_iter()
-                   .filter(|token_b| token_b.data() != token.data())
+                   .filter(|token_b| {
+                     // if we've seen this token before, assume it's a retransmission
+                     // in which case the old timestamp should be tossed out in favor
+                     // of right now
+                     token_b.data() != token.data()
+                     && millis_since(&token_b.time()) < self.config.exchange_lifetime_millis() as u64
+                   })
                    .collect();
+
     tokens.push(Stamped::new(&self.clock, *token.data()).unwrap());
 
     mem::swap(tokens_in_map, &mut tokens);
   }
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
-    // TODO: expiry
-
     let new = match self.largest_msg_id_seen {
       | Some(id) => Id(id + 1),
-      | None => {
-        // TODO: Random starting point?
-        Id(0)
-      },
+      | None => Id(self.rand.gen_range(0..=255)),
     };
 
     self.seen_id(Addrd(new, addr));
@@ -127,12 +147,11 @@ impl<P: Platform> Core<P> {
   }
 
   fn next_token(&mut self, addr: SocketAddr) -> Token {
-    // TODO: expiry
-
     let now_millis: Milliseconds<u64> = self.clock.try_now().unwrap().duration_since_epoch().try_into().unwrap();
     let now_millis: u64 = now_millis.0;
+
+    #[allow(clippy::many_single_char_names)]
     let bytes = {
-      // TODO: probably a better way to do this
       let ([a, b], [c, d, e, f, g, h, i, j]) = (self.config.token_seed.to_be_bytes(), now_millis.to_be_bytes());
       [a, b, c, d, e, f, g, h, i, j]
     };
