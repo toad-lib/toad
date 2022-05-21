@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.7.2 (2022-05-21)
+
+
+### Features
+
+* **kwap:** calc EXCHANGE_LIFETIME & discard old tokens/ids ([#122](https://github.com/clov-coffee/kwap/issues/122)) ([b7001d5](https://github.com/clov-coffee/kwap/commit/b7001d5b24d6e74889ea86aad44b4c74f6c07d5e))
+
 ### 0.7.1 (2022-05-21)
 
 
