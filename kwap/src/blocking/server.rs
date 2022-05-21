@@ -1,6 +1,7 @@
 use kwap_common::Array;
 use kwap_msg::Type;
 
+use crate::config::Config;
 use crate::core::{Core, Error};
 use crate::net::Addrd;
 #[cfg(feature = "std")]
@@ -111,10 +112,15 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// server.middleware(&not_found);
   /// ```
   pub fn try_new(ip: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
+    Self::try_new_config(Config::default(), ip, port)
+  }
+
+  /// Create a new std server with a specific runtime config
+  pub fn try_new_config(config: Config, ip: [u8; 4], port: u16) -> Result<Self, std::io::Error> {
     let [a, b, c, d] = ip;
     let ip = std::net::Ipv4Addr::new(a, b, c, d);
 
-    std::net::UdpSocket::bind((ip, port)).map(|sock| Self::new(sock, crate::std::Clock::new()))
+    std::net::UdpSocket::bind((ip, port)).map(|sock| Self::new_config(config, sock, crate::std::Clock::new()))
   }
 }
 
@@ -123,7 +129,12 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
   ///
   /// If the standard library is available, see [`Server.try_new`].
   pub fn new(sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
-    let core = Core::<Cfg>::new(clock, sock);
+    Self::new_config(Config::default(), sock, clock)
+  }
+
+  /// Create a new server with a specific runtime config
+  pub fn new_config(config: Config, sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
+    let core = Core::<Cfg>::new_config(config, clock, sock);
 
     let mut self_ = Self { core,
                            fns: Default::default() };

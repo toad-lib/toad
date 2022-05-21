@@ -12,21 +12,13 @@ mod error;
 #[doc(inline)]
 pub use error::*;
 
+use crate::config::{Config, ConfigData};
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-
-// TODO(#81):
-//   support environment variables:
-//   - ACK_TIMEOUT
-//   - ACK_RANDOM_FACTOR
-//   - MAX_RETRANSMIT
-//   - NSTART
-//   - DEFAULT_LEISURE
-//   - PROBING
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -41,8 +33,6 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 /// The behavior at runtime is fully customizable, with the default behavior provided via [`Core::new()`](#method.new).
 #[allow(missing_debug_implementations)]
 pub struct Core<P: Platform> {
-  /// See [`Core.next_token`] for info on our implementation of token generation.
-  token_seed: u16,
   /// Map<SocketAddr, [Stamped<Id>]>
   msg_ids: P::MessageIdHistoryBySocket,
   largest_msg_id_seen: Option<u16>,
@@ -58,12 +48,18 @@ pub struct Core<P: Platform> {
   fling_q: Buffer<Addrd<platform::Message<P>>, 16>,
   /// Queue of confirmable messages that have not been ACKed and need to be sent again
   retry_q: Buffer<Retryable<P, Addrd<platform::Message<P>>>, 16>,
+  config: ConfigData,
 }
 
 impl<P: Platform> Core<P> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: P::Clock, sock: P::Socket) -> Self {
-    Self { token_seed: 0,
+    Self::new_config(Config::default(), clock, sock)
+  }
+
+  /// Create a new core with custom runtime behavior
+  pub fn new_config(config: Config, clock: P::Clock, sock: P::Socket) -> Self {
+    Self { config: config.into(),
            sock,
            clock,
            msg_ids: Default::default(),
@@ -130,22 +126,6 @@ impl<P: Platform> Core<P> {
     new
   }
 
-  /// Token Generation
-  ///
-  /// First, we smoosh together the 2-byte token_seed
-  /// and an 8-byte timestamp obtained from the system clock
-  ///
-  /// Core.token_seed
-  /// ||
-  /// xx xxxxxxxx
-  ///    |      |
-  ///    timestamp
-  ///
-  /// Then apply the BLAKE2 hashing algorithm to have an opaque 8 byte token.
-  ///
-  /// token_seed may be 0, a random integer, or a machine identifier.
-  /// The purpose of the seed is to prevent someone with visibility into
-  /// unencrypted CoAP traffic from guessing identifiers.
   fn next_token(&mut self, addr: SocketAddr) -> Token {
     // TODO: expiry
 
@@ -153,7 +133,7 @@ impl<P: Platform> Core<P> {
     let now_millis: u64 = now_millis.0;
     let bytes = {
       // TODO: probably a better way to do this
-      let ([a, b], [c, d, e, f, g, h, i, j]) = (self.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+      let ([a, b], [c, d, e, f, g, h, i, j]) = (self.config.token_seed.to_be_bytes(), now_millis.to_be_bytes());
       [a, b, c, d, e, f, g, h, i, j]
     };
 
