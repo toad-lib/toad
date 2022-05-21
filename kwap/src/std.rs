@@ -28,7 +28,7 @@ impl Clock {
 impl embedded_time::Clock for Clock {
   type T = u64;
 
-  // nanos
+  // nanoseconds
   const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000_000);
 
   fn try_now(&self) -> Result<embedded_time::Instant<Self>, embedded_time::clock::Error> {
