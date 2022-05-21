@@ -57,7 +57,7 @@ impl<P: Platform> Core<P> {
     Self::new_config(Config::default(), clock, sock)
   }
 
-  /// TODO
+  /// Create a new core with custom runtime behavior
   pub fn new_config(config: Config, clock: P::Clock, sock: P::Socket) -> Self {
     Self { config: config.into(),
            sock,
@@ -126,22 +126,6 @@ impl<P: Platform> Core<P> {
     new
   }
 
-  /// Token Generation
-  ///
-  /// First, we smoosh together the 2-byte token_seed
-  /// and an 8-byte timestamp obtained from the system clock
-  ///
-  /// Core.token_seed
-  /// ||
-  /// xx xxxxxxxx
-  ///    |      |
-  ///    timestamp
-  ///
-  /// Then apply the BLAKE2 hashing algorithm to have an opaque 8 byte token.
-  ///
-  /// token_seed may be 0, a random integer, or a machine identifier.
-  /// The purpose of the seed is to prevent someone with visibility into
-  /// unencrypted CoAP traffic from guessing identifiers.
   fn next_token(&mut self, addr: SocketAddr) -> Token {
     // TODO: expiry
 
