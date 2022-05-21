@@ -35,8 +35,12 @@ dependencies = ["install-fmt"]
 command = "cargo"
 args = ["clippy"]
 
+[tasks.doc-check]
+command = "cargo"
+args = ["doc"]
+
 [tasks.ci]
-dependencies = ["test", "fmt-check", "clippy-check"]
+dependencies = ["test", "fmt-check", "clippy-check", "doc-check"]
 
 [tasks.update-readme]
 script = "cargo install cargo-readme && cargo readme > README.md"
