@@ -135,17 +135,17 @@ impl Config {
     use core::ops::Bound;
 
     self.ack_timeout_min_millis = match ack_timeout.start_bound() {
-        Bound::Included(Milliseconds(ms)) => Some(*ms),
-        Bound::Excluded(Milliseconds(ms)) => Some(ms + 1),
-        // TODO: log or panic?
-        Bound::Unbounded => None,
+      | Bound::Included(Milliseconds(ms)) => Some(*ms),
+      | Bound::Excluded(Milliseconds(ms)) => Some(ms + 1),
+      // TODO: log or panic?
+      | Bound::Unbounded => None,
     };
 
     self.ack_timeout_max_millis = match ack_timeout.end_bound() {
-        Bound::Included(Milliseconds(ms)) => Some(*ms),
-        Bound::Excluded(Milliseconds(ms)) => Some(ms - 1),
-        // TODO: log or panic?
-        Bound::Unbounded => None,
+      | Bound::Included(Milliseconds(ms)) => Some(*ms),
+      | Bound::Excluded(Milliseconds(ms)) => Some(ms - 1),
+      // TODO: log or panic?
+      | Bound::Unbounded => None,
     };
 
     self
@@ -158,15 +158,15 @@ impl From<Config> for ConfigData {
                    max_retransmit_attempts,
                    nstart,
                    probing_rate_bytes_per_sec,
-    ack_timeout_max_millis,
-    ack_timeout_min_millis, }: Config)
+                   ack_timeout_max_millis,
+                   ack_timeout_min_millis, }: Config)
           -> Self {
     ConfigData { token_seed: token_seed.unwrap_or(0),
                  default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
                  max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
                  nstart: nstart.unwrap_or(1),
                  probing_rate_bytes_per_sec: probing_rate_bytes_per_sec.unwrap_or(1_000),
-        ack_timeout_max_millis: ack_timeout_max_millis.unwrap_or(3_000),
-        ack_timeout_min_millis: ack_timeout_min_millis.unwrap_or(2_000), }
+                 ack_timeout_max_millis: ack_timeout_max_millis.unwrap_or(3_000),
+                 ack_timeout_min_millis: ack_timeout_min_millis.unwrap_or(2_000) }
   }
 }
