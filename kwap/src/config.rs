@@ -1,4 +1,4 @@
-use core::ops::Range;
+use core::ops::{Range, RangeBounds};
 
 use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
@@ -41,16 +41,15 @@ impl Config {
   /// Creates a new (empty) runtime config
   ///
   /// ```
-  /// use embedded_time::Milliseconds;
+  /// use embedded_time::duration::Milliseconds as Millis;
   /// use kwap::config::{BytesPerSecond, Config};
   /// use kwap::retry::Attempts;
   ///
   /// let config = Config::new().token_seed(35718)
-  ///                           .max_concurrent_requests(35718)
+  ///                           .max_concurrent_requests(142)
   ///                           .probing_rate(BytesPerSecond(10_000))
   ///                           .max_con_request_retries(Attempts(10))
-  ///                           .ack_timeout(Milliseconds::<u64>(10_000))
-  ///                           .ack_random_factor(1.5);
+  ///                           .ack_timeout(Millis(1_000)..=Millis(4_000));
   /// ```
   pub fn new() -> Self {
     Default::default()
@@ -132,9 +131,23 @@ impl Config {
   /// CON requests that haven't been ACKed.
   ///
   /// The default value is `2000..=3000` milliseconds.
-  pub fn ack_timeout(mut self, ack_timeout: Range<Milliseconds<u32>>) -> Self {
-    self.ack_timeout_min_millis = Some(ack_timeout.start.0);
-    self.ack_timeout_max_millis = Some(ack_timeout.end.0);
+  pub fn ack_timeout(mut self, ack_timeout: impl RangeBounds<Milliseconds<u32>>) -> Self {
+    use core::ops::Bound;
+
+    self.ack_timeout_min_millis = match ack_timeout.start_bound() {
+        Bound::Included(Milliseconds(ms)) => Some(*ms),
+        Bound::Excluded(Milliseconds(ms)) => Some(ms + 1),
+        // TODO: log or panic?
+        Bound::Unbounded => None,
+    };
+
+    self.ack_timeout_max_millis = match ack_timeout.end_bound() {
+        Bound::Included(Milliseconds(ms)) => Some(*ms),
+        Bound::Excluded(Milliseconds(ms)) => Some(ms - 1),
+        // TODO: log or panic?
+        Bound::Unbounded => None,
+    };
+
     self
   }
 }

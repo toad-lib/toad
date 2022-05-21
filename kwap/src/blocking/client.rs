@@ -1,5 +1,6 @@
 use kwap_common::prelude::*;
 
+use crate::config::Config;
 use crate::core::{Core, Error, What};
 use crate::platform::Platform;
 #[cfg(feature = "std")]
@@ -71,9 +72,14 @@ impl Client<Std> {
   /// println!("Hello, {}!", rep.payload_string().unwrap());
   /// ```
   pub fn new_std() -> Self {
+    Client::<Std>::new_std_config(Config::default())
+  }
+
+  /// TODO
+  pub fn new_std_config(config: Config) -> Self {
     let clock = crate::std::Clock::new();
     let sock = std::net::UdpSocket::bind("127.0.0.1:4812").unwrap();
-    Client::<Std>::new(ClientConfig { clock, sock })
+    Client::<Std>::new_config(config, ClientConfig { clock, sock })
   }
 }
 
@@ -81,6 +87,11 @@ impl<Cfg: Platform> Client<Cfg> {
   /// Create a new request client
   pub fn new(ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
     Self { core: Core::new(clock, sock) }
+  }
+
+  /// Create a new request client
+  pub fn new_config(config: Config, ClientConfig { clock, sock }: ClientConfig<Cfg>) -> Self {
+    Self { core: Core::new_config(config, clock, sock) }
   }
 
   /// Ping an endpoint
