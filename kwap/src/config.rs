@@ -14,6 +14,33 @@ pub(crate) struct ConfigData {
   pub(crate) probing_rate_bytes_per_sec: u16,
 }
 
+impl ConfigData {
+  pub(crate) const fn max_transmit_span_millis(&self) -> u32 {
+    self.ack_timeout_max_millis * (2u32.pow(self.max_retransmit_attempts as u32) - 1)
+  }
+
+  pub(crate) const fn max_transmit_wait_millis(&self) -> u32 {
+    self.ack_timeout_max_millis * (2u32.pow((self.max_retransmit_attempts + 1) as u32) - 1)
+  }
+
+  // TODO: adjust these on the fly based on actual timings?
+  pub(crate) const fn max_latency_millis(&self) -> u32 {
+    100_000
+  }
+
+  pub(crate) const fn expected_processing_delay_millis(&self) -> u32 {
+    200
+  }
+
+  pub(crate) const fn exchange_lifetime_millis(&self) -> u32 {
+    self.max_transmit_span_millis() + (2 * self.max_latency_millis()) + self.expected_processing_delay_millis()
+  }
+
+  pub(crate) const fn non_lifetime_millis(&self) -> u32 {
+    self.max_transmit_span_millis() + self.max_latency_millis()
+  }
+}
+
 /// CoAP runtime config
 ///
 /// Allows you to configure things like
