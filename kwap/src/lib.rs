@@ -75,6 +75,9 @@ pub mod net;
 /// time abstractions
 pub mod time;
 
+/// configuring runtime behavior
+pub mod config;
+
 /// `std`-only kwap stuff
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
