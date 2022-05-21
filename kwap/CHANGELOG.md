@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.7.1 (2022-05-21)
+
+
+### Features
+
+* **kwap:** add support for coap runtime config ([9c8ef54](https://github.com/clov-coffee/kwap/commit/9c8ef541d89e8430010845f3b0f1ec7f06a220c7))
+
 ## 0.7.0 (2022-05-20)
 
 

@@ -24,7 +24,7 @@
 //! - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
 // docs
-#![doc(html_root_url = "https://docs.rs/kwap/0.7.0")]
+#![doc(html_root_url = "https://docs.rs/kwap/0.7.1")]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 // -
 // style
