@@ -40,14 +40,11 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   match req.data().path().unwrap() {
     | Some("hello") => {
       println!("a client said hello");
-      let resp = req.as_ref()
-                    .map(Resp::for_request)
-                    .map(Option::unwrap)
-                    .map(|mut resp| {
-                      resp.set_code(code::CONTENT);
-                      resp.set_payload("hello, world!".bytes());
-                      resp
-                    });
+      let resp = req.as_ref().map(Resp::for_request).map(Option::unwrap).map(|mut resp| {
+                                                                          resp.set_code(code::CONTENT);
+                                                                          resp.set_payload("hello, world!".bytes());
+                                                                          resp
+                                                                        });
       (Continue::No, Action::Send(resp.map(Into::into)))
     },
     | _ => (Continue::Yes, Action::Nop),
@@ -56,13 +53,10 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 
 fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   println!("not found");
-  let resp = req.as_ref()
-                .map(Resp::for_request)
-                .map(Option::unwrap)
-                .map(|mut resp| {
-                  resp.set_code(code::NOT_FOUND);
-                  resp
-                });
+  let resp = req.as_ref().map(Resp::for_request).map(Option::unwrap).map(|mut resp| {
+                                                                      resp.set_code(code::NOT_FOUND);
+                                                                      resp
+                                                                    });
   (Continue::No, Action::Send(resp.map(Into::into)))
 }
 
