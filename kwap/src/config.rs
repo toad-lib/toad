@@ -16,11 +16,15 @@ pub(crate) struct ConfigData {
 
 impl ConfigData {
   pub(crate) fn max_transmit_span_millis(&self) -> u32 {
-    self.con_retry_strategy.max_time(retry::Attempts(self.max_retransmit_attempts - 1)).0 as u32
+    self.con_retry_strategy
+        .max_time(retry::Attempts(self.max_retransmit_attempts - 1))
+        .0 as u32
   }
 
   pub(crate) fn max_transmit_wait_millis(&self) -> u32 {
-    self.con_retry_strategy.max_time(retry::Attempts(self.max_retransmit_attempts)).0 as u32
+    self.con_retry_strategy
+        .max_time(retry::Attempts(self.max_retransmit_attempts))
+        .0 as u32
   }
 
   // TODO: adjust these on the fly based on actual timings?
@@ -75,10 +79,24 @@ impl Config {
   ///                           .max_concurrent_requests(142)
   ///                           .probing_rate(BytesPerSecond(10_000))
   ///                           .max_con_request_retries(retry::Attempts(10))
-  ///                           .ack_timeout(retry::Strategy::Exponential {init_min: Millis(500), init_max: Millis(750)});
+  ///                           .con_retry_strategy(retry::Strategy::Exponential { init_min: Millis(500),
+  ///                                                                              init_max: Millis(750) });
   /// ```
   pub fn new() -> Self {
     Default::default()
+  }
+
+  /// Set the retry strategy we should use to figure out when
+  /// we should resend outgoing CON requests that have not been
+  /// ACKed yet.
+  ///
+  /// Default value:
+  /// ```ignore
+  /// Strategy::Exponential { init_min: Seconds(2), init_max: Seconds(3) }
+  /// ```
+  pub fn con_retry_strategy(mut self, strat: retry::Strategy) -> Self {
+    self.con_retry_strategy = Some(strat);
+    self
   }
 
   /// Set the seed used to generate message [`Token`](kwap_msg::Token)s.
@@ -167,7 +185,8 @@ impl From<Config> for ConfigData {
                  max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
                  nstart: nstart.unwrap_or(1),
                  probing_rate_bytes_per_sec: probing_rate_bytes_per_sec.unwrap_or(1_000),
-                 con_retry_strategy: con_retry_strategy.unwrap_or(retry::Strategy::Exponential {init_min: Milliseconds(2_000), init_max: Milliseconds(3_000)}),
-               }
+                 con_retry_strategy:
+                   con_retry_strategy.unwrap_or(retry::Strategy::Exponential { init_min: Milliseconds(2_000),
+                                                                               init_max: Milliseconds(3_000) }) }
   }
 }
