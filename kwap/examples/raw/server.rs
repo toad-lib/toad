@@ -68,7 +68,10 @@ fn server_main() {
                  req.payload_str().unwrap().len());
 
         let mut resp = Resp::<Std>::for_request(&req).unwrap();
-        let send = |r: Resp<Std>| sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
+        let send = |r: Resp<Std>| {
+          sock.send_to(&r.try_into_bytes::<Vec<u8>>().unwrap(), addr)
+              .unwrap()
+        };
 
         match (req.msg_type(), req.method(), path) {
           | (Type::Non, Method::GET, Some("black_hole")) => (),
@@ -90,7 +93,8 @@ fn server_main() {
             resp.set_code(kwap_msg::Code::new(0, 0));
             let mut msg = platform::Message::<Std>::from(resp);
             msg.ty = kwap_msg::Type::Reset;
-            sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr).unwrap();
+            sock.send_to(&msg.try_into_bytes::<Vec<u8>>().unwrap(), addr)
+                .unwrap();
           },
           | _ => {
             resp.set_code(code::NOT_FOUND);

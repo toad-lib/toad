@@ -14,11 +14,16 @@ impl core::fmt::Display for Method {
     use std_alloc::string::ToString;
 
     let string = match self.0 {
-      | Code { class: 0, detail: 0 } => "EMPTY".to_string(),
-      | Code { class: 0, detail: 1 } => "GET".to_string(),
-      | Code { class: 0, detail: 2 } => "PUT".to_string(),
-      | Code { class: 0, detail: 3 } => "POST".to_string(),
-      | Code { class: 0, detail: 4 } => "DELETE".to_string(),
+      | Code { class: 0,
+               detail: 0, } => "EMPTY".to_string(),
+      | Code { class: 0,
+               detail: 1, } => "GET".to_string(),
+      | Code { class: 0,
+               detail: 2, } => "PUT".to_string(),
+      | Code { class: 0,
+               detail: 3, } => "POST".to_string(),
+      | Code { class: 0,
+               detail: 4, } => "DELETE".to_string(),
       | c => c.to_string(),
     };
 

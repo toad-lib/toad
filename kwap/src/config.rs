@@ -35,7 +35,9 @@ impl ConfigData {
   }
 
   pub(crate) fn exchange_lifetime_millis(&self) -> u32 {
-    self.max_transmit_span_millis() + (2 * self.max_latency_millis()) + self.expected_processing_delay_millis()
+    self.max_transmit_span_millis()
+    + (2 * self.max_latency_millis())
+    + self.expected_processing_delay_millis()
   }
 
   pub(crate) fn non_lifetime_millis(&self) -> u32 {
@@ -73,12 +75,13 @@ impl Config {
   /// use kwap::config::{BytesPerSecond, Config};
   /// use kwap::retry;
   ///
-  /// let config = Config::new().token_seed(35718)
-  ///                           .max_concurrent_requests(142)
-  ///                           .probing_rate(BytesPerSecond(10_000))
-  ///                           .max_con_request_retries(retry::Attempts(10))
-  ///                           .con_retry_strategy(retry::Strategy::Exponential { init_min: Millis(500),
-  ///                                                                              init_max: Millis(750) });
+  /// let config =
+  ///   Config::new().token_seed(35718)
+  ///                .max_concurrent_requests(142)
+  ///                .probing_rate(BytesPerSecond(10_000))
+  ///                .max_con_request_retries(retry::Attempts(10))
+  ///                .con_retry_strategy(retry::Strategy::Exponential { init_min: Millis(500),
+  ///                                                                   init_max: Millis(750) });
   /// ```
   pub fn new() -> Self {
     Default::default()

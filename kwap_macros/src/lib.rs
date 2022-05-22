@@ -49,7 +49,8 @@ pub fn rfc_7252_doc(input: TokenStream) -> TokenStream {
   let sec = section_literal.value();
   let docstring = gen_docstring(sec, RFC7252);
 
-  LitStr::new(&docstring, section_literal.span()).to_token_stream().into()
+  LitStr::new(&docstring, section_literal.span()).to_token_stream()
+                                                 .into()
 }
 
 fn gen_docstring(sec: String, rfc: &'static str) -> String {
@@ -99,31 +100,32 @@ fn trim_leading_ws(text: &str) -> Vec<String> {
   let trim_indent = Regex::new(r"^   ").unwrap();
 
   text.split('\n')
-      .fold((Vec::<String>::new(), TrimStart::Yes), |(mut lines, strip), s| {
-        let trimmed = trim_start.replace(s, "").to_string();
-        let dedented = trim_indent.replace(s, "").to_string();
+      .fold((Vec::<String>::new(), TrimStart::Yes),
+            |(mut lines, strip), s| {
+              let trimmed = trim_start.replace(s, "").to_string();
+              let dedented = trim_indent.replace(s, "").to_string();
 
-        let is_fence = trimmed.starts_with("```");
+              let is_fence = trimmed.starts_with("```");
 
-        match (is_fence, strip) {
-          | (false, TrimStart::Yes) => {
-            lines.push(trimmed);
-            (lines, strip)
-          },
-          | (false, TrimStart::InCodeFence) => {
-            lines.push(dedented);
-            (lines, strip)
-          },
-          | (true, TrimStart::Yes) => {
-            lines.push(trimmed);
-            (lines, TrimStart::InCodeFence)
-          },
-          | (true, TrimStart::InCodeFence) => {
-            lines.push(trimmed);
-            (lines, TrimStart::Yes)
-          },
-        }
-      })
+              match (is_fence, strip) {
+                | (false, TrimStart::Yes) => {
+                  lines.push(trimmed);
+                  (lines, strip)
+                },
+                | (false, TrimStart::InCodeFence) => {
+                  lines.push(dedented);
+                  (lines, strip)
+                },
+                | (true, TrimStart::Yes) => {
+                  lines.push(trimmed);
+                  (lines, TrimStart::InCodeFence)
+                },
+                | (true, TrimStart::InCodeFence) => {
+                  lines.push(trimmed);
+                  (lines, TrimStart::Yes)
+                },
+              }
+            })
       .0
 }
 

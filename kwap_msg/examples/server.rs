@@ -75,7 +75,10 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
           | _ => not_found(req.token),
         };
 
-        println!("server: 📨 got {} {}, sending {}", method, path, rep.code.to_string());
+        println!("server: 📨 got {} {}, sending {}",
+                 method,
+                 path,
+                 rep.code.to_string());
 
         sock.send_to(&rep.try_into_bytes::<Vec<_>>().unwrap(), addr)
             .map_err(err)?;
@@ -94,7 +97,8 @@ fn get_hello() -> Message {
             ty: Type::Con,
             ver: Default::default(),
             token: Token(Default::default()),
-            code: Code { class: 0, detail: 1 }, // GET
+            code: Code { class: 0,
+                         detail: 1 }, // GET
             opts: vec![Opt { delta: OptDelta(11), // Uri-Path
                              value: OptValue("hello".as_bytes().to_vec()) }],
             payload: Payload(Vec::new()) }
@@ -106,7 +110,8 @@ fn ok_hello(token: kwap_msg::Token) -> Message {
             ty: Type::Ack, // ACK
             ver: Default::default(),
             token,
-            code: Code { class: 2, detail: 5 }, // 2.05 OK
+            code: Code { class: 2,
+                         detail: 5 }, // 2.05 OK
             opts: Vec::new(),
             payload: Payload("hi there!".as_bytes().to_vec()) }
 }
@@ -117,7 +122,8 @@ fn not_found(token: kwap_msg::Token) -> Message {
             ty: Type::Ack, // ACK
             ver: Default::default(),
             token,
-            code: Code { class: 4, detail: 4 }, // 4.04 NOT FOUND
+            code: Code { class: 4,
+                         detail: 4 }, // 4.04 NOT FOUND
             opts: Vec::new(),
             payload: Payload("not found :(".as_bytes().to_vec()) }
 }

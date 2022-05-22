@@ -180,7 +180,9 @@ pub trait GetSize {
   /// assert!(array.is_full())
   /// ```
   fn is_full(&self) -> bool {
-    self.max_size().map(|max| self.get_size() >= max).unwrap_or(false)
+    self.max_size()
+        .map(|max| self.get_size() >= max)
+        .unwrap_or(false)
   }
 }
 

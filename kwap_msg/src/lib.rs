@@ -108,7 +108,9 @@ pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
 /// Message that uses static fixed-capacity stack-allocating byte buffers
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
-  Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[u8; OPT_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
+  Message<ArrayVec<[u8; PAYLOAD_CAP]>,
+          ArrayVec<[u8; OPT_CAP]>,
+          ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
 /// # `Message` struct
 /// Low-level representation of a message that has been parsed from the raw binary format.
@@ -168,7 +170,9 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// assert_eq!(msg, expected);
 /// ```
 #[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct Message<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>> {
+pub struct Message<PayloadC: Array<Item = u8>,
+ OptC: Array<Item = u8> + 'static,
+ Opts: Array<Item = Opt<OptC>>> {
   /// see [`Id`] for details
   pub id: Id,
   /// see [`Type`] for details
@@ -237,7 +241,9 @@ impl<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<I
   }
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize for Message<P, O, Os> {
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize
+  for Message<P, O, Os>
+{
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
@@ -377,7 +383,8 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                          ver: Version(1),
                          token: Token(tinyvec::array_vec!([u8; 8] => 254)),
                          opts,
-                         code: Code { class: 2, detail: 5 },
+                         code: Code { class: 2,
+                                      detail: 5 },
                          payload: Payload(b"hello, world!".to_vec()) };
   (msg, bytes)
 }
@@ -398,8 +405,12 @@ pub(crate) mod tests {
     ($actual:expr, $expected:expr) => {
       if $actual.iter().ne($expected.iter()) {
         panic!("expected {:?} to equal {:?}",
-               $actual.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>(),
-               $expected.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>())
+               $actual.into_iter()
+                      .map(|b| format!("{:08b}", b))
+                      .collect::<Vec<_>>(),
+               $expected.into_iter()
+                        .map(|b| format!("{:08b}", b))
+                        .collect::<Vec<_>>())
       }
     };
   }

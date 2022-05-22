@@ -79,9 +79,9 @@ fn message_from_bytes(c: &mut Criterion) {
                            &bytes,
                            |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));
 
-    group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()), &bytes, |b, bytes| {
-           b.iter(|| coap_lite::Packet::from_bytes(bytes))
-         });
+    group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()),
+                           &bytes,
+                           |b, bytes| b.iter(|| coap_lite::Packet::from_bytes(bytes)));
   }
   group.finish();
 }

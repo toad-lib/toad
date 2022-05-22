@@ -1,5 +1,13 @@
 use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Id, Message, Opt, OptNumber, Payload, Token, TryIntoBytes, Type};
+use kwap_msg::{EnumerateOptNumbers,
+               Id,
+               Message,
+               Opt,
+               OptNumber,
+               Payload,
+               Token,
+               TryIntoBytes,
+               Type};
 
 use crate::ToCoapValue;
 
@@ -222,7 +230,10 @@ impl<P: Platform> Req<P> {
   /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
   /// req.set_option(17, Some(50)); // Accept: application/json
   /// ```
-  pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+  pub fn set_option<V: IntoIterator<Item = u8>>(&mut self,
+                                                number: u32,
+                                                value: V)
+                                                -> Option<(u32, V)> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }
@@ -231,7 +242,10 @@ impl<P: Platform> Req<P> {
   }
 
   /// Add an instance of a repeatable option to the request.
-  pub fn add_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+  pub fn add_option<V: IntoIterator<Item = u8>>(&mut self,
+                                                number: u32,
+                                                value: V)
+                                                -> Option<(u32, V)> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }

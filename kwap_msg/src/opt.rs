@@ -113,7 +113,9 @@ pub(crate) fn opt_header<I: Iterator<Item = u8>>(mut bytes: I) -> Result<u8, Opt
   Ok(opt_header.unwrap())
 }
 
-impl<C: Array<Item = u8>, OptArray: Array<Item = Opt<C>>, I: Iterator<Item = u8>> TryConsumeBytes<I> for OptArray {
+impl<C: Array<Item = u8>, OptArray: Array<Item = Opt<C>>, I: Iterator<Item = u8>> TryConsumeBytes<I>
+  for OptArray
+{
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error> {
@@ -142,9 +144,12 @@ impl<I: Iterator<Item = u8>, C: Array<Item = u8>> TryConsumeBytes<I> for Opt<C> 
     let opt_header = opt_header(bytes.by_ref())?;
 
     // NOTE: Delta **MUST** be consumed before Value. see comment on `opt_len_or_delta` for more info
-    let delta = OptDelta::try_consume_bytes(&mut core::iter::once(opt_header).chain(bytes.by_ref()))?;
+    let delta =
+      OptDelta::try_consume_bytes(&mut core::iter::once(opt_header).chain(bytes.by_ref()))?;
     let len = opt_header & 0b00001111;
-    let len = parse_opt_len_or_delta(len, bytes.by_ref(), OptParseError::ValueLengthReservedValue(15))?;
+    let len = parse_opt_len_or_delta(len,
+                                     bytes.by_ref(),
+                                     OptParseError::ValueLengthReservedValue(15))?;
     let value = OptValue::try_consume_n_bytes(len as usize, bytes)?;
     Ok(Opt { delta, value })
   }
@@ -182,7 +187,9 @@ pub trait EnumerateOptNumbers<T>
   ///                   value: OptValue(Vec::new()) };
   /// let opts = vec![opt_a.clone(), opt_b.clone()];
   ///
-  /// let opt_ns = opts.into_iter().enumerate_option_numbers().collect::<Vec<_>>();
+  /// let opt_ns = opts.into_iter()
+  ///                  .enumerate_option_numbers()
+  ///                  .collect::<Vec<_>>();
   ///
   /// assert_eq!(opt_ns, vec![(OptNumber(12), opt_a), (OptNumber(14), opt_b)])
   /// ```
@@ -191,13 +198,17 @@ pub trait EnumerateOptNumbers<T>
 
 impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I {
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<Opt<C>, Self> {
-    EnumerateOptNumbersIter { number: 0, iter: self }
+    EnumerateOptNumbersIter { number: 0,
+                              iter: self }
   }
 }
 
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>> for I {
+impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>>
+  for I
+{
   fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<&'a Opt<C>, Self> {
-    EnumerateOptNumbersIter { number: 0, iter: self }
+    EnumerateOptNumbersIter { number: 0,
+                              iter: self }
   }
 }
 
@@ -214,7 +225,9 @@ pub struct EnumerateOptNumbersIter<T, I: Iterator<Item = T>> {
   iter: I,
 }
 
-impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptNumbersIter<Opt<C>, I> {
+impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator
+  for EnumerateOptNumbersIter<Opt<C>, I>
+{
   type Item = (OptNumber, Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -225,7 +238,9 @@ impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator for EnumerateOptN
   }
 }
 
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> Iterator for EnumerateOptNumbersIter<&'a Opt<C>, I> {
+impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> Iterator
+  for EnumerateOptNumbersIter<&'a Opt<C>, I>
+{
   type Item = (OptNumber, &'a Opt<C>);
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -257,7 +272,7 @@ mod tests {
     let del_2bytes = OptDelta::try_consume_bytes(&mut del_2bytes).unwrap();
     assert_eq!(del_2bytes, OptDelta(12345));
 
-    let errs = [[0b11010000u8].as_ref().iter(),             // delta is 13 but no byte following
+    let errs = [[0b11010000u8].as_ref().iter(), // delta is 13 but no byte following
                 [0b11100000u8, 0b00000001].as_ref().iter(), // delta is 14 but only 1 byte following
                 [].as_ref().iter()];
 

@@ -90,8 +90,11 @@ impl SockMock {
            tx: Default::default() }
   }
 
-  pub fn send_msg<P: platform::Platform>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>, msg: Addrd<platform::Message<P>>) {
-    rx.lock().unwrap().push(msg.map(|msg| msg.try_into_bytes().unwrap()));
+  pub fn send_msg<P: platform::Platform>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
+                                         msg: Addrd<platform::Message<P>>) {
+    rx.lock()
+      .unwrap()
+      .push(msg.map(|msg| msg.try_into_bytes().unwrap()));
   }
 
   pub fn await_msg<P: platform::Platform>(addr: SocketAddr,
@@ -102,7 +105,9 @@ impl SockMock {
         .unwrap()
         .iter_mut()
         .find(|bytes| bytes.addr() == addr && !bytes.data().is_empty())
-        .map(|Addrd(bytes, _)| platform::Message::<P>::try_from_bytes(bytes.drain(..).collect::<Vec<_>>()).unwrap())
+        .map(|Addrd(bytes, _)| {
+          platform::Message::<P>::try_from_bytes(bytes.drain(..).collect::<Vec<_>>()).unwrap()
+        })
     };
 
     loop {
@@ -125,7 +130,10 @@ impl Socket for SockMock {
 
     let dgram = rx.drain(0..1).next().unwrap();
 
-    dgram.data().iter().enumerate().for_each(|(ix, byte)| buf[ix] = *byte);
+    dgram.data()
+         .iter()
+         .enumerate()
+         .for_each(|(ix, byte)| buf[ix] = *byte);
 
     Ok(dgram.map(|bytes| bytes.len()))
   }

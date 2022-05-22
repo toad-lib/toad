@@ -53,12 +53,14 @@ fn ping(core: &mut Core<Std>) {
       panic!("ping timed out");
     }
   }).unwrap();
-  println!("ping ok! took {}ms", (Instant::now() - pre_ping).as_millis());
+  println!("ping ok! took {}ms",
+           (Instant::now() - pre_ping).as_millis());
   println!();
 }
 
 fn get_hello(core: &mut Core<Std>, non: bool) {
-  let mut req = ReqBuilder::<Std>::get("127.0.0.1", 5683, "hello").build().unwrap();
+  let mut req = ReqBuilder::<Std>::get("127.0.0.1", 5683, "hello").build()
+                                                                  .unwrap();
 
   if non {
     req.non();
@@ -71,7 +73,9 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
 
   match resp {
     | Ok(rep) => {
-      println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
+      println!("{} {:?}",
+               rep.code().to_string(),
+               rep.payload_string().unwrap());
       println!();
     },
     | Err(e) => {
@@ -95,7 +99,9 @@ fn get_dropped(core: &mut Core<Std>) {
 
   match resp {
     | Ok(rep) => {
-      println!("{} {:?}", rep.code().to_string(), rep.payload_string().unwrap());
+      println!("{} {:?}",
+               rep.code().to_string(),
+               rep.payload_string().unwrap());
       println!();
     },
     | Err(e) => {

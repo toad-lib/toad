@@ -70,7 +70,10 @@ fn std_addr_v4_from_no_std(no_std: no_std_net::SocketAddrV4) -> std::net::Socket
 fn std_addr_v6_from_no_std(no_std: no_std_net::SocketAddrV6) -> std::net::SocketAddr {
   let [a, b, c, d, e, f, g, h] = no_std.ip().segments();
   let ip = std::net::Ipv6Addr::new(a, b, c, d, e, f, g, h);
-  std::net::SocketAddr::V6(std::net::SocketAddrV6::new(ip, no_std.port(), no_std.flowinfo(), no_std.scope_id()))
+  std::net::SocketAddr::V6(std::net::SocketAddrV6::new(ip,
+                                                       no_std.port(),
+                                                       no_std.flowinfo(),
+                                                       no_std.scope_id()))
 }
 
 fn std_addr_from_no_std(no_std: no_std_net::SocketAddr) -> std::net::SocketAddr {
@@ -89,7 +92,10 @@ fn no_std_addr_v4_from_std(std: std::net::SocketAddrV4) -> no_std_net::SocketAdd
 fn no_std_addr_v6_from_std(std: std::net::SocketAddrV6) -> no_std_net::SocketAddr {
   let [a, b, c, d, e, f, g, h] = std.ip().segments();
   let ip = no_std_net::Ipv6Addr::new(a, b, c, d, e, f, g, h);
-  no_std_net::SocketAddr::V6(no_std_net::SocketAddrV6::new(ip, std.port(), std.flowinfo(), std.scope_id()))
+  no_std_net::SocketAddr::V6(no_std_net::SocketAddrV6::new(ip,
+                                                           std.port(),
+                                                           std.flowinfo(),
+                                                           std.scope_id()))
 }
 
 fn no_std_addr_from_std(std: std::net::SocketAddr) -> no_std_net::SocketAddr {

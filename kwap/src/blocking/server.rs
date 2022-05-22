@@ -30,9 +30,9 @@ impl<Cfg: Platform> Status<Cfg> {
   fn bind_result(self, result: Result<(), Error<Cfg>>) -> Self {
     match &self {
       | Self::Err(_) => self,
-      | Self::Stop | Self::Exit | Self::Continue => {
-        result.map(|_| self).map_err(|e| Self::Err(e)).unwrap_or_else(|e| e)
-      },
+      | Self::Stop | Self::Exit | Self::Continue => result.map(|_| self)
+                                                          .map_err(|e| Self::Err(e))
+                                                          .unwrap_or_else(|e| e),
     }
   }
 }
@@ -120,11 +120,15 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
     let [a, b, c, d] = ip;
     let ip = std::net::Ipv4Addr::new(a, b, c, d);
 
-    std::net::UdpSocket::bind((ip, port)).map(|sock| Self::new_config(config, sock, crate::std::Clock::new()))
+    std::net::UdpSocket::bind((ip, port)).map(|sock| {
+                                           Self::new_config(config, sock, crate::std::Clock::new())
+                                         })
   }
 }
 
-impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>> Server<'a, Cfg, Middlewares> {
+impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>>
+  Server<'a, Cfg, Middlewares>
+{
   /// Construct a new Server for the current platform.
   ///
   /// If the standard library is available, see [`Server.try_new`].
@@ -204,14 +208,18 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
 
       let mut use_middleware = |middleware: &&'a Middleware<Cfg>| match middleware(&req) {
         | (cont, Action::Nop) => Status::<Cfg>::from_continue(cont),
-        | (cont, Action::Send(msg)) => Status::<Cfg>::from_continue(cont).bind_result(self.core.send_msg(msg)),
+        | (cont, Action::Send(msg)) => {
+          Status::<Cfg>::from_continue(cont).bind_result(self.core.send_msg(msg))
+        },
         | (_, Action::Exit) => Status::Exit,
       };
 
-      let status = self.fns.iter().fold(Status::Continue, |status, f| match status {
-                                    | Status::Exit | Status::Err(_) | Status::Stop => status,
-                                    | Status::Continue => use_middleware(f),
-                                  });
+      let status = self.fns
+                       .iter()
+                       .fold(Status::Continue, |status, f| match status {
+                         | Status::Exit | Status::Err(_) | Status::Stop => status,
+                         | Status::Continue => use_middleware(f),
+                       });
 
       match status {
         | Status::Exit => return Ok(()),

@@ -63,7 +63,10 @@ pub trait Map<K: Ord + Eq + Hash, V>:
 
 impl<K: Eq + Hash + Ord, V> Map<K, V> for BTreeMap<K, V> {
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
-    self.insert(key, val).map(InsertError::Exists).ok_or(()).swap()
+    self.insert(key, val)
+        .map(InsertError::Exists)
+        .ok_or(())
+        .swap()
   }
 
   fn remove<Q: Ord>(&mut self, key: &Q) -> Option<V>
@@ -123,7 +126,10 @@ impl<K: Eq + Hash + Ord, V> Map<K, V> for HashMap<K, V> {
   }
 
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
-    self.insert(key, val).map(InsertError::Exists).ok_or(()).swap()
+    self.insert(key, val)
+        .map(InsertError::Exists)
+        .ok_or(())
+        .swap()
   }
 
   fn remove<Q: Hash + Eq + Ord>(&mut self, key: &Q) -> Option<V>
@@ -174,7 +180,9 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for T {
   fn get_mut<'a, Q: Hash + Eq + Ord>(&'a mut self, key: &Q) -> Option<&'a mut V>
     where K: Borrow<Q> + 'a
   {
-    match self.iter_mut().find(|(k, _)| Borrow::<Q>::borrow(*k) == key) {
+    match self.iter_mut()
+              .find(|(k, _)| Borrow::<Q>::borrow(*k) == key)
+    {
       | Some((_, v)) => Some(v),
       | None => None,
     }
@@ -224,7 +232,8 @@ type ArrayIterCoercer<'a, K, V> = fn(&'a (K, V)) -> (&'a K, &'a V);
 type ArrayIterMapped<'a, K, V> = iter::Map<slice::Iter<'a, (K, V)>, ArrayIterCoercer<'a, K, V>>;
 
 type ArrayIterMutCoercer<'a, K, V> = fn(&'a mut (K, V)) -> (&'a K, &'a mut V);
-type ArrayIterMutMapped<'a, K, V> = iter::Map<slice::IterMut<'a, (K, V)>, ArrayIterMutCoercer<'a, K, V>>;
+type ArrayIterMutMapped<'a, K, V> =
+  iter::Map<slice::IterMut<'a, (K, V)>, ArrayIterMutCoercer<'a, K, V>>;
 
 /// An iterator over the entries of a `Map`.
 ///
@@ -334,7 +343,10 @@ mod tests {
 
   fn impls(
     )
-      -> (impl Map<String, String>, impl Map<String, String>, impl Map<String, String>, impl Map<String, String>)
+      -> (impl Map<String, String>,
+          impl Map<String, String>,
+          impl Map<String, String>,
+          impl Map<String, String>)
   {
     (HashMap::<String, String>::from([("foo".into(), "bar".into())]),
      BTreeMap::<String, String>::from([("foo".into(), "bar".into())]),

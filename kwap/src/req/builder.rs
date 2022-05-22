@@ -26,11 +26,12 @@ pub enum Error {
 ///              "say": "Hello"
 ///            }"""#;
 ///
-/// let request = ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
-///                                                                     .content_format(ContentFormat::Json)
-///                                                                     .payload(payload)
-///                                                                     .build()
-///                                                                     .unwrap();
+/// let request =
+///   ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
+///                                                         .content_format(ContentFormat::Json)
+///                                                         .payload(payload)
+///                                                         .build()
+///                                                         .unwrap();
 ///
 /// let rep = send(&request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
@@ -108,7 +109,10 @@ impl<P: Platform> ReqBuilder<P> {
 
   /// Set the payload of the request
   pub fn payload<V: ToCoapValue>(mut self, value: V) -> Self {
-    self.inner.as_mut().perform_mut(|i| i.set_payload(value)).ok();
+    self.inner
+        .as_mut()
+        .perform_mut(|i| i.set_payload(value))
+        .ok();
     self
   }
 

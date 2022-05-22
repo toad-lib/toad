@@ -70,11 +70,13 @@ fn message_to_bytes(c: &mut Criterion) {
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()), inp, |b, inp| {
-           b.iter_batched(|| inp.get_alloc_message(),
-                          |m| m.try_into_bytes::<Vec<_>>().unwrap(),
-                          BatchSize::SmallInput)
-         });
+    group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()),
+                           inp,
+                           |b, inp| {
+                             b.iter_batched(|| inp.get_alloc_message(),
+                                            |m| m.try_into_bytes::<Vec<_>>().unwrap(),
+                                            BatchSize::SmallInput)
+                           });
 
     group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
                            inp,
@@ -85,9 +87,9 @@ fn message_to_bytes(c: &mut Criterion) {
                            });
 
     let cl_packet = inp.get_coap_lite_packet();
-    group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()), &cl_packet, |b, inp| {
-           b.iter(|| inp.to_bytes())
-         });
+    group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()),
+                           &cl_packet,
+                           |b, inp| b.iter(|| inp.to_bytes()));
   }
   group.finish();
 }
