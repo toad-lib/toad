@@ -180,8 +180,8 @@ impl<P: Platform> Core<P> {
         .try_now()
         .map(|now| {
           RetryTimer::new(now,
-                          crate::retry::Strategy::Exponential(embedded_time::duration::Milliseconds(100)),
-                          crate::retry::Attempts(5))
+                          self.config.con_retry_strategy,
+                          crate::retry::Attempts(self.config.max_retransmit_attempts))
         })
         .map_err(|_| when.what(What::ClockError))
         .map(|timer| Retryable(t, timer))
