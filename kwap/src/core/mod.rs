@@ -89,12 +89,16 @@ impl<P: Platform> Core<P> {
     let mut ids = P::MessageIdHistory::default();
     mem::swap(ids_in_map, &mut ids);
 
-    let (mut ids, largest) = ids.into_iter()
-                                .filter(|id| millis_since(&id.time()) < self.config.exchange_lifetime_millis() as u64)
-                                .fold((P::MessageIdHistory::default(), None), |(mut ids, largest), id| {
-                                  ids.push(id);
-                                  (ids, Some(largest.filter(|large| *large > id.data().0).unwrap_or(id.data().0)))
-                                });
+    let (mut ids, largest) =
+      ids.into_iter()
+         .filter(|id| millis_since(&id.time()) < self.config.exchange_lifetime_millis() as u64)
+         .fold((P::MessageIdHistory::default(), None),
+               |(mut ids, largest), id| {
+                 ids.push(id);
+                 (ids,
+                  Some(largest.filter(|large| *large > id.data().0)
+                              .unwrap_or(id.data().0)))
+               });
 
     self.largest_msg_id_seen = largest.or(Some(id.data().0));
 
@@ -113,7 +117,9 @@ impl<P: Platform> Core<P> {
     };
 
     if !self.msg_tokens.has(&token.addr()) {
-      self.msg_tokens.insert(token.addr(), Default::default()).unwrap();
+      self.msg_tokens
+          .insert(token.addr(), Default::default())
+          .unwrap();
     }
 
     let tokens_in_map = self.msg_tokens.get_mut(&token.addr()).unwrap();
@@ -127,7 +133,8 @@ impl<P: Platform> Core<P> {
                      // in which case the old timestamp should be tossed out in favor
                      // of right now
                      token_b.data() != token.data()
-                     && millis_since(&token_b.time()) < self.config.exchange_lifetime_millis() as u64
+                     && millis_since(&token_b.time())
+                        < self.config.exchange_lifetime_millis() as u64
                    })
                    .collect();
 
@@ -147,12 +154,18 @@ impl<P: Platform> Core<P> {
   }
 
   fn next_token(&mut self, addr: SocketAddr) -> Token {
-    let now_millis: Milliseconds<u64> = self.clock.try_now().unwrap().duration_since_epoch().try_into().unwrap();
+    let now_millis: Milliseconds<u64> = self.clock
+                                            .try_now()
+                                            .unwrap()
+                                            .duration_since_epoch()
+                                            .try_into()
+                                            .unwrap();
     let now_millis: u64 = now_millis.0;
 
     #[allow(clippy::many_single_char_names)]
     let bytes = {
-      let ([a, b], [c, d, e, f, g, h, i, j]) = (self.config.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+      let ([a, b], [c, d, e, f, g, h, i, j]) =
+        (self.config.token_seed.to_be_bytes(), now_millis.to_be_bytes());
       [a, b, c, d, e, f, g, h, i, j]
     };
 
@@ -169,7 +182,10 @@ impl<P: Platform> Core<P> {
         .poll()
         .map_err(|e| when.what(What::SockError(e)))
         // TODO: This is a /bad/ copy.
-        .try_perform(|polled| polled.map(|ref dgram| self.dgram_recvd(when, *dgram)).unwrap_or(Ok(())))
+        .try_perform(|polled| {
+          polled.map(|ref dgram| self.dgram_recvd(when, *dgram))
+                .unwrap_or(Ok(()))
+        })
         .try_perform(|_| self.send_flings())
         .try_perform(|_| self.send_retrys())
         .map_err(nb::Error::Other)
@@ -194,7 +210,11 @@ impl<P: Platform> Core<P> {
   pub fn store_resp(&mut self, resp: Addrd<Resp<P>>) -> () {
     if let Some(resp) = self.resps.try_push(Some(resp)) {
       // arrayvec is full, remove nones
-      self.resps = self.resps.iter_mut().filter_map(|o| o.take()).map(Some).collect();
+      self.resps = self.resps
+                       .iter_mut()
+                       .filter_map(|o| o.take())
+                       .map(Some)
+                       .collect();
 
       // panic if we're still full
       self.resps.push(resp);
@@ -206,12 +226,13 @@ impl<P: Platform> Core<P> {
     match msg.data().ty {
       | Type::Ack | Type::Reset => {
         let (id, addr) = (msg.data().id, msg.addr());
-        let ix = self.retry_q
-                     .iter()
-                     .filter_map(Option::as_ref)
-                     .enumerate()
-                     .find(|(_, Retryable(Addrd(con, con_addr), _))| *con_addr == addr && con.id == id)
-                     .map(|(ix, _)| ix);
+        let ix =
+          self.retry_q
+              .iter()
+              .filter_map(Option::as_ref)
+              .enumerate()
+              .find(|(_, Retryable(Addrd(con, con_addr), _))| *con_addr == addr && con.id == id)
+              .map(|(ix, _)| ix);
 
         if let Some(ix) = ix {
           self.retry_q.remove(ix);
@@ -228,10 +249,15 @@ impl<P: Platform> Core<P> {
   ///
   /// # Example
   /// See `./examples/client.rs`
-  pub fn poll_resp(&mut self, token: kwap_msg::Token, sock: SocketAddr) -> nb::Result<Resp<P>, Error<P>> {
+  pub fn poll_resp(&mut self,
+                   token: kwap_msg::Token,
+                   sock: SocketAddr)
+                   -> nb::Result<Resp<P>, Error<P>> {
     self.tick().bind(|_| {
-                 self.try_get_resp(token, sock)
-                     .map_err(|nb_err| nb_err.map(What::SockError).map(|what| When::Polling.what(what)))
+                 self.try_get_resp(token, sock).map_err(|nb_err| {
+                                                 nb_err.map(What::SockError)
+                                                       .map(|what| When::Polling.what(what))
+                                               })
                })
   }
 
@@ -266,12 +292,17 @@ impl<P: Platform> Core<P> {
   /// ```
   pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<P>> {
     self.tick().bind(|_| {
-                 self.check_ping(req_id, addr)
-                     .map_err(|nb_err| nb_err.map(What::SockError).map(|what| When::Polling.what(what)))
+                 self.check_ping(req_id, addr).map_err(|nb_err| {
+                                                nb_err.map(What::SockError)
+                                                      .map(|what| When::Polling.what(what))
+                                              })
                })
   }
 
-  pub(super) fn dgram_recvd(&mut self, when: error::When, dgram: Addrd<crate::net::Dgram>) -> Result<(), Error<P>> {
+  pub(super) fn dgram_recvd(&mut self,
+                            when: error::When,
+                            dgram: Addrd<crate::net::Dgram>)
+                            -> Result<(), Error<P>> {
     platform::Message::<P>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
                                                         .map_err(What::FromBytes)
                                                         .map_err(|what| when.what(what))
@@ -320,10 +351,11 @@ impl<P: Platform> Core<P> {
                 req_id: kwap_msg::Id,
                 addr: SocketAddr)
                 -> nb::Result<(), <<P as Platform>::Socket as Socket>::Error> {
-    let still_qd = self.retry_q
-                       .iter()
-                       .filter_map(|o| o.as_ref())
-                       .any(|Retryable(Addrd(con, con_addr), _)| con.id == req_id && addr == *con_addr);
+    let still_qd =
+      self.retry_q
+          .iter()
+          .filter_map(|o| o.as_ref())
+          .any(|Retryable(Addrd(con, con_addr), _)| con.id == req_id && addr == *con_addr);
 
     if still_qd {
       Err(nb::Error::WouldBlock)
@@ -402,7 +434,12 @@ impl<P: Platform> Core<P> {
   /// ```
   pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
-    let port_bytes = port.value.0.iter().take(2).copied().collect::<ArrayVec<[u8; 2]>>();
+    let port_bytes = port.value
+                         .0
+                         .iter()
+                         .take(2)
+                         .copied()
+                         .collect::<ArrayVec<[u8; 2]>>();
     let port = u16::from_be_bytes(port_bytes.into_inner());
 
     let host: ArrayVec<[u8; 128]> = req.get_option(3)
@@ -416,7 +453,11 @@ impl<P: Platform> Core<P> {
     let when = When::None;
 
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
-                               .bind(|host| Ipv4Addr::from_str(host).map_err(|_| when.what(What::HostInvalidIpAddress)))
+                               .bind(|host| {
+                                 Ipv4Addr::from_str(host).map_err(|_| {
+                                                           when.what(What::HostInvalidIpAddress)
+                                                         })
+                               })
                                .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                .map(|host| {
                                  if req.id.is_none() {
@@ -441,7 +482,9 @@ impl<P: Platform> Core<P> {
                                     .map(|bytes| (token, addr, bytes))
                                })
                                .bind(|(token, addr, bytes)| {
-                                 Self::send(when, &mut self.sock, addr, bytes).map(|addr| (token, addr))
+                                 Self::send(when, &mut self.sock, addr, bytes).map(|addr| {
+                                                                                (token, addr)
+                                                                              })
                                })
   }
 
@@ -489,7 +532,10 @@ impl<P: Platform> Core<P> {
   /// let id = core.ping("1.1.1.1", 5683);
   /// // core.poll_ping(id);
   /// ```
-  pub fn ping(&mut self, host: impl AsRef<str>, port: u16) -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
+  pub fn ping(&mut self,
+              host: impl AsRef<str>,
+              port: u16)
+              -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
     let when = When::None;
 
     Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress))
@@ -559,7 +605,10 @@ mod tests {
 
     let addr = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 1234);
     let sock = SockMock::new();
-    sock.rx.lock().unwrap().push(Addrd(bytes.clone(), addr.into()));
+    sock.rx
+        .lock()
+        .unwrap()
+        .push(Addrd(bytes.clone(), addr.into()));
     let mut client = Core::<Config>::new(crate::std::Clock::new(), sock);
 
     let rep = client.poll_resp(token, addr.into()).unwrap();

@@ -51,7 +51,9 @@ pub enum MessageToBytesError {
   TooLong { capacity: usize, size: usize },
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes for Message<P, O, Os> {
+impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes
+  for Message<P, O, Os>
+{
   type Error = MessageToBytesError;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
@@ -60,7 +62,8 @@ impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryInto
 
     if let Some(max) = bytes.max_size() {
       if max < size {
-        return Err(Self::Error::TooLong { capacity: max, size });
+        return Err(Self::Error::TooLong { capacity: max,
+                                          size });
       }
     }
 
@@ -150,8 +153,12 @@ mod tests {
     ($actual:expr, $expected:expr) => {
       if $actual.iter().ne($expected.iter()) {
         panic!("expected {:?} to equal {:?}",
-               $actual.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>(),
-               $expected.into_iter().map(|b| format!("{:08b}", b)).collect::<Vec<_>>())
+               $actual.into_iter()
+                      .map(|b| format!("{:08b}", b))
+                      .collect::<Vec<_>>(),
+               $expected.into_iter()
+                        .map(|b| format!("{:08b}", b))
+                        .collect::<Vec<_>>())
       }
     };
   }
@@ -175,7 +182,8 @@ mod tests {
 
   #[test]
   fn code() {
-    let code = Code { class: 2, detail: 5 };
+    let code = Code { class: 2,
+                      detail: 5 };
     let actual: u8 = code.into();
     let expected = 0b0100_0101_u8;
     assert_eqb!(actual, expected)
@@ -191,17 +199,18 @@ mod tests {
   #[test]
   fn opt() {
     use core::iter::repeat;
-    let cases: [(u16, Vec<u8>, Vec<u8>); 4] = [(24,
-                                                repeat(1).take(100).collect(),
-                                                [[0b1101_1101u8, 24 - 13, 100 - 13].as_ref(),
-                                                 repeat(1).take(100).collect::<Vec<u8>>().as_ref()].concat()),
-                                               (1, vec![1], vec![0b0001_0001, 1]),
-                                               (24, vec![1], vec![0b1101_0001, 11, 1]),
-                                               (24,
-                                                repeat(1).take(300).collect(),
-                                                [[0b1101_1110, 24 - 13].as_ref(),
-                                                 (300u16 - 269).to_be_bytes().as_ref(),
-                                                 repeat(1).take(300).collect::<Vec<u8>>().as_ref()].concat())];
+    let cases: [(u16, Vec<u8>, Vec<u8>); 4] =
+      [(24,
+        repeat(1).take(100).collect(),
+        [[0b1101_1101u8, 24 - 13, 100 - 13].as_ref(),
+         repeat(1).take(100).collect::<Vec<u8>>().as_ref()].concat()),
+       (1, vec![1], vec![0b0001_0001, 1]),
+       (24, vec![1], vec![0b1101_0001, 11, 1]),
+       (24,
+        repeat(1).take(300).collect(),
+        [[0b1101_1110, 24 - 13].as_ref(),
+         (300u16 - 269).to_be_bytes().as_ref(),
+         repeat(1).take(300).collect::<Vec<u8>>().as_ref()].concat())];
 
     cases.into_iter().for_each(|(delta, values, expected)| {
                        let opt = Opt::<Vec<u8>> { delta: OptDelta(delta),
@@ -217,11 +226,13 @@ mod tests {
     let msg = VecMessage { id: Id(0),
                            ty: Type::Con,
                            ver: Default::default(),
-                           code: Code { class: 2, detail: 5 },
+                           code: Code { class: 2,
+                                        detail: 5 },
                            token: Token(Default::default()),
                            opts: Default::default(),
                            payload: Payload(Default::default()) };
 
-    assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(), Some(&0b11111111));
+    assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(),
+               Some(&0b11111111));
   }
 }

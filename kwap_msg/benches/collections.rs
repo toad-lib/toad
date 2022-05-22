@@ -8,7 +8,9 @@ fn collections(c: &mut Criterion) {
   c.bench_function("alloc::vec::Vec::alloc", |b| {
      b.iter(|| std::vec::Vec::<u8>::with_capacity(2048))
    });
-  c.bench_function("heapless::Vec::alloc", |b| b.iter(heapless::Vec::<u8, 2048>::new));
+  c.bench_function("heapless::Vec::alloc", |b| {
+     b.iter(heapless::Vec::<u8, 2048>::new)
+   });
   c.bench_function("arrayvec::ArrayVec::alloc", |b| {
      b.iter(arrayvec::ArrayVec::<u8, 2048>::new)
    });
@@ -36,7 +38,9 @@ fn collections(c: &mut Criterion) {
                     BatchSize::SmallInput)
    });
   c.bench_function("std::vec::Vec::extend", |b| {
-     b.iter_batched(|| (std::vec::Vec::<u8>::with_capacity(2048), core::iter::repeat(255).take(2048)),
+     b.iter_batched(|| {
+                      (std::vec::Vec::<u8>::with_capacity(2048), core::iter::repeat(255).take(2048))
+                    },
                     |(mut vec, other)| vec.extend(other),
                     BatchSize::SmallInput)
    });

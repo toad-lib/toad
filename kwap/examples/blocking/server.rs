@@ -82,7 +82,8 @@ fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
-                               let mut server = kwap::blocking::Server::try_new([127, 0, 0, 1], 5683).unwrap();
+                               let mut server =
+                                 kwap::blocking::Server::try_new([127, 0, 0, 1], 5683).unwrap();
                                server.middleware(&log);
                                server.middleware(&exit_respond);
                                server.middleware(&exit);

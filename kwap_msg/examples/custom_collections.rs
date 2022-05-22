@@ -3,17 +3,22 @@ use kwap_common::{Array, GetSize, Reserve};
 use kwap_msg::*;
 
 fn main() {
-  type StackMsg = Message<HeaplessVec<u8, 1>, HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
-  let stack_msg = StackMsg { code: Code { class: 2, detail: 5 },
+  type StackMsg =
+    Message<HeaplessVec<u8, 1>, HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
+  let stack_msg = StackMsg { code: Code { class: 2,
+                                          detail: 5 },
                              ty: Type::Con,
                              ver: Default::default(),
                              id: Id(0),
                              opts: Default::default(),
                              payload: Payload(Default::default()),
                              token: Token(Default::default()) };
-  println!("created {}b message using heapless::Vec", stack_msg.get_size());
+  println!("created {}b message using heapless::Vec",
+           stack_msg.get_size());
 
-  let bytes = stack_msg.clone().try_into_bytes::<HeaplessVec<u8, 5>>().unwrap();
+  let bytes = stack_msg.clone()
+                       .try_into_bytes::<HeaplessVec<u8, 5>>()
+                       .unwrap();
   println!("message -> bytes success!");
 
   let roundtrip = StackMsg::try_from_bytes(bytes).unwrap();

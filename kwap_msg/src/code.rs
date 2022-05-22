@@ -14,7 +14,9 @@ use std_alloc::string::{String, ToString};
 /// ```
 /// use kwap_msg::Code;
 ///
-/// assert_eq!(Code { class: 2, detail: 5 }.to_string(), "2.05".to_string());
+/// assert_eq!(Code { class: 2,
+///                   detail: 5 }.to_string(),
+///            "2.05".to_string());
 /// ```
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Code {
@@ -68,7 +70,8 @@ impl Code {
   /// ```
   /// use kwap_msg::Code;
   ///
-  /// let code = Code { class: 2, detail: 5 };
+  /// let code = Code { class: 2,
+  ///                   detail: 5 };
   /// let chars = code.to_human();
   /// let string = String::from_iter(chars);
   /// assert_eq!(string, "2.05".to_string());
@@ -139,12 +142,15 @@ mod tests {
   fn parse_code() {
     let byte = 0b0100_0101_u8;
     let code = Code::from(byte);
-    assert_eq!(code, Code { class: 2, detail: 5 })
+    assert_eq!(code,
+               Code { class: 2,
+                      detail: 5 })
   }
 
   #[test]
   fn serialize_code() {
-    let code = Code { class: 2, detail: 5 };
+    let code = Code { class: 2,
+                      detail: 5 };
     let actual: u8 = code.into();
     let expected = 0b0100_0101_u8;
     assert_eqb!(actual, expected)

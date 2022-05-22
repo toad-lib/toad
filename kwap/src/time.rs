@@ -46,6 +46,7 @@ impl<C: Clock, T> Stamped<C, T> {
 
   /// TODO
   pub fn find_latest(winner: Option<Stamped<C, T>>, cur: Stamped<C, T>) -> Option<Stamped<C, T>> {
-    Some(winner.filter(|winner| winner.time() > cur.time()).unwrap_or(cur))
+    Some(winner.filter(|winner| winner.time() > cur.time())
+               .unwrap_or(cur))
   }
 }

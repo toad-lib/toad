@@ -251,7 +251,9 @@ macro_rules! common_options {
 
 pub(crate) use {builder_method, common_options};
 
-pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>, B: Array<Item = u8>, V: IntoIterator<Item = u8>>(
+pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>,
+                  B: Array<Item = u8>,
+                  V: IntoIterator<Item = u8>>(
   opts: &mut A,
   repeatable: bool,
   number: u32,
@@ -293,12 +295,13 @@ pub(crate) fn normalize<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
   }
 
   os.sort_by_key(|&(OptNumber(num), _)| num);
-  os.into_iter().fold(Opts::default(), |mut opts, (num, mut opt)| {
-                  let delta = opts.iter().fold(0u16, |n, opt| opt.delta.0 + n);
-                  opt.delta = OptDelta((num.0 as u16) - delta);
-                  opts.push(opt);
-                  opts
-                })
+  os.into_iter()
+    .fold(Opts::default(), |mut opts, (num, mut opt)| {
+      let delta = opts.iter().fold(0u16, |n, opt| opt.delta.0 + n);
+      opt.delta = OptDelta((num.0 as u16) - delta);
+      opts.push(opt);
+      opts
+    })
 }
 
 #[cfg(test)]
@@ -372,7 +375,8 @@ mod test {
   #[test]
   fn add_rets_some_when_full() {
     let mut opts =
-      tinyvec::ArrayVec::<[(OptNumber, Opt<Vec<u8>>); 1]>::from([(OptNumber(1), Opt::<Vec<u8>>::default())]);
+      tinyvec::ArrayVec::<[(OptNumber, Opt<Vec<u8>>); 1]>::from([(OptNumber(1),
+                                                                  Opt::<Vec<u8>>::default())]);
 
     let out = add(&mut opts, false, 0, vec![1]);
 

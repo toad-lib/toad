@@ -255,7 +255,10 @@ impl<P: Platform> Resp<P> {
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
-  pub fn set_option<V: IntoIterator<Item = u8>>(&mut self, number: u32, value: V) -> Option<(u32, V)> {
+  pub fn set_option<V: IntoIterator<Item = u8>>(&mut self,
+                                                number: u32,
+                                                value: V)
+                                                -> Option<(u32, V)> {
     if self.opts.is_none() {
       self.opts = Some(Default::default());
     }
@@ -303,7 +306,8 @@ impl<P: Platform> From<platform::Message<P>> for Resp<P> {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
 
-    Self { msg, opts: Some(opts) }
+    Self { msg,
+           opts: Some(opts) }
   }
 }
 

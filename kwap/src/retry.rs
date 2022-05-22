@@ -93,7 +93,9 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
   ///
   /// Returns `nb::Error::WouldBlock` when we have not yet
   /// waited the appropriate amount of time to retry.
-  pub fn what_should_i_do(&mut self, now: Instant<C>) -> nb::Result<YouShould, core::convert::Infallible> {
+  pub fn what_should_i_do(&mut self,
+                          now: Instant<C>)
+                          -> nb::Result<YouShould, core::convert::Infallible> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
     } else {
@@ -220,14 +222,16 @@ mod test {
     // attempt 1 happens before asking what_should_i_do
 
     time_millis = 999;
-    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
+               nb::Error::WouldBlock);
 
     time_millis = 1000;
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
     // Fails again (attempt 2)
 
     time_millis = 1999;
-    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
+               nb::Error::WouldBlock);
 
     time_millis = 2000;
 
