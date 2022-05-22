@@ -1,13 +1,11 @@
-use core::ops::{Range, RangeBounds};
-
 use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
 
-#[derive(Debug, Clone, Copy)]
+use crate::retry;
+
 pub(crate) struct ConfigData {
   pub(crate) token_seed: u16,
-  pub(crate) ack_timeout_max_millis: u32,
-  pub(crate) ack_timeout_min_millis: u32,
+  pub(crate) con_retry_strategy: retry::Strategy,
   pub(crate) default_leisure_millis: u32,
   pub(crate) max_retransmit_attempts: u16,
   pub(crate) nstart: u8,
@@ -15,28 +13,32 @@ pub(crate) struct ConfigData {
 }
 
 impl ConfigData {
-  pub(crate) const fn max_transmit_span_millis(&self) -> u32 {
-    self.ack_timeout_max_millis * (2u32.pow(self.max_retransmit_attempts as u32) - 1)
+  pub(crate) fn max_transmit_span_millis(&self) -> u32 {
+    self.con_retry_strategy
+        .max_time(retry::Attempts(self.max_retransmit_attempts - 1))
+        .0 as u32
   }
 
-  pub(crate) const fn max_transmit_wait_millis(&self) -> u32 {
-    self.ack_timeout_max_millis * (2u32.pow((self.max_retransmit_attempts + 1) as u32) - 1)
+  pub(crate) fn max_transmit_wait_millis(&self) -> u32 {
+    self.con_retry_strategy
+        .max_time(retry::Attempts(self.max_retransmit_attempts))
+        .0 as u32
   }
 
   // TODO: adjust these on the fly based on actual timings?
-  pub(crate) const fn max_latency_millis(&self) -> u32 {
+  pub(crate) fn max_latency_millis(&self) -> u32 {
     100_000
   }
 
-  pub(crate) const fn expected_processing_delay_millis(&self) -> u32 {
+  pub(crate) fn expected_processing_delay_millis(&self) -> u32 {
     200
   }
 
-  pub(crate) const fn exchange_lifetime_millis(&self) -> u32 {
+  pub(crate) fn exchange_lifetime_millis(&self) -> u32 {
     self.max_transmit_span_millis() + (2 * self.max_latency_millis()) + self.expected_processing_delay_millis()
   }
 
-  pub(crate) const fn non_lifetime_millis(&self) -> u32 {
+  pub(crate) fn non_lifetime_millis(&self) -> u32 {
     self.max_transmit_span_millis() + self.max_latency_millis()
   }
 }
@@ -52,8 +54,7 @@ impl ConfigData {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Config {
   token_seed: Option<u16>,
-  ack_timeout_max_millis: Option<u32>,
-  ack_timeout_min_millis: Option<u32>,
+  con_retry_strategy: Option<retry::Strategy>,
   default_leisure_millis: Option<u32>,
   max_retransmit_attempts: Option<u16>,
   nstart: Option<u8>,
@@ -70,16 +71,30 @@ impl Config {
   /// ```
   /// use embedded_time::duration::Milliseconds as Millis;
   /// use kwap::config::{BytesPerSecond, Config};
-  /// use kwap::retry::Attempts;
+  /// use kwap::retry;
   ///
   /// let config = Config::new().token_seed(35718)
   ///                           .max_concurrent_requests(142)
   ///                           .probing_rate(BytesPerSecond(10_000))
-  ///                           .max_con_request_retries(Attempts(10))
-  ///                           .ack_timeout(Millis(1_000)..=Millis(4_000));
+  ///                           .max_con_request_retries(retry::Attempts(10))
+  ///                           .con_retry_strategy(retry::Strategy::Exponential { init_min: Millis(500),
+  ///                                                                              init_max: Millis(750) });
   /// ```
   pub fn new() -> Self {
     Default::default()
+  }
+
+  /// Set the retry strategy we should use to figure out when
+  /// we should resend outgoing CON requests that have not been
+  /// ACKed yet.
+  ///
+  /// Default value:
+  /// ```ignore
+  /// Strategy::Exponential { init_min: Seconds(2), init_max: Seconds(3) }
+  /// ```
+  pub fn con_retry_strategy(mut self, strat: retry::Strategy) -> Self {
+    self.con_retry_strategy = Some(strat);
+    self
   }
 
   /// Set the seed used to generate message [`Token`](kwap_msg::Token)s.
@@ -153,30 +168,6 @@ impl Config {
     self.default_leisure_millis = Some(default_leisure.0);
     self
   }
-
-  /// Set the amount of time we should wait before resending
-  /// CON requests that haven't been ACKed.
-  ///
-  /// The default value is `2000..=3000` milliseconds.
-  pub fn ack_timeout(mut self, ack_timeout: impl RangeBounds<Milliseconds<u32>>) -> Self {
-    use core::ops::Bound;
-
-    self.ack_timeout_min_millis = match ack_timeout.start_bound() {
-      | Bound::Included(Milliseconds(ms)) => Some(*ms),
-      | Bound::Excluded(Milliseconds(ms)) => Some(ms + 1),
-      // TODO: log or panic?
-      | Bound::Unbounded => None,
-    };
-
-    self.ack_timeout_max_millis = match ack_timeout.end_bound() {
-      | Bound::Included(Milliseconds(ms)) => Some(*ms),
-      | Bound::Excluded(Milliseconds(ms)) => Some(ms - 1),
-      // TODO: log or panic?
-      | Bound::Unbounded => None,
-    };
-
-    self
-  }
 }
 
 impl From<Config> for ConfigData {
@@ -185,15 +176,15 @@ impl From<Config> for ConfigData {
                    max_retransmit_attempts,
                    nstart,
                    probing_rate_bytes_per_sec,
-                   ack_timeout_max_millis,
-                   ack_timeout_min_millis, }: Config)
+                   con_retry_strategy, }: Config)
           -> Self {
     ConfigData { token_seed: token_seed.unwrap_or(0),
                  default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
                  max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
                  nstart: nstart.unwrap_or(1),
                  probing_rate_bytes_per_sec: probing_rate_bytes_per_sec.unwrap_or(1_000),
-                 ack_timeout_max_millis: ack_timeout_max_millis.unwrap_or(3_000),
-                 ack_timeout_min_millis: ack_timeout_min_millis.unwrap_or(2_000) }
+                 con_retry_strategy:
+                   con_retry_strategy.unwrap_or(retry::Strategy::Exponential { init_min: Milliseconds(2_000),
+                                                                               init_max: Milliseconds(3_000) }) }
   }
 }

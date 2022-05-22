@@ -1,5 +1,9 @@
+use core::ops::RangeInclusive;
+
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
+use kwap_common::prelude::*;
+use rand::{Rng, SeedableRng};
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.
@@ -27,7 +31,8 @@ use embedded_time::{Clock, Instant};
 ///
 ///   let clock = kwap::std::Clock::new();
 ///   let now = || clock.try_now().unwrap();
-///   let strategy = retry::Strategy::Delay(Milliseconds(10));
+///   let strategy = retry::Strategy::Delay { min: Milliseconds(1),
+///                                           max: Milliseconds(2) };
 ///   let mut retry = retry::RetryTimer::new(now(), strategy, retry::Attempts(2));
 ///
 ///   while let Err(_) = fails_once() {
@@ -42,6 +47,7 @@ use embedded_time::{Clock, Instant};
 #[derive(Debug, Clone, Copy)]
 pub struct RetryTimer<C: Clock<T = u64>> {
   start: Instant<C>,
+  init: Milliseconds<u64>,
   strategy: Strategy,
   attempts: Attempts,
   max_attempts: Attempts,
@@ -68,6 +74,16 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
   pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
     Self { start,
            strategy,
+           init: if strategy.has_jitter() {
+             let mut rand =
+               Ok(start.duration_since_epoch()).bind(Milliseconds::try_from)
+                                               .map(|Milliseconds(ms)| rand_chacha::ChaCha8Rng::seed_from_u64(ms))
+                                               .unwrap();
+
+             Milliseconds(rand.gen_range(strategy.range()))
+           } else {
+             Milliseconds(*strategy.range().start())
+           },
            max_attempts,
            attempts: Attempts(1) }
   }
@@ -81,8 +97,7 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
     if self.attempts >= self.max_attempts {
       Ok(YouShould::Cry)
     } else {
-      let ready = self.strategy
-                      .is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
+      let ready = self.is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
       if ready {
         self.attempts.0 += 1;
         Ok(YouShould::Retry)
@@ -91,40 +106,79 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
       }
     }
   }
+
+  /// Check if the strategy says an appropriate time has passed
+  pub fn is_ready(&self, Milliseconds(time_passed): Milliseconds<u64>, attempts: u16) -> bool {
+    if attempts == 0 {
+      return true;
+    }
+
+    match self.strategy {
+      | Strategy::Delay { .. } => time_passed >= (self.init.0 * attempts as u64),
+      | Strategy::Exponential { .. } => time_passed >= Strategy::total_delay_exp(self.init, attempts),
+    }
+  }
 }
 
 /// Strategy to employ when retrying
 #[derive(Debug, Clone, Copy)]
 pub enum Strategy {
-  /// After each failed attempt, double the delay before retrying again.
+  /// Generate a random delay between `min` and `max`,
+  /// and wait until this delay has passed between attempts.
   ///
-  /// The field contained in this variant represents the initial delay
-  /// (how long to wait after the very first failure)
-  Exponential(Milliseconds<u64>),
-  /// Wait a fixed delay between attempts.
-  Delay(Milliseconds<u64>),
+  /// After each failed attempt, double the delay before retrying again.
+  Exponential {
+    /// Minimum (inclusive) delay for second attempt
+    init_min: Milliseconds<u64>,
+    /// Maximum (inclusive) delay for second attempt
+    init_max: Milliseconds<u64>,
+  },
+  /// Generate a random delay between `min` and `max`,
+  /// and wait until this delay has passed between attempts.
+  Delay {
+    /// Minimum (inclusive) delay for attempts
+    min: Milliseconds<u64>,
+    /// Maximum (inclusive) delay for attempts
+    max: Milliseconds<u64>,
+  },
 }
 
 impl Strategy {
-  /// Check if the strategy says an appropriate time has passed
-  pub fn is_ready(&self, time_passed: Milliseconds<u64>, attempts: u16) -> bool {
-    if attempts == 0 {
-      return true;
-    }
+  /// Are min & max delays the same? if so, we should probably skip the random number generation.
+  pub fn has_jitter(&self) -> bool {
+    let rng = self.range();
+    rng.start() != rng.end()
+  }
 
+  /// Get the min & max durations as an inclusive range
+  pub fn range(&self) -> RangeInclusive<u64> {
     match self {
-      | Self::Delay(dur) => time_passed.0 >= (dur.0 * attempts as u64),
-      | Self::Exponential(dur) => time_passed.0 >= Self::total_delay_exp(*dur, attempts),
+      | &Self::Delay { min: Milliseconds(min),
+                       max: Milliseconds(max), } => (min..=max),
+
+      | &Self::Exponential { init_min: Milliseconds(min),
+                             init_max: Milliseconds(max), } => (min..=max),
     }
+  }
+
+  /// Get the amount of time this strategy will take if all attempts fail
+  pub fn max_time(&self, max_attempts: Attempts) -> Milliseconds<u64> {
+    Milliseconds(match self {
+                   | Self::Exponential { init_max, .. } => Self::total_delay_exp(*init_max, max_attempts.0),
+                   | Self::Delay { max: Milliseconds(max), .. } => max * max_attempts.0 as u64,
+                 })
   }
 
   /// Given the initial delay and number of attempts that have been performed,
   /// yields the delay until the next retry should be attempted.
-  fn total_delay_exp(init: Milliseconds<u64>, attempts: u16) -> u64 {
-    match attempts {
-      | 1 => init.0,
-      | n => init.0 + (1..n).map(|n| init.0 * 2u64.pow(n as u32)).sum::<u64>(),
-    }
+  const fn total_delay_exp(Milliseconds(init): Milliseconds<u64>, attempt: u16) -> u64 {
+    // | attempt | delay until next |
+    // | 1       | init             |
+    // | 2       | init * 2         |
+    // | 3       | init * 4         |
+    // | ...     | ...              |
+    // | n       | init * 2^n       |
+    init * 2u64.pow((attempt - 1) as u32)
   }
 }
 
@@ -152,13 +206,16 @@ mod test {
   }
 
   #[test]
-  fn retrier() {
+  fn delay_retrier() {
     #![allow(unused_assignments)]
 
     let mut time_millis = 0u64;
     let clock = FakeClock::new(&time_millis as *const _);
     let now = || clock.try_now().unwrap();
-    let mut retry = RetryTimer::new(now(), Strategy::Delay(Milliseconds(1000)), Attempts(5));
+    let mut retry = RetryTimer::new(now(),
+                                    Strategy::Delay { min: Milliseconds(1000),
+                                                      max: Milliseconds(1000) },
+                                    Attempts(5));
 
     // attempt 1 happens before asking what_should_i_do
 
@@ -181,49 +238,58 @@ mod test {
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
     // Fails again (attempt 4)
 
+    // TODO: this is a logic error but not totally worth a ton of attention
+    // hypothetically we could fail, wait 10 seconds, then fail 5 times super fast
+    // because the retrier only tracks now vs total time waited, not time since last
+    // attempt.
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
     // Fails again (attempt 5)
 
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Cry);
   }
 
-  #[test]
-  fn delay_waits() {
-    let strat = Strategy::Delay(Milliseconds(100));
+  fn exponential_retrier() {
+    #![allow(unused_assignments)]
 
-    assert!(strat.is_ready(Milliseconds(0), 0));
+    let mut time_millis = 0u64;
+    let clock = FakeClock::new(&time_millis as *const _);
+    let now = || clock.try_now().unwrap();
+    let mut retry = RetryTimer::new(now(),
+                                    Strategy::Exponential { init_min: Milliseconds(1000),
+                                                            init_max: Milliseconds(1000) },
+                                    Attempts(5));
 
-    assert!(!strat.is_ready(Milliseconds(99), 1));
-    assert!(strat.is_ready(Milliseconds(100), 1));
+    // attempt 1 happens before asking what_should_i_do
 
-    assert!(!strat.is_ready(Milliseconds(199), 2));
-    assert!(strat.is_ready(Milliseconds(200), 2));
+    time_millis = 999;
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    time_millis = 1000;
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
-    assert!(!strat.is_ready(Milliseconds(299), 3));
-    assert!(strat.is_ready(Milliseconds(300), 3));
+    time_millis = 1999;
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    time_millis = 2000;
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
+
+    time_millis = 3999;
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    time_millis = 4000;
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
+
+    time_millis = 8_000;
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
+
+    time_millis = 16_000;
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
+
+    assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Cry);
   }
 
   #[test]
   fn exp_calculation() {
     let init = Milliseconds(100);
     assert_eq!(Strategy::total_delay_exp(init, 1), 100);
-    assert_eq!(Strategy::total_delay_exp(init, 2), 300);
-    assert_eq!(Strategy::total_delay_exp(init, 3), 700);
-  }
-
-  #[test]
-  fn exp_waits() {
-    let strat = Strategy::Exponential(Milliseconds(100));
-
-    assert!(strat.is_ready(Milliseconds(0), 0));
-
-    assert!(!strat.is_ready(Milliseconds(99), 1));
-    assert!(strat.is_ready(Milliseconds(100), 1));
-
-    assert!(!strat.is_ready(Milliseconds(299), 2));
-    assert!(strat.is_ready(Milliseconds(300), 2));
-
-    assert!(!strat.is_ready(Milliseconds(699), 3));
-    assert!(strat.is_ready(Milliseconds(700), 3));
+    assert_eq!(Strategy::total_delay_exp(init, 2), 200);
+    assert_eq!(Strategy::total_delay_exp(init, 3), 400);
   }
 }

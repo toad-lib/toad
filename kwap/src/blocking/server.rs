@@ -244,7 +244,7 @@ mod tests {
 
     pub fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
       let reply = req.as_ref().map(|req| {
-                                let mut resp = Resp::<Test>::for_request(&req).unwrap();
+                                let mut resp = Resp::<Test>::for_request(req).unwrap();
                                 resp.set_code(code::NOT_FOUND);
                                 resp.into()
                               });
@@ -255,7 +255,7 @@ mod tests {
     pub fn hello(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
       if req.0.method() == Method::GET && req.0.path().unwrap() == Some("hello") {
         let reply = req.as_ref().map(|req| {
-                                  let mut resp = Resp::<Test>::for_request(&req).unwrap();
+                                  let mut resp = Resp::<Test>::for_request(req).unwrap();
                                   resp.set_payload("hello!".bytes());
                                   resp.set_code(code::CONTENT);
                                   resp.into()
