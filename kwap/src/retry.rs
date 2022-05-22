@@ -77,7 +77,9 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
            init: if strategy.has_jitter() {
              let mut rand =
                Ok(start.duration_since_epoch()).bind(Milliseconds::try_from)
-                                               .map(|Milliseconds(ms)| rand_chacha::ChaCha8Rng::seed_from_u64(ms))
+                                               .map(|Milliseconds(ms)| {
+                                                 rand_chacha::ChaCha8Rng::seed_from_u64(ms)
+                                               })
                                                .unwrap();
 
              Milliseconds(rand.gen_range(strategy.range()))
@@ -117,7 +119,9 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
 
     match self.strategy {
       | Strategy::Delay { .. } => time_passed >= (self.init.0 * attempts as u64),
-      | Strategy::Exponential { .. } => time_passed >= Strategy::total_delay_exp(self.init, attempts),
+      | Strategy::Exponential { .. } => {
+        time_passed >= Strategy::total_delay_exp(self.init, attempts)
+      },
     }
   }
 }
@@ -166,8 +170,11 @@ impl Strategy {
   /// Get the amount of time this strategy will take if all attempts fail
   pub fn max_time(&self, max_attempts: Attempts) -> Milliseconds<u64> {
     Milliseconds(match self {
-                   | Self::Exponential { init_max, .. } => Self::total_delay_exp(*init_max, max_attempts.0),
-                   | Self::Delay { max: Milliseconds(max), .. } => max * max_attempts.0 as u64,
+                   | Self::Exponential { init_max, .. } => {
+                     Self::total_delay_exp(*init_max, max_attempts.0)
+                   },
+                   | Self::Delay { max: Milliseconds(max),
+                                   .. } => max * max_attempts.0 as u64,
                  })
   }
 
@@ -266,17 +273,20 @@ mod test {
     // attempt 1 happens before asking what_should_i_do
 
     time_millis = 999;
-    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
+               nb::Error::WouldBlock);
     time_millis = 1000;
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 1999;
-    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
+               nb::Error::WouldBlock);
     time_millis = 2000;
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 3999;
-    assert_eq!(retry.what_should_i_do(now()).unwrap_err(), nb::Error::WouldBlock);
+    assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
+               nb::Error::WouldBlock);
     time_millis = 4000;
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
