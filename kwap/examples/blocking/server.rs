@@ -41,7 +41,7 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
     | Some("hello") => {
       println!("a client said hello");
       let resp = req.as_ref()
-                    .map(|req| Resp::for_request(req))
+                    .map(Resp::for_request)
                     .map(Option::unwrap)
                     .map(|mut resp| {
                       resp.set_code(code::CONTENT);
@@ -57,7 +57,7 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   println!("not found");
   let resp = req.as_ref()
-                .map(|req| Resp::for_request(req))
+                .map(Resp::for_request)
                 .map(Option::unwrap)
                 .map(|mut resp| {
                   resp.set_code(code::NOT_FOUND);
