@@ -118,7 +118,21 @@ pub struct Writable<A: Array<Item = u8>>(A);
 impl<A: Array<Item = u8>> Writable<A> {
   /// Convert the buffer to a string slice
   pub fn as_str(&self) -> &str {
-    core::str::from_utf8(&self.0).unwrap()
+    core::str::from_utf8(&self).unwrap()
+  }
+}
+
+impl<A: Array<Item = u8>> Deref for Writable<A> {
+  type Target = A;
+
+  fn deref(&self) -> &A {
+    &self.0
+  }
+}
+
+impl<A: Array<Item = u8>> DerefMut for Writable<A> {
+  fn deref_mut(&mut self) -> &mut A {
+    &mut self.0
   }
 }
 
@@ -130,11 +144,12 @@ impl<A: Array<Item = u8>> AsRef<str> for Writable<A> {
 
 impl<A: Array<Item = u8>> core::fmt::Write for Writable<A> {
   fn write_str(&mut self, s: &str) -> core::fmt::Result {
-    if self.0.is_full() {
-      Err(core::fmt::Error)
-    } else {
-      self.0.extend(s.bytes());
-      Ok(())
+    match self.0.max_size() {
+      | Some(max) if max < self.len() + s.len() => Err(core::fmt::Error),
+      | _ => {
+        self.extend(s.bytes());
+        Ok(())
+      },
     }
   }
 }
