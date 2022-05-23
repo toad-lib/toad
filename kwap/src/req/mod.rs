@@ -8,6 +8,7 @@ use kwap_msg::{EnumerateOptNumbers,
                Token,
                TryIntoBytes,
                Type};
+use no_std_net::{ToSocketAddrs, SocketAddr, IpAddr};
 
 use crate::ToCoapValue;
 
@@ -71,9 +72,19 @@ pub struct Req<P: Platform> {
   pub(crate) opts: Option<P::NumberedOptions>,
 }
 
+/// Potential errors returned by Req::try_new
+pub enum NewError {
+  NoAddrs,
+  ToSocketAddrError,
+}
+
 impl<P: Platform> Req<P> {
   /// Create a request
-  pub fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
+  pub fn try_new(method: Method, host: impl ToSocketAddrs, path: impl AsRef<str>) -> Result<Self, NewError> {
+    host.to_socket_addrs().map_err(|_| NewError::ToSocketAddrError)
+        .bind(|addrs| addrs.next().ok_or(NewError::NoAddrs))
+        .map(
+            |host| {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
@@ -92,15 +103,17 @@ impl<P: Platform> Req<P> {
     }
 
     // Uri-Host
-    me.set_option(3, strbytes(&host));
+    me.set_option(3, strbytes(todo!()));
 
     // Uri-Port
-    me.set_option(7, port.to_be_bytes());
+    me.set_option(7, host.port().to_be_bytes());
 
     // Uri-Path
     me.set_option(11, strbytes(&path));
 
     me
+            }
+        )
   }
 
   /// Updates the Message ID for this request

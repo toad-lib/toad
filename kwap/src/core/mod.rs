@@ -40,6 +40,7 @@ pub struct Core<P: Platform> {
 
   /// Queue of messages to send whose receipt we do not need to guarantee (NON, ACK)
   fling_q: Buffer<Addrd<platform::Message<P>>, 16>,
+
   /// Queue of confirmable messages that have not been ACKed and need to be sent again
   retry_q: Buffer<Retryable<P, Addrd<platform::Message<P>>>, 16>,
 

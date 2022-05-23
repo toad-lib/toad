@@ -1,4 +1,5 @@
-use no_std_net::SocketAddr;
+use kwap_common::Array;
+use no_std_net::{SocketAddr, IpAddr};
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket
@@ -70,4 +71,21 @@ pub trait Socket {
       | Err(nb::Error::Other(e)) => Err(e),
     }
   }
+}
+
+pub fn socket_addr_to_str<'a>(addr: &SocketAddr, buf: &'a mut impl Array<Item = u8>) -> &'a str {
+  let bytes = match addr.ip() {
+    IpAddr::V4(ip) => &ip.octets().iter().copied().for_each(|b| {
+      if b / 200 >= 1 {
+        buf.push(b'2');
+      } else if b / 100 >= 1 {
+        buf.push(b'1');
+      }
+    }),
+    IpAddr::V6(ip) => &ip.octets() as &[u8],
+  };
+
+  buf.extend(bytes.iter().copied());
+
+  str::from_utf8(&buf)
 }
