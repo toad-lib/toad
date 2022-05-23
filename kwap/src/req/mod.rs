@@ -1,4 +1,6 @@
-use kwap_common::Array;
+use std::net::SocketAddrV4;
+
+use kwap_common::prelude::*;
 use kwap_msg::{EnumerateOptNumbers,
                Id,
                Message,
@@ -8,7 +10,8 @@ use kwap_msg::{EnumerateOptNumbers,
                Token,
                TryIntoBytes,
                Type};
-use no_std_net::{ToSocketAddrs, SocketAddr, IpAddr};
+use no_std_net::{IpAddr, SocketAddr, ToSocketAddrs};
+use tinyvec::ArrayVec;
 
 use crate::ToCoapValue;
 
@@ -36,7 +39,7 @@ use crate::platform::{self, Platform};
 /// # main();
 /// fn main() {
 ///   let client = Client::new();
-///   let mut req = Req::<Std>::post("coap://myfunnyserver.com", 5632, "hello");
+///   let mut req = Req::<Std>::post("192.168.0.1:5632".parse().unwrap(), "hello");
 ///   req.set_payload("john".bytes());
 ///
 ///   let resp = client.send(&req);
@@ -72,19 +75,9 @@ pub struct Req<P: Platform> {
   pub(crate) opts: Option<P::NumberedOptions>,
 }
 
-/// Potential errors returned by Req::try_new
-pub enum NewError {
-  NoAddrs,
-  ToSocketAddrError,
-}
-
 impl<P: Platform> Req<P> {
   /// Create a request
-  pub fn try_new(method: Method, host: impl ToSocketAddrs, path: impl AsRef<str>) -> Result<Self, NewError> {
-    host.to_socket_addrs().map_err(|_| NewError::ToSocketAddrError)
-        .bind(|addrs| addrs.next().ok_or(NewError::NoAddrs))
-        .map(
-            |host| {
+  pub fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
                         ver: Default::default(),
                         code: method.0,
@@ -102,8 +95,11 @@ impl<P: Platform> Req<P> {
       s.as_ref().as_bytes().iter().copied()
     }
 
+    let mut host_str = Writable::<ArrayVec<[u8; 39]>>::default();
+    crate::net::write_ip_str(&host.ip(), &mut host_str);
+
     // Uri-Host
-    me.set_option(3, strbytes(todo!()));
+    me.set_option(3, strbytes(&host_str));
 
     // Uri-Port
     me.set_option(7, host.port().to_be_bytes());
@@ -112,8 +108,6 @@ impl<P: Platform> Req<P> {
     me.set_option(11, strbytes(&path));
 
     me
-            }
-        )
   }
 
   /// Updates the Message ID for this request
@@ -129,7 +123,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
   /// let msg: platform::Message<Std> = req.into();
   /// ```
@@ -140,7 +134,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::req::Req;
   /// use kwap_msg::{Id, Token};
   ///
-  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
@@ -164,7 +158,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
   /// let msg: platform::Message<Std> = req.into();
   /// ```
@@ -175,7 +169,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::req::Req;
   /// use kwap_msg::{Id, Token};
   ///
-  /// let mut req = Req::<Std>::get("127.0.0.1", 5683, "hello");
+  /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
@@ -219,7 +213,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let _msg_id = req.msg_id();
   /// ```
   pub fn msg_id(&self) -> kwap_msg::Id {
@@ -240,7 +234,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_option(17, Some(50)); // Accept: application/json
   /// ```
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self,
@@ -272,10 +266,10 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let _req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let _req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// ```
-  pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::GET, host, port, path)
+  pub fn get(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::GET, host, path)
   }
 
   /// Creates a new POST request
@@ -284,11 +278,11 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn post(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::POST, host, port, path)
+  pub fn post(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::POST, host, path)
   }
 
   /// Creates a new PUT request
@@ -297,11 +291,11 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
-  pub fn put(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::PUT, host, port, path)
+  pub fn put(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::PUT, host, path)
   }
 
   /// Creates a new DELETE request
@@ -310,10 +304,10 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let _req = Req::<Std>::delete("1.1.1.1", 5683, "/users/john");
+  /// let _req = Req::<Std>::delete("1.1.1.1:5683".parse().unwrap(), "/users/john");
   /// ```
-  pub fn delete(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::DELETE, host, port, path)
+  pub fn delete(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::DELETE, host, path)
   }
 
   /// Add a payload to this request
@@ -322,7 +316,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::put("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
   pub fn set_payload<Bytes: ToCoapValue>(&mut self, payload: Bytes) {
@@ -335,7 +329,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
   /// assert!(req.payload().iter().copied().eq("Hi!".bytes()))
@@ -350,7 +344,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let uri_host = req.get_option(3).unwrap();
   /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
   /// ```
@@ -366,7 +360,7 @@ impl<P: Platform> Req<P> {
   /// use kwap::platform::Std;
   /// use kwap::req::Req;
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
   /// assert_eq!(req.payload_str().unwrap(), "Hi!")

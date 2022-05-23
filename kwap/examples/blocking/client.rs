@@ -4,6 +4,7 @@ use kwap::core::Error;
 use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::Resp;
+use no_std_net::SocketAddr;
 
 #[path = "./server.rs"]
 mod server;
@@ -52,6 +53,7 @@ fn main() {
   let server = server::spawn();
 
   let mut client = Client::new_std();
+  let addr: SocketAddr = "127.0.0.1:5683".parse().unwrap();
 
   println!("client: PING");
   client.ping("127.0.0.1", 5683)
@@ -59,28 +61,28 @@ fn main() {
         .unwrap();
 
   println!("client: CON GET /hello");
-  let req = Req::get("127.0.0.1", 5683, "hello");
+  let req = Req::get(addr, "hello");
   client.send(req).log();
 
   println!("client: NON GET /hello");
-  let mut req = Req::get("127.0.0.1", 5683, "hello");
+  let mut req = Req::get(addr, "hello");
   req.non();
   client.send(req).log();
 
   println!("client: NON GET /black_hole");
-  let mut req = Req::get("127.0.0.1", 5683, "black_hole");
+  let mut req = Req::get(addr, "black_hole");
   req.non();
   client.send(req).timeout_ok().log();
 
   println!("client: NON GET /dropped");
-  let req = Req::get("127.0.0.1", 5683, "dropped");
+  let req = Req::get(addr, "dropped");
   client.send(req).log();
 
-  let req = Req::get("127.0.0.1", 5683, "dropped");
+  let req = Req::get(addr, "dropped");
   client.send(req).log();
 
   println!("client: CON GET /exit");
-  let req = Req::get("127.0.0.1", 5683, "exit");
+  let req = Req::get(addr, "exit");
   client.send(req).log();
 
   server.join().unwrap();

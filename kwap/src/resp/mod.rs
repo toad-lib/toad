@@ -36,7 +36,7 @@ pub mod code;
 ///
 /// fn start_server(f: impl FnOnce(kwap::req::Req<Std>) -> kwap::resp::Resp<Std>) {
 ///   // servery things
-/// # f(kwap::req::Req::get("foo", 0, ""));
+/// # f(kwap::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -60,7 +60,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let mut req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_msg_id(kwap_msg::Id(0));
   /// req.set_msg_token(kwap_msg::Token(Default::default()));
   ///
@@ -153,7 +153,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
   /// let resp = Resp::<Std>::for_request(&req).unwrap();
@@ -192,7 +192,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::req::Req;
   /// use kwap::resp::Resp;
   ///
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
   /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
@@ -213,7 +213,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
@@ -230,7 +230,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
@@ -250,7 +250,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
@@ -273,7 +273,7 @@ impl<P: Platform> Resp<P> {
   /// use kwap::resp::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1", 5683, "/hello");
+  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
   ///
   /// // Maybe you have some bytes:

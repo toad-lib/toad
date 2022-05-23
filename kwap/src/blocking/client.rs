@@ -1,4 +1,5 @@
 use kwap_common::prelude::*;
+use no_std_net::SocketAddr;
 
 use crate::config::Config;
 use crate::core::{Core, Error, What};
@@ -63,9 +64,9 @@ impl Client<Std> {
   /// use kwap::ContentFormat;
   ///
   /// let mut client = Client::new_std();
-  /// let req = ReqBuilder::get("127.0.0.1", 5683, "hello").accept(ContentFormat::Text)
-  ///                                                      .build()
-  ///                                                      .unwrap();
+  /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
+  ///                                                                      .build()
+  ///                                                                      .unwrap();
   ///
   /// let rep = client.send(req).unwrap();
   ///
@@ -113,7 +114,7 @@ impl<Cfg: Platform> Client<Cfg> {
   }
 
   /// Send a GET request
-  pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> ReqBuilder<Cfg> {
-    ReqBuilder::get(host, port, path)
+  pub fn get(host: SocketAddr, path: impl AsRef<str>) -> ReqBuilder<Cfg> {
+    ReqBuilder::get(host, path)
   }
 }

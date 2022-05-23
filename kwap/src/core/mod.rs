@@ -431,7 +431,7 @@ impl<P: Platform> Core<P> {
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
   /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// core.send_req(Req::<Std>::get("1.1.1.1", 5683, "/hello"));
+  /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
   /// ```
   pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
@@ -543,7 +543,7 @@ impl<P: Platform> Core<P> {
                                      .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
                                      .map(|addr| (addr, self.next_id(addr)))
                                      .and_then(|(addr, id)| {
-                                       let mut req = Req::<P>::get(host, port, "");
+                                       let mut req = Req::<P>::get(addr, "");
                                        req.set_msg_id(id);
                                        req.set_msg_token(Token(Default::default()));
 
@@ -599,7 +599,7 @@ mod tests {
   fn client_flow() {
     type Msg = platform::Message<Config>;
 
-    let req = Req::<Config>::get("0.0.0.0", 1234, "");
+    let req = Req::<Config>::get("0.0.0.0:1234".parse().unwrap(), "");
     let token = req.msg.token;
     let resp = Resp::<Config>::for_request(&req).unwrap();
     let bytes = Msg::from(resp).try_into_bytes::<Vec<u8>>().unwrap();
