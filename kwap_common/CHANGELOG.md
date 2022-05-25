@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.7.0 (2022-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** support ipv4 and ipv6 (#126)
+
+### Features
+
+* **kwap:** support ipv4 and ipv6 ([#126](https://github.com/clov-coffee/kwap/issues/126)) ([9150ca1](https://github.com/clov-coffee/kwap/commit/9150ca13950db5c8f17f0963f3ae111f8362ba79))
+
 ### 0.6.4 (2022-05-23)
 
 
