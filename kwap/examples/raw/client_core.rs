@@ -59,8 +59,8 @@ fn ping(core: &mut Core<Std>) {
 }
 
 fn get_hello(core: &mut Core<Std>, non: bool) {
-  let mut req = ReqBuilder::<Std>::get("127.0.0.1", 5683, "hello").build()
-                                                                  .unwrap();
+  let mut req = ReqBuilder::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello").build()
+                                                                                  .unwrap();
 
   if non {
     req.non();
@@ -85,7 +85,7 @@ fn get_hello(core: &mut Core<Std>, non: bool) {
 }
 
 fn get_dropped(core: &mut Core<Std>) {
-  let req = Req::<Std>::get("127.0.0.1", 5683, "dropped");
+  let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "dropped");
 
   let (id, addr) = core.send_req(req).unwrap();
   println!("GET 127.0.0.1:5683/dropped");

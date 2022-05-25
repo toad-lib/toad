@@ -39,10 +39,6 @@ impl ConfigData {
     + (2 * self.max_latency_millis())
     + self.expected_processing_delay_millis()
   }
-
-  pub(crate) fn non_lifetime_millis(&self) -> u32 {
-    self.max_transmit_span_millis() + self.max_latency_millis()
-  }
 }
 
 /// CoAP runtime config

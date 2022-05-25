@@ -57,7 +57,7 @@ pub struct Retryable<P: Platform, T>(pub T, pub crate::retry::RetryTimer<P::Cloc
 /// use kwap::platform::Std;
 /// use kwap::req::Req;
 ///
-/// Req::<Std>::get("192.168.0.1", 5683, "/hello");
+/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
 /// ```
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -102,7 +102,7 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
 /// use kwap::platform::Std;
 /// use kwap::req::Req;
 ///
-/// Req::<Std>::get("192.168.0.1", 5683, "/hello");
+/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
 /// ```
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]

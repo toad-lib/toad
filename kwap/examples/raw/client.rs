@@ -59,21 +59,21 @@ fn main() {
         .unwrap();
 
   println!("client: CON GET /hello");
-  let req = Req::get("127.0.0.1", 5683, "hello");
+  let req = Req::get("127.0.0.1:5683".parse().unwrap(), "hello");
   client.send(req).log();
 
   println!("client: NON GET /hello");
-  let mut req = Req::get("127.0.0.1", 5683, "hello");
+  let mut req = Req::get("127.0.0.1:5683".parse().unwrap(), "hello");
   req.non();
   client.send(req).log();
 
   println!("client: NON GET /black_hole");
-  let mut req = Req::get("127.0.0.1", 5683, "black_hole");
+  let mut req = Req::get("127.0.0.1:5683".parse().unwrap(), "black_hole");
   req.non();
   client.send(req).timeout_ok().log();
 
   println!("client: NON GET /dropped");
-  let req = Req::get("127.0.0.1", 5683, "dropped");
+  let req = Req::get("127.0.0.1:5683".parse().unwrap(), "dropped");
   client.send(req).log();
 
   server::shutdown();

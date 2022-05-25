@@ -1,4 +1,5 @@
 use kwap_common::prelude::*;
+use no_std_net::SocketAddr;
 
 use super::{Method, Req};
 use crate::option::common_options;
@@ -27,7 +28,7 @@ pub enum Error {
 ///            }"""#;
 ///
 /// let request =
-///   ReqBuilder::<Std>::get("127.0.0.1", 1234, "say_stuff").accept(ContentFormat::Json)
+///   ReqBuilder::<Std>::get("127.0.0.1:1234".parse().unwrap(), "say_stuff").accept(ContentFormat::Json)
 ///                                                         .content_format(ContentFormat::Json)
 ///                                                         .payload(payload)
 ///                                                         .build()
@@ -47,28 +48,28 @@ pub struct ReqBuilder<P: Platform> {
 }
 
 impl<P: Platform> ReqBuilder<P> {
-  fn new(method: Method, host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self { inner: Ok(Req::new(method, host, port, path)) }
+  fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self { inner: Ok(Req::new(method, host, path)) }
   }
 
   /// Creates a GET request
-  pub fn get(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::GET, host, port, path)
+  pub fn get(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::GET, host, path)
   }
 
   /// Creates a PUT request
-  pub fn put(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::PUT, host, port, path)
+  pub fn put(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::PUT, host, path)
   }
 
   /// Creates a POST request
-  pub fn post(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::POST, host, port, path)
+  pub fn post(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::POST, host, path)
   }
 
   /// Creates a DELETE request
-  pub fn delete(host: impl AsRef<str>, port: u16, path: impl AsRef<str>) -> Self {
-    Self::new(Method::DELETE, host, port, path)
+  pub fn delete(host: SocketAddr, path: impl AsRef<str>) -> Self {
+    Self::new(Method::DELETE, host, path)
   }
 
   /// Insert or update an option value - use this for non-Repeatable Options.

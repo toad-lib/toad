@@ -307,7 +307,7 @@ mod tests {
     let inbound_bytes = sock.rx.clone();
     let timeout_state = timeout.state.clone();
 
-    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_exit = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "exit");
     say_exit.set_msg_token(Token(Default::default()));
     say_exit.set_msg_id(Id(1));
 
@@ -332,11 +332,11 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let mut say_hello = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    let mut say_hello = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "hello");
     say_hello.set_msg_token(Token(Default::default()));
     say_hello.set_msg_id(Id(1));
 
-    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_exit = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "exit");
     say_exit.set_msg_token(Token(Default::default()));
     say_exit.set_msg_id(Id(2));
 
@@ -372,10 +372,10 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let mut ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0", 1234, "");
+    let mut ping = Req::<Test>::new(Method::EMPTY, "0.0.0.0:1234".parse().unwrap(), "");
     ping.set_msg_token(Token(Default::default()));
     ping.set_msg_id(Id(1));
-    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_exit = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "exit");
     say_exit.set_msg_token(Token(Default::default()));
     say_exit.set_msg_id(Id(2));
 
@@ -409,14 +409,14 @@ mod tests {
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
     let timeout_state = timeout.state.clone();
 
-    let mut say_hello_con = Req::<Test>::get("0.0.0.0", 1234, "hello");
+    let mut say_hello_con = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "hello");
     say_hello_con.set_msg_token(Token(Default::default()));
     say_hello_con.set_msg_id(Id(1));
     let mut say_hello_non = say_hello_con.clone();
     say_hello_non.non();
     say_hello_non.set_msg_token(Token(Default::default()));
     say_hello_non.set_msg_id(Id(2));
-    let mut say_exit = Req::<Test>::get("0.0.0.0", 1234, "exit");
+    let mut say_exit = Req::<Test>::get("0.0.0.0:1234".parse().unwrap(), "exit");
     say_exit.set_msg_token(Token(Default::default()));
     say_exit.set_msg_id(Id(2));
 

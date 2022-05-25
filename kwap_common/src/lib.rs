@@ -46,7 +46,6 @@ pub mod prelude {
 /// - [`Default`] for creating the collection
 /// - [`Extend`] for mutating and adding onto the collection (1 or more elements)
 /// - [`Reserve`] for reserving space ahead of time
-/// - [`Insert`] for pushing and inserting elements into the collection
 /// - [`GetSize`] for bound checks, empty checks, and accessing the length
 /// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the collection
 /// - [`IntoIterator`] for iterating and destroying the collection
@@ -118,7 +117,7 @@ pub struct Writable<A: Array<Item = u8>>(A);
 impl<A: Array<Item = u8>> Writable<A> {
   /// Convert the buffer to a string slice
   pub fn as_str(&self) -> &str {
-    core::str::from_utf8(&self).unwrap()
+    core::str::from_utf8(self).unwrap()
   }
 }
 
