@@ -1,4 +1,3 @@
-use kwap_common::Array;
 use no_std_net::{IpAddr, SocketAddr};
 use tinyvec::ArrayVec;
 

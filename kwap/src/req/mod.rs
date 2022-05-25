@@ -1,5 +1,3 @@
-use std::net::SocketAddrV4;
-
 use kwap_common::prelude::*;
 use kwap_msg::{EnumerateOptNumbers,
                Id,
@@ -10,7 +8,7 @@ use kwap_msg::{EnumerateOptNumbers,
                Token,
                TryIntoBytes,
                Type};
-use no_std_net::{IpAddr, SocketAddr, ToSocketAddrs};
+use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 
 use crate::ToCoapValue;

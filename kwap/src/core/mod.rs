@@ -1,11 +1,10 @@
 use core::mem;
-use core::str::FromStr;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
 use kwap_common::prelude::*;
 use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
-use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use no_std_net::{IpAddr, SocketAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
 
@@ -454,12 +453,8 @@ impl<P: Platform> Core<P> {
     let when = When::None;
 
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
-                               .bind(|host| {
-                                 Ipv4Addr::from_str(host).map_err(|_| {
-                                                           when.what(What::HostInvalidIpAddress)
-                                                         })
-                               })
-                               .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
+                               .map(|host| host.parse::<IpAddr>().unwrap())
+                               .map(|host| SocketAddr::new(host, port))
                                .map(|host| {
                                  if req.id.is_none() {
                                    req.set_msg_id(self.next_id(host));
@@ -539,31 +534,34 @@ impl<P: Platform> Core<P> {
               -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
     let when = When::None;
 
-    Ipv4Addr::from_str(host.as_ref()).map_err(|_| when.what(What::HostInvalidIpAddress))
-                                     .map(|host| SocketAddr::V4(SocketAddrV4::new(host, port)))
-                                     .map(|addr| (addr, self.next_id(addr)))
-                                     .and_then(|(addr, id)| {
-                                       let mut req = Req::<P>::get(addr, "");
-                                       req.set_msg_id(id);
-                                       req.set_msg_token(Token(Default::default()));
+    host.as_ref()
+        .parse::<IpAddr>()
+        .map_err(|_| when.what(What::HostInvalidIpAddress))
+        .map(|host| SocketAddr::new(host, port))
+        .map(|addr| (addr, self.next_id(addr)))
+        .and_then(|(addr, id)| {
+          let mut req = Req::<P>::get(addr, "");
+          req.set_msg_id(id);
+          req.set_msg_token(Token(Default::default()));
 
-                                       let mut msg: platform::Message<P> = req.into();
-                                       msg.opts = Default::default();
-                                       msg.code = kwap_msg::Code::new(0, 0);
+          let mut msg: platform::Message<P> = req.into();
+          msg.opts = Default::default();
+          msg.code = kwap_msg::Code::new(0, 0);
 
-                                       msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-                                          .map_err(|err| when.what(What::ToBytes(err)))
-                                          .map(|bytes| (addr, id, bytes))
-                                     })
-                                     .bind(|(addr, id, bytes)| {
-                                       Self::send(When::None, &mut self.sock, addr, bytes).map(|addr| (id, addr))
-                                     })
+          msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
+             .map_err(|err| when.what(What::ToBytes(err)))
+             .map(|bytes| (addr, id, bytes))
+        })
+        .bind(|(addr, id, bytes)| {
+          Self::send(When::None, &mut self.sock, addr, bytes).map(|addr| (id, addr))
+        })
   }
 }
 
 #[cfg(test)]
 mod tests {
   use kwap_msg::TryIntoBytes;
+  use no_std_net::{Ipv4Addr, SocketAddrV4};
   use tinyvec::ArrayVec;
 
   use super::*;
