@@ -1,4 +1,5 @@
 use core::fmt::Write;
+
 use kwap_common::prelude::*;
 use kwap_msg::{EnumerateOptNumbers,
                Id,
@@ -413,16 +414,16 @@ impl<P: Platform> From<platform::Message<P>> for Req<P> {
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::Std;
-
-    use super::*;
+  use super::*;
+  use crate::platform::Std;
   #[test]
   fn ip_serialization() {
     let req = Req::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");
-    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(), "192.168.255.123");
+    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
+               "192.168.255.123");
 
     let req = Req::<Std>::get("[::1]:8080".parse().unwrap(), "");
-    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(), "::1");
+    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
+               "::1");
   }
 }
-
