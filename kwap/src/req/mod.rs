@@ -1,3 +1,4 @@
+use core::fmt::Write;
 use kwap_common::prelude::*;
 use kwap_msg::{EnumerateOptNumbers,
                Id,
@@ -94,7 +95,7 @@ impl<P: Platform> Req<P> {
     }
 
     let mut host_str = Writable::<ArrayVec<[u8; 39]>>::default();
-    crate::net::write_ip_str(&host.ip(), &mut host_str);
+    write!(host_str, "{}", host.ip()).ok();
 
     // Uri-Host
     me.set_option(3, strbytes(&host_str));
@@ -409,3 +410,19 @@ impl<P: Platform> From<platform::Message<P>> for Req<P> {
            token: Some(token) }
   }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::platform::Std;
+
+    use super::*;
+  #[test]
+  fn ip_serialization() {
+    let req = Req::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");
+    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(), "192.168.255.123");
+
+    let req = Req::<Std>::get("[::1]:8080".parse().unwrap(), "");
+    assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(), "::1");
+  }
+}
+
