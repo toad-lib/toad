@@ -51,6 +51,8 @@ pub mod todo;
 #[cfg(test)]
 pub(crate) mod test;
 
+pub(crate) mod logging;
+
 /// Blocking rust CoAP client & server
 pub mod blocking;
 

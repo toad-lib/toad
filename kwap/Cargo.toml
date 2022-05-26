@@ -42,6 +42,7 @@ test = []
 docs = []
 
 [dependencies]
+log = "0.4"
 kwap-msg = "0.5.1"
 kwap-common = "0.6.4"
 tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
@@ -51,3 +52,6 @@ embedded-time = "0.12"
 nb = "1"
 rand = { version = "0.8", default_features = false }
 rand_chacha = { version = "0.3", default_features = false }
+
+[dev-dependencies]
+simple_logger = "2"
