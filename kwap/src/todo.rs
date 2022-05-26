@@ -1,6 +1,6 @@
 //! Future inherent methods on structs in other crates
-use core::ops::{Div, Mul};
 use core::fmt::Write;
+use core::ops::{Div, Mul};
 
 use kwap_common::prelude::*;
 use tinyvec::ArrayVec;
@@ -20,6 +20,8 @@ impl<T: GetSize> Capacity for T {}
 
 pub(crate) fn code_to_human(code: kwap_msg::Code) -> Writable<ArrayVec<[u8; 4]>> {
   let mut buf: Writable<ArrayVec<[u8; 4]>> = Writable::default();
-  code.to_human().iter().for_each(|char| {write!(buf, "{}", char).ok();});
+  code.to_human().iter().for_each(|char| {
+                          write!(buf, "{}", char).ok();
+                        });
   buf
 }

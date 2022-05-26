@@ -13,14 +13,14 @@ mod error;
 pub use error::*;
 
 use crate::config::{Config, ConfigData};
-use crate::logging::{msg_summary, self};
+use crate::logging::{self, msg_summary};
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-use crate::todo::{Capacity, code_to_human};
+use crate::todo::{code_to_human, Capacity};
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -248,9 +248,8 @@ impl<P: Platform> Core<P> {
               .map(|(ix, _)| ix);
 
         if let Some(ix) = ix {
-          let msg = self.retry_q.remove(ix);
-          let msg = msg.unwrap().0.0;
-          log::trace!("{:?} was Acked", msg.id);
+          let msg: Retryable<P, Addrd<platform::Message<P>>> = self.retry_q.remove(ix).unwrap();
+          log::trace!("{:?} was Acked", msg.unwrap().unwrap().id);
         } else {
           // TODO(#76): we got an ACK for a message we don't know about. What do we do?
         }
@@ -326,7 +325,9 @@ impl<P: Platform> Core<P> {
   }
 
   fn msg_recvd(&mut self, msg: Addrd<platform::Message<P>>) -> () {
-    log::trace!("recvd {} <- {}", logging::msg_summary::<P>(msg.data()).as_str(), msg.addr());
+    log::trace!("recvd {} <- {}",
+                logging::msg_summary::<P>(msg.data()).as_str(),
+                msg.addr());
 
     self.seen_id(msg.as_ref().map(|msg| msg.id));
     self.seen_token(msg.as_ref().map(|msg| msg.token));
@@ -394,9 +395,7 @@ impl<P: Platform> Core<P> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
-        .try_for_each(|msg| {
-          Self::send_msg_sock(&mut self.sock, msg).map(|_| ())
-        })
+        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg).map(|_| ()))
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
@@ -412,16 +411,18 @@ impl<P: Platform> Core<P> {
         .try_for_each(|Retryable(msg, retry)| {
           let when = When::None;
 
-               self.clock
-                   .try_now()
-                   .map_err(|_| when.what(What::ClockError))
-                   .map(|now| retry.what_should_i_do(now))
-             .bind(|should| match should {
-               | Ok(YouShould::Retry) => Self::send_msg_sock(&mut self.sock, msg.clone()).map(|_| ()),
-               | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
-               | Err(nb::Error::WouldBlock) => Ok(()),
-               | _ => unreachable!(),
-             })
+          self.clock
+              .try_now()
+              .map_err(|_| when.what(What::ClockError))
+              .map(|now| retry.what_should_i_do(now))
+              .bind(|should| match should {
+                | Ok(YouShould::Retry) => {
+                  Self::send_msg_sock(&mut self.sock, msg.clone()).map(|_| ())
+                },
+                | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
+                | Err(nb::Error::WouldBlock) => Ok(()),
+                | _ => unreachable!(),
+              })
         })
   }
 
@@ -479,9 +480,7 @@ impl<P: Platform> Core<P> {
                                      .map(|_| (token, addr, Addrd(msg, addr)))
                                })
                                .bind(|(token, addr, msg)| {
-                                 Self::send_msg_sock(&mut self.sock, msg).map(|()| {
-                                                                                (token, addr)
-                                                                              })
+                                 Self::send_msg_sock(&mut self.sock, msg).map(|()| (token, addr))
                                })
   }
 
@@ -493,7 +492,9 @@ impl<P: Platform> Core<P> {
   fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::None;
-    log::trace!("sending {} -> {}", logging::msg_summary::<P>(msg.data()).as_str(), msg.addr());
+    log::trace!("sending {} -> {}",
+                logging::msg_summary::<P>(msg.data()).as_str(),
+                msg.addr());
 
     msg.unwrap()
        .try_into_bytes::<ArrayVec<[u8; 1152]>>()
@@ -511,7 +512,9 @@ impl<P: Platform> Core<P> {
     let len = bytes.get_size();
 
     nb::block!(sock.send(Addrd(&bytes, addr))).map_err(|err| when.what(What::SockError(err)))
-        .perform(|()| log::trace!("sent {}b -> {}", len, addr))
+                                              .perform(|()| {
+                                                log::trace!("sent {}b -> {}", len, addr)
+                                              })
                                               .map(|_| addr)
   }
 
@@ -553,8 +556,7 @@ impl<P: Platform> Core<P> {
           msg.opts = Default::default();
           msg.code = kwap_msg::Code::new(0, 0);
 
-          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr))
-              .map(|_| (id, addr))
+          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr)).map(|_| (id, addr))
         })
   }
 }
