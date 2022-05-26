@@ -49,6 +49,13 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
 #[derive(Debug, Clone, Copy)]
 pub struct Retryable<P: Platform, T>(pub T, pub crate::retry::RetryTimer<P::Clock>);
 
+impl<P: Platform, T> Retryable<P, T> {
+  /// Gets the data, discarding the retry timer
+  pub fn unwrap(self) -> T {
+    self.0
+  }
+}
+
 /// Configures `kwap` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing

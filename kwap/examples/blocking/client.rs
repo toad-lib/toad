@@ -17,13 +17,12 @@ impl Log for Result<Resp<Std>, kwap::core::Error<Std>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
-        println!("client: ok! {} {:?}",
-                 rep.code().to_string(),
-                 rep.payload_string().unwrap());
-        println!();
+        log::info!("ok! {} {:?}",
+                   rep.code().to_string(),
+                   rep.payload_string().unwrap());
       },
       | Err(e) => {
-        eprintln!("client: error! {:?}", e);
+        log::error!("error! {:?}", e);
       },
     }
   }
@@ -33,55 +32,55 @@ impl Log for Result<Option<Resp<Std>>, Error<Std>> {
   fn log(self) {
     match self {
       | Ok(None) => {
-        println!("client: ok! did not receive a response");
-        println!();
+        log::info!("ok! did not receive a response");
       },
       | Ok(Some(rep)) => {
-        println!("client: ok! {} {:?}",
-                 rep.code().to_string(),
-                 rep.payload_string().unwrap());
-        println!();
+        log::info!("ok! {} {:?}",
+                   rep.code().to_string(),
+                   rep.payload_string().unwrap());
       },
       | Err(e) => {
-        eprintln!("client: error! {:?}", e);
+        log::error!("error! {:?}", e);
       },
     }
   }
 }
 
 fn main() {
+  simple_logger::init_with_level(log::Level::Trace).unwrap();
+
   let server = server::spawn();
 
   let mut client = Client::new_std();
   let addr: SocketAddr = "127.0.0.1:5683".parse().unwrap();
 
-  println!("client: PING");
+  log::info!("PING");
   client.ping("127.0.0.1", 5683)
-        .map(|_| println!("client: pinged ok!\n"))
+        .map(|_| log::info!("pinged ok!\n"))
         .unwrap();
 
-  println!("client: CON GET /hello");
+  log::info!("CON GET /hello");
   let req = Req::get(addr, "hello");
   client.send(req).log();
 
-  println!("client: NON GET /hello");
+  log::info!("NON GET /hello");
   let mut req = Req::get(addr, "hello");
   req.non();
   client.send(req).log();
 
-  println!("client: NON GET /black_hole");
+  log::info!("NON GET /black_hole");
   let mut req = Req::get(addr, "black_hole");
   req.non();
   client.send(req).timeout_ok().log();
 
-  println!("client: NON GET /dropped");
+  log::info!("NON GET /dropped");
   let req = Req::get(addr, "dropped");
   client.send(req).log();
 
   let req = Req::get(addr, "dropped");
   client.send(req).log();
 
-  println!("client: CON GET /exit");
+  log::info!("CON GET /exit");
   let req = Req::get(addr, "exit");
   client.send(req).log();
 

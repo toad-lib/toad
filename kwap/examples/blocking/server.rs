@@ -29,7 +29,7 @@ fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 fn exit(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   match req.data().path().unwrap() {
     | Some("exit") => {
-      println!("a client said exit");
+      log::info!("a client said exit");
       (Continue::No, Action::Exit)
     },
     | _ => (Continue::Yes, Action::Nop),
@@ -39,7 +39,7 @@ fn exit(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   match req.data().path().unwrap() {
     | Some("hello") => {
-      println!("a client said hello");
+      log::info!("a client said hello");
       let resp = req.as_ref()
                     .map(Resp::for_request)
                     .map(Option::unwrap)
@@ -55,7 +55,7 @@ fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 }
 
 fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  println!("not found");
+  log::info!("not found");
   let resp = req.as_ref()
                 .map(Resp::for_request)
                 .map(Option::unwrap)
@@ -67,20 +67,20 @@ fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 }
 
 fn log_msg(msg: &Addrd<platform::Message<Std>>) {
-  println!(
-           r#"{{
+  log::info!(
+             r#"{{
   id: {:?},
   token: {:?},
   addr: {:?}
 }}"#,
-           msg.data().id,
-           msg.data().token,
-           msg.addr()
+             msg.data().id,
+             msg.data().token,
+             msg.addr()
   );
 }
 
 fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  println!("recv:");
+  log::info!("recv:");
   log_msg(&req.clone().map(Into::into));
   (Continue::Yes, Action::Nop)
 }
@@ -98,7 +98,7 @@ pub fn spawn() -> JoinHandle<()> {
                                let out = server.start();
 
                                if out.is_err() {
-                                 eprintln!("server panicked! {:?}", out);
+                                 log::error!("panicked! {:?}", out);
                                }
                              })
                              .unwrap()

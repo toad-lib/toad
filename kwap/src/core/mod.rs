@@ -13,12 +13,14 @@ mod error;
 pub use error::*;
 
 use crate::config::{Config, ConfigData};
+use crate::logging::{self, msg_summary};
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
+use crate::todo::{code_to_human, Capacity};
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -103,8 +105,13 @@ impl<P: Platform> Core<P> {
     self.largest_msg_id_seen = largest.or(Some(id.data().0));
 
     ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
+    let ids_cap = ids.capacity_pct();
 
     mem::swap(ids_in_map, &mut ids);
+
+    log::trace!("stored new id ({}% capacity for addr, {}% total)",
+                ids_cap.unwrap_or_default(),
+                self.msg_ids.capacity_pct().unwrap_or_default());
   }
 
   fn seen_token(&mut self, token: Addrd<Token>) {
@@ -138,9 +145,15 @@ impl<P: Platform> Core<P> {
                    })
                    .collect();
 
+    let tokens_cap = tokens.capacity_pct();
+
     tokens.push(Stamped::new(&self.clock, *token.data()).unwrap());
 
     mem::swap(tokens_in_map, &mut tokens);
+
+    log::trace!("stored new token ({}% capacity for addr, {}% total)",
+                tokens_cap.unwrap_or_default(),
+                self.msg_tokens.capacity_pct().unwrap_or_default());
   }
 
   fn next_id(&mut self, addr: SocketAddr) -> Id {
@@ -235,7 +248,8 @@ impl<P: Platform> Core<P> {
               .map(|(ix, _)| ix);
 
         if let Some(ix) = ix {
-          self.retry_q.remove(ix);
+          let msg: Retryable<P, Addrd<platform::Message<P>>> = self.retry_q.remove(ix).unwrap();
+          log::trace!("{:?} was Acked", msg.unwrap().unwrap().id);
         } else {
           // TODO(#76): we got an ACK for a message we don't know about. What do we do?
         }
@@ -303,6 +317,7 @@ impl<P: Platform> Core<P> {
                             when: error::When,
                             dgram: Addrd<crate::net::Dgram>)
                             -> Result<(), Error<P>> {
+    log::trace!("recvd {}b <- {}", dgram.data().get_size(), dgram.addr());
     platform::Message::<P>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
                                                         .map_err(What::FromBytes)
                                                         .map_err(|what| when.what(what))
@@ -310,6 +325,10 @@ impl<P: Platform> Core<P> {
   }
 
   fn msg_recvd(&mut self, msg: Addrd<platform::Message<P>>) -> () {
+    log::trace!("recvd {} <- {}",
+                logging::msg_summary::<P>(msg.data()).as_str(),
+                msg.addr());
+
     self.seen_id(msg.as_ref().map(|msg| msg.id));
     self.seen_token(msg.as_ref().map(|msg| msg.token));
 
@@ -376,15 +395,7 @@ impl<P: Platform> Core<P> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
-        .try_for_each(|Addrd(msg, addr)| {
-          let (id, token) = (msg.id, msg.token);
-          let when = When::SendingMessage(Some(addr), id, token);
-
-          msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(|e| when.what(What::ToBytes(e)))
-             .bind(|bytes| Self::send(when, &mut self.sock, addr, bytes))
-             .map(|_| ())
-        })
+        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg).map(|_| ()))
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
@@ -397,25 +408,21 @@ impl<P: Platform> Core<P> {
     self.retry_q
         .iter_mut()
         .filter_map(|o| o.as_mut())
-        .try_for_each(|Retryable(Addrd(msg, addr), retry)| {
-          let (id, token) = (msg.id, msg.token);
-          let when = When::SendingMessage(Some(*addr), id, token);
+        .try_for_each(|Retryable(msg, retry)| {
+          let when = When::None;
 
-          msg.clone()
-             .try_into_bytes::<ArrayVec<[u8; 1152]>>()
-             .map_err(|err| when.what(What::ToBytes(err)))
-             .tupled(|_| {
-               self.clock
-                   .try_now()
-                   .map_err(|_| when.what(What::ClockError))
-                   .map(|now| retry.what_should_i_do(now))
-             })
-             .bind(|(bytes, should)| match should {
-               | Ok(YouShould::Retry) => Self::send(when, &mut self.sock, *addr, bytes).map(|_| ()),
-               | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
-               | Err(nb::Error::WouldBlock) => Ok(()),
-               | _ => unreachable!(),
-             })
+          self.clock
+              .try_now()
+              .map_err(|_| when.what(What::ClockError))
+              .map(|now| retry.what_should_i_do(now))
+              .bind(|should| match should {
+                | Ok(YouShould::Retry) => {
+                  Self::send_msg_sock(&mut self.sock, msg.clone()).map(|_| ())
+                },
+                | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
+                | Err(nb::Error::WouldBlock) => Ok(()),
+                | _ => unreachable!(),
+              })
         })
   }
 
@@ -470,43 +477,44 @@ impl<P: Platform> Core<P> {
                                  // TODO: avoid this clone?
                                  self.retryable(when, Addrd(msg.clone(), addr))
                                      .map(|msg| self.retry_q.push(Some(msg)))
-                                     .map(|_| (token, addr, msg))
+                                     .map(|_| (token, addr, Addrd(msg, addr)))
                                })
-                               .and_then(|(token, addr, msg)| {
-                                 msg.try_into_bytes::<ArrayVec<[u8; 1152]>>()
-                                    .map_err(|err| when.what(What::ToBytes(err)))
-                                    .map(|bytes| (token, addr, bytes))
-                               })
-                               .bind(|(token, addr, bytes)| {
-                                 Self::send(when, &mut self.sock, addr, bytes).map(|addr| {
-                                                                                (token, addr)
-                                                                              })
+                               .bind(|(token, addr, msg)| {
+                                 Self::send_msg_sock(&mut self.sock, msg).map(|()| (token, addr))
                                })
   }
 
   /// Send a message to a remote socket
   pub fn send_msg(&mut self, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
+    Self::send_msg_sock(&mut self.sock, msg)
+  }
+
+  fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
-    let when = When::SendingMessage(Some(msg.addr()), msg.data().id, msg.data().token);
+    let when = When::None;
+    log::trace!("sending {} -> {}",
+                logging::msg_summary::<P>(msg.data()).as_str(),
+                msg.addr());
 
     msg.unwrap()
        .try_into_bytes::<ArrayVec<[u8; 1152]>>()
        .map_err(What::<P>::ToBytes)
        .map_err(|what| when.what(what))
-       .bind(|bytes| Self::send(when, &mut self.sock, addr, bytes))
+       .bind(|bytes| Self::send(when, sock, addr, bytes))
        .map(|_| ())
   }
 
-  /// Send a raw message down the wire to some remote host.
-  ///
-  /// You probably want [`send_req`](#method.send_req) or [`ping`](#method.ping) instead.
   pub(crate) fn send(when: When,
                      sock: &mut P::Socket,
                      addr: SocketAddr,
                      bytes: impl Array<Item = u8>)
                      -> Result<SocketAddr, Error<P>> {
-    // TODO(#77): support ipv6
+    let len = bytes.get_size();
+
     nb::block!(sock.send(Addrd(&bytes, addr))).map_err(|err| when.what(What::SockError(err)))
+                                              .perform(|()| {
+                                                log::trace!("sent {}b -> {}", len, addr)
+                                              })
                                               .map(|_| addr)
   }
 
@@ -539,7 +547,7 @@ impl<P: Platform> Core<P> {
         .map_err(|_| when.what(What::HostInvalidIpAddress))
         .map(|host| SocketAddr::new(host, port))
         .map(|addr| (addr, self.next_id(addr)))
-        .and_then(|(addr, id)| {
+        .bind(|(addr, id)| {
           let mut req = Req::<P>::get(addr, "");
           req.set_msg_id(id);
           req.set_msg_token(Token(Default::default()));
@@ -548,12 +556,7 @@ impl<P: Platform> Core<P> {
           msg.opts = Default::default();
           msg.code = kwap_msg::Code::new(0, 0);
 
-          msg.try_into_bytes::<ArrayVec<[u8; 13]>>()
-             .map_err(|err| when.what(What::ToBytes(err)))
-             .map(|bytes| (addr, id, bytes))
-        })
-        .bind(|(addr, id, bytes)| {
-          Self::send(When::None, &mut self.sock, addr, bytes).map(|addr| (id, addr))
+          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr)).map(|_| (id, addr))
         })
   }
 }
