@@ -10,7 +10,7 @@ const PORT: u16 = 5634;
 pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
-  use Action::{Exit, Nop, SendReq, SendResp, Done};
+  use Action::{Done, Exit, Nop, SendReq, SendResp};
 
   use super::*;
   static mut BROADCAST_RECIEVED: bool = false;
