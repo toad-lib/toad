@@ -1,8 +1,5 @@
-use kwap_common::fns::const_;
 use kwap_common::Array;
 use kwap_msg::Type;
-use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-use tinyvec::ArrayVec;
 
 use crate::config::Config;
 use crate::core::{Core, Error};
@@ -24,13 +21,6 @@ enum Status<Cfg: Platform> {
 }
 
 impl<Cfg: Platform> Status<Cfg> {
-  fn from_continue(cont: Continue) -> Self {
-    match cont {
-      | Continue::Yes => Self::Continue,
-      | Continue::No => Self::Stop,
-    }
-  }
-
   fn bind_result(self, result: Result<(), Error<Cfg>>) -> Self {
     match &self {
       | Self::Err(_) => self,
@@ -42,20 +32,11 @@ impl<Cfg: Platform> Status<Cfg> {
 }
 
 /// Type alias for a server middleware function. See [`Server.middleware`]
-pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> (Continue, Action<Cfg>);
-
-/// Should the middleware chain stop or continue processing this message?
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Continue {
-  /// This message should continue to be processed by the next middleware.
-  Yes,
-  /// This message has been fully handled and should not be processed
-  /// by any other middleware.
-  No,
-}
+pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> Actions<Cfg>;
 
 /// Action to perform as a result of middleware
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub enum Action<Cfg: Platform> {
   /// Send a response
   SendResp(Addrd<Resp<Cfg>>),
@@ -65,8 +46,48 @@ pub enum Action<Cfg: Platform> {
   Send(Addrd<platform::Message<Cfg>>),
   /// Stop the server completely
   Exit,
+  /// TODO
+  Stop,
   /// Do nothing
   Nop,
+}
+
+impl<P: Platform> Action<P> {
+  /// TODO
+  pub fn then(mut self, action: Action<P>) -> Actions<P> {
+    Actions::just(self).then(action)
+  }
+}
+
+/// TODO
+#[derive(Clone, Debug)]
+pub struct Actions<P: Platform>(tinyvec::ArrayVec<[Option<Action<P>>; 16]>);
+
+impl<P: Platform> Actions<P> {
+  /// TODO
+  pub fn just(action: Action<P>) -> Self {
+    action.into()
+  }
+
+  /// TODO
+  pub fn then(mut self, action: Action<P>) -> Self {
+    self.0.push(Some(action));
+    self
+  }
+}
+
+impl<P: Platform> Default for Actions<P> {
+  fn default() -> Self {
+    Self(Default::default())
+  }
+}
+
+impl<P: Platform> Into<Actions<P>> for Action<P> {
+  fn into(self) -> Actions<P> {
+    let mut actions = Actions::default();
+    actions.0.push(Some(self));
+    actions
+  }
 }
 
 /// A barebones CoAP server.
@@ -132,9 +153,6 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
                                            Self::new_config(config, sock, crate::std::Clock::new())
                                          })
   }
-
-  // /// Create a new server that listens on the "All CoAP devices" multicast address.
-  // pub fn std_new_multicast() -> Option<Self>
 }
 
 impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
@@ -167,7 +185,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   /// Middleware function that responds to CoAP pings (EMPTY Confirmable messages)
   ///
   /// This is included when Server::new is invoked.
-  pub fn respond_ping(req: &Addrd<Req<P>>) -> (Continue, Action<P>) {
+  pub fn respond_ping(req: &Addrd<Req<P>>) -> Actions<P> {
     match (req.data().method(), req.data().msg_type()) {
       | (Method::EMPTY, Type::Con) => {
         let resp = platform::Message::<P> { ver: Default::default(),
@@ -178,9 +196,9 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
                                             opts: Default::default(),
                                             payload: kwap_msg::Payload(Default::default()) };
 
-        (Continue::No, Action::Send(req.as_ref().map(|_| resp)))
+        Action::Send(req.as_ref().map(|_| resp)).then(Action::Stop)
       },
-      | _ => (Continue::Yes, Action::Nop),
+      | _ => Action::Nop.into(),
     }
   }
 
@@ -218,14 +236,26 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
     self.fns.push(f);
   }
 
-  fn perform(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
+  fn perform_one(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
     match action {
       | Action::Nop => Ok(()),
       | Action::Send(msg) => core.send_msg(msg),
       | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
       | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
-      | Action::Exit => unreachable!(),
+      | Action::Stop | Action::Exit => unreachable!(),
     }
+  }
+
+  fn perform_many(core: &mut Core<P>, actions: Actions<P>) -> Status<P> {
+    actions.0
+           .into_iter()
+           .filter_map(|o| o)
+           .fold(Status::Continue, |status, action| match (status, action) {
+             | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
+             | (Status::Stop, _) | (_, Action::Stop) => Status::Stop,
+             | (status @ Status::Err(_), _) => status,
+             | (status, action) => status.bind_result(Self::perform_one(core, action)),
+           })
   }
 
   /// Start the server
@@ -238,7 +268,9 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   /// For example: in the case of a multicast listener, we need to both broadcast
   /// on the multicast address "_Hey! I'm a CoAP server listening on "All CoAP nodes"_"
   /// **and** act as a normal server that receives direct requests.
-  pub fn start_tick(&mut self, on_tick: Option<&'a dyn Fn() -> Action<P>>) -> Result<(), Error<P>> {
+  pub fn start_tick(&mut self,
+                    on_tick: Option<&'a dyn Fn() -> Actions<P>>)
+                    -> Result<(), Error<P>> {
     loop {
       let req = loop {
         match self.core.poll_req() {
@@ -247,29 +279,22 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
           | Err(nb::Error::WouldBlock) => {
             // TODO: do something with errors
             if let Some(on_tick) = on_tick {
-              let action = on_tick();
-              match action {
-                | Action::Exit => return Ok(()),
-                | other => Self::perform(&mut self.core, other).ok(),
+              let status = Self::perform_many(&mut self.core, on_tick());
+              match status {
+                | Status::Exit => return Ok(()),
+                | Status::Continue => continue,
+                | _ => todo!(),
               };
             }
           },
         }
       }?;
 
-      let use_middleware =
-        |core: &mut Core<P>, middleware: &&'a Middleware<P>| match middleware(&req) {
-          | (_, Action::Exit) => Status::Exit,
-          | (cont, action) => {
-            Status::<P>::from_continue(cont).bind_result(Self::perform(core, action))
-          },
-        };
-
       let status = self.fns
                        .iter()
                        .fold(Status::Continue, |status, f| match status {
                          | Status::Exit | Status::Err(_) | Status::Stop => status,
-                         | Status::Continue => use_middleware(&mut self.core, f),
+                         | Status::Continue => Self::perform_many(&mut self.core, f(&req)),
                        });
 
       // TODO: do something with errors
@@ -303,21 +328,21 @@ mod tests {
 
   mod ware {
     use super::*;
-    pub fn panics(_: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+    pub fn panics(_: &Addrd<Req<Test>>) -> Actions<Test> {
       panic!()
     }
 
-    pub fn not_found(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+    pub fn not_found(req: &Addrd<Req<Test>>) -> Actions<Test> {
       let reply = req.as_ref().map(|req| {
                                 let mut resp = Resp::<Test>::for_request(req).unwrap();
                                 resp.set_code(code::NOT_FOUND);
                                 resp.into()
                               });
 
-      (Continue::Yes, Action::Send(reply))
+      Action::Send(reply).into()
     }
 
-    pub fn hello(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+    pub fn hello(req: &Addrd<Req<Test>>) -> Actions<Test> {
       if req.0.method() == Method::GET && req.0.path().unwrap() == Some("hello") {
         let reply = req.as_ref().map(|req| {
                                   let mut resp = Resp::<Test>::for_request(req).unwrap();
@@ -326,17 +351,17 @@ mod tests {
                                   resp.into()
                                 });
 
-        (Continue::No, Action::Send(reply))
+        Action::Send(reply).into()
       } else {
-        (Continue::Yes, Action::Nop)
+        Action::Nop.into()
       }
     }
 
-    pub fn exit(req: &Addrd<Req<Test>>) -> (Continue, Action<Test>) {
+    pub fn exit(req: &Addrd<Req<Test>>) -> Actions<Test> {
       if req.0.path().unwrap() == Some("exit") {
-        (Continue::No, Action::Exit)
+        Action::Exit.into()
       } else {
-        (Continue::Yes, Action::Nop)
+        Action::Nop.into()
       }
     }
   }

@@ -53,7 +53,7 @@ fn main() {
 
   let mut client = Client::new_std();
   let Addrd(req, mut addr) =
-    Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
+    Client::<Std>::listen_multicast(kwap::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
 
   let mut port_bytes = [0u8; 2];
   req.payload()

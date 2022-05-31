@@ -1,110 +1,84 @@
 use std::thread::JoinHandle;
 
-use kwap::blocking::server::{Action, Continue};
+use kwap::blocking::server::{Action, Actions};
 use kwap::net::{Addrd, Socket};
-use kwap::platform::{self, Std};
+use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::{code, Resp};
-use kwap_msg::Type;
 
 const PORT: u16 = 5634;
-static mut BROADCAST_RECIEVED: bool = false;
+pub const DISCOVERY_PORT: u16 = 1234;
 
-fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  let Addrd(resp, addr) = req.as_ref().map(|req| match req.msg_type() {
-                                        | Type::Con => Some(Resp::ack(req)),
-                                        | Type::Non => Some(Resp::con(req)),
-                                        | _ => None,
-                                      });
+mod service {
+  use Action::{Exit, Nop, SendReq, SendResp, Stop};
 
-  resp.map(|mut resp| {
-        resp.set_code(code::CONTENT);
-        resp.set_payload("goodbye, world!".bytes());
+  use super::*;
+  static mut BROADCAST_RECIEVED: bool = false;
 
-        match req.data().path().unwrap() {
-          | Some("exit") => (Continue::Yes, Action::Send(Addrd(resp.into(), addr))),
-          | _ => (Continue::Yes, Action::Nop),
-        }
-      })
-      .unwrap_or((Continue::Yes, Action::Nop))
-}
+  pub fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    match req.data().path().unwrap() {
+      | Some("exit") => {
+        let mut resp = req.as_ref().map(Resp::for_request).map(Option::unwrap);
 
-fn exit(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  match req.data().path().unwrap() {
-    | Some("exit") => {
-      log::info!("a client said exit");
-      (Continue::No, Action::Exit)
-    },
-    | _ => (Continue::Yes, Action::Nop),
+        resp.0.set_code(code::CONTENT);
+        resp.0.set_payload("goodbye, world!".bytes());
+        log::info!("a client said exit");
+        SendResp(resp).then(Exit)
+      },
+      | _ => Nop.into(),
+    }
   }
-}
 
-fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  match req.data().path().unwrap() {
-    | Some("hello") => {
-      log::info!("a client said hello");
-      let resp = req.as_ref()
-                    .map(Resp::for_request)
-                    .map(Option::unwrap)
-                    .map(|mut resp| {
-                      resp.set_code(code::CONTENT);
-                      resp.set_payload("hello, world!".bytes());
-                      resp
-                    });
-      (Continue::No, Action::Send(resp.map(Into::into)))
-    },
-    | _ => (Continue::Yes, Action::Nop),
+  pub fn say_hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    match req.data().path().unwrap() {
+      | Some("hello") => {
+        log::info!("a client said hello");
+        let resp = req.as_ref()
+                      .map(Resp::for_request)
+                      .map(Option::unwrap)
+                      .map(|mut resp| {
+                        resp.set_code(code::CONTENT);
+                        resp.set_payload("hello, world!".bytes());
+                        resp
+                      });
+        SendResp(resp).then(Stop)
+      },
+      | _ => Nop.into(),
+    }
   }
-}
 
-fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  log::info!("not found");
-  let resp = req.as_ref()
-                .map(Resp::for_request)
-                .map(Option::unwrap)
-                .map(|mut resp| {
-                  resp.set_code(code::NOT_FOUND);
-                  resp
-                });
-  (Continue::No, Action::Send(resp.map(Into::into)))
-}
+  pub fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    log::info!("not found");
+    let resp = req.as_ref()
+                  .map(Resp::for_request)
+                  .map(Option::unwrap)
+                  .map(|mut resp| {
+                    resp.set_code(code::NOT_FOUND);
+                    resp
+                  });
 
-fn log_msg(msg: &Addrd<platform::Message<Std>>) {
-  log::info!(
-             r#"{{
-  id: {:?},
-  token: {:?},
-  addr: {:?}
-}}"#,
-             msg.data().id,
-             msg.data().token,
-             msg.addr()
-  );
-}
-
-fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  unsafe {
-    BROADCAST_RECIEVED = true;
+    SendResp(resp).then(Stop)
   }
-  (Continue::Yes, Action::Nop)
-}
 
-fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  log::info!("recv:");
-  log_msg(&req.clone().map(Into::into));
-  (Continue::Yes, Action::Nop)
-}
+  pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
+    unsafe {
+      BROADCAST_RECIEVED = true;
+    }
+    Nop.into()
+  }
 
-fn on_tick() -> Action<Std> {
-  let received = unsafe { BROADCAST_RECIEVED };
-  if !received {
-    let addr = kwap::multicast::all_coap_devices(1234);
-    let mut req = Req::<Std>::post(addr, "");
-    req.non();
-    req.set_payload(PORT);
-    Action::SendReq(Addrd(req.into(), addr))
-  } else {
-    Action::Exit
+  pub fn on_tick() -> Actions<Std> {
+    let received = unsafe { BROADCAST_RECIEVED };
+    if !received {
+      let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
+      let mut req = Req::<Std>::post(addr, "");
+      req.non();
+      req.set_payload(PORT);
+
+      SendReq(Addrd(req, addr)).into()
+    } else {
+      Exit.into()
+    }
   }
 }
 
@@ -115,10 +89,10 @@ pub fn spawn() -> JoinHandle<()> {
 
                                let mut server =
                                  kwap::blocking::Server::<Std, Vec<_>>::new(sock, kwap::std::Clock::new());
-                               let out = server.start_tick(Some(&on_tick));
+                               let out = server.start_tick(Some(&service::on_tick));
 
                                if out.is_err() {
-                                 log::error!("panicked! {:?}", out);
+                                 log::error!("err! {:?}", out);
                                } else {
                                  log::info!("multicast broadcaster closing");
                                }
@@ -129,16 +103,15 @@ pub fn spawn() -> JoinHandle<()> {
                                let mut server =
                                  kwap::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
 
-                               server.middleware(&close_multicast_broadcast);
-                               server.middleware(&log);
-                               server.middleware(&exit_respond);
-                               server.middleware(&exit);
-                               server.middleware(&say_hello);
-                               server.middleware(&not_found);
+                               server.middleware(&service::close_multicast_broadcast);
+                               server.middleware(&service::exit);
+                               server.middleware(&service::say_hello);
+                               server.middleware(&service::not_found);
+
                                let out = server.start();
 
                                if out.is_err() {
-                                 log::error!("panicked! {:?}", out);
+                                 log::error!("err! {:?}", out);
                                }
                              })
                              .unwrap()
