@@ -148,7 +148,7 @@ impl Socket for SockMock {
     todo!()
   }
 
-  fn bind<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self, Self::Error> {
+  fn bind_raw<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self, Self::Error> {
     Ok(Self::new())
   }
 }

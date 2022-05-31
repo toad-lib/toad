@@ -105,14 +105,14 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// Create a new Server
   ///
   /// ```no_run
-  /// use kwap::blocking::server::{Action, Continue, Server};
+  /// use kwap::blocking::server::{Action, Actions, Server};
   /// use kwap::net::Addrd;
   /// use kwap::platform::{Message, Std};
   /// use kwap::req::Req;
   /// use kwap::resp::{code, Resp};
   /// use kwap::ContentFormat;
   ///
-  /// fn hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
+  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       let mut resp = Resp::for_request(req.data()).unwrap();
@@ -123,17 +123,17 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///
   ///       let msg = req.as_ref().map(|_| Message::<Std>::from(resp));
   ///
-  ///       (Continue::No, Action::Send(msg))
+  ///       Action::Send(msg).then(Action::Done)
   ///     },
-  ///     | _ => (Continue::Yes, Action::Nop),
+  ///     | _ => Action::Nop.into(),
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
+  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
   ///   let mut resp = Resp::for_request(req.data()).unwrap();
   ///   resp.set_code(code::NOT_FOUND);
   ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
-  ///   (Continue::No, Action::Send(msg))
+  ///   Action::Send(msg).then(Action::Done)
   /// }
   ///
   /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
