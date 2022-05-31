@@ -122,8 +122,7 @@ impl<P: Platform> Client<P> {
   pub fn listen_multicast(clock: P::Clock, port: u16) -> Result<Addrd<Req<P>>, Error<P>> {
     let addr = crate::multicast::all_coap_devices(port);
 
-    P::Socket::bind(addr).try_perform(|sock| sock.join_multicast(addr.ip()))
-                         .map_err(|e| When::None.what(What::SockError(e)))
+    P::Socket::bind(addr).map_err(|e| When::None.what(What::SockError(e)))
                          .map(|sock| Self::new(ClientConfig { clock, sock }))
                          .bind(|mut client| loop {
                            let start = client.core.clock.try_now().unwrap();

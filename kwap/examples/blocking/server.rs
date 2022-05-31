@@ -120,7 +120,7 @@ pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
                                let sock = <std::net::UdpSocket as Socket>::bind(kwap::multicast::all_coap_devices(5634)).unwrap();
-                               sock.join_multicast(kwap::multicast::all_coap_devices(1234).ip()).unwrap();
+                               // sock.join_multicast(kwap::multicast::ALL_COAP_DEVICES_ADDR.into()).unwrap();
 
                                let mut server =
                                  kwap::blocking::Server::<Std, Vec<_>>::new(sock, kwap::std::Clock::new());

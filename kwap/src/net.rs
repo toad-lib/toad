@@ -1,3 +1,4 @@
+use kwap_common::prelude::*;
 use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
@@ -60,7 +61,17 @@ pub trait Socket: Sized {
   type Error: core::fmt::Debug;
 
   /// TODO
-  fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error>;
+  fn bind_raw<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error>;
+
+  /// TODO
+  fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
+    let addr = addr.to_socket_addrs().unwrap().next().unwrap();
+
+    Self::bind_raw(addr).try_perform(|sock| match addr.ip() {
+                          | ip if ip.is_multicast() => sock.join_multicast(ip),
+                          | _ => Ok(()),
+                        })
+  }
 
   /// Send a message to a remote address
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error>;

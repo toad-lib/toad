@@ -55,7 +55,7 @@ impl Socket for std::net::UdpSocket {
         .map_err(io_to_nb)
   }
 
-  fn bind<A: no_std_net::ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
+  fn bind_raw<A: no_std_net::ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
     let addrs = addr.to_socket_addrs()
                     .unwrap()
                     .map(|no_std| addr::no_std::SockAddr(no_std).into())
