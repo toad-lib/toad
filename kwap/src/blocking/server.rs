@@ -16,7 +16,7 @@ use crate::resp::Resp;
 enum Status<Cfg: Platform> {
   Err(Error<Cfg>),
   Continue,
-  Stop,
+  Done,
   Exit,
 }
 
@@ -24,7 +24,7 @@ impl<Cfg: Platform> Status<Cfg> {
   fn bind_result(self, result: Result<(), Error<Cfg>>) -> Self {
     match &self {
       | Self::Err(_) => self,
-      | Self::Stop | Self::Exit | Self::Continue => result.map(|_| self)
+      | Self::Done | Self::Exit | Self::Continue => result.map(|_| self)
                                                           .map_err(|e| Self::Err(e))
                                                           .unwrap_or_else(|e| e),
     }
@@ -47,7 +47,7 @@ pub enum Action<Cfg: Platform> {
   /// Stop the server completely
   Exit,
   /// TODO
-  Stop,
+  Done,
   /// Do nothing
   Nop,
 }
@@ -196,7 +196,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
                                             opts: Default::default(),
                                             payload: kwap_msg::Payload(Default::default()) };
 
-        Action::Send(req.as_ref().map(|_| resp)).then(Action::Stop)
+        Action::Send(req.as_ref().map(|_| resp)).then(Action::Done)
       },
       | _ => Action::Nop.into(),
     }
@@ -242,7 +242,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
       | Action::Send(msg) => core.send_msg(msg),
       | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
       | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
-      | Action::Stop | Action::Exit => unreachable!(),
+      | Action::Done | Action::Exit => unreachable!(),
     }
   }
 
@@ -252,7 +252,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
            .filter_map(|o| o)
            .fold(Status::Continue, |status, action| match (status, action) {
              | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
-             | (Status::Stop, _) | (_, Action::Stop) => Status::Stop,
+             | (Status::Done, _) | (_, Action::Done) => Status::Done,
              | (status @ Status::Err(_), _) => status,
              | (status, action) => status.bind_result(Self::perform_one(core, action)),
            })
@@ -293,7 +293,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
       let status = self.fns
                        .iter()
                        .fold(Status::Continue, |status, f| match status {
-                         | Status::Exit | Status::Err(_) | Status::Stop => status,
+                         | Status::Exit | Status::Err(_) | Status::Done => status,
                          | Status::Continue => Self::perform_many(&mut self.core, f(&req)),
                        });
 

@@ -10,7 +10,7 @@ const PORT: u16 = 5634;
 pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
-  use Action::{Exit, Nop, SendReq, SendResp, Stop};
+  use Action::{Exit, Nop, SendReq, SendResp, Done};
 
   use super::*;
   static mut BROADCAST_RECIEVED: bool = false;
@@ -41,7 +41,7 @@ mod service {
                         resp.set_payload("hello, world!".bytes());
                         resp
                       });
-        SendResp(resp).then(Stop)
+        SendResp(resp).then(Done)
       },
       | _ => Nop.into(),
     }
@@ -57,7 +57,7 @@ mod service {
                     resp
                   });
 
-    SendResp(resp).then(Stop)
+    SendResp(resp).then(Done)
   }
 
   pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
