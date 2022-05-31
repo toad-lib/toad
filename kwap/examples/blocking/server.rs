@@ -8,6 +8,7 @@ use kwap::resp::{code, Resp};
 use kwap_msg::Type;
 
 const PORT: u16 = 5634;
+static mut BROADCAST_RECIEVED: bool = false;
 
 fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   let Addrd(resp, addr) = req.as_ref().map(|req| match req.msg_type() {
@@ -89,15 +90,10 @@ fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
 }
 
 fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  unsafe {
-    BROADCAST_RECIEVED = true;
-  }
   log::info!("recv:");
   log_msg(&req.clone().map(Into::into));
   (Continue::Yes, Action::Nop)
 }
-
-static mut BROADCAST_RECIEVED: bool = false;
 
 fn on_tick() -> Action<Std> {
   let received = unsafe { BROADCAST_RECIEVED };

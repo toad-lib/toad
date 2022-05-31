@@ -52,10 +52,15 @@ fn main() {
   let server = server::spawn();
 
   let mut client = Client::new_std();
-  let Addrd(req, mut addr) = Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
+  let Addrd(req, mut addr) =
+    Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
 
   let mut port_bytes = [0u8; 2];
-  req.payload().iter().take(2).enumerate().for_each(|(ix, b)| port_bytes[ix] = *b);
+  req.payload()
+     .iter()
+     .take(2)
+     .enumerate()
+     .for_each(|(ix, b)| port_bytes[ix] = *b);
 
   log::info!("Got multicast message from {:?}", addr);
   addr.set_port(u16::from_be_bytes(port_bytes));
