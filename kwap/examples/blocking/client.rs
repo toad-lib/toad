@@ -57,7 +57,7 @@ fn main() {
   log::info!("Got {:?} -> {}", addr, payload);
 
   log::info!("PING");
-  client.ping("127.0.0.1", 5683)
+  client.ping(format!("{}", addr.ip()), addr.port())
         .map(|_| log::info!("pinged ok!\n"))
         .unwrap();
 
