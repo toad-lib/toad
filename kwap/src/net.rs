@@ -1,4 +1,4 @@
-use no_std_net::{IpAddr, SocketAddr};
+use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket
@@ -37,6 +37,12 @@ impl<T> Addrd<T> {
   }
 }
 
+impl<T> AsMut<T> for Addrd<T> {
+  fn as_mut(&mut self) -> &mut T {
+    &mut self.0
+  }
+}
+
 /// A packet recieved over a UDP socket.
 ///
 /// Currently the capacity is hard-coded at 1152 bytes,
@@ -49,9 +55,12 @@ pub type Dgram = ArrayVec<[u8; 1152]>;
 ///
 /// One notable difference is that `connect`ing is expected to modify the internal state of a [`Socket`],
 /// not yield a connected socket type (like [`std::net::UdpSocket::connect`]).
-pub trait Socket {
+pub trait Socket: Sized {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
+
+  /// TODO
+  fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error>;
 
   /// Send a message to a remote address
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error>;
@@ -70,4 +79,7 @@ pub trait Socket {
       | Err(nb::Error::Other(e)) => Err(e),
     }
   }
+
+  /// TODO
+  fn join_multicast(&self, addr: no_std_net::IpAddr) -> Result<(), Self::Error>;
 }

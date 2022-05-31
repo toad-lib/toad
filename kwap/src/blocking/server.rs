@@ -1,13 +1,17 @@
+use kwap_common::fns::const_;
 use kwap_common::Array;
 use kwap_msg::Type;
+use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use tinyvec::ArrayVec;
 
 use crate::config::Config;
 use crate::core::{Core, Error};
-use crate::net::Addrd;
+use crate::net::{Addrd, Socket};
 #[cfg(feature = "std")]
 use crate::platform::Std;
 use crate::platform::{self, Platform};
 use crate::req::{Method, Req};
+use crate::resp::Resp;
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
@@ -53,6 +57,10 @@ pub enum Continue {
 /// Action to perform as a result of middleware
 #[derive(Clone, Debug)]
 pub enum Action<Cfg: Platform> {
+  /// Send a response
+  SendResp(Addrd<Resp<Cfg>>),
+  /// Send a request
+  SendReq(Addrd<Req<Cfg>>),
   /// Send a message
   Send(Addrd<platform::Message<Cfg>>),
   /// Stop the server completely
@@ -124,21 +132,30 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
                                            Self::new_config(config, sock, crate::std::Clock::new())
                                          })
   }
+
+  // /// Create a new server that listens on the "All CoAP devices" multicast address.
+  // pub fn std_new_multicast() -> Option<Self>
 }
 
-impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>>
-  Server<'a, Cfg, Middlewares>
+impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
+  Server<'a, P, Middlewares>
 {
   /// Construct a new Server for the current platform.
   ///
   /// If the standard library is available, see [`Server.try_new`].
-  pub fn new(sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
+  pub fn new(sock: P::Socket, clock: P::Clock) -> Self {
     Self::new_config(Config::default(), sock, clock)
   }
 
+  /// Construct a new Server for the current platform that listens on the
+  /// "All CoAP devices" multicast address.
+  pub fn new_multicast(clock: P::Clock, port: u16) -> Result<Self, <P::Socket as Socket>::Error> {
+    P::Socket::bind(crate::multicast::all_coap_devices(port)).map(|sock| Self::new(sock, clock))
+  }
+
   /// Create a new server with a specific runtime config
-  pub fn new_config(config: Config, sock: Cfg::Socket, clock: Cfg::Clock) -> Self {
-    let core = Core::<Cfg>::new_config(config, clock, sock);
+  pub fn new_config(config: Config, sock: P::Socket, clock: P::Clock) -> Self {
+    let core = Core::<P>::new_config(config, clock, sock);
 
     let mut self_ = Self { core,
                            fns: Default::default() };
@@ -150,16 +167,16 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
   /// Middleware function that responds to CoAP pings (EMPTY Confirmable messages)
   ///
   /// This is included when Server::new is invoked.
-  pub fn respond_ping(req: &Addrd<Req<Cfg>>) -> (Continue, Action<Cfg>) {
+  pub fn respond_ping(req: &Addrd<Req<P>>) -> (Continue, Action<P>) {
     match (req.data().method(), req.data().msg_type()) {
       | (Method::EMPTY, Type::Con) => {
-        let resp = platform::Message::<Cfg> { ver: Default::default(),
-                                              ty: Type::Reset,
-                                              id: req.data().msg_id(),
-                                              token: kwap_msg::Token(Default::default()),
-                                              code: kwap_msg::Code::new(0, 0),
-                                              opts: Default::default(),
-                                              payload: kwap_msg::Payload(Default::default()) };
+        let resp = platform::Message::<P> { ver: Default::default(),
+                                            ty: Type::Reset,
+                                            id: req.data().msg_id(),
+                                            token: kwap_msg::Token(Default::default()),
+                                            code: kwap_msg::Code::new(0, 0),
+                                            opts: Default::default(),
+                                            payload: kwap_msg::Payload(Default::default()) };
 
         (Continue::No, Action::Send(req.as_ref().map(|_| resp)))
       },
@@ -197,35 +214,75 @@ impl<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>
   /// server.middleware(not_found);
   /// server.middleware(hello);
   /// ```
-  pub fn middleware(&mut self, f: &'a Middleware<Cfg>) -> () {
+  pub fn middleware(&mut self, f: &'a Middleware<P>) -> () {
     self.fns.push(f);
   }
 
-  /// Start the server
-  pub fn start(&mut self) -> Result<(), Error<Cfg>> {
-    loop {
-      let req = nb::block!(self.core.poll_req())?;
+  fn perform(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
+    match action {
+      | Action::Nop => Ok(()),
+      | Action::Send(msg) => core.send_msg(msg),
+      | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
+      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
+      | Action::Exit => unreachable!(),
+    }
+  }
 
-      let mut use_middleware = |middleware: &&'a Middleware<Cfg>| match middleware(&req) {
-        | (cont, Action::Nop) => Status::<Cfg>::from_continue(cont),
-        | (cont, Action::Send(msg)) => {
-          Status::<Cfg>::from_continue(cont).bind_result(self.core.send_msg(msg))
-        },
-        | (_, Action::Exit) => Status::Exit,
-      };
+  /// Start the server
+  ///
+  /// A function may be provided (`on_tick`) that will be called every time
+  /// the server checks for an incoming request and finds none.
+  ///
+  /// This function can be used to send out-of-band messages.
+  ///
+  /// For example: in the case of a multicast listener, we need to both broadcast
+  /// on the multicast address "_Hey! I'm a CoAP server listening on "All CoAP nodes"_"
+  /// **and** act as a normal server that receives direct requests.
+  pub fn start_tick(&mut self, on_tick: Option<&'a dyn Fn() -> Action<P>>) -> Result<(), Error<P>> {
+    loop {
+      let req = loop {
+        match self.core.poll_req() {
+          | Ok(req) => break Ok(req),
+          | Err(nb::Error::Other(e)) => break Err(e),
+          | Err(nb::Error::WouldBlock) => {
+            // TODO: do something with errors
+            if let Some(on_tick) = on_tick {
+              let action = on_tick();
+              match action {
+                | Action::Exit => return Ok(()),
+                | other => Self::perform(&mut self.core, other).ok(),
+              };
+            }
+          },
+        }
+      }?;
+
+      let use_middleware =
+        |core: &mut Core<P>, middleware: &&'a Middleware<P>| match middleware(&req) {
+          | (_, Action::Exit) => Status::Exit,
+          | (cont, action) => {
+            Status::<P>::from_continue(cont).bind_result(Self::perform(core, action))
+          },
+        };
 
       let status = self.fns
                        .iter()
                        .fold(Status::Continue, |status, f| match status {
                          | Status::Exit | Status::Err(_) | Status::Stop => status,
-                         | Status::Continue => use_middleware(f),
+                         | Status::Continue => use_middleware(&mut self.core, f),
                        });
 
+      // TODO: do something with errors
       match status {
         | Status::Exit => return Ok(()),
         | _ => continue,
       }
     }
+  }
+
+  /// Start the server
+  pub fn start(&mut self) -> Result<(), Error<P>> {
+    self.start_tick(None)
   }
 }
 

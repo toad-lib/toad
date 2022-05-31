@@ -1,10 +1,10 @@
 use kwap::blocking::client::ClientResultExt;
 use kwap::blocking::Client;
 use kwap::core::Error;
+use kwap::net::Addrd;
 use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::Resp;
-use no_std_net::SocketAddr;
 
 #[path = "./server.rs"]
 mod server;
@@ -52,7 +52,9 @@ fn main() {
   let server = server::spawn();
 
   let mut client = Client::new_std();
-  let addr: SocketAddr = "127.0.0.1:5683".parse().unwrap();
+  let Addrd(req, addr) = Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
+  let payload = req.payload_str().unwrap();
+  log::info!("Got {:?} -> {}", addr, payload);
 
   log::info!("PING");
   client.ping("127.0.0.1", 5683)

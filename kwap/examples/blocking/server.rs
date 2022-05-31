@@ -1,7 +1,7 @@
 use std::thread::JoinHandle;
 
 use kwap::blocking::server::{Action, Continue};
-use kwap::net::Addrd;
+use kwap::net::{Addrd, Socket};
 use kwap::platform::{self, Std};
 use kwap::req::Req;
 use kwap::resp::{code, Resp};
@@ -79,17 +79,66 @@ fn log_msg(msg: &Addrd<platform::Message<Std>>) {
   );
 }
 
+fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
+  unsafe {
+    BROADCAST_RECIEVED = true;
+  }
+  (Continue::Yes, Action::Nop)
+}
+
 fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
+  unsafe {
+    BROADCAST_RECIEVED = true;
+  }
   log::info!("recv:");
   log_msg(&req.clone().map(Into::into));
   (Continue::Yes, Action::Nop)
 }
 
+static mut BROADCAST_RECIEVED: bool = false;
+
+fn on_tick() -> Action<Std> {
+  let received = unsafe { BROADCAST_RECIEVED };
+  if !received {
+    let addr = kwap::multicast::all_coap_devices(1234);
+    let mut req = Req::<Std>::post(addr, "");
+    req.non();
+    req.set_payload(
+                    r#"hi!
+i'm a CoAP server named Barry! :)
+This message has been sent to the "All CoAP Devices" multicast address.
+
+Please reach out to me directly to learn about what I can do!"#,
+    );
+    Action::SendReq(Addrd(req.into(), addr))
+  } else {
+    Action::Exit
+  }
+}
+
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
+                               let sock = <std::net::UdpSocket as Socket>::bind(kwap::multicast::all_coap_devices(5634)).unwrap();
+                               sock.join_multicast(kwap::multicast::all_coap_devices(1234).ip()).unwrap();
+
                                let mut server =
-                                 kwap::blocking::Server::try_new([127, 0, 0, 1], 5683).unwrap();
+                                 kwap::blocking::Server::<Std, Vec<_>>::new(sock, kwap::std::Clock::new());
+                               let out = server.start_tick(Some(&on_tick));
+
+                               if out.is_err() {
+                                 log::error!("panicked! {:?}", out);
+                               } else {
+                                 log::info!("multicast broadcaster closing");
+                               }
+                             }).ok();
+
+  std::thread::Builder::new().stack_size(32 * 1024 * 1024)
+                             .spawn(|| {
+                               let mut server =
+                                 kwap::blocking::Server::try_new([192, 168, 0, 45], 5634).unwrap();
+
+                               server.middleware(&close_multicast_broadcast);
                                server.middleware(&log);
                                server.middleware(&exit_respond);
                                server.middleware(&exit);

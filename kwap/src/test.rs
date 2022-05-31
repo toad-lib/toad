@@ -143,6 +143,14 @@ impl Socket for SockMock {
     vec.push(buf.map(Vec::from));
     Ok(())
   }
+
+  fn join_multicast(&self, _: no_std_net::IpAddr) -> Result<(), Self::Error> {
+    todo!()
+  }
+
+  fn bind<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self, Self::Error> {
+    Ok(Self::new())
+  }
 }
 
 #[test]

@@ -1,6 +1,6 @@
 use core::mem;
 
-use embedded_time::duration::Milliseconds;
+use embedded_time::duration::{Duration, Milliseconds};
 use embedded_time::{Clock, Instant};
 use kwap_common::prelude::*;
 use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
@@ -46,7 +46,7 @@ pub struct Core<P: Platform> {
   retry_q: Buffer<Retryable<P, Addrd<platform::Message<P>>>, 16>,
 
   sock: P::Socket,
-  clock: P::Clock,
+  pub(crate) clock: P::Clock,
 
   largest_msg_id_seen: Option<u16>,
   rand: rand_chacha::ChaCha8Rng,
@@ -462,26 +462,34 @@ impl<P: Platform> Core<P> {
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .map(|host| host.parse::<IpAddr>().unwrap())
                                .map(|host| SocketAddr::new(host, port))
-                               .map(|host| {
-                                 if req.id.is_none() {
-                                   req.set_msg_id(self.next_id(host));
-                                 }
-                                 if req.token.is_none() {
-                                   req.set_msg_token(self.next_token(host));
-                                 }
+                               .bind(|host| self.send_addrd_req(Addrd(req, host)))
+  }
 
-                                 (req.msg_token(), host)
-                               })
-                               .and_then(|(token, addr)| {
-                                 let msg = platform::Message::<P>::from(req);
-                                 // TODO: avoid this clone?
-                                 self.retryable(when, Addrd(msg.clone(), addr))
-                                     .map(|msg| self.retry_q.push(Some(msg)))
-                                     .map(|_| (token, addr, Addrd(msg, addr)))
-                               })
-                               .bind(|(token, addr, msg)| {
-                                 Self::send_msg_sock(&mut self.sock, msg).map(|()| (token, addr))
-                               })
+  pub(crate) fn send_addrd_req(&mut self,
+                               mut req: Addrd<Req<P>>)
+                               -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+    let addr = req.addr();
+
+    if req.data().id.is_none() {
+      req.as_mut().set_msg_id(self.next_id(addr));
+    }
+
+    if req.data().token.is_none() {
+      req.as_mut().set_msg_token(self.next_token(addr));
+    }
+
+    let msg = req.map(platform::Message::<P>::from);
+    let token = msg.data().token;
+
+    // TODO: avoid this clone?
+    self.retryable(When::None, msg.clone())
+        .map(|msg| {
+          if msg.0.data().ty == Type::Con {
+            self.retry_q.push(Some(msg))
+          }
+        })
+        .bind(|_| Self::send_msg_sock(&mut self.sock, msg))
+        .map(|()| (token, addr))
   }
 
   /// Send a message to a remote socket

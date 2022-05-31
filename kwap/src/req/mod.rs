@@ -67,12 +67,21 @@ use crate::platform::{self, Platform};
 ///   }
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Req<P: Platform> {
   pub(crate) msg: platform::Message<P>,
   pub(crate) id: Option<Id>,
   pub(crate) token: Option<Token>,
   pub(crate) opts: Option<P::NumberedOptions>,
+}
+
+impl<P: Platform> Clone for Req<P> {
+  fn clone(&self) -> Self {
+    Self { msg: self.msg.clone(),
+           id: self.id,
+           token: self.token,
+           opts: self.opts.clone() }
+  }
 }
 
 impl<P: Platform> Req<P> {
