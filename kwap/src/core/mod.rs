@@ -500,6 +500,7 @@ impl<P: Platform> Core<P> {
   fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::None;
+
     log::trace!("sending {} -> {}",
                 logging::msg_summary::<P>(msg.data()).as_str(),
                 msg.addr());

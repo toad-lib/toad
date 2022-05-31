@@ -7,6 +7,8 @@ use kwap::req::Req;
 use kwap::resp::{code, Resp};
 use kwap_msg::Type;
 
+const PORT: u16 = 5634;
+
 fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
   let Addrd(resp, addr) = req.as_ref().map(|req| match req.msg_type() {
                                         | Type::Con => Some(Resp::ack(req)),
@@ -103,13 +105,7 @@ fn on_tick() -> Action<Std> {
     let addr = kwap::multicast::all_coap_devices(1234);
     let mut req = Req::<Std>::post(addr, "");
     req.non();
-    req.set_payload(
-                    r#"hi!
-i'm a CoAP server named Barry! :)
-This message has been sent to the "All CoAP Devices" multicast address.
-
-Please reach out to me directly to learn about what I can do!"#,
-    );
+    req.set_payload(PORT);
     Action::SendReq(Addrd(req.into(), addr))
   } else {
     Action::Exit
@@ -119,8 +115,7 @@ Please reach out to me directly to learn about what I can do!"#,
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
-                               let sock = <std::net::UdpSocket as Socket>::bind(kwap::multicast::all_coap_devices(5634)).unwrap();
-                               // sock.join_multicast(kwap::multicast::ALL_COAP_DEVICES_ADDR.into()).unwrap();
+                               let sock = <std::net::UdpSocket as Socket>::bind(kwap::multicast::all_coap_devices(1235)).unwrap();
 
                                let mut server =
                                  kwap::blocking::Server::<Std, Vec<_>>::new(sock, kwap::std::Clock::new());
@@ -136,7 +131,7 @@ pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
                                let mut server =
-                                 kwap::blocking::Server::try_new([192, 168, 0, 45], 5634).unwrap();
+                                 kwap::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
 
                                server.middleware(&close_multicast_broadcast);
                                server.middleware(&log);

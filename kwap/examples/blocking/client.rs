@@ -52,9 +52,14 @@ fn main() {
   let server = server::spawn();
 
   let mut client = Client::new_std();
-  let Addrd(req, addr) = Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
-  let payload = req.payload_str().unwrap();
-  log::info!("Got {:?} -> {}", addr, payload);
+  let Addrd(req, mut addr) = Client::<Std>::listen_multicast(kwap::std::Clock::new(), 1234).unwrap();
+
+  let mut port_bytes = [0u8; 2];
+  req.payload().iter().take(2).enumerate().for_each(|(ix, b)| port_bytes[ix] = *b);
+
+  log::info!("Got multicast message from {:?}", addr);
+  addr.set_port(u16::from_be_bytes(port_bytes));
+  log::info!("Server's location is {:?}", addr);
 
   log::info!("PING");
   client.ping(format!("{}", addr.ip()), addr.port())

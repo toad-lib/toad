@@ -82,7 +82,7 @@ impl Client<Std> {
   /// Create a new std client with a specific runtime config
   pub fn new_std_config(config: Config) -> Self {
     let clock = crate::std::Clock::new();
-    let sock = std::net::UdpSocket::bind("127.0.0.1:4812").unwrap();
+    let sock = std::net::UdpSocket::bind("0.0.0.0:1111").unwrap();
     Client::<Std>::new_config(config, ClientConfig { clock, sock })
   }
 }
