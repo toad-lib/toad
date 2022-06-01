@@ -39,35 +39,102 @@ pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> Actions<Cfg>;
 #[non_exhaustive]
 pub enum Action<P: Platform> {
   /// Send a response
+  ///
+  /// No middleware functions will be called after this
+  /// action is processed unless this is followed by [`Action::Continue`].
+  ///
+  /// ```no_run
+  /// use kwap::blocking::server::{Action, Actions, Server};
+  /// use kwap::net::Addrd;
+  /// use kwap::platform::{Message, Std};
+  /// use kwap::req::Req;
+  /// use kwap::resp::{code, Resp};
+  /// use kwap::ContentFormat;
+  ///
+  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  ///   match req.data().path() {
+  ///     | Ok(Some("hello")) => {
+  ///       let resp = Resp::for_request(req.data()).unwrap();
+  ///       // ... set up resp to have hello-y things
+  ///
+  ///       // NOTE: the not_found middleware function will not be called
+  ///       // because this is not followed by Action::Continue.
+  ///       Action::SendResp(resp).into()
+  ///     },
+  ///     | _ => Action::Continue.into(),
+  ///   }
+  /// }
+  ///
+  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  ///   let mut resp = Resp::for_request(req.data()).unwrap();
+  ///   resp.set_code(code::NOT_FOUND);
+  ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
+  ///   Action::Send(msg).into()
+  /// }
+  ///
+  /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
+  /// server.middleware(&hello);
+  /// server.middleware(&not_found);
+  /// ```
   SendResp(Addrd<Resp<P>>),
   /// Send a request
+  ///
+  /// Like [`Action::SendResp`], sending a request
+  /// will prevent subsequent middlewares from
+  /// being called, unless followed by [`Action::Continue`].
   SendReq(Addrd<Req<P>>),
   /// Send a message
+  ///
+  /// Like [`Action::SendResp`], sending a request
+  /// will prevent subsequent middlewares from
+  /// being called, unless followed by [`Action::Continue`].
   Send(Addrd<platform::Message<P>>),
-  /// Stop the server completely
+  /// Stop the server completely.
+  ///
+  /// This will ignore any & all [`Action`]s that follow,
+  /// prevent any more middleware processing, and
+  /// [`Server::start`] will return `Ok(())`.
   Exit,
-  /// TODO
+  /// The server should continue processing this request
+  ///
+  /// All `Send` actions imply that by sending a message,
+  /// you have fully processed a request and don't want middlewares
+  /// down the chain to be called or allowed to process the request.
+  ///
+  /// `Continue` allows you to opt-out of this implication, and
+  /// middleware will continue to be called on the request.
   Continue,
 }
 
 impl<P: Platform> Action<P> {
-  /// TODO
+  /// After this action has successfully been performed,
+  /// do this one next
+  ///
+  /// ```
+  /// /// The server should respond OK to the request then exit
+  /// fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  ///   Action::SendResp(req.map(Resp::for_request).map(Option::unwrap)).then(Action::Exit)
+  /// }
+  /// ```
   pub fn then(self, action: Action<P>) -> Actions<P> {
     Actions::just(self).then(action)
   }
 }
 
-/// TODO
+/// Between 1 and 16 Actions that should be performed serially
 #[derive(Clone, Debug)]
 pub struct Actions<P: Platform>(tinyvec::ArrayVec<[Option<Action<P>>; 16]>);
 
 impl<P: Platform> Actions<P> {
-  /// TODO
+  /// Create a list of Actions from a single Action
+  ///
+  /// (You can also use the provided `Into` impl)
   pub fn just(action: Action<P>) -> Self {
     action.into()
   }
 
-  /// TODO
+  /// Perform another action after successfully performing
+  /// all of the existing Actions
   pub fn then(mut self, action: Action<P>) -> Self {
     self.0.push(Some(action));
     self
