@@ -127,12 +127,10 @@ impl<P: Platform> Client<P> {
                          .bind(|mut client| loop {
                            let start = client.core.clock.try_now().unwrap();
                            let since_start = |clock: &P::Clock| {
-                             Milliseconds::<u64>::try_from(
-                                                                      clock
-                                                                      .try_now()
-                                                                      .unwrap()
-                                                                - start).unwrap()
+                             let now = clock.try_now().unwrap();
+                             Milliseconds::<u64>::try_from(now - start).unwrap()
                            };
+
                            match client.core.poll_req() {
                              | Err(nb::Error::Other(e)) => {
                                log::error!("{:?}", e);
@@ -144,8 +142,8 @@ impl<P: Platform> Client<P> {
                                log::error!("timeout");
                                break Err(When::None.what(What::Timeout));
                              },
+                             | Err(nb::Error::WouldBlock) => (),
                              | Ok(x) => break Ok(x),
-                             | _ => (),
                            }
                          })
   }
