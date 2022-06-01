@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.9.0 (2022-06-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** add support for multicast, improve server ux (#129)
+
+### Features
+
+* **kwap:** add support for multicast, improve server ux ([#129](https://github.com/clov-coffee/kwap/issues/129)) ([0ebfcd0](https://github.com/clov-coffee/kwap/commit/0ebfcd0a7a2a74ca928b9d10602f9d24420d3404))
+
 ### 0.8.1 (2022-05-26)
 
 
