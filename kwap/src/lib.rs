@@ -89,19 +89,22 @@ mod option;
 
 pub use option::{ContentFormat, ToCoapValue};
 
-/// TODO
+/// Helper constants and functions for creating multicast addresses
 pub mod multicast {
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-  /// IP v4 "All CoAP devices" multicast address.
+  /// IPv4 "All CoAP devices" multicast address.
   ///
   /// If using multicast to discover devices, it's recommended
   /// that you use this address with a port specific to your application.
-  pub const ALL_COAP_DEVICES_ADDR: Ipv4Addr = Ipv4Addr::new(224, 0, 1, 187);
+  pub const ALL_COAP_DEVICES_IP: Ipv4Addr = Ipv4Addr::new(224, 0, 1, 187);
 
-  /// TODO
+  /// Create a SocketAddr (IP + port) with the [`ALL_COAP_DEVICES_IP`] address
+  ///
+  /// If using multicast to discover devices, it's recommended
+  /// that you use this address with a port specific to your application.
   pub const fn all_coap_devices(port: u16) -> SocketAddr {
-    SocketAddr::V4(SocketAddrV4::new(ALL_COAP_DEVICES_ADDR, port))
+    SocketAddr::V4(SocketAddrV4::new(ALL_COAP_DEVICES_IP, port))
   }
 }
 
