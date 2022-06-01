@@ -1,4 +1,4 @@
-use embedded_time::duration::{Duration, Milliseconds};
+use embedded_time::duration::Milliseconds;
 use embedded_time::Clock;
 use kwap_common::prelude::*;
 use no_std_net::SocketAddr;

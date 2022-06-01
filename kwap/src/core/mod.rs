@@ -1,6 +1,6 @@
 use core::mem;
 
-use embedded_time::duration::{Duration, Milliseconds};
+use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
 use kwap_common::prelude::*;
 use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
@@ -13,14 +13,14 @@ mod error;
 pub use error::*;
 
 use crate::config::{Config, ConfigData};
-use crate::logging::{self, msg_summary};
+use crate::logging;
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-use crate::todo::{code_to_human, Capacity};
+use crate::todo::Capacity;
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -439,7 +439,7 @@ impl<P: Platform> Core<P> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
   /// ```
-  pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+  pub fn send_req(&mut self, req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value
                          .0

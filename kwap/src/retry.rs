@@ -181,7 +181,7 @@ impl Strategy {
   /// Given the initial delay and number of attempts that have been performed,
   /// yields the delay until the next retry should be attempted.
   const fn total_delay_exp(Milliseconds(init): Milliseconds<u64>, attempt: u16) -> u64 {
-    // | attempt | delay until next |
+    // | attempt | total delay      |
     // | 1       | init             |
     // | 2       | init * 2         |
     // | 3       | init * 4         |
@@ -259,6 +259,7 @@ mod test {
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Cry);
   }
 
+  #[test]
   fn exponential_retrier() {
     #![allow(unused_assignments)]
 
@@ -268,32 +269,43 @@ mod test {
     let mut retry = RetryTimer::new(now(),
                                     Strategy::Exponential { init_min: Milliseconds(1000),
                                                             init_max: Milliseconds(1000) },
-                                    Attempts(5));
+                                    Attempts(6));
 
     // attempt 1 happens before asking what_should_i_do
 
     time_millis = 999;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
                nb::Error::WouldBlock);
+
     time_millis = 1000;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 1999;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
                nb::Error::WouldBlock);
+
     time_millis = 2000;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 3999;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap_err(),
                nb::Error::WouldBlock);
+
     time_millis = 4000;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 8_000;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     time_millis = 16_000;
+    println!("{}", time_millis);
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Retry);
 
     assert_eq!(retry.what_should_i_do(now()).unwrap(), YouShould::Cry);

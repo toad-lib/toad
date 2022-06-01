@@ -1,7 +1,6 @@
 #![allow(clippy::many_single_char_names)]
 
 use std::io;
-use std::thread::LocalKey;
 
 use embedded_time::rate::Fraction;
 use kwap_common::prelude::*;

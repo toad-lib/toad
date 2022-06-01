@@ -10,7 +10,7 @@ const PORT: u16 = 5634;
 pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
-  use Action::{Done, Exit, Nop, SendReq, SendResp};
+  use Action::{Continue, Exit, SendReq, SendResp};
 
   use super::*;
   static mut BROADCAST_RECIEVED: bool = false;
@@ -25,7 +25,7 @@ mod service {
         log::info!("a client said exit");
         SendResp(resp).then(Exit)
       },
-      | _ => Nop.into(),
+      | _ => Continue.into(),
     }
   }
 
@@ -41,9 +41,9 @@ mod service {
                         resp.set_payload("hello, world!".bytes());
                         resp
                       });
-        SendResp(resp).then(Done)
+        SendResp(resp).into()
       },
-      | _ => Nop.into(),
+      | _ => Continue.into(),
     }
   }
 
@@ -57,14 +57,15 @@ mod service {
                     resp
                   });
 
-    SendResp(resp).then(Done)
+    SendResp(resp).into()
   }
 
   pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
     unsafe {
       BROADCAST_RECIEVED = true;
     }
-    Nop.into()
+
+    Continue.into()
   }
 
   pub fn on_tick() -> Actions<Std> {
@@ -75,7 +76,7 @@ mod service {
       req.non();
       req.set_payload(PORT);
 
-      SendReq(Addrd(req, addr)).into()
+      SendReq(Addrd(req, addr)).then(Continue)
     } else {
       Exit.into()
     }

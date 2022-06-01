@@ -37,24 +37,22 @@ pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> Actions<Cfg>;
 /// Action to perform as a result of middleware
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum Action<Cfg: Platform> {
+pub enum Action<P: Platform> {
   /// Send a response
-  SendResp(Addrd<Resp<Cfg>>),
+  SendResp(Addrd<Resp<P>>),
   /// Send a request
-  SendReq(Addrd<Req<Cfg>>),
+  SendReq(Addrd<Req<P>>),
   /// Send a message
-  Send(Addrd<platform::Message<Cfg>>),
+  Send(Addrd<platform::Message<P>>),
   /// Stop the server completely
   Exit,
   /// TODO
-  Done,
-  /// Do nothing
-  Nop,
+  Continue,
 }
 
 impl<P: Platform> Action<P> {
   /// TODO
-  pub fn then(mut self, action: Action<P>) -> Actions<P> {
+  pub fn then(self, action: Action<P>) -> Actions<P> {
     Actions::just(self).then(action)
   }
 }
@@ -95,8 +93,8 @@ impl<P: Platform> Into<Actions<P>> for Action<P> {
 /// See the documentation for [`Server.try_new`] for example usage.
 // TODO(#85): allow opt-out of always piggybacked ack responses
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, Cfg: Platform, Middlewares: 'static + Array<Item = &'a Middleware<Cfg>>> {
-  core: Core<Cfg>,
+pub struct Server<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>> {
+  core: Core<P>,
   fns: Middlewares,
 }
 
@@ -123,9 +121,9 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///
   ///       let msg = req.as_ref().map(|_| Message::<Std>::from(resp));
   ///
-  ///       Action::Send(msg).then(Action::Done)
+  ///       Action::Send(msg).into()
   ///     },
-  ///     | _ => Action::Nop.into(),
+  ///     | _ => Action::Continue.into(),
   ///   }
   /// }
   ///
@@ -133,7 +131,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///   let mut resp = Resp::for_request(req.data()).unwrap();
   ///   resp.set_code(code::NOT_FOUND);
   ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
-  ///   Action::Send(msg).then(Action::Done)
+  ///   Action::Send(msg).into()
   /// }
   ///
   /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
@@ -196,9 +194,9 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
                                             opts: Default::default(),
                                             payload: kwap_msg::Payload(Default::default()) };
 
-        Action::Send(req.as_ref().map(|_| resp)).then(Action::Done)
+        Action::Send(req.as_ref().map(|_| resp)).into()
       },
-      | _ => Action::Nop.into(),
+      | _ => Action::Continue.into(),
     }
   }
 
@@ -211,11 +209,11 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   /// Middleware functions are called in the order that they were registered.
   ///
   /// ```ignore
-  /// fn hello(Addrd<Req<Cfg>>) -> (Continue, Action) {
+  /// fn hello(Addrd<Req<P>>) -> Actions<P> {
   ///   /*
   ///     path == "hello"
-  ///     ? (Continue::No, Action::Send(2.05 CONTENT))
-  ///     : (Continue::Yes, Action::Nop)
+  ///     ? Action::Send(2.05 CONTENT).into()
+  ///     : Action::Continue
   ///   */
   /// }
   ///
@@ -238,11 +236,11 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
 
   fn perform_one(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
     match action {
-      | Action::Nop => Ok(()),
+      | Action::Continue => Ok(()),
       | Action::Send(msg) => core.send_msg(msg),
       | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
       | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
-      | Action::Done | Action::Exit => unreachable!(),
+      | Action::Exit => unreachable!(),
     }
   }
 
@@ -252,7 +250,8 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
            .filter_map(|o| o)
            .fold(Status::Continue, |status, action| match (status, action) {
              | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
-             | (Status::Done, _) | (_, Action::Done) => Status::Done,
+             | (Status::Done, Action::Continue) => Status::Continue,
+             | (Status::Done, _) => Status::Done,
              | (status @ Status::Err(_), _) => status,
              | (status, action) => status.bind_result(Self::perform_one(core, action)),
            })
@@ -353,7 +352,7 @@ mod tests {
 
         Action::Send(reply).into()
       } else {
-        Action::Nop.into()
+        Action::Continue.into()
       }
     }
 
@@ -361,7 +360,7 @@ mod tests {
       if req.0.path().unwrap() == Some("exit") {
         Action::Exit.into()
       } else {
-        Action::Nop.into()
+        Action::Continue.into()
       }
     }
   }
