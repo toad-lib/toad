@@ -60,10 +60,21 @@ pub trait Socket: Sized {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
 
-  /// TODO
+  /// Bind the socket to an address, without doing any spooky magic things like switching to non-blocking mode
+  /// or auto-detecting and joining multicast groups.
+  ///
+  /// Implementors of `bind_raw` should:
+  ///  - yield a socket in a non-blocking state
+  ///  - bind to the first address if `addr` yields multiple addresses
   fn bind_raw<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error>;
 
-  /// TODO
+  /// Binds the socket to a local address.
+  ///
+  /// The behavior of `addr` yielding multiple addresses is implementation-specific,
+  /// but will most likely bind to the first address that is available.
+  ///
+  /// This function will automatically invoke [`Socket::join_multicast`] if the address
+  /// is a multicast address, and should yield a non-blocking socket.
   fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
     let addr = addr.to_socket_addrs().unwrap().next().unwrap();
 
@@ -91,6 +102,6 @@ pub trait Socket: Sized {
     }
   }
 
-  /// TODO
+  /// Join a multicast group
   fn join_multicast(&self, addr: no_std_net::IpAddr) -> Result<(), Self::Error>;
 }
