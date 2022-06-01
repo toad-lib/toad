@@ -47,28 +47,21 @@ impl Log for Result<Option<Resp<Std>>, Error<Std>> {
 }
 
 fn main() {
-  simple_logger::init_with_level(log::Level::Trace).unwrap();
+  // simple_logger::init_with_level(log::Level::Trace).unwrap();
+  simple_logger::init_with_level(log::Level::Info).unwrap();
 
   let server = server::spawn();
 
   let mut client = Client::new_std();
-  let Addrd(req, mut addr) =
+  let Addrd(_, addr) =
     Client::<Std>::listen_multicast(kwap::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
 
-  let mut port_bytes = [0u8; 2];
-  req.payload()
-     .iter()
-     .take(2)
-     .enumerate()
-     .for_each(|(ix, b)| port_bytes[ix] = *b);
-
   log::info!("Got multicast message from {:?}", addr);
-  addr.set_port(u16::from_be_bytes(port_bytes));
   log::info!("Server's location is {:?}", addr);
 
   log::info!("PING");
   client.ping(format!("{}", addr.ip()), addr.port())
-        .map(|_| log::info!("pinged ok!\n"))
+        .map(|_| log::info!("pinged ok!"))
         .unwrap();
 
   log::info!("CON GET /hello");
@@ -93,7 +86,7 @@ fn main() {
   client.send(req).log();
 
   log::info!("CON GET /exit");
-  let req = Req::get(addr, "exit");
+  let req = Req::post(addr, "exit");
   client.send(req).log();
 
   server.join().unwrap();
