@@ -253,7 +253,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
              | (Status::Done, Action::Continue) => Status::Continue,
              | (Status::Done, _) => Status::Done,
              | (status @ Status::Err(_), _) => status,
-             | (status, action) => status.bind_result(Self::perform_one(core, action)),
+             | (_, action) => Status::Done.bind_result(Self::perform_one(core, action)),
            })
   }
 
