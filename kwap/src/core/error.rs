@@ -61,4 +61,6 @@ pub enum What<P: Platform> {
   ///
   /// See [`embedded_time::clock::Error`]
   ClockError,
+  /// Something timed out
+  Timeout,
 }

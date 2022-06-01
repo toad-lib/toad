@@ -1,10 +1,10 @@
 use kwap::blocking::client::ClientResultExt;
 use kwap::blocking::Client;
 use kwap::core::Error;
+use kwap::net::Addrd;
 use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::Resp;
-use no_std_net::SocketAddr;
 
 #[path = "./server.rs"]
 mod server;
@@ -47,16 +47,21 @@ impl Log for Result<Option<Resp<Std>>, Error<Std>> {
 }
 
 fn main() {
-  simple_logger::init_with_level(log::Level::Trace).unwrap();
+  // simple_logger::init_with_level(log::Level::Trace).unwrap();
+  simple_logger::init_with_level(log::Level::Info).unwrap();
 
   let server = server::spawn();
 
   let mut client = Client::new_std();
-  let addr: SocketAddr = "127.0.0.1:5683".parse().unwrap();
+  let Addrd(_, addr) =
+    Client::<Std>::listen_multicast(kwap::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
+
+  log::info!("Got multicast message from {:?}", addr);
+  log::info!("Server's location is {:?}", addr);
 
   log::info!("PING");
-  client.ping("127.0.0.1", 5683)
-        .map(|_| log::info!("pinged ok!\n"))
+  client.ping(format!("{}", addr.ip()), addr.port())
+        .map(|_| log::info!("pinged ok!"))
         .unwrap();
 
   log::info!("CON GET /hello");
@@ -81,7 +86,7 @@ fn main() {
   client.send(req).log();
 
   log::info!("CON GET /exit");
-  let req = Req::get(addr, "exit");
+  let req = Req::post(addr, "exit");
   client.send(req).log();
 
   server.join().unwrap();

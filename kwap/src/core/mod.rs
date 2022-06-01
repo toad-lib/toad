@@ -13,14 +13,14 @@ mod error;
 pub use error::*;
 
 use crate::config::{Config, ConfigData};
-use crate::logging::{self, msg_summary};
+use crate::logging;
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
-use crate::todo::{code_to_human, Capacity};
+use crate::todo::Capacity;
 
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
@@ -46,7 +46,7 @@ pub struct Core<P: Platform> {
   retry_q: Buffer<Retryable<P, Addrd<platform::Message<P>>>, 16>,
 
   sock: P::Socket,
-  clock: P::Clock,
+  pub(crate) clock: P::Clock,
 
   largest_msg_id_seen: Option<u16>,
   rand: rand_chacha::ChaCha8Rng,
@@ -439,7 +439,7 @@ impl<P: Platform> Core<P> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
   /// ```
-  pub fn send_req(&mut self, mut req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+  pub fn send_req(&mut self, req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value
                          .0
@@ -462,26 +462,34 @@ impl<P: Platform> Core<P> {
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .map(|host| host.parse::<IpAddr>().unwrap())
                                .map(|host| SocketAddr::new(host, port))
-                               .map(|host| {
-                                 if req.id.is_none() {
-                                   req.set_msg_id(self.next_id(host));
-                                 }
-                                 if req.token.is_none() {
-                                   req.set_msg_token(self.next_token(host));
-                                 }
+                               .bind(|host| self.send_addrd_req(Addrd(req, host)))
+  }
 
-                                 (req.msg_token(), host)
-                               })
-                               .and_then(|(token, addr)| {
-                                 let msg = platform::Message::<P>::from(req);
-                                 // TODO: avoid this clone?
-                                 self.retryable(when, Addrd(msg.clone(), addr))
-                                     .map(|msg| self.retry_q.push(Some(msg)))
-                                     .map(|_| (token, addr, Addrd(msg, addr)))
-                               })
-                               .bind(|(token, addr, msg)| {
-                                 Self::send_msg_sock(&mut self.sock, msg).map(|()| (token, addr))
-                               })
+  pub(crate) fn send_addrd_req(&mut self,
+                               mut req: Addrd<Req<P>>)
+                               -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+    let addr = req.addr();
+
+    if req.data().id.is_none() {
+      req.as_mut().set_msg_id(self.next_id(addr));
+    }
+
+    if req.data().token.is_none() {
+      req.as_mut().set_msg_token(self.next_token(addr));
+    }
+
+    let msg = req.map(platform::Message::<P>::from);
+    let token = msg.data().token;
+
+    // TODO: avoid this clone?
+    self.retryable(When::None, msg.clone())
+        .map(|msg| {
+          if msg.0.data().ty == Type::Con {
+            self.retry_q.push(Some(msg))
+          }
+        })
+        .bind(|_| Self::send_msg_sock(&mut self.sock, msg))
+        .map(|()| (token, addr))
   }
 
   /// Send a message to a remote socket
@@ -492,6 +500,7 @@ impl<P: Platform> Core<P> {
   fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::None;
+
     log::trace!("sending {} -> {}",
                 logging::msg_summary::<P>(msg.data()).as_str(),
                 msg.addr());

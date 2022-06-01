@@ -1,4 +1,5 @@
-use no_std_net::{IpAddr, SocketAddr};
+use kwap_common::prelude::*;
+use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket
@@ -37,6 +38,12 @@ impl<T> Addrd<T> {
   }
 }
 
+impl<T> AsMut<T> for Addrd<T> {
+  fn as_mut(&mut self) -> &mut T {
+    &mut self.0
+  }
+}
+
 /// A packet recieved over a UDP socket.
 ///
 /// Currently the capacity is hard-coded at 1152 bytes,
@@ -49,9 +56,33 @@ pub type Dgram = ArrayVec<[u8; 1152]>;
 ///
 /// One notable difference is that `connect`ing is expected to modify the internal state of a [`Socket`],
 /// not yield a connected socket type (like [`std::net::UdpSocket::connect`]).
-pub trait Socket {
+pub trait Socket: Sized {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
+
+  /// Bind the socket to an address, without doing any spooky magic things like switching to non-blocking mode
+  /// or auto-detecting and joining multicast groups.
+  ///
+  /// Implementors of `bind_raw` should:
+  ///  - yield a socket in a non-blocking state
+  ///  - bind to the first address if `addr` yields multiple addresses
+  fn bind_raw<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error>;
+
+  /// Binds the socket to a local address.
+  ///
+  /// The behavior of `addr` yielding multiple addresses is implementation-specific,
+  /// but will most likely bind to the first address that is available.
+  ///
+  /// This function will automatically invoke [`Socket::join_multicast`] if the address
+  /// is a multicast address, and should yield a non-blocking socket.
+  fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
+    let addr = addr.to_socket_addrs().unwrap().next().unwrap();
+
+    Self::bind_raw(addr).try_perform(|sock| match addr.ip() {
+                          | ip if ip.is_multicast() => sock.join_multicast(ip),
+                          | _ => Ok(()),
+                        })
+  }
 
   /// Send a message to a remote address
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error>;
@@ -70,4 +101,7 @@ pub trait Socket {
       | Err(nb::Error::Other(e)) => Err(e),
     }
   }
+
+  /// Join a multicast group
+  fn join_multicast(&self, addr: no_std_net::IpAddr) -> Result<(), Self::Error>;
 }

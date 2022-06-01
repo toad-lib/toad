@@ -1,104 +1,115 @@
 use std::thread::JoinHandle;
 
-use kwap::blocking::server::{Action, Continue};
+use kwap::blocking::server::{Action, Actions};
 use kwap::net::Addrd;
-use kwap::platform::{self, Std};
+use kwap::platform::Std;
 use kwap::req::Req;
 use kwap::resp::{code, Resp};
-use kwap_msg::Type;
 
-fn exit_respond(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  let Addrd(resp, addr) = req.as_ref().map(|req| match req.msg_type() {
-                                        | Type::Con => Some(Resp::ack(req)),
-                                        | Type::Non => Some(Resp::con(req)),
-                                        | _ => None,
-                                      });
+const PORT: u16 = 5555;
+pub const DISCOVERY_PORT: u16 = 1234;
 
-  resp.map(|mut resp| {
-        resp.set_code(code::CONTENT);
-        resp.set_payload("goodbye, world!".bytes());
+mod service {
+  use kwap::req::Method;
+  use Action::{Continue, Exit, SendReq, SendResp};
 
-        match req.data().path().unwrap() {
-          | Some("exit") => (Continue::Yes, Action::Send(Addrd(resp.into(), addr))),
-          | _ => (Continue::Yes, Action::Nop),
-        }
-      })
-      .unwrap_or((Continue::Yes, Action::Nop))
-}
+  use super::*;
+  static mut BROADCAST_RECIEVED: bool = false;
 
-fn exit(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  match req.data().path().unwrap() {
-    | Some("exit") => {
-      log::info!("a client said exit");
-      (Continue::No, Action::Exit)
-    },
-    | _ => (Continue::Yes, Action::Nop),
+  /// CON/NON POST /exit
+  pub fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    match (req.data().method(), req.data().path().unwrap()) {
+      | (Method::POST, Some("exit")) => {
+        let mut resp = req.as_ref().map(Resp::for_request).map(Option::unwrap);
+
+        resp.0.set_code(code::CONTENT);
+        resp.0.set_payload("goodbye, world!".bytes());
+        log::info!("a client said exit");
+        SendResp(resp).then(Exit)
+      },
+      | _ => Continue.into(),
+    }
   }
-}
 
-fn say_hello(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  match req.data().path().unwrap() {
-    | Some("hello") => {
-      log::info!("a client said hello");
-      let resp = req.as_ref()
-                    .map(Resp::for_request)
-                    .map(Option::unwrap)
-                    .map(|mut resp| {
-                      resp.set_code(code::CONTENT);
-                      resp.set_payload("hello, world!".bytes());
-                      resp
-                    });
-      (Continue::No, Action::Send(resp.map(Into::into)))
-    },
-    | _ => (Continue::Yes, Action::Nop),
+  /// CON/NON GET /hello
+  pub fn say_hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    match (req.data().method(), req.data().path().unwrap()) {
+      | (Method::GET, Some("hello")) => {
+        log::info!("a client said hello");
+        let resp = req.as_ref()
+                      .map(Resp::for_request)
+                      .map(Option::unwrap)
+                      .map(|mut resp| {
+                        resp.set_code(code::CONTENT);
+                        resp.set_payload("hello, world!".bytes());
+                        resp
+                      });
+        SendResp(resp).into()
+      },
+      | _ => Continue.into(),
+    }
   }
-}
 
-fn not_found(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  log::info!("not found");
-  let resp = req.as_ref()
-                .map(Resp::for_request)
-                .map(Option::unwrap)
-                .map(|mut resp| {
-                  resp.set_code(code::NOT_FOUND);
-                  resp
-                });
-  (Continue::No, Action::Send(resp.map(Into::into)))
-}
+  /// If we get here, that means that all other services
+  /// failed to process and we should respond 4.04
+  pub fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+    log::info!("not found");
+    let resp = req.as_ref()
+                  .map(Resp::for_request)
+                  .map(Option::unwrap)
+                  .map(|mut resp| {
+                    resp.set_code(code::NOT_FOUND);
+                    resp
+                  });
 
-fn log_msg(msg: &Addrd<platform::Message<Std>>) {
-  log::info!(
-             r#"{{
-  id: {:?},
-  token: {:?},
-  addr: {:?}
-}}"#,
-             msg.data().id,
-             msg.data().token,
-             msg.addr()
-  );
-}
+    SendResp(resp).into()
+  }
 
-fn log(req: &Addrd<Req<Std>>) -> (Continue, Action<Std>) {
-  log::info!("recv:");
-  log_msg(&req.clone().map(Into::into));
-  (Continue::Yes, Action::Nop)
+  /// Stop sending messages to the multicast address once we receive a request
+  /// because that means we've been discovered
+  pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
+    unsafe {
+      BROADCAST_RECIEVED = true;
+      log::trace!("No longer sending broadcasts");
+    }
+
+    Continue.into()
+  }
+
+  /// If we haven't received a request yet,
+  /// send an empty NON request to the all_coap_devices
+  /// multicast address on port `DISCOVERY_PORT`
+  pub fn send_multicast_broadcast() -> Actions<Std> {
+    match unsafe { BROADCAST_RECIEVED } {
+      | true => Actions::just(Continue),
+      | false => {
+        let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
+
+        let mut req = Req::<Std>::post(addr, "");
+        req.non();
+
+        SendReq(Addrd(req, addr)).then(Continue)
+      },
+    }
+  }
 }
 
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
                                let mut server =
-                                 kwap::blocking::Server::try_new([127, 0, 0, 1], 5683).unwrap();
-                               server.middleware(&log);
-                               server.middleware(&exit_respond);
-                               server.middleware(&exit);
-                               server.middleware(&say_hello);
-                               server.middleware(&not_found);
-                               let out = server.start();
+                                 kwap::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
+
+                               server.middleware(&service::close_multicast_broadcast);
+                               server.middleware(&service::exit);
+                               server.middleware(&service::say_hello);
+                               server.middleware(&service::not_found);
+
+                               let out =
+                                 server.start_tick(Some(&service::send_multicast_broadcast));
 
                                if out.is_err() {
-                                 log::error!("panicked! {:?}", out);
+                                 log::error!("err! {:?}", out);
                                }
                              })
                              .unwrap()
