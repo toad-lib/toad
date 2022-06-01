@@ -250,9 +250,8 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
            .filter_map(|o| o)
            .fold(Status::Continue, |status, action| match (status, action) {
              | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
-             | (Status::Done, Action::Continue) => Status::Continue,
-             | (Status::Done, _) => Status::Done,
-             | (status @ Status::Err(_), _) => status,
+             | (Status::Done | Status::Continue, Action::Continue) => Status::Continue,
+             | (status @ Status::Err(_) | status @ Status::Done, _) => status,
              | (_, action) => Status::Done.bind_result(Self::perform_one(core, action)),
            })
   }
@@ -296,6 +295,8 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
                          | Status::Continue => Self::perform_many(&mut self.core, f(&req)),
                        });
 
+      log::trace!("{:?}", status);
+
       // TODO: do something with errors
       match status {
         | Status::Exit => return Ok(()),
@@ -338,7 +339,7 @@ mod tests {
                                 resp.into()
                               });
 
-      Action::Send(reply).into()
+      Action::Send(reply).then(Action::Continue)
     }
 
     pub fn hello(req: &Addrd<Req<Test>>) -> Actions<Test> {
@@ -384,6 +385,7 @@ mod tests {
 
   #[test]
   fn exit() {
+    simple_logger::init_with_level(log::Level::Trace).unwrap();
     let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
     let inbound_bytes = sock.rx.clone();
     let timeout_state = timeout.state.clone();
