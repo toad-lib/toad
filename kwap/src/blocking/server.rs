@@ -54,22 +54,22 @@ pub enum Action<P: Platform> {
   /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
-  ///       let resp = Resp::for_request(req.data()).unwrap();
-  ///       // ... set up resp to have hello-y things
-  ///
   ///       // NOTE: the not_found middleware function will not be called
   ///       // because this is not followed by Action::Continue.
-  ///       Action::SendResp(resp).into()
+  ///       Action::SendResp(req.as_ref().map(Resp::for_request).map(Option::unwrap)).into()
   ///     },
   ///     | _ => Action::Continue.into(),
   ///   }
   /// }
   ///
   /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
-  ///   let mut resp = Resp::for_request(req.data()).unwrap();
-  ///   resp.set_code(code::NOT_FOUND);
-  ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
-  ///   Action::Send(msg).into()
+  ///   Action::SendResp(req.as_ref()
+  ///                       .map(Resp::for_request)
+  ///                       .map(Option::unwrap)
+  ///                       .map(|mut r| {
+  ///                         r.set_code(code::NOT_FOUND);
+  ///                         r
+  ///                       })).into()
   /// }
   ///
   /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
@@ -111,9 +111,15 @@ impl<P: Platform> Action<P> {
   /// do this one next
   ///
   /// ```
+  /// use kwap::blocking::server::{Action, Actions};
+  /// use kwap::net::Addrd;
+  /// use kwap::platform::Std;
+  /// use kwap::req::Req;
+  /// use kwap::resp::Resp;
+  ///
   /// /// The server should respond OK to the request then exit
   /// fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
-  ///   Action::SendResp(req.map(Resp::for_request).map(Option::unwrap)).then(Action::Exit)
+  ///   Action::SendResp(req.as_ref().map(Resp::for_request).map(Option::unwrap)).then(Action::Exit)
   /// }
   /// ```
   pub fn then(self, action: Action<P>) -> Actions<P> {
