@@ -1,6 +1,6 @@
 /// TODO
 #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Mode {
+pub enum Security {
   /// TODO
   Insecure,
 
