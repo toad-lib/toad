@@ -59,6 +59,9 @@ pub mod blocking;
 /// customizable retrying of fallible operations
 pub mod retry;
 
+/// DTLS and security modes
+pub mod secure;
+
 /// responses
 pub mod resp;
 

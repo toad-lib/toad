@@ -3,10 +3,11 @@
 use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
 
-use crate::retry;
+use crate::{retry, secure};
 
 pub(crate) struct ConfigData {
   pub(crate) token_seed: u16,
+  pub(crate) security: crate::secure::Mode,
   pub(crate) con_retry_strategy: retry::Strategy,
   pub(crate) default_leisure_millis: u32,
   pub(crate) max_retransmit_attempts: u16,
@@ -54,6 +55,7 @@ impl ConfigData {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Config {
   token_seed: Option<u16>,
+  security: Option<secure::Mode>,
   con_retry_strategy: Option<retry::Strategy>,
   default_leisure_millis: Option<u32>,
   max_retransmit_attempts: Option<u16>,
@@ -83,6 +85,12 @@ impl Config {
   /// ```
   pub fn new() -> Self {
     Default::default()
+  }
+
+  /// TODO
+  pub fn security(mut self, mode: secure::Mode) -> Self {
+    self.security = Some(mode);
+    self
   }
 
   /// Set the retry strategy we should use to figure out when
@@ -155,7 +163,7 @@ impl Config {
   /// confirmable requests before getting a response.
   ///
   /// The default value is 4 attempts
-  pub fn max_con_request_retries(mut self, max_tries: crate::retry::Attempts) -> Self {
+  pub fn max_con_request_retries(mut self, max_tries: retry::Attempts) -> Self {
     self.max_retransmit_attempts = Some(max_tries.0);
     self
   }
@@ -175,11 +183,14 @@ impl From<Config> for ConfigData {
   fn from(Config { token_seed,
                    default_leisure_millis,
                    max_retransmit_attempts,
+                   security,
                    nstart,
                    probing_rate_bytes_per_sec,
                    con_retry_strategy, }: Config)
           -> Self {
-    ConfigData { token_seed: token_seed.unwrap_or(0),
+    ConfigData {
+        token_seed: token_seed.unwrap_or(0),
+        security: security.unwrap_or(secure::Mode::Insecure),
                  default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
                  max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
                  nstart: nstart.unwrap_or(1),
