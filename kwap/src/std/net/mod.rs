@@ -50,6 +50,10 @@ impl Socket for UdpSocket {
   }
 
   fn peek(&self, buffer: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
-    std::net::UdpSocket::peek_from(&self, buffer).map(|(n, addr)| Addrd(n, convert::no_std::SockAddr::from(convert::std::SockAddr(addr)).0)).map_err(convert::io_to_nb)
+    std::net::UdpSocket::peek_from(&self, buffer).map(|(n, addr)| {
+                                                   Addrd(n,
+            convert::no_std::SockAddr::from(convert::std::SockAddr(addr)).0)
+                                                 })
+                                                 .map_err(convert::io_to_nb)
   }
 }

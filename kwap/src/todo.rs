@@ -47,7 +47,10 @@ impl<T: PartialEq, E> Should<T, E> {
 pub(crate) struct Else<T, E>(Result<(bool, T), E>);
 impl<T, E> Else<T, E> {
   pub fn else_err(self, f: impl FnOnce(T) -> E) -> Result<T, E> {
-    self.0.bind(|(pass, t)| match pass {false => Err(f(t)), true => Ok(t)})
+    self.0.bind(|(pass, t)| match pass {
+            | false => Err(f(t)),
+            | true => Ok(t),
+          })
   }
 }
 

@@ -193,7 +193,8 @@ impl From<Config> for ConfigData {
                    security,
                    nstart,
                    probing_rate_bytes_per_sec,
-                   con_retry_strategy, ..}: Config)
+                   con_retry_strategy,
+                   .. }: Config)
           -> Self {
     ConfigData { token_seed: token_seed.unwrap_or(0),
                  security: security.unwrap_or(Security::Insecure),
