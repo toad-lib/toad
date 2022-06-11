@@ -25,3 +25,36 @@ pub(crate) fn code_to_human(code: kwap_msg::Code) -> Writable<ArrayVec<[u8; 4]>>
                         });
   buf
 }
+
+#[derive(Debug)]
+pub(crate) struct ResultWhen<T, E>(Result<T, E>);
+
+impl<T, E> ResultWhen<T, E> {
+  pub fn should_pass(self, f: impl FnOnce(&T) -> bool) -> ResultThen<T, E> {
+    ResultThen(self.0.map(|t| (f(&t), t)))
+  }
+}
+
+impl<T: PartialEq, E> ResultWhen<T, E> {
+  pub fn should_eq(self, other: &T) -> ResultThen<T, E> {
+    self.should_pass(|t| t == other)
+  }
+}
+
+#[derive(Debug)]
+pub(crate) struct ResultThen<T, E>(Result<(bool, T), E>);
+impl<T, E> ResultThen<T, E> {
+  pub fn else_err(self, f: impl FnOnce(T) -> E) -> Result<T, E> {
+    self.0.bind(|(pass, t)| match pass {false => Err(f(t)), true => Ok(t)})
+  }
+}
+
+pub(crate) trait ResultExt2<T, E> {
+  fn ensure(self, f: impl FnOnce(ResultWhen<T, E>) -> Result<T, E>) -> Result<T, E>;
+}
+
+impl<T, E> ResultExt2<T, E> for Result<T, E> {
+  fn ensure(self, f: impl FnOnce(ResultWhen<T, E>) -> Result<T, E>) -> Result<T, E> {
+    f(ResultWhen(self))
+  }
+}

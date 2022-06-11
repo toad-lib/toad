@@ -1,7 +1,5 @@
 #![allow(clippy::many_single_char_names)]
 
-use std::io;
-
 use embedded_time::rate::Fraction;
 
 /// TODO

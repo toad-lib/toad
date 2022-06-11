@@ -88,7 +88,37 @@ pub trait Socket: Sized {
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error>;
 
   /// Pull a buffered datagram from the socket, along with the address to the sender.
+  ///
+  /// This clears the internal reciever queue, meaning that subsequent calls
+  /// to `peek` or `recv` will block until a new datagram is received.
+  ///
+  /// It is expected that (like [`std::net::UdpSocket`]) if the message is larger
+  /// than the buffer, those bytes are dropped and not considered an error condition.
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error>;
+
+  /// Pull a buffered datagram from the socket, along with the address to the sender.
+  ///
+  /// This does not clear the internal receiver queue, meaning that subsequent calls
+  /// to `peek` or `recv` will yield the same datagram.
+  ///
+  /// It is expected that (like [`std::net::UdpSocket`]) if the message is larger
+  /// than the buffer, those bytes are dropped and not considered an error condition.
+  fn peek(&self, buffer: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error>;
+
+  /// Look at who the sender of the message at the top of the receipt queue
+  /// is.
+  ///
+  /// This should return [`nb::Error::WouldBlock`] if there is no message available.
+  ///
+  /// # Default Implementation
+  /// The default implementation invokes `peek` with a 0-byte capacity array and discards
+  /// the `usize` returned by that function.
+  ///
+  /// This means that it relies on `peek` to _not error_ when the buffer does not
+  /// have sufficient capacity for the datagram on the queue.
+  fn peek_addr(&self) -> nb::Result<no_std_net::SocketAddr, Self::Error> {
+    self.peek(&mut []).map(|Addrd(_, addr)| addr)
+  }
 
   /// Poll the socket for a datagram from the `connect`ed host
   fn poll(&self) -> Result<Option<Addrd<Dgram>>, Self::Error> {
