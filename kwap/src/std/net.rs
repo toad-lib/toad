@@ -43,7 +43,7 @@ impl io::Read for UdpStream {
     let sock_ref = sock.deref();
 
     sock_ref.peek_addr()
-            .ensure(|rx_addr| {
+            .validate(|rx_addr| {
               rx_addr.should_eq(&self.addr)
                      .else_err(|_| nb::Error::WouldBlock)
             })
