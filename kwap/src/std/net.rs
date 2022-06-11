@@ -1,14 +1,29 @@
+use std::sync::{Mutex, Arc};
 use kwap_common::prelude::*;
-use std::io;
+use std::{io, net::UdpSocket, collections::HashMap};
 
 use crate::net::{Addrd, Socket};
 
-impl Socket for std::net::UdpSocket {
+/// TODO
+#[derive(Debug, Clone)]
+pub struct SecureUdpStream {
+  sock: Arc<Mutex<UdpSocket>>,
+  tx_buf: Vec<u8>,
+}
+
+/// TODO
+#[derive(Debug)]
+pub struct SecureUdpSocket {
+  sock_owned: Arc<Mutex<UdpSocket>>,
+  streams: HashMap<no_std_net::SocketAddr, SecureUdpStream>,
+}
+
+impl Socket for UdpSocket {
   type Error = io::Error;
 
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     self.set_nonblocking(true)
-        .bind(|_| std::net::UdpSocket::send_to::<std::net::SocketAddr>(self, msg.data(), addr::no_std::SockAddr(msg.addr()).into()))
+        .bind(|_| UdpSocket::send_to::<std::net::SocketAddr>(self, msg.data(), addr::no_std::SockAddr(msg.addr()).into()))
         .map(|_| ())
         .map_err(io_to_nb)
   }
@@ -26,7 +41,7 @@ impl Socket for std::net::UdpSocket {
                     .map(|no_std| addr::no_std::SockAddr(no_std).into())
                     .collect::<Vec<std::net::SocketAddr>>();
 
-    std::net::UdpSocket::bind(addrs.as_slice()).perform(|s| s.set_nonblocking(true).unwrap())
+    UdpSocket::bind(addrs.as_slice()).perform(|s| s.set_nonblocking(true).unwrap())
   }
 
   fn join_multicast(&self, addr: no_std_net::IpAddr) -> Result<(), Self::Error> {
