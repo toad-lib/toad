@@ -445,7 +445,10 @@ impl<P: Platform> Core<P> {
   /// let mut core = Core::<Std>::new(Default::default(), sock);
   /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
   /// ```
-  pub(crate) fn send_req(&mut self, req: Req<P>, secure: Secure) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+  pub(crate) fn send_req(&mut self,
+                         req: Req<P>,
+                         secure: Secure)
+                         -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value
                          .0
@@ -472,7 +475,8 @@ impl<P: Platform> Core<P> {
   }
 
   pub(crate) fn send_addrd_req(&mut self,
-                               mut req: Addrd<Req<P>>, secure: Secure)
+                               mut req: Addrd<Req<P>>,
+                               secure: Secure)
                                -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let addr = req.addr();
 
@@ -499,11 +503,17 @@ impl<P: Platform> Core<P> {
   }
 
   /// Send a message to a remote socket
-  pub(crate) fn send_msg(&mut self, msg: Addrd<platform::Message<P>>, secure: Secure) -> Result<(), Error<P>> {
+  pub(crate) fn send_msg(&mut self,
+                         msg: Addrd<platform::Message<P>>,
+                         secure: Secure)
+                         -> Result<(), Error<P>> {
     Self::send_msg_sock(&mut self.sock, msg, secure)
   }
 
-  fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>, secure: Secure) -> Result<(), Error<P>> {
+  fn send_msg_sock(sock: &mut P::Socket,
+                   msg: Addrd<platform::Message<P>>,
+                   secure: Secure)
+                   -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::None;
 
@@ -522,18 +532,17 @@ impl<P: Platform> Core<P> {
   pub(crate) fn send(when: When,
                      sock: &mut P::Socket,
                      addr: SocketAddr,
-                     bytes: impl Array<Item = u8>, secure: Secure)
+                     bytes: impl Array<Item = u8>,
+                     secure: Secure)
                      -> Result<SocketAddr, Error<P>> {
     let len = bytes.get_size();
 
     nb::block!(match secure {
-       Secure::Yes => sock.send(Addrd(&bytes, addr)),
-       Secure::No => sock.insecure_send(Addrd(&bytes, addr)),
-           }).map_err(|err| when.what(What::SockError(err)))
-                                              .perform(|()| {
-                                                log::trace!("sent {}b -> {}", len, addr)
-                                              })
-                                              .map(|_| addr)
+                 | Secure::Yes => sock.send(Addrd(&bytes, addr)),
+                 | Secure::No => sock.insecure_send(Addrd(&bytes, addr)),
+               }).map_err(|err| when.what(What::SockError(err)))
+                 .perform(|()| log::trace!("sent {}b -> {}", len, addr))
+                 .map(|_| addr)
   }
 
   /// Send a ping message to some remote coap server

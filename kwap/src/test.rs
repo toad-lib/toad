@@ -153,8 +153,8 @@ impl Socket for SockMock {
   }
 
   fn peek(&self, _: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
-        todo!()
-    }
+    todo!()
+  }
 }
 
 #[test]

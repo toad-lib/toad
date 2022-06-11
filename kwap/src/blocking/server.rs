@@ -113,14 +113,14 @@ impl<P: Platform> PartialEq for Action<P> {
   fn eq(&self, other: &Self) -> bool {
     use Action::*;
     match (self, other) {
-      (Exit, Exit) => true,
-      (Continue, Continue) => true,
-      (a, Insecure(b)) => a == b.as_ref(),
-      (Insecure(a), b) => a.as_ref() == b,
-      (SendResp(a), SendResp(b)) => a == b,
-      (SendReq(a), SendReq(b)) => a == b,
-      (Send(a), Send(b)) => a == b,
-      _ => false,
+      | (Exit, Exit) => true,
+      | (Continue, Continue) => true,
+      | (a, Insecure(b)) => a == b.as_ref(),
+      | (Insecure(a), b) => a.as_ref() == b,
+      | (SendResp(a), SendResp(b)) => a == b,
+      | (SendReq(a), SendReq(b)) => a == b,
+      | (Send(a), Send(b)) => a == b,
+      | _ => false,
     }
   }
 }
@@ -333,9 +333,9 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
         | Action::Send(msg) => core.send_msg(msg, Secure::No),
         | Action::SendReq(req) => core.send_addrd_req(req, Secure::No).map(|_| ()),
         | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::No),
-        | a@Action::Insecure(_)
-        | a@Action::Exit
-        | a@Action::Continue  => Self::perform_one(core, a),
+        | a @ Action::Insecure(_) | a @ Action::Exit | a @ Action::Continue => {
+          Self::perform_one(core, a)
+        },
       },
       | Action::Continue => Ok(()),
       | Action::Send(msg) => core.send_msg(msg, Secure::Yes),

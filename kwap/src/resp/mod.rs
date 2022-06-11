@@ -46,9 +46,9 @@ pub struct Resp<P: Platform> {
 }
 
 impl<P: Platform> PartialEq for Resp<P> {
-    fn eq(&self, other: &Self) -> bool {
-      self.msg == other.msg && self.opts == other.opts
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.msg == other.msg && self.opts == other.opts
+  }
 }
 
 impl<P: Platform> Resp<P> {

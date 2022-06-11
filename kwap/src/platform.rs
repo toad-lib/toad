@@ -30,7 +30,10 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type MessageTokenHistoryBySocket: Map<SocketAddr, Self::MessageTokenHistory> + Clone + Debug;
 
   /// What type should we use to keep track of options before serializing?
-  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)> + Clone + Debug + PartialEq;
+  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)>
+    + Clone
+    + Debug
+    + PartialEq;
 
   /// What should we use to keep track of time?
   type Clock: Clock<T = u64>;

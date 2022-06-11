@@ -11,7 +11,7 @@ pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
   use kwap::req::Method;
-  use Action::{Continue, Exit, SendReq, Insecure, SendResp};
+  use Action::{Continue, Exit, Insecure, SendReq, SendResp};
 
   use super::*;
   static mut BROADCAST_RECIEVED: bool = false;

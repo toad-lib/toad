@@ -4,7 +4,7 @@ use kwap_common::prelude::*;
 use no_std_net::SocketAddr;
 
 use crate::config::Config;
-use crate::core::{Core, Error, What, When, Secure};
+use crate::core::{Core, Error, Secure, What, When};
 use crate::net::{Addrd, Socket};
 use crate::platform::Platform;
 #[cfg(feature = "std")]

@@ -1,15 +1,15 @@
 use std::net::UdpSocket;
 
-use kwap::blocking::client::{ClientResultExt, ClientConfig};
+use kwap::blocking::client::{ClientConfig, ClientResultExt};
 use kwap::blocking::Client;
 use kwap::core::Error;
 use kwap::net::Addrd;
 use kwap::platform::{Std, StdSecure};
 use kwap::req::Req;
 use kwap::resp::Resp;
-use kwap::std::Clock;
 use kwap::std::secure::SecureUdpSocket;
-use openssl::ssl::{SslConnector, SslVerifyMode, SslMethod};
+use kwap::std::Clock;
+use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
 
 #[path = "./secure_server.rs"]
 mod server;
@@ -62,7 +62,9 @@ fn main() {
   let conn = conn.build();
 
   let sock = UdpSocket::bind("0.0.0.0:2222").unwrap();
-  let mut client = Client::<StdSecure>::new(ClientConfig { clock: Clock::new(), sock: SecureUdpSocket::new_client(conn, sock) });
+  let mut client = Client::<StdSecure>::new(ClientConfig { clock: Clock::new(),
+                                                           sock:
+                                                             SecureUdpSocket::new_client(conn, sock) });
   let Addrd(_, addr) =
     Client::<Std>::listen_multicast(Clock::new(), server::DISCOVERY_PORT).unwrap();
 

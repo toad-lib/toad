@@ -76,9 +76,12 @@ pub struct Req<P: Platform> {
 }
 
 impl<P: Platform> PartialEq for Req<P> {
-    fn eq(&self, other: &Self) -> bool {
-      self.msg == other.msg && self.id == other.id && self.token == other.token && self.opts == other.opts
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.msg == other.msg
+    && self.id == other.id
+    && self.token == other.token
+    && self.opts == other.opts
+  }
 }
 
 impl<P: Platform> Clone for Req<P> {
