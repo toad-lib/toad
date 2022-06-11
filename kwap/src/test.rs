@@ -151,6 +151,10 @@ impl Socket for SockMock {
   fn bind_raw<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self, Self::Error> {
     Ok(Self::new())
   }
+
+  fn peek(&self, _: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
+        todo!()
+    }
 }
 
 #[test]

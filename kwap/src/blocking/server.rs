@@ -2,7 +2,7 @@ use kwap_common::Array;
 use kwap_msg::Type;
 
 use crate::config::Config;
-use crate::core::{Core, Error};
+use crate::core::{Core, Error, Secure};
 use crate::net::{Addrd, Socket};
 #[cfg(feature = "std")]
 use crate::platform::Std;
@@ -89,6 +89,9 @@ pub enum Action<P: Platform> {
   /// will prevent subsequent middlewares from
   /// being called, unless followed by [`Action::Continue`].
   Send(Addrd<platform::Message<P>>),
+  /// TODO
+  #[cfg(feature = "std")]
+  Insecure(Box<Action<P>>),
   /// Stop the server completely.
   ///
   /// This will ignore any & all [`Action`]s that follow,
@@ -104,6 +107,22 @@ pub enum Action<P: Platform> {
   /// `Continue` allows you to opt-out of this implication, and
   /// middleware will continue to be called on the request.
   Continue,
+}
+
+impl<P: Platform> PartialEq for Action<P> {
+  fn eq(&self, other: &Self) -> bool {
+    use Action::*;
+    match (self, other) {
+      (Exit, Exit) => true,
+      (Continue, Continue) => true,
+      (a, Insecure(b)) => a == b.as_ref(),
+      (Insecure(a), b) => a.as_ref() == b,
+      (SendResp(a), SendResp(b)) => a == b,
+      (SendReq(a), SendReq(b)) => a == b,
+      (Send(a), Send(b)) => a == b,
+      _ => false,
+    }
+  }
 }
 
 impl<P: Platform> Action<P> {
@@ -309,10 +328,19 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
 
   fn perform_one(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
     match action {
+      #[cfg(feature = "std")]
+      | Action::Insecure(inner) => match *inner {
+        | Action::Send(msg) => core.send_msg(msg, Secure::No),
+        | Action::SendReq(req) => core.send_addrd_req(req, Secure::No).map(|_| ()),
+        | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::No),
+        | a@Action::Insecure(_)
+        | a@Action::Exit
+        | a@Action::Continue  => Self::perform_one(core, a),
+      },
       | Action::Continue => Ok(()),
-      | Action::Send(msg) => core.send_msg(msg),
-      | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
-      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
+      | Action::Send(msg) => core.send_msg(msg, Secure::Yes),
+      | Action::SendReq(req) => core.send_addrd_req(req, Secure::Yes).map(|_| ()),
+      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::Yes),
       | Action::Exit => unreachable!(),
     }
   }

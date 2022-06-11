@@ -4,7 +4,7 @@ use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
 
 use crate::retry::{Attempts, Strategy};
-use crate::secure::{self, Security};
+use crate::secure::Security;
 
 pub(crate) struct ConfigData {
   pub(crate) token_seed: u16,

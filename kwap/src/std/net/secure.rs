@@ -4,9 +4,8 @@ use std::net::UdpSocket;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
-use embedded_time::duration::Seconds;
 use kwap_common::prelude::*;
-use openssl::ssl::{ConnectConfiguration, SslAcceptor, SslConnector, SslMethod, SslStream};
+use openssl::ssl::{SslAcceptor, SslConnector, SslMethod, SslStream};
 
 use super::convert::nb_to_io;
 use super::{convert, Addrd, Socket};
@@ -159,22 +158,32 @@ impl SecureUdpSocket {
   }
 
   /// TODO
+  pub fn new_server(ssl: SslAcceptor, sock: UdpSocket) -> Self {
+    Self { sock: Arc::new(sock),
+           ssl: Ssl::Server(ssl),
+           conns: Default::default() }
+  }
+
+  /// TODO
+  pub fn new_client(ssl: SslConnector, sock: UdpSocket) -> Self {
+    Self { sock: Arc::new(sock),
+           ssl: Ssl::Client(ssl),
+           conns: Default::default() }
+  }
+
+  /// TODO
   pub fn try_new_server(sock: UdpSocket,
                         private_key: openssl::pkey::PKey<openssl::pkey::Private>,
                         cert: openssl::x509::X509)
                         -> Result<Self, SecureSocketError> {
-    let acceptor = Self::new_acceptor(private_key, cert);
-    acceptor.map(|ssl| Self { sock: Arc::new(sock),
-                              ssl: Ssl::Server(ssl),
-                              conns: Default::default() })
+    let ssl = Self::new_acceptor(private_key, cert);
+    ssl.map(|ssl| Self::new_server(ssl, sock))
   }
 
   /// TODO
   pub fn try_new_client(sock: UdpSocket) -> Result<Self, SecureSocketError> {
     let ssl = Self::new_connector();
-    ssl.map(|ssl| Self { sock: Arc::new(sock),
-                         ssl: Ssl::Client(ssl),
-                         conns: Default::default() })
+    ssl.map(|ssl| Self::new_client(ssl, sock))
   }
 
   fn new_stream(ssl: &Ssl,
@@ -217,7 +226,7 @@ impl SecureUdpSocket {
   }
 
   pub(crate) fn get_conn(&self, addr: no_std_net::SocketAddr) -> Option<Shared<SecureUdpConn>> {
-    let mut conns = self.conns.lock().unwrap();
+    let conns = self.conns.lock().unwrap();
     conns.get(&addr).cloned()
   }
 }

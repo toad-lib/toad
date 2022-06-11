@@ -4,7 +4,7 @@ use kwap_common::prelude::*;
 use no_std_net::SocketAddr;
 
 use crate::config::Config;
-use crate::core::{Core, Error, What, When};
+use crate::core::{Core, Error, What, When, Secure};
 use crate::net::{Addrd, Socket};
 use crate::platform::Platform;
 #[cfg(feature = "std")]
@@ -112,7 +112,7 @@ impl<P: Platform> Client<P> {
   /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn send(&mut self, req: Req<P>) -> Result<Resp<P>, Error<P>> {
     self.core
-        .send_req(req)
+        .send_req(req, Secure::Yes)
         .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)))
   }
 

@@ -3,7 +3,7 @@ use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
 
 /// Data that came from a network socket
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Debug, Clone, Copy)]
 pub struct Addrd<T>(pub T, pub SocketAddr);
 
 impl<T> Addrd<T> {
@@ -86,6 +86,14 @@ pub trait Socket: Sized {
 
   /// Send a message to a remote address
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error>;
+
+  /// Send a message to a remote address, bypassing DTLS.
+  ///
+  /// If the socket type implementing this trait does not participate
+  /// in DTLS, then this is just an alias for `send`.
+  fn insecure_send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
+    self.send(msg)
+  }
 
   /// Pull a buffered datagram from the socket, along with the address to the sender.
   ///

@@ -15,24 +15,20 @@ categories = ["network-programming"]
 maintenance = { status = "actively-developed" }
 
 [[example]]
-name = "raw_client"
-path = "examples/raw/client.rs"
-
-[[example]]
-name = "raw_client_core"
-path = "examples/raw/client_core.rs"
-
-[[example]]
-name = "raw_server"
-path = "examples/raw/server.rs"
-
-[[example]]
 name = "blocking_server"
 path = "examples/blocking/server.rs"
 
 [[example]]
 name = "blocking_client"
 path = "examples/blocking/client.rs"
+
+[[example]]
+name = "blocking_secure_server"
+path = "examples/blocking/secure_server.rs"
+
+[[example]]
+name = "blocking_secure_client"
+path = "examples/blocking/secure_client.rs"
 
 [features]
 default = ["std"]

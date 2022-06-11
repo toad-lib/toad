@@ -9,6 +9,7 @@ mod convert;
 
 /// TODO
 pub mod secure;
+pub use secure::*;
 
 impl Socket for UdpSocket {
   type Error = io::Error;
