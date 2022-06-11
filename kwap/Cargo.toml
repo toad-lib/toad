@@ -36,7 +36,7 @@ path = "examples/blocking/client.rs"
 
 [features]
 default = ["std"]
-std = ["alloc"]
+std = ["alloc", "openssl"]
 alloc = []
 test = []
 docs = []
@@ -52,6 +52,7 @@ embedded-time = "0.12"
 nb = "1"
 rand = { version = "0.8", default_features = false }
 rand_chacha = { version = "0.3", default_features = false }
+openssl = { version = "0.10", optional = true }
 
 [dev-dependencies]
 simple_logger = "2"
