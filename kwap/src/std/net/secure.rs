@@ -4,6 +4,7 @@ use std::net::UdpSocket;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
+use embedded_time::duration::Seconds;
 use kwap_common::prelude::*;
 use openssl::ssl::{SslAcceptor, SslConnector, SslMethod, SslStream};
 
@@ -150,15 +151,19 @@ impl SecureUdpSocket {
            .bind(|mut builder| builder.set_certificate(&cert).map(|_| builder))
            .map(|builder| builder.build())
            .map_err(Into::into)
+           .perform(|_| log::trace!("new acceptor created"))
   }
 
   fn new_connector() -> Result<SslConnector, SecureSocketError> {
     let builder = SslConnector::builder(SslMethod::dtls());
     builder.map(|builder| builder.build()).map_err(Into::into)
+           .perform(|_| log::trace!("new connector created"))
   }
 
   /// TODO
   pub fn new_server(ssl: SslAcceptor, sock: UdpSocket) -> Self {
+    log::trace!("new secure socket in server mode");
+    sock.set_nonblocking(true).unwrap();
     Self { sock: Arc::new(sock),
            ssl: Ssl::Server(ssl),
            conns: Default::default() }
@@ -166,6 +171,8 @@ impl SecureUdpSocket {
 
   /// TODO
   pub fn new_client(ssl: SslConnector, sock: UdpSocket) -> Self {
+    log::trace!("new secure socket in client mode");
+    sock.set_nonblocking(true).unwrap();
     Self { sock: Arc::new(sock),
            ssl: Ssl::Client(ssl),
            conns: Default::default() }
@@ -205,7 +212,7 @@ impl SecureUdpSocket {
             })
             .map_err(SecureSocketError::into_nb)
       },
-      | Ssl::Server(_) => Err(SecureSocketError::ConnectionNotFound.into()),
+      | Ssl::Server(_) => Err(SecureSocketError::ConnectionNotFound.into()).perform_err(|_| log::error!("server tried to send a message to a client that we don't have an SSL connection with!!1\nThis is probably a bug in `kwap` and should be filed as an issue.")),
     }.map(Mutex::new)
      .map(Arc::new)
      .perform(|shared| {
@@ -218,10 +225,10 @@ impl SecureUdpSocket {
                                       -> Result<Shared<SecureUdpConn>, SecureSocketError> {
     match self.get_conn(addr) {
       | Some(conn) => Ok(conn),
-      | None => nb::block!(Self::new_stream(&self.ssl,
+      | None => Self::new_stream(&self.ssl,
                                             self.sock.clone(),
                                             &mut self.conns.lock().unwrap(),
-                                            addr)).map_err(Into::into),
+                                            addr).map_err(SecureSocketError::from),
     }
   }
 
@@ -249,6 +256,10 @@ impl Socket for SecureUdpSocket {
         .map_err(SecureSocketError::into_nb)
   }
 
+  fn insecure_send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
+    Socket::send(self.sock.as_ref(), msg).map_err(|e| e.map(SecureSocketError::from))
+  }
+
   fn recv(&self, buffer: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
     self.sock
         .peek_addr()
@@ -256,6 +267,7 @@ impl Socket for SecureUdpSocket {
         .map_err(SecureSocketError::from)
         .bind(|addr| {
           self.get_conn(addr)
+              // TODO: server got a dgram from a new client - make a stream
               .ok_or(SecureSocketError::ConnectionNotFound)
               .map(|conn| Addrd(conn, addr))
         })

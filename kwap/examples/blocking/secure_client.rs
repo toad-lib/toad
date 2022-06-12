@@ -52,8 +52,8 @@ impl Log for Result<Option<Resp<StdSecure>>, Error<StdSecure>> {
 }
 
 fn main() {
-  // simple_logger::init_with_level(log::Level::Trace).unwrap();
-  simple_logger::init_with_level(log::Level::Info).unwrap();
+  simple_logger::init_with_level(log::Level::Trace).unwrap();
+  // simple_logger::init_with_level(log::Level::Info).unwrap();
 
   let server = server::spawn();
 

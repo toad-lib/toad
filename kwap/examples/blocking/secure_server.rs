@@ -1,10 +1,17 @@
+use std::fs::File;
+use std::io::Read;
+use std::net::UdpSocket;
 use std::thread::JoinHandle;
 
 use kwap::blocking::server::{Action, Actions};
 use kwap::net::Addrd;
-use kwap::platform::Std;
+use kwap::platform::StdSecure;
 use kwap::req::Req;
 use kwap::resp::{code, Resp};
+use kwap::std::{Clock, SecureUdpSocket};
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::x509::X509;
 
 const PORT: u16 = 1111;
 pub const DISCOVERY_PORT: u16 = 1234;
@@ -17,7 +24,7 @@ mod service {
   static mut BROADCAST_RECIEVED: bool = false;
 
   /// CON/NON POST /exit
-  pub fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn exit(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::POST, Some("exit")) => {
         let mut resp = req.as_ref().map(Resp::for_request).map(Option::unwrap);
@@ -32,7 +39,7 @@ mod service {
   }
 
   /// CON/NON GET /hello
-  pub fn say_hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn say_hello(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::GET, Some("hello")) => {
         log::info!("a client said hello");
@@ -52,7 +59,7 @@ mod service {
 
   /// If we get here, that means that all other services
   /// failed to process and we should respond 4.04
-  pub fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn not_found(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
     log::info!("not found");
     let resp = req.as_ref()
                   .map(Resp::for_request)
@@ -67,7 +74,7 @@ mod service {
 
   /// Stop sending messages to the multicast address once we receive a request
   /// because that means we've been discovered
-  pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn close_multicast_broadcast(_: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
     unsafe {
       BROADCAST_RECIEVED = true;
       log::trace!("No longer sending broadcasts");
@@ -79,13 +86,13 @@ mod service {
   /// If we haven't received a request yet,
   /// send an empty NON request to the all_coap_devices
   /// multicast address on port `DISCOVERY_PORT`
-  pub fn send_multicast_broadcast() -> Actions<Std> {
+  pub fn send_multicast_broadcast() -> Actions<StdSecure> {
     match unsafe { BROADCAST_RECIEVED } {
       | true => Actions::just(Continue),
       | false => {
         let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
 
-        let mut req = Req::<Std>::post(addr, "");
+        let mut req = Req::<StdSecure>::post(addr, "");
         req.non();
 
         Insecure(SendReq(Addrd(req, addr)).into()).then(Continue)
@@ -97,8 +104,20 @@ mod service {
 pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
+                               let (mut pkey_file, mut cert_file) = (vec![], vec![]);
+                               File::open("kwap/examples/key.pem").unwrap().read_to_end(&mut pkey_file).unwrap();
+                               File::open("kwap/examples/cert.pem").unwrap().read_to_end(&mut cert_file).unwrap();
+
+                               let pkey = PKey::from_rsa(Rsa::private_key_from_pem(&pkey_file).unwrap()).unwrap();
+                               let cert = X509::from_pem(&cert_file).unwrap();
+
+                               let sock = UdpSocket::bind(&format!("0.0.0.0:{}", PORT)).unwrap();
+                               let sock = SecureUdpSocket::try_new_server(sock, pkey, cert).unwrap();
+                               log::info!("sock made");
+
                                let mut server =
-                                 kwap::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
+                                 kwap::blocking::Server::<StdSecure, Vec<_>>::new(sock, Clock::new());
+                               log::info!("server made");
 
                                server.middleware(&service::close_multicast_broadcast);
                                server.middleware(&service::exit);
