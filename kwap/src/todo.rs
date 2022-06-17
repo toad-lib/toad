@@ -49,6 +49,7 @@ impl<T, E> ResultExt2<T, E> for Result<T, E> {
 
 pub(crate) trait NbResultExt<T, E> {
   fn perform_nb_err(self, f: impl FnOnce(&E) -> ()) -> Self;
+  #[cfg(feature = "std")]
   fn expect_nonblocking(self, msg: impl ToString) -> Result<T, E>;
 }
 
@@ -60,6 +61,7 @@ impl<T, E> NbResultExt<T, E> for ::nb::Result<T, E> {
         })
   }
 
+  #[cfg(feature = "std")]
   fn expect_nonblocking(self, msg: impl ToString) -> Result<T, E> {
     match self {
       | Ok(ok) => Ok(ok),
@@ -70,6 +72,7 @@ impl<T, E> NbResultExt<T, E> for ::nb::Result<T, E> {
 }
 
 pub(crate) mod nb {
+  #[allow(unused_macros)]
   macro_rules! nb_block {
     ($stuff:expr, with = $with:expr) => {
       loop {
@@ -101,5 +104,7 @@ pub(crate) mod nb {
                                  || ::std::io::Error::from(::std::io::ErrorKind::TimedOut))
     };
   }
+
+  #[allow(unused_imports)]
   pub(crate) use nb_block as block;
 }

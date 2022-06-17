@@ -174,10 +174,10 @@ impl<P: Platform> Default for Actions<P> {
   }
 }
 
-impl<P: Platform> Into<Actions<P>> for Action<P> {
-  fn into(self) -> Actions<P> {
+impl<P: Platform> From<Action<P>> for Actions<P> {
+  fn from(me: Action<P>) -> Actions<P> {
     let mut actions = Actions::default();
-    actions.0.push(Some(self));
+    actions.0.push(Some(me));
     actions
   }
 }
@@ -350,7 +350,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   fn perform_many(core: &mut Core<P>, actions: Actions<P>) -> Status<P> {
     actions.0
            .into_iter()
-           .filter_map(|o| o)
+           .flatten()
            .fold(Status::Continue, |status, action| match (status, action) {
              | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
              | (Status::Done | Status::Continue, Action::Continue) => Status::Continue,

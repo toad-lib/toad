@@ -110,95 +110,94 @@ pub mod conn {
 
   pub(in crate::std) type SslStream = openssl::ssl::SslStream<UdpConn>;
 
-    #[derive(Debug, Clone, Copy)]
-    enum HandshakeState {
-      NotStarted,
-      Done,
+  #[derive(Debug, Clone, Copy)]
+  enum HandshakeState {
+    NotStarted,
+    Done,
+  }
+
+  /// TODO
+  #[derive(Debug, Clone)]
+  pub struct UdpConn {
+    sock: Arc<UdpSocket>,
+    addr: no_std_net::SocketAddr,
+    handshake_state: HandshakeState,
+    tx_buf: Vec<u8>,
+  }
+
+  impl UdpConn {
+    pub(in crate::std) fn new(sock: Arc<UdpSocket>, addr: no_std_net::SocketAddr) -> Self {
+      Self { sock,
+             addr,
+             handshake_state: HandshakeState::NotStarted,
+             tx_buf: vec![] }
     }
 
-    /// TODO
-    #[derive(Debug, Clone)]
-    pub struct UdpConn {
-      sock: Arc<UdpSocket>,
-      addr: no_std_net::SocketAddr,
-      handshake_state: HandshakeState,
-      tx_buf: Vec<u8>,
+    pub(in crate::std) fn handshake_done(&mut self) {
+      self.handshake_state = HandshakeState::Done;
     }
 
-    impl UdpConn {
-      pub(in crate::std) fn new(sock: Arc<UdpSocket>, addr: no_std_net::SocketAddr) -> Self {
-        Self { sock,
-               addr,
-               handshake_state: HandshakeState::NotStarted,
-               tx_buf: vec![] }
-      }
+    pub(in crate::std) fn peek(&self) -> io::Result<no_std_net::SocketAddr> {
+      // This is weird -- openssl encourages us to restart
+      // the handshake process when a non-blocking socket (usually tcpstream)
+      // is not read-ready but it would be a logic error to continually restart
+      // until a message has been received.
+      //
+      // The workaround I've landed on is to block until we receive a message
+      // (happy path: this /should/ happen very fast) because we don't really have control
+      // over error granularity like differentiating between:
+      //  - "this would block because we don't have a message yet"
+      //  - "this would block because we got a message from someone else"
+      //  - "this would block and it's been a long time since we sent ClientHello"
 
-      pub(in crate::std) fn handshake_done(&mut self) {
-        self.handshake_state = HandshakeState::Done;
-      }
+      let sock = self.sock.as_ref();
+      let sock_ref = sock.deref();
 
-      pub(in crate::std) fn peek(&self) -> io::Result<no_std_net::SocketAddr> {
-        // This is weird -- openssl encourages us to restart
-        // the handshake process when a non-blocking socket (usually tcpstream)
-        // is not read-ready but it would be a logic error to continually restart
-        // until a message has been received.
-        //
-        // The workaround I've landed on is to block until we receive a message
-        // (happy path: this /should/ happen very fast) because we don't really have control
-        // over error granularity like differentiating between:
-        //  - "this would block because we don't have a message yet"
-        //  - "this would block because we got a message from someone else"
-        //  - "this would block and it's been a long time since we sent ClientHello"
-
-        let sock = self.sock.as_ref();
-        let sock_ref = sock.deref();
-
-        match self.handshake_state {
-          // See above comment for why we block here
-          | HandshakeState::NotStarted => todo::nb::block!(sock_ref.peek_addr(),
-                                                           io_timeout_after =
-                                                             Duration::from_secs(5)),
-          // If we're not negotiating DTLS anymore, proceed as a normal
-          // non-blocking connection
-          | HandshakeState::Done => sock_ref.peek_addr().map_err(nb_to_io),
-        }
+      match self.handshake_state {
+        // See above comment for why we block here
+        | HandshakeState::NotStarted => todo::nb::block!(sock_ref.peek_addr(),
+                                                         io_timeout_after = Duration::from_secs(5)),
+        // If we're not negotiating DTLS anymore, proceed as a normal
+        // non-blocking connection
+        | HandshakeState::Done => sock_ref.peek_addr().map_err(nb_to_io),
       }
     }
+  }
 
-    impl io::Write for UdpConn {
-      fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.tx_buf.extend(buf);
-        log::trace!("wrote {}b", buf.len());
-        Ok(buf.len())
-      }
-
-      fn flush(&mut self) -> io::Result<()> {
-        let tx = Addrd(self.tx_buf.as_slice(), self.addr);
-        Socket::send(self.sock.as_ref(), tx).perform_nb_err(|_| self.tx_buf.clear())
-                                            .perform(|_| {
-                                              log::trace!("sent {}b", self.tx_buf.len());
-                                              self.tx_buf.clear()
-                                            })
-                                            .map_err(nb_to_io)
-      }
+  impl io::Write for UdpConn {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+      self.tx_buf.extend(buf);
+      log::trace!("wrote {}b", buf.len());
+      Ok(buf.len())
     }
 
-    impl io::Read for UdpConn {
-      fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.peek()
-            .bind(|rx_addr| {
-              if rx_addr == self.addr {
-                Socket::recv(self.sock.as_ref(), buf)
+    fn flush(&mut self) -> io::Result<()> {
+      let tx = Addrd(self.tx_buf.as_slice(), self.addr);
+      Socket::send(self.sock.as_ref(), tx).perform_nb_err(|_| self.tx_buf.clear())
+                                          .perform(|_| {
+                                            log::trace!("sent {}b", self.tx_buf.len());
+                                            self.tx_buf.clear()
+                                          })
+                                          .map_err(nb_to_io)
+    }
+  }
+
+  impl io::Read for UdpConn {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+      self.peek()
+          .bind(|rx_addr| {
+            if rx_addr == self.addr {
+              Socket::recv(self.sock.as_ref(), buf)
            .expect_nonblocking("kwap::std::net::UdpConn::peek lied!")
-              } else {
-                // The message in the socket is for someone else,
-                // so we should yield
-                Err(io::Error::from(io::ErrorKind::WouldBlock))
-              }
-            })
-            .map(|Addrd(n, _)| n)
-      }
+            } else {
+              // The message in the socket is for someone else,
+              // so we should yield
+              Err(io::Error::from(io::ErrorKind::WouldBlock))
+            }
+          })
+          .map(|Addrd(n, _)| n)
     }
+  }
 
   pub(crate) enum SecureUdpConn {
     Established(SslStream),

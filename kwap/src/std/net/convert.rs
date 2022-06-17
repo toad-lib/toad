@@ -88,9 +88,9 @@ pub(crate) mod std {
     }
   }
 
-  impl Into<no_std_net::SocketAddr> for SockAddr {
-    fn into(self) -> no_std_net::SocketAddr {
-      no_std::SockAddr::from(self).0
+  impl From<SockAddr> for no_std_net::SocketAddr {
+    fn from(me: SockAddr) -> no_std_net::SocketAddr {
+      no_std::SockAddr::from(me).0
     }
   }
 }
@@ -167,9 +167,9 @@ pub(crate) mod no_std {
     }
   }
 
-  impl Into<std::net::SocketAddr> for SockAddr {
-    fn into(self) -> std::net::SocketAddr {
-      yes_std::SockAddr::from(self).0
+  impl From<SockAddr> for std::net::SocketAddr {
+    fn from(me: SockAddr) -> std::net::SocketAddr {
+      yes_std::SockAddr::from(me).0
     }
   }
 }

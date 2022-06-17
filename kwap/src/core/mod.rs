@@ -108,7 +108,7 @@ impl<P: Platform> Core<P> {
                               .unwrap_or(id.data().0)))
                });
 
-    self.largest_msg_id_seen = largest.or(Some(id.data().0));
+    self.largest_msg_id_seen = largest.or_else(|| Some(id.data().0));
 
     ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
     let ids_cap = ids.capacity_pct();
@@ -401,7 +401,9 @@ impl<P: Platform> Core<P> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
-        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg, Secure::IfSupported).map(|_| ()))
+        .try_for_each(|msg| {
+          Self::send_msg_sock(&mut self.sock, msg, Secure::IfSupported).map(|_| ())
+        })
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
@@ -432,19 +434,6 @@ impl<P: Platform> Core<P> {
         })
   }
 
-  /// Send a request!
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::core::Core;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
-  /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
-  /// ```
   pub(crate) fn send_req(&mut self,
                          req: Req<P>,
                          secure: Secure)
@@ -583,7 +572,9 @@ impl<P: Platform> Core<P> {
           msg.opts = Default::default();
           msg.code = kwap_msg::Code::new(0, 0);
 
-          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::IfSupported).map(|_| (id, addr))
+          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::IfSupported).map(|_| {
+                                                                                      (id, addr)
+                                                                                    })
         })
   }
 }
