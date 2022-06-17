@@ -1,14 +1,21 @@
+#[cfg(feature = "std")]
+use std::net::ToSocketAddrs;
+
+#[allow(unused_imports)]
+use kwap_common::result::ResultExt;
 use kwap_common::Array;
 use kwap_msg::Type;
 
 use crate::config::Config;
 use crate::core::{Core, Error, Secure};
 use crate::net::{Addrd, Socket};
-#[cfg(feature = "std")]
-use crate::platform::Std;
 use crate::platform::{self, Platform};
+#[cfg(feature = "std")]
+use crate::platform::{Std, StdSecure};
 use crate::req::{Method, Req};
 use crate::resp::Resp;
+#[cfg(feature = "std")]
+use crate::std::secure;
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
@@ -119,6 +126,7 @@ pub enum Action<P: Platform> {
 impl<P: Platform> PartialEq for Action<P> {
   fn eq(&self, other: &Self) -> bool {
     use Action::*;
+
     match (self, other) {
       | (Exit, Exit) => true,
       | (Continue, Continue) => true,
@@ -197,6 +205,38 @@ impl<P: Platform> From<Action<P>> for Actions<P> {
 pub struct Server<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>> {
   core: Core<P>,
   fns: Middlewares,
+}
+
+#[cfg(feature = "std")]
+impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
+  /// TODO
+  pub fn try_new_secure<A>(addr: A,
+                           private_key: openssl::pkey::PKey<openssl::pkey::Private>,
+                           cert: openssl::x509::X509)
+                           -> secure::Result<Self>
+    where A: ToSocketAddrs
+  {
+    Self::try_new_secure_config(Config::default(), addr, private_key, cert)
+  }
+
+  /// TODO
+  pub fn try_new_secure_config<A>(config: Config,
+                                  addr: A,
+                                  private_key: openssl::pkey::PKey<openssl::pkey::Private>,
+                                  cert: openssl::x509::X509)
+                                  -> secure::Result<Self>
+    where A: ToSocketAddrs
+  {
+    std::net::UdpSocket::bind(addr).map_err(secure::Error::from)
+                                   .bind(|sock| {
+                                     secure::SecureUdpSocket::try_new_server(sock,
+                                                                             private_key,
+                                                                             cert)
+                                   })
+                                   .map(|sock| {
+                                     Self::new_config(config, sock, crate::std::Clock::new())
+                                   })
+  }
 }
 
 #[cfg(feature = "std")]

@@ -25,6 +25,7 @@ use crate::todo::Capacity;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub(crate) enum Secure {
   IfSupported,
+  #[allow(dead_code)]
   No,
 }
 
