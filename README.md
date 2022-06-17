@@ -1,4 +1,3 @@
-# kwap
 <img src="https://raw.githubusercontent.com/clov-coffee/kwap/main/static/banner.png" />
 
 A CoAP implementation that strives to power client- and server-side CoAP in any language & any environment.
