@@ -13,11 +13,11 @@ use crate::time::Stamped;
 /// kwap configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
-  type MessagePayload: Array<Item = u8> + Clone + Debug;
+  type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq;
   /// What type should we use to store the option values?
-  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug;
+  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq;
   /// What type should we use to store the options?
-  type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug;
+  type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug + PartialEq;
 
   /// What type should we use to keep track of message IDs we've seen with a remote socket?
   type MessageIdHistory: Array<Item = Stamped<Self::Clock, Id>> + Clone + Debug;
@@ -30,7 +30,10 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type MessageTokenHistoryBySocket: Map<SocketAddr, Self::MessageTokenHistory> + Clone + Debug;
 
   /// What type should we use to keep track of options before serializing?
-  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)> + Clone + Debug;
+  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)>
+    + Clone
+    + Debug
+    + PartialEq;
 
   /// What should we use to keep track of time?
   type Clock: Clock<T = u64>;
@@ -114,6 +117,11 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
+
+/// [`Std`] but secured with DTLS
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;
 
 /// Type alias using Config instead of explicit type parameters for [`kwap_msg::Message`]
 pub type Message<P> = kwap_msg::Message<<P as Platform>::MessagePayload,

@@ -75,6 +75,15 @@ pub struct Req<P: Platform> {
   pub(crate) opts: Option<P::NumberedOptions>,
 }
 
+impl<P: Platform> PartialEq for Req<P> {
+  fn eq(&self, other: &Self) -> bool {
+    self.msg == other.msg
+    && self.id == other.id
+    && self.token == other.token
+    && self.opts == other.opts
+  }
+}
+
 impl<P: Platform> Clone for Req<P> {
   fn clone(&self) -> Self {
     Self { msg: self.msg.clone(),

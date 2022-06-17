@@ -3,11 +3,11 @@
 use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
 
-use crate::retry;
+use crate::retry::{Attempts, Strategy};
 
 pub(crate) struct ConfigData {
   pub(crate) token_seed: u16,
-  pub(crate) con_retry_strategy: retry::Strategy,
+  pub(crate) con_retry_strategy: Strategy,
   pub(crate) default_leisure_millis: u32,
   pub(crate) max_retransmit_attempts: u16,
   pub(crate) nstart: u8,
@@ -17,13 +17,13 @@ pub(crate) struct ConfigData {
 impl ConfigData {
   pub(crate) fn max_transmit_span_millis(&self) -> u32 {
     self.con_retry_strategy
-        .max_time(retry::Attempts(self.max_retransmit_attempts - 1))
+        .max_time(Attempts(self.max_retransmit_attempts - 1))
         .0 as u32
   }
 
   pub(crate) fn max_transmit_wait_millis(&self) -> u32 {
     self.con_retry_strategy
-        .max_time(retry::Attempts(self.max_retransmit_attempts))
+        .max_time(Attempts(self.max_retransmit_attempts))
         .0 as u32
   }
 
@@ -54,11 +54,15 @@ impl ConfigData {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Config {
   token_seed: Option<u16>,
-  con_retry_strategy: Option<retry::Strategy>,
+  con_retry_strategy: Option<Strategy>,
   default_leisure_millis: Option<u32>,
   max_retransmit_attempts: Option<u16>,
   nstart: Option<u8>,
   probing_rate_bytes_per_sec: Option<u16>,
+  /// Users who use a struct literal to initialize this
+  /// /must/ use ..Default::default(),
+  /// which makes adding fields to this struct non-breaking.
+  __non_exhaustive: (),
 }
 
 /// Bytes / Second
@@ -71,15 +75,15 @@ impl Config {
   /// ```
   /// use embedded_time::duration::Milliseconds as Millis;
   /// use kwap::config::{BytesPerSecond, Config};
-  /// use kwap::retry;
+  /// use kwap::retry::Attempts;
+  /// use kwap::retry::Strategy::Exponential;
   ///
-  /// let config =
-  ///   Config::new().token_seed(35718)
-  ///                .max_concurrent_requests(142)
-  ///                .probing_rate(BytesPerSecond(10_000))
-  ///                .max_con_request_retries(retry::Attempts(10))
-  ///                .con_retry_strategy(retry::Strategy::Exponential { init_min: Millis(500),
-  ///                                                                   init_max: Millis(750) });
+  /// let config = Config::new().token_seed(35718)
+  ///                           .max_concurrent_requests(142)
+  ///                           .probing_rate(BytesPerSecond(10_000))
+  ///                           .max_con_request_retries(Attempts(10))
+  ///                           .con_retry_strategy(Exponential { init_min: Millis(500),
+  ///                                                             init_max: Millis(750) });
   /// ```
   pub fn new() -> Self {
     Default::default()
@@ -93,7 +97,7 @@ impl Config {
   /// ```ignore
   /// Strategy::Exponential { init_min: Seconds(2), init_max: Seconds(3) }
   /// ```
-  pub fn con_retry_strategy(mut self, strat: retry::Strategy) -> Self {
+  pub fn con_retry_strategy(mut self, strat: Strategy) -> Self {
     self.con_retry_strategy = Some(strat);
     self
   }
@@ -155,7 +159,7 @@ impl Config {
   /// confirmable requests before getting a response.
   ///
   /// The default value is 4 attempts
-  pub fn max_con_request_retries(mut self, max_tries: crate::retry::Attempts) -> Self {
+  pub fn max_con_request_retries(mut self, max_tries: Attempts) -> Self {
     self.max_retransmit_attempts = Some(max_tries.0);
     self
   }
@@ -177,7 +181,8 @@ impl From<Config> for ConfigData {
                    max_retransmit_attempts,
                    nstart,
                    probing_rate_bytes_per_sec,
-                   con_retry_strategy, }: Config)
+                   con_retry_strategy,
+                   .. }: Config)
           -> Self {
     ConfigData { token_seed: token_seed.unwrap_or(0),
                  default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
@@ -185,7 +190,9 @@ impl From<Config> for ConfigData {
                  nstart: nstart.unwrap_or(1),
                  probing_rate_bytes_per_sec: probing_rate_bytes_per_sec.unwrap_or(1_000),
                  con_retry_strategy:
-                   con_retry_strategy.unwrap_or(retry::Strategy::Exponential { init_min: Milliseconds(2_000),
-                                                                               init_max: Milliseconds(3_000) }) }
+                   con_retry_strategy.unwrap_or(Strategy::Exponential { init_min:
+                                                                          Milliseconds(2_000),
+                                                                        init_max:
+                                                                          Milliseconds(3_000) }) }
   }
 }

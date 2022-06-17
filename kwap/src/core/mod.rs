@@ -22,6 +22,13 @@ use crate::retry::RetryTimer;
 use crate::time::Stamped;
 use crate::todo::Capacity;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub(crate) enum Secure {
+  IfSupported,
+  #[allow(dead_code)]
+  No,
+}
+
 // Option for these collections provides a Default implementation,
 // which is required by ArrayVec.
 //
@@ -102,7 +109,7 @@ impl<P: Platform> Core<P> {
                               .unwrap_or(id.data().0)))
                });
 
-    self.largest_msg_id_seen = largest.or(Some(id.data().0));
+    self.largest_msg_id_seen = largest.or_else(|| Some(id.data().0));
 
     ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
     let ids_cap = ids.capacity_pct();
@@ -395,7 +402,9 @@ impl<P: Platform> Core<P> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
-        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg).map(|_| ()))
+        .try_for_each(|msg| {
+          Self::send_msg_sock(&mut self.sock, msg, Secure::IfSupported).map(|_| ())
+        })
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
@@ -417,7 +426,7 @@ impl<P: Platform> Core<P> {
               .map(|now| retry.what_should_i_do(now))
               .bind(|should| match should {
                 | Ok(YouShould::Retry) => {
-                  Self::send_msg_sock(&mut self.sock, msg.clone()).map(|_| ())
+                  Self::send_msg_sock(&mut self.sock, msg.clone(), Secure::IfSupported).map(|_| ())
                 },
                 | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
                 | Err(nb::Error::WouldBlock) => Ok(()),
@@ -426,20 +435,10 @@ impl<P: Platform> Core<P> {
         })
   }
 
-  /// Send a request!
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use kwap::core::Core;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8002)).unwrap();
-  /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// core.send_req(Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello"));
-  /// ```
-  pub fn send_req(&mut self, req: Req<P>) -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+  pub(crate) fn send_req(&mut self,
+                         req: Req<P>,
+                         secure: Secure)
+                         -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value
                          .0
@@ -462,11 +461,12 @@ impl<P: Platform> Core<P> {
     core::str::from_utf8(&host).map_err(|err| when.what(What::HostInvalidUtf8(err)))
                                .map(|host| host.parse::<IpAddr>().unwrap())
                                .map(|host| SocketAddr::new(host, port))
-                               .bind(|host| self.send_addrd_req(Addrd(req, host)))
+                               .bind(|host| self.send_addrd_req(Addrd(req, host), secure))
   }
 
   pub(crate) fn send_addrd_req(&mut self,
-                               mut req: Addrd<Req<P>>)
+                               mut req: Addrd<Req<P>>,
+                               secure: Secure)
                                -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
     let addr = req.addr();
 
@@ -488,16 +488,22 @@ impl<P: Platform> Core<P> {
             self.retry_q.push(Some(msg))
           }
         })
-        .bind(|_| Self::send_msg_sock(&mut self.sock, msg))
+        .bind(|_| Self::send_msg_sock(&mut self.sock, msg, secure))
         .map(|()| (token, addr))
   }
 
   /// Send a message to a remote socket
-  pub fn send_msg(&mut self, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
-    Self::send_msg_sock(&mut self.sock, msg)
+  pub(crate) fn send_msg(&mut self,
+                         msg: Addrd<platform::Message<P>>,
+                         secure: Secure)
+                         -> Result<(), Error<P>> {
+    Self::send_msg_sock(&mut self.sock, msg, secure)
   }
 
-  fn send_msg_sock(sock: &mut P::Socket, msg: Addrd<platform::Message<P>>) -> Result<(), Error<P>> {
+  fn send_msg_sock(sock: &mut P::Socket,
+                   msg: Addrd<platform::Message<P>>,
+                   secure: Secure)
+                   -> Result<(), Error<P>> {
     let addr = msg.addr();
     let when = When::None;
 
@@ -509,22 +515,24 @@ impl<P: Platform> Core<P> {
        .try_into_bytes::<ArrayVec<[u8; 1152]>>()
        .map_err(What::<P>::ToBytes)
        .map_err(|what| when.what(what))
-       .bind(|bytes| Self::send(when, sock, addr, bytes))
+       .bind(|bytes| Self::send(when, sock, addr, bytes, secure))
        .map(|_| ())
   }
 
   pub(crate) fn send(when: When,
                      sock: &mut P::Socket,
                      addr: SocketAddr,
-                     bytes: impl Array<Item = u8>)
+                     bytes: impl Array<Item = u8>,
+                     secure: Secure)
                      -> Result<SocketAddr, Error<P>> {
     let len = bytes.get_size();
 
-    nb::block!(sock.send(Addrd(&bytes, addr))).map_err(|err| when.what(What::SockError(err)))
-                                              .perform(|()| {
-                                                log::trace!("sent {}b -> {}", len, addr)
-                                              })
-                                              .map(|_| addr)
+    nb::block!(match secure {
+                 | Secure::IfSupported => sock.send(Addrd(&bytes, addr)),
+                 | Secure::No => sock.insecure_send(Addrd(&bytes, addr)),
+               }).map_err(|err| when.what(What::SockError(err)))
+                 .perform(|()| log::trace!("sent {}b -> {}", len, addr))
+                 .map(|_| addr)
   }
 
   /// Send a ping message to some remote coap server
@@ -565,7 +573,9 @@ impl<P: Platform> Core<P> {
           msg.opts = Default::default();
           msg.code = kwap_msg::Code::new(0, 0);
 
-          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr)).map(|_| (id, addr))
+          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::IfSupported).map(|_| {
+                                                                                      (id, addr)
+                                                                                    })
         })
   }
 }

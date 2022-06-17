@@ -1,14 +1,21 @@
+#[cfg(feature = "std")]
+use std::net::ToSocketAddrs;
+
+#[allow(unused_imports)]
+use kwap_common::result::ResultExt;
 use kwap_common::Array;
 use kwap_msg::Type;
 
 use crate::config::Config;
-use crate::core::{Core, Error};
+use crate::core::{Core, Error, Secure};
 use crate::net::{Addrd, Socket};
-#[cfg(feature = "std")]
-use crate::platform::Std;
 use crate::platform::{self, Platform};
+#[cfg(feature = "std")]
+use crate::platform::{Std, StdSecure};
 use crate::req::{Method, Req};
 use crate::resp::Resp;
+#[cfg(feature = "std")]
+use crate::std::secure;
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
@@ -89,6 +96,16 @@ pub enum Action<P: Platform> {
   /// will prevent subsequent middlewares from
   /// being called, unless followed by [`Action::Continue`].
   Send(Addrd<platform::Message<P>>),
+  /// Opt-out of DTLS for [`Send`], [`SendReq`], [`SendResp`].
+  ///
+  /// This can be useful for broadcasting our location
+  /// on a multicast address, where DTLS is irrelevant.
+  ///
+  /// Note that while it's not an /error/ to wrap
+  /// [`Exit`], [`Continue`], or even another [`Insecure`]
+  /// with [`Insecure`], it doesn't accomplish anything.
+  #[cfg(feature = "std")]
+  Insecure(Box<Action<P>>),
   /// Stop the server completely.
   ///
   /// This will ignore any & all [`Action`]s that follow,
@@ -104,6 +121,25 @@ pub enum Action<P: Platform> {
   /// `Continue` allows you to opt-out of this implication, and
   /// middleware will continue to be called on the request.
   Continue,
+}
+
+impl<P: Platform> PartialEq for Action<P> {
+  fn eq(&self, other: &Self) -> bool {
+    use Action::*;
+
+    match (self, other) {
+      | (Exit, Exit) => true,
+      | (Continue, Continue) => true,
+      #[cfg(feature = "std")]
+      | (a, Insecure(b)) => a == b.as_ref(),
+      #[cfg(feature = "std")]
+      | (Insecure(a), b) => a.as_ref() == b,
+      | (SendResp(a), SendResp(b)) => a == b,
+      | (SendReq(a), SendReq(b)) => a == b,
+      | (Send(a), Send(b)) => a == b,
+      | _ => false,
+    }
+  }
 }
 
 impl<P: Platform> Action<P> {
@@ -153,10 +189,10 @@ impl<P: Platform> Default for Actions<P> {
   }
 }
 
-impl<P: Platform> Into<Actions<P>> for Action<P> {
-  fn into(self) -> Actions<P> {
+impl<P: Platform> From<Action<P>> for Actions<P> {
+  fn from(me: Action<P>) -> Actions<P> {
     let mut actions = Actions::default();
-    actions.0.push(Some(self));
+    actions.0.push(Some(me));
     actions
   }
 }
@@ -169,6 +205,40 @@ impl<P: Platform> Into<Actions<P>> for Action<P> {
 pub struct Server<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>> {
   core: Core<P>,
   fns: Middlewares,
+}
+
+#[cfg(feature = "std")]
+impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
+  /// Create a new server that is secured by DTLS
+  /// using a private key and certificate.
+  pub fn try_new_secure<A>(addr: A,
+                           private_key: openssl::pkey::PKey<openssl::pkey::Private>,
+                           cert: openssl::x509::X509)
+                           -> secure::Result<Self>
+    where A: ToSocketAddrs
+  {
+    Self::try_new_secure_config(Config::default(), addr, private_key, cert)
+  }
+
+  /// Create a new server that is secured by DTLS
+  /// using a private key and certificate.
+  pub fn try_new_secure_config<A>(config: Config,
+                                  addr: A,
+                                  private_key: openssl::pkey::PKey<openssl::pkey::Private>,
+                                  cert: openssl::x509::X509)
+                                  -> secure::Result<Self>
+    where A: ToSocketAddrs
+  {
+    std::net::UdpSocket::bind(addr).map_err(secure::Error::from)
+                                   .bind(|sock| {
+                                     secure::SecureUdpSocket::try_new_server(sock,
+                                                                             private_key,
+                                                                             cert)
+                                   })
+                                   .map(|sock| {
+                                     Self::new_config(config, sock, crate::std::Clock::new())
+                                   })
+  }
 }
 
 #[cfg(feature = "std")]
@@ -309,10 +379,19 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
 
   fn perform_one(core: &mut Core<P>, action: Action<P>) -> Result<(), Error<P>> {
     match action {
+      #[cfg(feature = "std")]
+      | Action::Insecure(inner) => match *inner {
+        | Action::Send(msg) => core.send_msg(msg, Secure::No),
+        | Action::SendReq(req) => core.send_addrd_req(req, Secure::No).map(|_| ()),
+        | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::No),
+        | a @ Action::Insecure(_) | a @ Action::Exit | a @ Action::Continue => {
+          Self::perform_one(core, a)
+        },
+      },
       | Action::Continue => Ok(()),
-      | Action::Send(msg) => core.send_msg(msg),
-      | Action::SendReq(req) => core.send_addrd_req(req).map(|_| ()),
-      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into)),
+      | Action::Send(msg) => core.send_msg(msg, Secure::IfSupported),
+      | Action::SendReq(req) => core.send_addrd_req(req, Secure::IfSupported).map(|_| ()),
+      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::IfSupported),
       | Action::Exit => unreachable!(),
     }
   }
@@ -320,7 +399,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   fn perform_many(core: &mut Core<P>, actions: Actions<P>) -> Status<P> {
     actions.0
            .into_iter()
-           .filter_map(|o| o)
+           .flatten()
            .fold(Status::Continue, |status, action| match (status, action) {
              | (Status::Exit, _) | (_, Action::Exit) => Status::Exit,
              | (Status::Done | Status::Continue, Action::Continue) => Status::Continue,
