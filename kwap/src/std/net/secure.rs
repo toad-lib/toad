@@ -18,7 +18,8 @@ use super::convert::nb_to_io;
 use super::{convert, Addrd, Socket};
 use crate::todo::{self, NbResultExt, ResultExt2};
 
-type Error = SecureSocketError;
+/// Secure socket result
+pub type Result<T> = ::core::result::Result<T, Error>;
 type Shared<T> = Arc<Mutex<T>>;
 type Connections = HashMap<no_std_net::SocketAddr, Shared<conn::SecureUdpConn>>;
 
@@ -35,7 +36,7 @@ mod error {
 
   /// I/O errors that sockets secured by DTLS can encounter
   #[derive(Debug)]
-  pub enum SecureSocketError {
+  pub enum Error {
     /// There was in issue within openssl - this is most likely
     /// to be a bug in `kwap` than a bug in `openssl`.
     Ssl(openssl::ssl::Error),
@@ -238,7 +239,7 @@ impl core::fmt::Debug for SecureUdpSocket {
 impl SecureUdpSocket {
   fn new_acceptor(private_key: openssl::pkey::PKey<openssl::pkey::Private>,
                   cert: openssl::x509::X509)
-                  -> Result<SslAcceptor, Error> {
+                  -> Result<SslAcceptor> {
     let builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::dtls());
 
     builder.perform(|_| log::trace!("set private key"))
@@ -250,7 +251,7 @@ impl SecureUdpSocket {
            .perform(|_| log::trace!("new acceptor created"))
   }
 
-  fn new_connector() -> Result<SslConnector, Error> {
+  fn new_connector() -> Result<SslConnector> {
     let builder = SslConnector::builder(SslMethod::dtls());
     builder.map(|mut builder| {
              let prev_mode = builder.set_mode(SslMode::all());
@@ -301,7 +302,7 @@ impl SecureUdpSocket {
   pub fn try_new_server(sock: UdpSocket,
                         private_key: openssl::pkey::PKey<openssl::pkey::Private>,
                         cert: openssl::x509::X509)
-                        -> Result<Self, Error> {
+                        -> Result<Self> {
     let ssl = Self::new_acceptor(private_key, cert);
     ssl.map(|ssl| Self::new_server(ssl, sock))
   }
@@ -312,7 +313,7 @@ impl SecureUdpSocket {
   ///
   /// This will configure openssl to use many sensible defaults,
   /// such as disabling the openssl `ENABLE_PARTIAL_WRITE` flag.
-  pub fn try_new_client(sock: UdpSocket) -> Result<Self, Error> {
+  pub fn try_new_client(sock: UdpSocket) -> Result<Self> {
     let ssl = Self::new_connector();
     ssl.map(|ssl| Self::new_client(ssl, sock))
   }
@@ -407,7 +408,7 @@ impl SecureUdpSocket {
 
   pub(crate) fn get_conn_or_connect(&self,
                                     addr: no_std_net::SocketAddr)
-                                    -> Result<Shared<conn::SecureUdpConn>, Error> {
+                                    -> Result<Shared<conn::SecureUdpConn>> {
     match self.get_conn(addr) {
       | Some(conn) => Ok(conn),
       | None => Self::connect(&self.ssl,
@@ -419,7 +420,7 @@ impl SecureUdpSocket {
 
   pub(crate) fn get_conn_or_accept(&self,
                                    addr: no_std_net::SocketAddr)
-                                   -> Result<Shared<conn::SecureUdpConn>, Error> {
+                                   -> Result<Shared<conn::SecureUdpConn>> {
     match self.get_conn(addr) {
       | Some(conn) => Ok(conn),
       | None => Self::accept(&self.ssl,
@@ -479,7 +480,7 @@ impl SecureUdpSocket {
 impl Socket for SecureUdpSocket {
   type Error = Error;
 
-  fn bind_raw<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self, Self::Error> {
+  fn bind_raw<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self> {
     todo!()
   }
 
@@ -547,7 +548,7 @@ impl Socket for SecureUdpSocket {
   }
 
   /// Multicast and SSL are incompatible, so this always returns `Err(io::ErrorKind::Unsupported)`.
-  fn join_multicast(&self, _: no_std_net::IpAddr) -> Result<(), Self::Error> {
+  fn join_multicast(&self, _: no_std_net::IpAddr) -> Result<()> {
     Err(io::Error::from(io::ErrorKind::Unsupported).into()).perform_err(|e| log::error!("{:?}", e))
   }
 }

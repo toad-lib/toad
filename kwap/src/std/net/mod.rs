@@ -9,7 +9,7 @@ mod convert;
 
 /// [`UdpSocket`] secured by DTLS
 pub mod secure;
-pub use secure::*;
+pub use secure::{Error as SecureSocketError, SecureUdpSocket};
 
 impl Socket for UdpSocket {
   type Error = io::Error;

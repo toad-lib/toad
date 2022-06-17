@@ -8,9 +8,10 @@ use crate::core::{Core, Error, Secure, What, When};
 use crate::net::{Addrd, Socket};
 use crate::platform::Platform;
 #[cfg(feature = "std")]
-use crate::platform::Std;
+use crate::platform::{Std, StdSecure};
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
+use crate::std::{secure, SecureUdpSocket};
 
 /// Platform struct containing things needed to make a new Client.
 ///
@@ -54,6 +55,38 @@ impl<T, Cfg: Platform> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
                     .. }) => Ok(None),
       | Err(e) => Err(e),
     }
+  }
+}
+
+#[cfg(feature = "std")]
+impl Client<StdSecure> {
+  /// Create a new Client secured by DTLS
+  ///
+  /// ```no_run
+  /// use kwap::blocking::Client;
+  /// use kwap::req::ReqBuilder;
+  /// use kwap::ContentFormat;
+  ///
+  /// let mut client = Client::new_secure(1234).unwrap();
+  /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
+  ///                                                                      .build()
+  ///                                                                      .unwrap();
+  ///
+  /// let rep = client.send(req).unwrap();
+  ///
+  /// println!("Hello, {}!", rep.payload_string().unwrap());
+  /// ```
+  pub fn new_secure(port: u16) -> secure::Result<Self> {
+    Client::<StdSecure>::new_secure_config(port, Config::default())
+  }
+
+  /// Create a new std client with a specific runtime config
+  pub fn new_secure_config(port: u16, config: Config) -> secure::Result<Self> {
+    let clock = crate::std::Clock::new();
+    std::net::UdpSocket::bind(format!("0.0.0.0:{}", port)).map_err(secure::Error::from).bind(
+        SecureUdpSocket::try_new_client
+    ).map(|sock|
+    Client::<StdSecure>::new_config(config, ClientConfig { clock, sock }))
   }
 }
 
