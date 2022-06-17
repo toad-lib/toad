@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.10.0 (2022-06-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **kwap:** add dtls support (#131)
+
+### Features
+
+* **kwap:** add dtls support ([#131](https://github.com/clov-coffee/kwap/issues/131)) ([0e4b7ae](https://github.com/clov-coffee/kwap/commit/0e4b7ae7ffa5a94da2f5967ffa37735962ac51a0))
+
 ## 0.9.0 (2022-06-01)
 
 
