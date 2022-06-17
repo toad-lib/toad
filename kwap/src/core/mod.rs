@@ -24,7 +24,7 @@ use crate::todo::Capacity;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub(crate) enum Secure {
-  Yes,
+  IfSupported,
   No,
 }
 
@@ -401,7 +401,7 @@ impl<P: Platform> Core<P> {
     self.fling_q
         .iter_mut()
         .filter_map(Option::take)
-        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg, Secure::Yes).map(|_| ()))
+        .try_for_each(|msg| Self::send_msg_sock(&mut self.sock, msg, Secure::IfSupported).map(|_| ()))
   }
 
   /// Process all the queued outbound messages **that we may send multiple times based on the response behavior**.
@@ -423,7 +423,7 @@ impl<P: Platform> Core<P> {
               .map(|now| retry.what_should_i_do(now))
               .bind(|should| match should {
                 | Ok(YouShould::Retry) => {
-                  Self::send_msg_sock(&mut self.sock, msg.clone(), Secure::Yes).map(|_| ())
+                  Self::send_msg_sock(&mut self.sock, msg.clone(), Secure::IfSupported).map(|_| ())
                 },
                 | Ok(YouShould::Cry) => Err(when.what(What::MessageNeverAcked)),
                 | Err(nb::Error::WouldBlock) => Ok(()),
@@ -538,7 +538,7 @@ impl<P: Platform> Core<P> {
     let len = bytes.get_size();
 
     nb::block!(match secure {
-                 | Secure::Yes => sock.send(Addrd(&bytes, addr)),
+                 | Secure::IfSupported => sock.send(Addrd(&bytes, addr)),
                  | Secure::No => sock.insecure_send(Addrd(&bytes, addr)),
                }).map_err(|err| when.what(What::SockError(err)))
                  .perform(|()| log::trace!("sent {}b -> {}", len, addr))
@@ -583,7 +583,7 @@ impl<P: Platform> Core<P> {
           msg.opts = Default::default();
           msg.code = kwap_msg::Code::new(0, 0);
 
-          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::Yes).map(|_| (id, addr))
+          Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::IfSupported).map(|_| (id, addr))
         })
   }
 }

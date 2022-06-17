@@ -46,7 +46,7 @@ mod error {
     /// The operation would block
     WouldBlock,
     /// TODO
-    WouldBlockMidHandshake(MidHandshakeSslStream<conn::raw::UdpConn>),
+    WouldBlockMidHandshake(MidHandshakeSslStream<conn::UdpConn>),
   }
 
   impl From<nb::Error<Error>> for Error {
@@ -87,8 +87,8 @@ mod error {
     }
   }
 
-  impl From<openssl::ssl::HandshakeError<conn::raw::UdpConn>> for Error {
-    fn from(e: openssl::ssl::HandshakeError<conn::raw::UdpConn>) -> Self {
+  impl From<openssl::ssl::HandshakeError<conn::UdpConn>> for Error {
+    fn from(e: openssl::ssl::HandshakeError<conn::UdpConn>) -> Self {
       match e {
         | openssl::ssl::HandshakeError::SetupFailure(e) => e.into(),
         | openssl::ssl::HandshakeError::Failure(e) => e.into_error().into(),
@@ -104,13 +104,11 @@ mod error {
   }
 }
 
-pub(in crate::std) mod conn {
+/// TODO
+pub mod conn {
   use super::*;
 
-  pub(in crate::std) type SslStream = openssl::ssl::SslStream<raw::UdpConn>;
-
-  pub(in crate::std) mod raw {
-    use super::*;
+  pub(in crate::std) type SslStream = openssl::ssl::SslStream<UdpConn>;
 
     #[derive(Debug, Clone, Copy)]
     enum HandshakeState {
@@ -201,11 +199,10 @@ pub(in crate::std) mod conn {
             .map(|Addrd(n, _)| n)
       }
     }
-  }
 
   pub(crate) enum SecureUdpConn {
     Established(SslStream),
-    Establishing(MidHandshakeSslStream<conn::raw::UdpConn>),
+    Establishing(MidHandshakeSslStream<conn::UdpConn>),
   }
 
   impl SecureUdpConn {
@@ -290,7 +287,7 @@ impl SecureUdpSocket {
              conns: &mut Connections,
              addr: no_std_net::SocketAddr)
              -> nb::Result<Shared<conn::SecureUdpConn>, Error> {
-    let conn = conn::raw::UdpConn::new(sock, addr);
+    let conn = conn::UdpConn::new(sock, addr);
     match ssl {
       | SslRole::Client(connector) => {
         connector.configure()
@@ -337,7 +334,7 @@ impl SecureUdpSocket {
             conns: &mut Connections,
             addr: no_std_net::SocketAddr)
             -> nb::Result<Shared<conn::SecureUdpConn>, Error> {
-    let conn = conn::raw::UdpConn::new(sock, addr);
+    let conn = conn::UdpConn::new(sock, addr);
 
     let client_uh_oh = || {
       let not_found = Error::ConnectionNotFound;

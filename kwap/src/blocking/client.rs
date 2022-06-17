@@ -112,7 +112,7 @@ impl<P: Platform> Client<P> {
   /// Note: this will eventually not require Client to be borrowed mutably.
   pub fn send(&mut self, req: Req<P>) -> Result<Resp<P>, Error<P>> {
     self.core
-        .send_req(req, Secure::Yes)
+        .send_req(req, Secure::IfSupported)
         .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)))
   }
 

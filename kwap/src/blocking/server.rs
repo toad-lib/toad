@@ -340,9 +340,9 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
         },
       },
       | Action::Continue => Ok(()),
-      | Action::Send(msg) => core.send_msg(msg, Secure::Yes),
-      | Action::SendReq(req) => core.send_addrd_req(req, Secure::Yes).map(|_| ()),
-      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::Yes),
+      | Action::Send(msg) => core.send_msg(msg, Secure::IfSupported),
+      | Action::SendReq(req) => core.send_addrd_req(req, Secure::IfSupported).map(|_| ()),
+      | Action::SendResp(resp) => core.send_msg(resp.map(Into::into), Secure::IfSupported),
       | Action::Exit => unreachable!(),
     }
   }

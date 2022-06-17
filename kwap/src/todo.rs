@@ -26,45 +26,12 @@ pub(crate) fn code_to_human(code: kwap_msg::Code) -> Writable<ArrayVec<[u8; 4]>>
   buf
 }
 
-#[derive(Debug)]
-#[must_use]
-pub(crate) struct Should<T, E>(Result<T, E>);
-
-impl<T, E> Should<T, E> {
-  pub(crate) fn should_pass(self, f: impl FnOnce(&T) -> bool) -> Else<T, E> {
-    Else(self.0.map(|t| (f(&t), t)))
-  }
-}
-
-impl<T: PartialEq, E> Should<T, E> {
-  pub(crate) fn should_eq(self, other: &T) -> Else<T, E> {
-    self.should_pass(|t| t == other)
-  }
-}
-
-#[derive(Debug)]
-#[must_use]
-pub(crate) struct Else<T, E>(Result<(bool, T), E>);
-impl<T, E> Else<T, E> {
-  pub(crate) fn else_err(self, f: impl FnOnce(T) -> E) -> Result<T, E> {
-    self.0.bind(|(pass, t)| match pass {
-            | false => Err(f(t)),
-            | true => Ok(t),
-          })
-  }
-}
-
 pub(crate) trait ResultExt2<T, E> {
-  fn validate(self, f: impl FnOnce(Should<T, E>) -> Result<T, E>) -> Result<T, E>;
   fn unwrap_err_or(self, f: impl FnOnce(T) -> E) -> E;
   fn try_perform_mut(self, f: impl FnOnce(&mut T) -> Result<(), E>) -> Result<T, E>;
 }
 
 impl<T, E> ResultExt2<T, E> for Result<T, E> {
-  fn validate(self, f: impl FnOnce(Should<T, E>) -> Result<T, E>) -> Result<T, E> {
-    f(Should(self))
-  }
-
   fn unwrap_err_or(self, f: impl FnOnce(T) -> E) -> E {
     match self {
       | Ok(t) => f(t),
