@@ -209,7 +209,8 @@ pub struct Server<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middl
 
 #[cfg(feature = "std")]
 impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
-  /// TODO
+  /// Create a new server that is secured by DTLS
+  /// using a private key and certificate.
   pub fn try_new_secure<A>(addr: A,
                            private_key: openssl::pkey::PKey<openssl::pkey::Private>,
                            cert: openssl::x509::X509)
@@ -219,7 +220,8 @@ impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
     Self::try_new_secure_config(Config::default(), addr, private_key, cert)
   }
 
-  /// TODO
+  /// Create a new server that is secured by DTLS
+  /// using a private key and certificate.
   pub fn try_new_secure_config<A>(config: Config,
                                   addr: A,
                                   private_key: openssl::pkey::PKey<openssl::pkey::Private>,
