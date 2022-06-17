@@ -33,19 +33,20 @@ pub use error::*;
 mod error {
   use super::*;
 
-  /// TODO
+  /// I/O errors that sockets secured by DTLS can encounter
   #[derive(Debug)]
   pub enum SecureSocketError {
-    /// TODO
+    /// There was in issue within openssl - this is most likely
+    /// to be a bug in `kwap` than a bug in `openssl`.
     Ssl(openssl::ssl::Error),
-    /// TODO
+    /// There was an IO error raised by the underlying socket
     Io(std::io::Error),
     /// A message was received from / outbound to an address
     /// that we haven't established a connection with
     ConnectionNotFound,
     /// The operation would block
     WouldBlock,
-    /// TODO
+    /// TODO probably unnecessary
     WouldBlockMidHandshake(MidHandshakeSslStream<conn::UdpConn>),
   }
 
@@ -104,7 +105,13 @@ mod error {
   }
 }
 
-/// TODO
+/// # UDP Connections
+///
+/// Implementations of the io stream traits ([`Read`], [`Write`])
+/// for UDP sockets
+///
+/// You probably don't need to refer to these directly, but you can
+/// if you've walked yourself into a deep hole
 pub mod conn {
   use super::*;
 
@@ -116,7 +123,12 @@ pub mod conn {
     Done,
   }
 
-  /// TODO
+  /// A raw unsecured UDP stream
+  ///
+  /// This contains internal state like:
+  ///  - A reference to the [`UdpSocket`] that it was created from
+  ///  - The remote address it's connected to
+  ///  - Whether it's been successfully secured against the remote address
   #[derive(Debug, Clone)]
   pub struct UdpConn {
     sock: Arc<UdpSocket>,
@@ -167,17 +179,13 @@ pub mod conn {
   impl io::Write for UdpConn {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
       self.tx_buf.extend(buf);
-      log::trace!("wrote {}b", buf.len());
       Ok(buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
       let tx = Addrd(self.tx_buf.as_slice(), self.addr);
       Socket::send(self.sock.as_ref(), tx).perform_nb_err(|_| self.tx_buf.clear())
-                                          .perform(|_| {
-                                            log::trace!("sent {}b", self.tx_buf.len());
-                                            self.tx_buf.clear()
-                                          })
+                                          .perform(|_| self.tx_buf.clear())
                                           .map_err(nb_to_io)
     }
   }
@@ -187,8 +195,8 @@ pub mod conn {
       self.peek()
           .bind(|rx_addr| {
             if rx_addr == self.addr {
-              Socket::recv(self.sock.as_ref(), buf)
-           .expect_nonblocking("kwap::std::net::UdpConn::peek lied!")
+              let recv = Socket::recv(self.sock.as_ref(), buf);
+              recv.expect_nonblocking("kwap::std::net::UdpConn::peek lied!")
             } else {
               // The message in the socket is for someone else,
               // so we should yield
@@ -214,12 +222,17 @@ pub mod conn {
   }
 }
 
-/// TODO
-#[allow(missing_debug_implementations)]
+/// A UDP socket secured by DTLS
 pub struct SecureUdpSocket {
   sock: Arc<UdpSocket>,
   ssl: SslRole,
   conns: Mutex<Connections>,
+}
+
+impl core::fmt::Debug for SecureUdpSocket {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "SecureUdpSocket {{ /* fields hidden */ }}")
+  }
 }
 
 impl SecureUdpSocket {
@@ -250,7 +263,13 @@ impl SecureUdpSocket {
            .perform(|_| log::trace!("new connector created"))
   }
 
-  /// TODO
+  /// Create a new secure socket for a server
+  ///
+  /// You need to bring an unsecured [`UdpSocket`] bound to
+  /// some address and an [`SslAcceptor`] you've configured manually.
+  ///
+  /// It is strongly recommended that you use [`SecureUdpSocket::try_new_server`]
+  /// instead, as it comes with sensible secure defaults.
   pub fn new_server(ssl: SslAcceptor, sock: UdpSocket) -> Self {
     sock.set_nonblocking(true).unwrap();
     Self { sock: Arc::new(sock),
@@ -258,7 +277,13 @@ impl SecureUdpSocket {
            conns: Default::default() }
   }
 
-  /// TODO
+  /// Create a new secure socket for a client
+  ///
+  /// You need to bring an unsecured [`UdpSocket`] bound to
+  /// some address and an [`SslConnector`] you've configured manually.
+  ///
+  /// It is strongly recommended that you use [`SecureUdpSocket::try_new_client`]
+  /// instead, as it comes with sensible secure defaults.
   pub fn new_client(ssl: SslConnector, sock: UdpSocket) -> Self {
     sock.set_nonblocking(true).unwrap();
     Self { sock: Arc::new(sock),
@@ -266,7 +291,13 @@ impl SecureUdpSocket {
            conns: Default::default() }
   }
 
-  /// TODO
+  /// Create a new secure socket for a server
+  ///
+  /// You need to bring an unsecured [`UdpSocket`] bound to
+  /// some address, a private key, and an X509 certificate.
+  ///
+  /// This will configure openssl to use many sensible defaults,
+  /// such as [Mozilla's recommended server-side TLS configuration](`openssl::ssl::SslAcceptor::mozilla_intermediate_v5`)
   pub fn try_new_server(sock: UdpSocket,
                         private_key: openssl::pkey::PKey<openssl::pkey::Private>,
                         cert: openssl::x509::X509)
@@ -275,7 +306,12 @@ impl SecureUdpSocket {
     ssl.map(|ssl| Self::new_server(ssl, sock))
   }
 
-  /// TODO
+  /// Create a new secure socket for a server
+  ///
+  /// You just need to bring an unsecured [`UdpSocket`].
+  ///
+  /// This will configure openssl to use many sensible defaults,
+  /// such as disabling the openssl `ENABLE_PARTIAL_WRITE` flag.
   pub fn try_new_client(sock: UdpSocket) -> Result<Self, Error> {
     let ssl = Self::new_connector();
     ssl.map(|ssl| Self::new_client(ssl, sock))
