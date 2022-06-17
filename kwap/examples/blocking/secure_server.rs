@@ -17,11 +17,14 @@ const PORT: u16 = 1111;
 pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
+  use std::time::{Duration, Instant};
+
   use kwap::req::Method;
   use Action::{Continue, Exit, Insecure, SendReq, SendResp};
 
   use super::*;
   static mut BROADCAST_RECIEVED: bool = false;
+  static mut LAST_BROADCAST: Option<Instant> = None;
 
   /// CON/NON POST /exit
   pub fn exit(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
@@ -88,8 +91,15 @@ mod service {
   /// multicast address on port `DISCOVERY_PORT`
   pub fn send_multicast_broadcast() -> Actions<StdSecure> {
     match unsafe { BROADCAST_RECIEVED } {
-      | true => Actions::just(Continue),
-      | false => {
+      | false
+        if unsafe {
+          LAST_BROADCAST.map(|inst| inst < Instant::now() - Duration::from_secs(5))
+                        .unwrap_or(true)
+        } =>
+      {
+        unsafe {
+          LAST_BROADCAST = Some(Instant::now());
+        }
         let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
 
         let mut req = Req::<StdSecure>::post(addr, "");
@@ -97,6 +107,7 @@ mod service {
 
         Insecure(SendReq(Addrd(req, addr)).into()).then(Continue)
       },
+      | _ => Actions::just(Continue),
     }
   }
 }
@@ -113,11 +124,9 @@ pub fn spawn() -> JoinHandle<()> {
 
                                let sock = UdpSocket::bind(&format!("0.0.0.0:{}", PORT)).unwrap();
                                let sock = SecureUdpSocket::try_new_server(sock, pkey, cert).unwrap();
-                               log::info!("sock made");
 
                                let mut server =
                                  kwap::blocking::Server::<StdSecure, Vec<_>>::new(sock, Clock::new());
-                               log::info!("server made");
 
                                server.middleware(&service::close_multicast_broadcast);
                                server.middleware(&service::exit);
@@ -136,5 +145,7 @@ pub fn spawn() -> JoinHandle<()> {
 
 #[allow(dead_code)]
 fn main() {
+  simple_logger::init_with_level(log::Level::Trace).unwrap();
+
   spawn().join().unwrap();
 }

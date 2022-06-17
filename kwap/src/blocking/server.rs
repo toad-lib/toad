@@ -115,7 +115,9 @@ impl<P: Platform> PartialEq for Action<P> {
     match (self, other) {
       | (Exit, Exit) => true,
       | (Continue, Continue) => true,
+      #[cfg(feature = "std")]
       | (a, Insecure(b)) => a == b.as_ref(),
+      #[cfg(feature = "std")]
       | (Insecure(a), b) => a.as_ref() == b,
       | (SendResp(a), SendResp(b)) => a == b,
       | (SendReq(a), SendReq(b)) => a == b,

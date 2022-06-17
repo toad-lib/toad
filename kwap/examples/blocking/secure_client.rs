@@ -9,7 +9,7 @@ use kwap::req::Req;
 use kwap::resp::Resp;
 use kwap::std::secure::SecureUdpSocket;
 use kwap::std::Clock;
-use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use openssl::ssl::{SslConnector, SslMethod, SslOptions, SslVerifyMode};
 
 #[path = "./secure_server.rs"]
 mod server;
@@ -59,6 +59,8 @@ fn main() {
 
   let mut conn = SslConnector::builder(SslMethod::dtls()).unwrap();
   conn.set_verify(SslVerifyMode::NONE); // Server uses self-signed cert
+  let opts = conn.options();
+  conn.set_options(opts & SslOptions::NO_QUERY_MTU);
   let conn = conn.build();
 
   let sock = UdpSocket::bind("0.0.0.0:2222").unwrap();
