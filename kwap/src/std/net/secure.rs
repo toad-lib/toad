@@ -37,7 +37,7 @@ mod error {
   /// I/O errors that sockets secured by DTLS can encounter
   #[derive(Debug)]
   pub enum Error {
-    /// There was in issue within openssl - this is most likely
+    /// There was in issue within openssl - this is more likely
     /// to be a bug in `kwap` than a bug in `openssl`.
     Ssl(openssl::ssl::Error),
     /// There was an IO error raised by the underlying socket
