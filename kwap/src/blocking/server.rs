@@ -427,7 +427,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
           | Ok(req) => break Ok(req),
           | Err(nb::Error::Other(e)) => break Err(e),
           | Err(nb::Error::WouldBlock) => {
-            // TODO` flag.: do something with errors
+            // TODO: do something with errors
             if let Some(on_tick) = on_tick {
               let status = Self::perform_many(&mut self.core, on_tick());
               match status {
