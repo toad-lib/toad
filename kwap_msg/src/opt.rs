@@ -94,6 +94,53 @@ pub struct OptDelta(pub u16);
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct OptNumber(pub u32);
 
+/// TODO
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Critical {
+  Critical,
+  Elective,
+}
+
+/// TODO
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ProxySafe {
+  Unsafe,
+  SafeToForward,
+}
+
+/// TODO
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum IncludeInCacheKey {
+  Yes,
+  No,
+}
+
+impl OptNumber {
+  /// TODO
+  pub fn critical(&self) -> Critical {
+    match self.0 & 0b1 {
+      | 1 => Critical::Critical,
+      | 0 | _ => Critical::Elective,
+    }
+  }
+
+  /// TODO
+  pub fn proxy_safe(&self) -> ProxySafe {
+    match (self.0 & 0b10) >> 1 {
+      | 1 => ProxySafe::Unsafe,
+      | 0 | _ => ProxySafe::SafeToForward,
+    }
+  }
+
+  /// TODO
+  pub fn part_of_msg_hash(&self) -> IncludeInCacheKey {
+    match (self.0 & 0b11100) >> 2 {
+      | 0b111 => IncludeInCacheKey::No,
+      | _ => IncludeInCacheKey::Yes,
+    }
+  }
+}
+
 #[doc = rfc_7252_doc!("3.2")]
 #[derive(Default, Clone, PartialEq, PartialOrd, Debug)]
 pub struct OptValue<C: Array<Item = u8>>(pub C);
@@ -321,5 +368,44 @@ mod tests {
                           value: OptValue(vec![1]) },
                     Opt { delta: OptDelta(1),
                           value: OptValue(vec![3]) },]);
+  }
+
+  #[test]
+  fn opt_number_qualities() {
+    // critical, safe-to-fwd, cache-key
+    let if_match = OptNumber(1);
+
+    // critical, unsafe-to-fwd, cache-key
+    let uri_host = OptNumber(3);
+
+    // elective, safe-to-fwd, cache-key
+    let etag = OptNumber(4);
+
+    // elective, safe-to-fwd, no-cache-key
+    let size1 = OptNumber(60);
+
+    [&if_match, &uri_host].into_iter().for_each(|num| {
+      assert_eq!(num.critical(), Critical::Critical);
+    });
+
+    [&etag, &size1].into_iter().for_each(|num| {
+      assert_eq!(num.critical(), Critical::Elective);
+    });
+
+    [&if_match, &etag, &size1].into_iter().for_each(|num| {
+      assert_eq!(num.proxy_safe(), ProxySafe::SafeToForward);
+    });
+
+    [&uri_host].into_iter().for_each(|num| {
+      assert_eq!(num.proxy_safe(), ProxySafe::Unsafe);
+    });
+
+    [&if_match, &uri_host, &etag].into_iter().for_each(|num| {
+      assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::Yes);
+    });
+
+    [&size1].into_iter().for_each(|num| {
+      assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::No);
+    });
   }
 }
