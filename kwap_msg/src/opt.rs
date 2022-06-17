@@ -385,27 +385,28 @@ mod tests {
     let size1 = OptNumber(60);
 
     [&if_match, &uri_host].into_iter().for_each(|num| {
-      assert_eq!(num.critical(), Critical::Critical);
-    });
+                                        assert_eq!(num.critical(), Critical::Critical);
+                                      });
 
     [&etag, &size1].into_iter().for_each(|num| {
-      assert_eq!(num.critical(), Critical::Elective);
-    });
+                                 assert_eq!(num.critical(), Critical::Elective);
+                               });
 
     [&if_match, &etag, &size1].into_iter().for_each(|num| {
-      assert_eq!(num.proxy_safe(), ProxySafe::SafeToForward);
-    });
+                                            assert_eq!(num.proxy_safe(), ProxySafe::SafeToForward);
+                                          });
 
     [&uri_host].into_iter().for_each(|num| {
-      assert_eq!(num.proxy_safe(), ProxySafe::Unsafe);
-    });
+                             assert_eq!(num.proxy_safe(), ProxySafe::Unsafe);
+                           });
 
-    [&if_match, &uri_host, &etag].into_iter().for_each(|num| {
-      assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::Yes);
-    });
+    [&if_match, &uri_host, &etag].into_iter()
+                                 .for_each(|num| {
+                                   assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::Yes);
+                                 });
 
     [&size1].into_iter().for_each(|num| {
-      assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::No);
-    });
+                          assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::No);
+                        });
   }
 }
