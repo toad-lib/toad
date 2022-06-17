@@ -4,11 +4,9 @@ use embedded_time::duration::Milliseconds;
 use kwap_macros::rfc_7252_doc;
 
 use crate::retry::{Attempts, Strategy};
-use crate::secure::Security;
 
 pub(crate) struct ConfigData {
   pub(crate) token_seed: u16,
-  pub(crate) security: Security,
   pub(crate) con_retry_strategy: Strategy,
   pub(crate) default_leisure_millis: u32,
   pub(crate) max_retransmit_attempts: u16,
@@ -56,7 +54,6 @@ impl ConfigData {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Config {
   token_seed: Option<u16>,
-  security: Option<Security>,
   con_retry_strategy: Option<Strategy>,
   default_leisure_millis: Option<u32>,
   max_retransmit_attempts: Option<u16>,
@@ -80,24 +77,16 @@ impl Config {
   /// use kwap::config::{BytesPerSecond, Config};
   /// use kwap::retry::Attempts;
   /// use kwap::retry::Strategy::Exponential;
-  /// use kwap::secure::Security::Insecure;
   ///
   /// let config = Config::new().token_seed(35718)
   ///                           .max_concurrent_requests(142)
   ///                           .probing_rate(BytesPerSecond(10_000))
   ///                           .max_con_request_retries(Attempts(10))
-  ///                           .security(Insecure)
   ///                           .con_retry_strategy(Exponential { init_min: Millis(500),
   ///                                                             init_max: Millis(750) });
   /// ```
   pub fn new() -> Self {
     Default::default()
-  }
-
-  /// TODO
-  pub fn security(mut self, security: Security) -> Self {
-    self.security = Some(security);
-    self
   }
 
   /// Set the retry strategy we should use to figure out when
@@ -190,14 +179,12 @@ impl From<Config> for ConfigData {
   fn from(Config { token_seed,
                    default_leisure_millis,
                    max_retransmit_attempts,
-                   security,
                    nstart,
                    probing_rate_bytes_per_sec,
                    con_retry_strategy,
                    .. }: Config)
           -> Self {
     ConfigData { token_seed: token_seed.unwrap_or(0),
-                 security: security.unwrap_or(Security::Insecure),
                  default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
                  max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
                  nstart: nstart.unwrap_or(1),

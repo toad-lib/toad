@@ -89,7 +89,14 @@ pub enum Action<P: Platform> {
   /// will prevent subsequent middlewares from
   /// being called, unless followed by [`Action::Continue`].
   Send(Addrd<platform::Message<P>>),
-  /// TODO
+  /// Opt-out of DTLS for [`Send`], [`SendReq`], [`SendResp`].
+  ///
+  /// This can be useful for broadcasting our location
+  /// on a multicast address, where DTLS is irrelevant.
+  ///
+  /// Note that while it's not an /error/ to wrap
+  /// [`Exit`], [`Continue`], or even another [`Insecure`]
+  /// with [`Insecure`], it doesn't accomplish anything.
   #[cfg(feature = "std")]
   Insecure(Box<Action<P>>),
   /// Stop the server completely.
@@ -378,7 +385,7 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
           | Ok(req) => break Ok(req),
           | Err(nb::Error::Other(e)) => break Err(e),
           | Err(nb::Error::WouldBlock) => {
-            // TODO: do something with errors
+            // TODO` flag.: do something with errors
             if let Some(on_tick) = on_tick {
               let status = Self::perform_many(&mut self.core, on_tick());
               match status {
