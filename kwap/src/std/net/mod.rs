@@ -7,7 +7,7 @@ use crate::net::{Addrd, Socket};
 
 mod convert;
 
-/// TODO
+/// [`UdpSocket`] secured by DTLS
 pub mod secure;
 pub use secure::*;
 

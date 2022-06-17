@@ -118,7 +118,7 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 
-/// TODO
+/// [`Std`] but secured with DTLS
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;

@@ -2,7 +2,7 @@
 
 use embedded_time::rate::Fraction;
 
-/// TODO
+/// Networking! woohoo!
 pub mod net;
 pub use net::*;
 
