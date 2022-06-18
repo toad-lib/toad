@@ -94,49 +94,92 @@ pub struct OptDelta(pub u16);
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct OptNumber(pub u32);
 
-/// TODO
+#[doc = rfc_7252_doc!("5.4.1")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Critical {
-  Critical,
-  Elective,
-}
-
-/// TODO
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ProxySafe {
-  Unsafe,
-  SafeToForward,
-}
-
-/// TODO
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IncludeInCacheKey {
+pub enum OptionMustBeProcessed {
+  /// This option must be processed,
+  /// and a response that ignores it
+  /// will be rejected.
+  ///
+  /// Corresponds to the option being "critical"
+  /// in strict CoAP terms
   Yes,
+  /// This option does not _need_ to
+  /// be processed,
+  /// and a response that ignores it
+  /// will be processed anyway.
+  ///
+  /// Corresponds to the option being "elective"
+  /// in strict CoAP terms
   No,
 }
 
+#[doc = rfc_7252_doc!("5.4.2")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WhenOptionUnsupportedByProxy {
+  /// This option /must be/ processed & understood by proxies
+  /// and may not be forwarded blindly to their destination.
+  ///
+  /// Corresponds to the option being "UnSafe" to forward
+  /// in strict CoAP terms
+  Error,
+  /// This option may not be processed & understood by proxies
+  /// and may be forwarded blindly to their destination.
+  ///
+  /// Corresponds to the option being "SafeToForward"
+  /// in strict CoAP terms
+  Forward,
+}
+
+#[doc = rfc_7252_doc!("5.4.2")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WhenOptionChanges {
+  /// If this option is [safe to forward](`ProxySafe::ForwardWhenUnknown`),
+  /// but unknown to a proxy, it should be included in the proxy's
+  /// cache key for this message.
+  ///
+  /// Corresponds to the option being not "NoCacheKey"
+  /// in strict CoAP terms
+  ResponseChanges,
+  /// If this option is [safe to forward](`ProxySafe::ForwardWhenUnknown`),
+  /// but unknown to a proxy, it should not be included in the proxy's
+  /// cache key for this message, and different values for this option
+  /// should yield the cached response.
+  ///
+  /// Corresponds to the option being "NoCacheKey"
+  /// in strict CoAP terms
+  ResponseDoesNotChange,
+}
+
 impl OptNumber {
-  /// TODO
-  pub fn critical(&self) -> Critical {
+  /// Whether or not this option may be ignored by a server
+  pub fn must_be_processed(&self) -> OptionMustBeProcessed {
+    #[allow(clippy::wildcard_in_or_patterns)] // will only ever be 0 or 1
     match self.0 & 0b1 {
-      | 1 => Critical::Critical,
-      | 0 | _ => Critical::Elective,
+      | 1 => OptionMustBeProcessed::Yes,
+      | 0 | _ => OptionMustBeProcessed::No,
     }
   }
 
-  /// TODO
-  pub fn proxy_safe(&self) -> ProxySafe {
+  /// Whether or not this option may be forwarded blindly by
+  /// a proxy that does not support processing it
+  pub fn when_unsupported_by_proxy(&self) -> WhenOptionUnsupportedByProxy {
+    #[allow(clippy::wildcard_in_or_patterns)] // will only ever be 0 or 1
     match (self.0 & 0b10) >> 1 {
-      | 1 => ProxySafe::Unsafe,
-      | 0 | _ => ProxySafe::SafeToForward,
+      | 1 => WhenOptionUnsupportedByProxy::Error,
+      | 0 | _ => WhenOptionUnsupportedByProxy::Forward,
     }
   }
 
-  /// TODO
-  pub fn part_of_msg_hash(&self) -> IncludeInCacheKey {
+  /// Whether or not different values for this option should
+  /// yield proxies' cached response
+  ///
+  /// _(when the proxy does not support processing it and
+  /// the option is safe to forward)_
+  pub fn when_option_changes(&self) -> WhenOptionChanges {
     match (self.0 & 0b11100) >> 2 {
-      | 0b111 => IncludeInCacheKey::No,
-      | _ => IncludeInCacheKey::Yes,
+      | 0b111 => WhenOptionChanges::ResponseDoesNotChange,
+      | _ => WhenOptionChanges::ResponseChanges,
     }
   }
 }
@@ -384,29 +427,33 @@ mod tests {
     // elective, safe-to-fwd, no-cache-key
     let size1 = OptNumber(60);
 
-    [&if_match, &uri_host].into_iter().for_each(|num| {
-                                        assert_eq!(num.critical(), Critical::Critical);
-                                      });
+    [&if_match, &uri_host].into_iter()
+                          .for_each(|num| {
+                            assert_eq!(num.must_be_processed(), OptionMustBeProcessed::Yes);
+                          });
 
     [&etag, &size1].into_iter().for_each(|num| {
-                                 assert_eq!(num.critical(), Critical::Elective);
+                                 assert_eq!(num.must_be_processed(), OptionMustBeProcessed::No);
                                });
 
     [&if_match, &etag, &size1].into_iter().for_each(|num| {
-                                            assert_eq!(num.proxy_safe(), ProxySafe::SafeToForward);
+                                            assert_eq!(num.when_unsupported_by_proxy(),
+                                                       WhenOptionUnsupportedByProxy::Forward);
                                           });
 
     [&uri_host].into_iter().for_each(|num| {
-                             assert_eq!(num.proxy_safe(), ProxySafe::Unsafe);
+                             assert_eq!(num.when_unsupported_by_proxy(),
+                                        WhenOptionUnsupportedByProxy::Error);
                            });
 
-    [&if_match, &uri_host, &etag].into_iter()
-                                 .for_each(|num| {
-                                   assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::Yes);
-                                 });
+    [&if_match, &uri_host, &etag].into_iter().for_each(|num| {
+                                               assert_eq!(num.when_option_changes(),
+                                                          WhenOptionChanges::ResponseChanges);
+                                             });
 
     [&size1].into_iter().for_each(|num| {
-                          assert_eq!(num.part_of_msg_hash(), IncludeInCacheKey::No);
+                          assert_eq!(num.when_option_changes(),
+                                     WhenOptionChanges::ResponseDoesNotChange);
                         });
   }
 }
