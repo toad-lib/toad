@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.6.1 (2022-06-18)
+
+
+### Features
+
+* **msg:** add critical, nocachekey, unsafe flags to optnumber ([#132](https://github.com/clov-coffee/kwap/issues/132)) ([3db6794](https://github.com/clov-coffee/kwap/commit/3db6794af1ea9ceb514a7c9692331c86d25b436d))
+
 ## 0.6.0 (2022-05-25)
 
 
