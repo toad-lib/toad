@@ -1,6 +1,6 @@
-//! Common structs and abstractions used by `kwap`
+//! Common structs and abstractions used by `toad`
 
-#![doc(html_root_url = "https://docs.rs/kwap-common/0.7.0")]
+#![doc(html_root_url = "https://docs.rs/toad-common/0.7.0")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -21,7 +21,7 @@ pub mod fns;
 pub mod map;
 pub use map::*;
 
-/// `kwap` prelude
+/// `toad` prelude
 pub mod prelude {
   pub use fns::*;
   pub use result::*;
@@ -35,7 +35,7 @@ pub mod prelude {
 /// - [`Vec`]
 /// - [`tinyvec::ArrayVec`]
 ///
-/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase within `kwap`
+/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase within `toad`
 /// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
 /// are notably worse than `tinyvec`.
 ///
@@ -104,7 +104,7 @@ impl<T> Array for Vec<T> {
 /// ```
 /// use core::fmt::Write as _;
 ///
-/// use kwap_common::{Array, Writable};
+/// use toad_common::{Array, Writable};
 ///
 /// let mut faux_string = Writable::<tinyvec::ArrayVec<[u8; 16]>>::default();
 /// write!(faux_string, "{}", 123).unwrap();
@@ -176,7 +176,7 @@ impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {
 /// Get the runtime size of some data structure
 ///
 /// # Deprecated
-/// Note: in a future version of `kwap_common` this will be deprecated in favor of clearly delineating
+/// Note: in a future version of `toad_common` this will be deprecated in favor of clearly delineating
 /// "size in bytes" (e.g. `RuntimeSize`) from "collection of potentially bounded length" (e.g. `Len`)
 ///
 /// ## Collections
@@ -194,7 +194,7 @@ pub trait GetSize {
   /// For collections this is always equivalent to calling an inherent `len` method.
   ///
   /// ```
-  /// use kwap_common::GetSize;
+  /// use toad_common::GetSize;
   ///
   /// assert_eq!(vec![1u8, 2].get_size(), 2)
   /// ```
@@ -207,7 +207,7 @@ pub trait GetSize {
   /// However, for fixed-size collections this method must be implemented.
   ///
   /// ```
-  /// use kwap_common::GetSize;
+  /// use toad_common::GetSize;
   ///
   /// let stack_nums = tinyvec::ArrayVec::<[u8; 2]>::from([0, 1]);
   /// assert_eq!(stack_nums.max_size(), Some(2));
@@ -217,7 +217,7 @@ pub trait GetSize {
   /// Check if the runtime size is zero
   ///
   /// ```
-  /// use kwap_common::GetSize;
+  /// use toad_common::GetSize;
   ///
   /// assert!(Vec::<u8>::new().size_is_zero())
   /// ```
@@ -228,7 +228,7 @@ pub trait GetSize {
   /// Is there no room left in this collection?
   ///
   /// ```
-  /// use kwap_common::GetSize;
+  /// use toad_common::GetSize;
   ///
   /// let array = tinyvec::ArrayVec::<[u8; 2]>::from([1, 2]);
   ///

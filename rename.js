@@ -7,7 +7,7 @@ const readdir = d => fs.readdirSync(d)
                               , []
                               );
 
-readdir('.').filter(n => !n.includes('target') && n.includes('Make')).forEach(p => {
+readdir('.').filter(n => !n.includes('target') && !n.includes('.git') && n.includes('common')).forEach(p => {
   console.log(p);
   let c = fs.readFileSync(p, 'utf8');
   c = c.replace(/kwap/g, 'toad')
