@@ -247,7 +247,7 @@ type ArrayIterMutMapped<'a, K, V> =
 /// ```
 /// use std::collections::HashMap;
 ///
-/// use kwap_common::Map;
+/// use toad_common::Map;
 ///
 /// let mut map = HashMap::from([("a", 1)]);
 ///
@@ -298,7 +298,7 @@ impl<'a, K: Eq + Hash, V> Iterator for Iter<'a, K, V> {
 /// ```
 /// use std::collections::HashMap;
 ///
-/// use kwap_common::Map;
+/// use toad_common::Map;
 ///
 /// let mut map = HashMap::from([("a", 1)]);
 ///
