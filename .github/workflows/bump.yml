@@ -38,7 +38,7 @@ jobs:
         filters: |
           kwap-msg: ['kwap_msg/**']
           kwap-macros: ['kwap_macros/**']
-          kwap-common: ['kwap_common/**']
+          toad-common: ['toad-common/**']
           kwap: ['kwap/**']
 
     # running `standard-version` will:
@@ -70,13 +70,13 @@ jobs:
           --releaseCommitMessageFormat 'chore(release): kwap@{{currentTag}}'
       working-directory: 'kwap'
 
-    - name: 'bump kwap-common'
-      if: steps.package_changed.outputs.kwap-common == 'true'
+    - name: 'bump toad-common'
+      if: steps.package_changed.outputs.toad-common == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap-common@ \
-          --releaseCommitMessageFormat 'chore(release): kwap-common@{{currentTag}}'
-      working-directory: 'kwap_common'
+          --tag-prefix toad-common@ \
+          --releaseCommitMessageFormat 'chore(release): toad-common@{{currentTag}}'
+      working-directory: 'toad-common'
 
     - name: 'update Cargo.lock'
       run: 'cargo check'

@@ -28,7 +28,7 @@ jobs:
         filters: |
           kwap-msg: ['kwap_msg/**']
           kwap-macros: ['kwap_macros/**']
-          kwap-common: ['kwap_common/**']
+          toad-common: ['toad-common/**']
           kwap: ['kwap/**']
 
     - run: |
@@ -44,10 +44,10 @@ jobs:
       if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-msg == 'true'
       working-directory: 'kwap_msg'
 
-    - name: 'check kwap-common'
+    - name: 'check toad-common'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-common == 'true'
-      working-directory: 'kwap_common'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-common == 'true'
+      working-directory: 'toad-common'
 
     - name: 'check kwap-macros'
       run: 'cargo make ci'
