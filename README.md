@@ -1,6 +1,4 @@
-<img src="https://raw.githubusercontent.com/clov-coffee/kwap/main/static/banner.png" />
-
-A CoAP implementation that strives to power client- and server-side CoAP in any language & any environment.
+ToAD is a CoAP implementation that strives to power client- and server-side CoAP in any language & any environment.
 
 ## Project Goals
  - make coap accessible & approachable to those unfamiliar
@@ -29,9 +27,9 @@ CoAP has the same verbs and many of the same semantics as HTTP;
 - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
 ## How it works (at the moment)
-`kwap` contains the core CoAP runtime that drives client & server behavior.
+`toad` contains the core CoAP runtime that drives client & server behavior.
 
-It uses `kwap_common::Array` to stay decoupled from specific collection types (this makes `alloc` optional)
+It uses `toad_common::Array` to stay decoupled from specific collection types (this makes `alloc` optional)
 
 It uses `nb` to represent nonblocking async io (this will make `async` optional)
 
@@ -74,34 +72,34 @@ RecvDgram
 
 ```rust
 fn main() {
-  let udp: kwap::Sock = std::UdpSocket::bind(/* addr */).unwrap();
-  let server = kwap::Server::new(sock).resource(Hello);
+  let udp: toad::Sock = std::UdpSocket::bind(/* addr */).unwrap();
+  let server = toad::Server::new(sock).resource(Hello);
 
   server.start();
 }
 
 struct Hello;
-impl kwap::Resource for Hello {
-  const ID: kwap::ResourceId = kwap::ResourceId::from_str("Hello");
+impl toad::Resource for Hello {
+  const ID: toad::ResourceId = toad::ResourceId::from_str("Hello");
 
-  fn should_handle(&self, req: kwap::Req) -> bool {
+  fn should_handle(&self, req: toad::Req) -> bool {
     req.path.get(0) == Some("hello")
   }
 
-  fn handle(&self, server: &kwap::Server, req: kwap::Req) -> kwap::Result<kwap::Rep> {
+  fn handle(&self, server: &toad::Server, req: toad::Req) -> toad::Result<toad::Rep> {
     if !req.method.is_get() {
-      return kwap::rep::error::method_not_allowed();
+      return toad::rep::error::method_not_allowed();
     }
 
     let name = req.get(1).unwrap_or("World");
 
     if name == "Jeff" {
-      return kwap::rep::error::unauthorized("Jeff, I told you this isn't for you. Please leave.");
+      return toad::rep::error::unauthorized("Jeff, I told you this isn't for you. Please leave.");
     }
 
     let payload = serde_json::json!({"msg": format!("Hello, {}", name)});
 
-    kwap::rep::ok::content(payload)
+    toad::rep::ok::content(payload)
   }
 }
 ```

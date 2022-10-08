@@ -1,10 +1,10 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-common.svg)](https://crates.io/crates/kwap-common)
-[![docs.rs](https://docs.rs/kwap-common/badge.svg)](https://docs.rs/kwap-common/latest)
+[![crates.io](https://img.shields.io/crates/v/toad-macros.svg)](https://crates.io/crates/toad-macros)
+[![docs.rs](https://docs.rs/toad-macros/badge.svg)](https://docs.rs/toad-macros/latest)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
-# kwap-common
+# toad-macros
 
-Common structs and abstractions used by `kwap`
+Macros used by `toad` for boilerplate reduction
 
 ## License
 
