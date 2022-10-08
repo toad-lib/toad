@@ -47,8 +47,8 @@ harness = false
 
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
-toad-macros = "0.1.7"
-toad-common = "0.6.4"
+toad-macros = "0.2.0"
+toad-common = "0.8.0"
 blake2 = "0.10"
 
 [dev-dependencies]
