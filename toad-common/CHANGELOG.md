@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.8.0 (2022-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename kwap-common -> toad-common (#135)
+
+### Features
+
+* rename kwap-common -> toad-common ([#135](https://github.com/clov-coffee/toad/issues/135)) ([49312be](https://github.com/clov-coffee/toad/commit/49312be14bbc11ee95cdfc9915a45a3be4c79383))
+
 ## 0.7.0 (2022-05-25)
 
 
