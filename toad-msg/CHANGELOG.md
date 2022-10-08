@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.7.0 (2022-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename kwap_msg -> toad_msg (#136)
+
+### Features
+
+* rename kwap_msg -> toad_msg ([#136](https://github.com/clov-coffee/toad/issues/136)) ([1035350](https://github.com/clov-coffee/toad/commit/1035350f453c1c0d5433a13b287f5fc9d5c556e9))
+
 ### 0.6.1 (2022-06-18)
 
 
