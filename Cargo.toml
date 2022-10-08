@@ -1,5 +1,5 @@
 [workspace]
-members = ["kwap*", "toad-common"]
+members = ["kwap*", "toad-common", "toad-macros"]
 
 [profile.bench]
 debug = true

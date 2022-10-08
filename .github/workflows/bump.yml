@@ -37,7 +37,7 @@ jobs:
       with:
         filters: |
           kwap-msg: ['kwap_msg/**']
-          kwap-macros: ['kwap_macros/**']
+          toad-macros: ['toad-macros/**']
           toad-common: ['toad-common/**']
           kwap: ['kwap/**']
 
@@ -54,13 +54,13 @@ jobs:
           --releaseCommitMessageFormat 'chore(release): kwap-msg@{{currentTag}}'
       working-directory: 'kwap_msg'
 
-    - name: 'bump kwap-macros'
-      if: steps.package_changed.outputs.kwap-macros == 'true'
+    - name: 'bump toad-macros'
+      if: steps.package_changed.outputs.toad-macros == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap-macros@ \
-          --releaseCommitMessageFormat 'chore(release): kwap-macros@{{currentTag}}'
-      working-directory: 'kwap_macros'
+          --tag-prefix toad-macros@ \
+          --releaseCommitMessageFormat 'chore(release): toad-macros@{{currentTag}}'
+      working-directory: 'toad-macros'
 
     - name: 'bump kwap'
       if: steps.package_changed.outputs.kwap == 'true'

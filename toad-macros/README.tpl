@@ -1,10 +1,10 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-macros.svg)](https://crates.io/crates/kwap-macros)
-[![docs.rs](https://docs.rs/kwap-macros/badge.svg)](https://docs.rs/kwap-macros/latest)
-![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
+[![crates.io](https://img.shields.io/crates/v/toad-macros.svg)](https://crates.io/crates/toad-macros)
+[![docs.rs](https://docs.rs/toad-macros/badge.svg)](https://docs.rs/toad-macros/latest)
+{{badges}}
 
-# kwap-macros
+# {{crate}}
 
-Macros used by `kwap` for boilerplate reduction
+{{readme}}
 
 ## License
 
