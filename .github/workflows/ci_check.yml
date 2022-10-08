@@ -29,7 +29,7 @@ jobs:
           toad-msg: ['toad-msg/**']
           toad-macros: ['toad-macros/**']
           toad-common: ['toad-common/**']
-          kwap: ['kwap/**']
+          toad: ['toad/**']
 
     - run: |
         if [ ! -f ~/.cargo/bin/cargo-make ];
@@ -54,7 +54,7 @@ jobs:
       if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-macros == 'true'
       working-directory: 'toad-macros'
 
-    - name: 'check kwap'
+    - name: 'check toad'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap == 'true'
-      working-directory: 'kwap'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad == 'true'
+      working-directory: 'toad'

@@ -39,7 +39,7 @@ jobs:
           toad-msg: ['toad-msg/**']
           toad-macros: ['toad-macros/**']
           toad-common: ['toad-common/**']
-          kwap: ['kwap/**']
+          toad: ['toad/**']
 
     # running `standard-version` will:
     # - update CHANGELOG,
@@ -62,13 +62,13 @@ jobs:
           --releaseCommitMessageFormat 'chore(release): toad-macros@{{currentTag}}'
       working-directory: 'toad-macros'
 
-    - name: 'bump kwap'
-      if: steps.package_changed.outputs.kwap == 'true'
+    - name: 'bump toad'
+      if: steps.package_changed.outputs.toad == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap@ \
-          --releaseCommitMessageFormat 'chore(release): kwap@{{currentTag}}'
-      working-directory: 'kwap'
+          --tag-prefix toad@ \
+          --releaseCommitMessageFormat 'chore(release): toad@{{currentTag}}'
+      working-directory: 'toad'
 
     - name: 'bump toad-common'
       if: steps.package_changed.outputs.toad-common == 'true'

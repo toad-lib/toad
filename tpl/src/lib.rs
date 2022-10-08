@@ -1,7 +1,7 @@
 //! TODO
 
 // docs
-#![doc(html_root_url = "https://docs.rs/kwap-TODO/0.0.0")]
+#![doc(html_root_url = "https://docs.rs/toad-TODO/0.0.0")]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 // -
 // style

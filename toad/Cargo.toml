@@ -1,0 +1,54 @@
+[package]
+name = "toad"
+version = "0.10.0"
+edition = "2021"
+description = "Reliable cross-platform CoAP server runtime"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/toad/toad"
+repository = "https://github.com/clov-coffee/toad/toad"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[[example]]
+name = "blocking_server"
+path = "examples/blocking/server.rs"
+
+[[example]]
+name = "blocking_client"
+path = "examples/blocking/client.rs"
+
+[[example]]
+name = "blocking_secure_server"
+path = "examples/blocking/secure_server.rs"
+
+[[example]]
+name = "blocking_secure_client"
+path = "examples/blocking/secure_client.rs"
+
+[features]
+default = ["std"]
+std = ["alloc", "openssl"]
+alloc = []
+test = []
+docs = []
+
+[dependencies]
+toad-common = "0.8.0"
+toad-msg = "0.7.0"
+toad-macros = "0.2.0"
+log = "0.4"
+tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
+no-std-net = "0.6"
+embedded-time = "0.12"
+nb = "1"
+rand = { version = "0.8", default_features = false }
+rand_chacha = { version = "0.3", default_features = false }
+openssl = { version = "0.10", optional = true }
+
+[dev-dependencies]
+simple_logger = "2"
