@@ -1,10 +1,10 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-common.svg)](https://crates.io/crates/kwap-common)
-[![docs.rs](https://docs.rs/kwap-common/badge.svg)](https://docs.rs/kwap-common/latest)
+[![crates.io](https://img.shields.io/crates/v/toad-common.svg)](https://crates.io/crates/toad-common)
+[![docs.rs](https://docs.rs/toad-common/badge.svg)](https://docs.rs/toad-common/latest)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
-# kwap-common
+# toad-common
 
-Common structs and abstractions used by `kwap`
+Common structs and abstractions used by `toad`
 
 ## License
 
