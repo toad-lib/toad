@@ -1,12 +1,12 @@
 [package]
-name = "kwap-msg"
+name = "toad-msg"
 version = "0.6.1"
 edition = "2021"
 description = "Low-level CoAP message parsing & serialization"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/clov-coffee/kwap/kwap_msg"
-repository = "https://github.com/clov-coffee/kwap/kwap_msg"
+homepage = "https://github.com/clov-coffee/toad/toad_msg"
+repository = "https://github.com/clov-coffee/toad/toad_msg"
 readme = "README.md"
 keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]
@@ -47,8 +47,8 @@ harness = false
 
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
-kwap-macros = "0.1.7"
-kwap-common = "0.6.4"
+toad-macros = "0.1.7"
+toad-common = "0.6.4"
 blake2 = "0.10"
 
 [dev-dependencies]

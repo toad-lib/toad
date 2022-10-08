@@ -1,6 +1,6 @@
-//! Macros used by `kwap` for boilerplate reduction
+//! Macros used by `toad` for boilerplate reduction
 
-#![doc(html_root_url = "https://docs.rs/kwap-macros/0.1.7")]
+#![doc(html_root_url = "https://docs.rs/toad-macros/0.1.7")]
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -27,7 +27,7 @@ const RFC7252: &str = include_str!("./rfc7252.txt");
 /// and I will scrape the rfc for that section then yield an inline `#[doc]` attribute containing that section.
 ///
 /// ```
-/// use kwap_macros::rfc_7252_doc;
+/// use toad_macros::rfc_7252_doc;
 ///
 /// #[doc = rfc_7252_doc!("5.9.1.1")]
 /// // Expands to:

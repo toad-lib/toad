@@ -3,12 +3,12 @@ use std::io::Read;
 use std::net::UdpSocket;
 use std::thread::JoinHandle;
 
-use kwap::blocking::server::{Action, Actions};
-use kwap::net::Addrd;
-use kwap::platform::StdSecure;
-use kwap::req::Req;
-use kwap::resp::{code, Resp};
-use kwap::std::{Clock, SecureUdpSocket};
+use toad::blocking::server::{Action, Actions};
+use toad::net::Addrd;
+use toad::platform::StdSecure;
+use toad::req::Req;
+use toad::resp::{code, Resp};
+use toad::std::{Clock, SecureUdpSocket};
 use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
 use openssl::x509::X509;
@@ -19,7 +19,7 @@ pub const DISCOVERY_PORT: u16 = 1234;
 mod service {
   use std::time::{Duration, Instant};
 
-  use kwap::req::Method;
+  use toad::req::Method;
   use Action::{Continue, Exit, Insecure, SendReq, SendResp};
 
   use super::*;
@@ -100,7 +100,7 @@ mod service {
         unsafe {
           LAST_BROADCAST = Some(Instant::now());
         }
-        let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
+        let addr = toad::multicast::all_coap_devices(DISCOVERY_PORT);
 
         let mut req = Req::<StdSecure>::post(addr, "");
         req.non();
@@ -116,8 +116,8 @@ pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
                                let (mut pkey_file, mut cert_file) = (vec![], vec![]);
-                               File::open("kwap/examples/key.pem").unwrap().read_to_end(&mut pkey_file).unwrap();
-                               File::open("kwap/examples/cert.pem").unwrap().read_to_end(&mut cert_file).unwrap();
+                               File::open("toad/examples/key.pem").unwrap().read_to_end(&mut pkey_file).unwrap();
+                               File::open("toad/examples/cert.pem").unwrap().read_to_end(&mut cert_file).unwrap();
 
                                let pkey = PKey::from_rsa(Rsa::private_key_from_pem(&pkey_file).unwrap()).unwrap();
                                let cert = X509::from_pem(&cert_file).unwrap();
@@ -126,7 +126,7 @@ pub fn spawn() -> JoinHandle<()> {
                                let sock = SecureUdpSocket::try_new_server(sock, pkey, cert).unwrap();
 
                                let mut server =
-                                 kwap::blocking::Server::<StdSecure, Vec<_>>::new(sock, Clock::new());
+                                 toad::blocking::Server::<StdSecure, Vec<_>>::new(sock, Clock::new());
 
                                server.middleware(&service::close_multicast_broadcast);
                                server.middleware(&service::exit);

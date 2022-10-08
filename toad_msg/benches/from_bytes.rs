@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use kwap_msg::*;
+use toad_msg::*;
 
 #[path = "bench_input.rs"]
 mod bench_input;
@@ -71,11 +71,11 @@ fn message_from_bytes(c: &mut Criterion) {
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()),
+    group.bench_with_input(BenchmarkId::new("toad_msg/alloc/size", bytes.len()),
                            &bytes,
                            |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
+    group.bench_with_input(BenchmarkId::new("toad_msg/no_alloc/size", bytes.len()),
                            &bytes,
                            |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));
 

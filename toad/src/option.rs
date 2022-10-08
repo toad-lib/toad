@@ -1,7 +1,7 @@
-use kwap_common::Array;
-use kwap_msg::{Opt, OptDelta, OptNumber};
+use toad_common::Array;
+use toad_msg::{Opt, OptDelta, OptNumber};
 
-/// Content formats supported by kwap
+/// Content formats supported by toad
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum ContentFormat {
@@ -55,7 +55,7 @@ impl ToCoapValue for ContentFormat {
 /// - strings (str and String)
 /// - empty (`()`)
 /// - unsigned integers (`u8`, `u16`, `u32`, `u64`)
-/// - bytes (anything that impls [`kwap_common::Array`])
+/// - bytes (anything that impls [`toad_common::Array`])
 pub trait ToCoapValue {
   /// Convert the value
   fn to_coap_value<T: Array<Item = u8>>(self) -> T;
@@ -165,7 +165,7 @@ macro_rules! builder_method {
 macro_rules! common_options {
   ($cfg:ty) => {
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.1")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.1")]
       #[option(num = 3)]
       fn host<$cfg>(string);
     }
@@ -185,22 +185,22 @@ macro_rules! common_options {
       fn add_query<$cfg>(string);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.9")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.9")]
       #[option(num = 60)]
       fn size1<$cfg>(u32);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.8.1")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.8.1")]
       #[option(repeatable, num = 1)]
       fn if_match<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.8.2")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.8.2")]
       #[option(num = 5)]
       fn if_none_match<$cfg>(());
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.2")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.2")]
       #[option(num = 35)]
       fn proxy_uri<$cfg>(string);
     }
@@ -210,7 +210,7 @@ macro_rules! common_options {
       fn proxy_scheme<$cfg>(string);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.5")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.5")]
       #[option(num = 14)]
       fn max_age<$cfg>(u32);
     }
@@ -220,29 +220,29 @@ macro_rules! common_options {
       fn location_query<$cfg>(string);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.7")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.7")]
       #[option(repeatable, num = 8)]
       fn location_path<$cfg>(string);
     }
     crate::option::builder_method! {
       #[doc = concat!(
-                kwap_macros::rfc_7252_doc!("5.10.6"),
+                toad_macros::rfc_7252_doc!("5.10.6"),
                 "\n<details><summary>ETag as a Request Option</summary>\n\n",
-                kwap_macros::rfc_7252_doc!("5.10.6.2"),
+                toad_macros::rfc_7252_doc!("5.10.6.2"),
                 "\n</details><details><summary>ETag as a Response Option</summary>\n\n",
-                kwap_macros::rfc_7252_doc!("5.10.6.1"),
+                toad_macros::rfc_7252_doc!("5.10.6.1"),
                 "</details>"
       )]
       #[option(repeatable, num = 4)]
       fn etag<$cfg>(tinyvec::ArrayVec<[u8; 8]>);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.3")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.3")]
       #[option(num = 12)]
       fn content_format<$cfg>(crate::ContentFormat);
     }
     crate::option::builder_method! {
-      #[doc = kwap_macros::rfc_7252_doc!("5.10.4")]
+      #[doc = toad_macros::rfc_7252_doc!("5.10.4")]
       #[option(num = 17)]
       fn accept<$cfg>(crate::ContentFormat);
     }
@@ -259,7 +259,7 @@ pub(crate) fn add<A: Array<Item = (OptNumber, Opt<B>)>,
   number: u32,
   value: V)
   -> Option<(u32, V)> {
-  use kwap_msg::*;
+  use toad_msg::*;
 
   let exist = opts.iter_mut().find(|(OptNumber(num), _)| *num == number);
 
@@ -306,7 +306,7 @@ pub(crate) fn normalize<OptNumbers: Array<Item = (OptNumber, Opt<Bytes>)>,
 
 #[cfg(test)]
 mod test {
-  use kwap_msg::OptValue;
+  use toad_msg::OptValue;
 
   use super::*;
 

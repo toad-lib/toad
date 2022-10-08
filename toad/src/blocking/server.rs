@@ -2,9 +2,9 @@
 use std::net::ToSocketAddrs;
 
 #[allow(unused_imports)]
-use kwap_common::result::ResultExt;
-use kwap_common::Array;
-use kwap_msg::Type;
+use toad_common::result::ResultExt;
+use toad_common::Array;
+use toad_msg::Type;
 
 use crate::config::Config;
 use crate::core::{Core, Error, Secure};
@@ -51,12 +51,12 @@ pub enum Action<P: Platform> {
   /// action is processed unless this is followed by [`Action::Continue`].
   ///
   /// ```no_run
-  /// use kwap::blocking::server::{Action, Actions, Server};
-  /// use kwap::net::Addrd;
-  /// use kwap::platform::{Message, Std};
-  /// use kwap::req::Req;
-  /// use kwap::resp::{code, Resp};
-  /// use kwap::ContentFormat;
+  /// use toad::blocking::server::{Action, Actions, Server};
+  /// use toad::net::Addrd;
+  /// use toad::platform::{Message, Std};
+  /// use toad::req::Req;
+  /// use toad::resp::{code, Resp};
+  /// use toad::ContentFormat;
   ///
   /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
   ///   match req.data().path() {
@@ -147,11 +147,11 @@ impl<P: Platform> Action<P> {
   /// do this one next
   ///
   /// ```
-  /// use kwap::blocking::server::{Action, Actions};
-  /// use kwap::net::Addrd;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::blocking::server::{Action, Actions};
+  /// use toad::net::Addrd;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// /// The server should respond OK to the request then exit
   /// fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
@@ -246,12 +246,12 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// Create a new Server
   ///
   /// ```no_run
-  /// use kwap::blocking::server::{Action, Actions, Server};
-  /// use kwap::net::Addrd;
-  /// use kwap::platform::{Message, Std};
-  /// use kwap::req::Req;
-  /// use kwap::resp::{code, Resp};
-  /// use kwap::ContentFormat;
+  /// use toad::blocking::server::{Action, Actions, Server};
+  /// use toad::net::Addrd;
+  /// use toad::platform::{Message, Std};
+  /// use toad::req::Req;
+  /// use toad::resp::{code, Resp};
+  /// use toad::ContentFormat;
   ///
   /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
   ///   match req.data().path() {
@@ -332,10 +332,10 @@ impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
         let resp = platform::Message::<P> { ver: Default::default(),
                                             ty: Type::Reset,
                                             id: req.data().msg_id(),
-                                            token: kwap_msg::Token(Default::default()),
-                                            code: kwap_msg::Code::new(0, 0),
+                                            token: toad_msg::Token(Default::default()),
+                                            code: toad_msg::Code::new(0, 0),
                                             opts: Default::default(),
-                                            payload: kwap_msg::Payload(Default::default()) };
+                                            payload: toad_msg::Payload(Default::default()) };
 
         Action::Send(req.as_ref().map(|_| resp)).into()
       },
@@ -468,7 +468,7 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
-  use kwap_msg::{Id, Token, Type};
+  use toad_msg::{Id, Token, Type};
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
   use super::*;
@@ -591,7 +591,7 @@ mod tests {
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
 
       assert_eq!(rep.code(), code::NOT_FOUND);
-      assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
+      assert_eq!(rep.msg_type(), toad_msg::Type::Ack);
 
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
     });
@@ -669,12 +669,12 @@ mod tests {
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_non.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
       assert_eq!(rep.code(), code::CONTENT);
-      assert_eq!(rep.msg_type(), kwap_msg::Type::Non);
+      assert_eq!(rep.msg_type(), toad_msg::Type::Non);
 
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_hello_con.into(), addr));
       let rep: Resp<Test> = SockMock::await_msg::<Test>(addr, &outbound_bytes).into();
       assert_eq!(rep.code(), code::CONTENT);
-      assert_eq!(rep.msg_type(), kwap_msg::Type::Ack);
+      assert_eq!(rep.msg_type(), toad_msg::Type::Ack);
 
       SockMock::send_msg::<Test>(&inbound_bytes, Addrd(say_exit.into(), addr));
     });

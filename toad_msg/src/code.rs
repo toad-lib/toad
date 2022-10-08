@@ -1,4 +1,4 @@
-use kwap_macros::rfc_7252_doc;
+use toad_macros::rfc_7252_doc;
 #[cfg(feature = "alloc")]
 use std_alloc::string::{String, ToString};
 
@@ -12,7 +12,7 @@ use std_alloc::string::{String, ToString};
 ///
 /// # Examples
 /// ```
-/// use kwap_msg::Code;
+/// use toad_msg::Code;
 ///
 /// assert_eq!(Code { class: 2,
 ///                   detail: 5 }.to_string(),
@@ -51,7 +51,7 @@ impl Code {
   /// Create a new Code
   ///
   /// ```
-  /// use kwap_msg::Code;
+  /// use toad_msg::Code;
   ///
   /// let content = Code::new(2, 05);
   /// ```
@@ -66,9 +66,9 @@ impl Code {
   ///
   /// This is to avoid unnecessary heap allocation,
   /// you can create a `String` with `FromIterator::<String>::from_iter`,
-  /// or if the `alloc` feature of `kwap` is enabled there is a `ToString` implementation provided for Code.
+  /// or if the `alloc` feature of `toad` is enabled there is a `ToString` implementation provided for Code.
   /// ```
-  /// use kwap_msg::Code;
+  /// use toad_msg::Code;
   ///
   /// let code = Code { class: 2,
   ///                   detail: 5 };
@@ -87,7 +87,7 @@ impl Code {
   /// Get whether this code is for a request, response, or empty message
   ///
   /// ```
-  /// use kwap_msg::{Code, CodeKind};
+  /// use toad_msg::{Code, CodeKind};
   ///
   /// let empty: Code = Code::new(0, 0);
   /// assert_eq!(empty.kind(), CodeKind::Empty);

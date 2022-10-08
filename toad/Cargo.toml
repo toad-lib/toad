@@ -1,12 +1,12 @@
 [package]
-name = "kwap"
+name = "toad"
 version = "0.10.0"
 edition = "2021"
 description = "Reliable cross-platform CoAP server runtime"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/clov-coffee/kwap/kwap"
-repository = "https://github.com/clov-coffee/kwap/kwap"
+homepage = "https://github.com/clov-coffee/toad/toad"
+repository = "https://github.com/clov-coffee/toad/toad"
 readme = "README.md"
 keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]
@@ -39,10 +39,10 @@ docs = []
 
 [dependencies]
 log = "0.4"
-kwap-msg = "0.5.1"
-kwap-common = "0.6.4"
+toad-msg = "0.5.1"
+toad-common = "0.6.4"
 tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
-kwap-macros = "0.1.6"
+toad-macros = "0.1.6"
 no-std-net = "0.6"
 embedded-time = "0.12"
 nb = "1"

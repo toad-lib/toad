@@ -1,12 +1,12 @@
 [package]
-name = "kwap-macros"
+name = "toad-macros"
 version = "0.1.7"
 edition = "2021"
-description = "Macros used by kwap for boilerplate reduction"
+description = "Macros used by toad for boilerplate reduction"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/clov-coffee/kwap/kwap_macros"
-repository = "https://github.com/clov-coffee/kwap/kwap_macros"
+homepage = "https://github.com/clov-coffee/toad/toad_macros"
+repository = "https://github.com/clov-coffee/toad/toad_macros"
 readme = "README.md"
 keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]

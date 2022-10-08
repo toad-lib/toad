@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use kwap_msg::TryIntoBytes;
+use toad_msg::TryIntoBytes;
 
 #[path = "bench_input.rs"]
 mod bench_input;
@@ -70,7 +70,7 @@ fn message_to_bytes(c: &mut Criterion) {
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()),
+    group.bench_with_input(BenchmarkId::new("toad_msg/alloc/size", bytes.len()),
                            inp,
                            |b, inp| {
                              b.iter_batched(|| inp.get_alloc_message(),
@@ -78,7 +78,7 @@ fn message_to_bytes(c: &mut Criterion) {
                                             BatchSize::SmallInput)
                            });
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
+    group.bench_with_input(BenchmarkId::new("toad_msg/no_alloc/size", bytes.len()),
                            inp,
                            |b, inp| {
                              b.iter_batched(|| inp.get_no_alloc_message::<4096, 32, 512>(),

@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
-use kwap_common::prelude::*;
-use kwap_msg::{EnumerateOptNumbers,
+use toad_common::prelude::*;
+use toad_msg::{EnumerateOptNumbers,
                Id,
                Message,
                Opt,
@@ -32,9 +32,9 @@ use crate::platform::{self, Platform};
 /// A CoAP request
 ///
 /// ```
-/// use kwap::platform::Std;
-/// use kwap::req::Req;
-/// use kwap::resp::Resp;
+/// use toad::platform::Std;
+/// use toad::req::Req;
+/// use toad::resp::Resp;
 ///
 /// # main();
 /// fn main() {
@@ -131,15 +131,15 @@ impl<P: Platform> Req<P> {
   /// Updates the Message ID for this request
   ///
   /// NOTE:
-  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// attempting to convert a request into a [`toad_msg::Message`] without
   /// first calling `set_msg_id` and `set_msg_token` will panic.
   ///
-  /// These 2 methods will always be invoked for you by the kwap runtime.
+  /// These 2 methods will always be invoked for you by the toad runtime.
   ///
   /// ```should_panic
-  /// use kwap::platform;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
@@ -147,10 +147,10 @@ impl<P: Platform> Req<P> {
   /// ```
   ///
   /// ```
-  /// use kwap::platform;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap_msg::{Id, Token};
+  /// use toad::platform;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad_msg::{Id, Token};
   ///
   /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
@@ -166,15 +166,15 @@ impl<P: Platform> Req<P> {
   /// Updates the Message Token for this request
   ///
   /// NOTE:
-  /// attempting to convert a request into a [`kwap_msg::Message`] without
+  /// attempting to convert a request into a [`toad_msg::Message`] without
   /// first calling `set_msg_id` and `set_msg_token` will panic.
   ///
-  /// These 2 methods will always be invoked for you by the kwap runtime.
+  /// These 2 methods will always be invoked for you by the toad runtime.
   ///
   /// ```should_panic
-  /// use kwap::platform;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
@@ -182,10 +182,10 @@ impl<P: Platform> Req<P> {
   /// ```
   ///
   /// ```
-  /// use kwap::platform;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap_msg::{Id, Token};
+  /// use toad::platform;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad_msg::{Id, Token};
   ///
   /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
@@ -211,7 +211,7 @@ impl<P: Platform> Req<P> {
   }
 
   /// Get the request type (confirmable, non-confirmable)
-  pub fn msg_type(&self) -> kwap_msg::Type {
+  pub fn msg_type(&self) -> toad_msg::Type {
     self.msg.ty
   }
 
@@ -228,18 +228,18 @@ impl<P: Platform> Req<P> {
   /// Get a copy of the message id for this request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let _msg_id = req.msg_id();
   /// ```
-  pub fn msg_id(&self) -> kwap_msg::Id {
+  pub fn msg_id(&self) -> toad_msg::Id {
     self.id.unwrap_or(self.msg.id)
   }
 
   /// Get a copy of the message token for this request
-  pub fn msg_token(&self) -> kwap_msg::Token {
+  pub fn msg_token(&self) -> toad_msg::Token {
     self.token.unwrap_or(self.msg.token)
   }
 
@@ -249,8 +249,8 @@ impl<P: Platform> Req<P> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_option(17, Some(50)); // Accept: application/json
@@ -281,8 +281,8 @@ impl<P: Platform> Req<P> {
   /// Creates a new GET request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let _req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// ```
@@ -293,8 +293,8 @@ impl<P: Platform> Req<P> {
   /// Creates a new POST request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -306,8 +306,8 @@ impl<P: Platform> Req<P> {
   /// Creates a new PUT request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -319,8 +319,8 @@ impl<P: Platform> Req<P> {
   /// Creates a new DELETE request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let _req = Req::<Std>::delete("1.1.1.1:5683".parse().unwrap(), "/users/john");
   /// ```
@@ -331,8 +331,8 @@ impl<P: Platform> Req<P> {
   /// Add a payload to this request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -344,8 +344,8 @@ impl<P: Platform> Req<P> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
@@ -359,8 +359,8 @@ impl<P: Platform> Req<P> {
   /// Read an option by its number from the request
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let uri_host = req.get_option(3).unwrap();
@@ -375,8 +375,8 @@ impl<P: Platform> Req<P> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());

@@ -1,12 +1,12 @@
 [package]
-name = "kwap-common"
+name = "toad-common"
 version = "0.7.0"
 edition = "2021"
-description = "Common structs and abstractions used by kwap"
+description = "Common structs and abstractions used by toad"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/clov-coffee/kwap/kwap_common"
-repository = "https://github.com/clov-coffee/kwap/kwap_common"
+homepage = "https://github.com/clov-coffee/toad/toad_common"
+repository = "https://github.com/clov-coffee/toad/toad_common"
 readme = "README.md"
 keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]

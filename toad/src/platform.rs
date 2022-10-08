@@ -1,8 +1,8 @@
 use core::fmt::Debug;
 
 use embedded_time::Clock;
-use kwap_common::prelude::*;
-use kwap_msg::{Id, Opt, OptNumber, Token};
+use toad_common::prelude::*;
+use toad_msg::{Id, Opt, OptNumber, Token};
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::{collections::BTreeMap, vec::Vec};
@@ -10,7 +10,7 @@ use std_alloc::{collections::BTreeMap, vec::Vec};
 use crate::net::Socket;
 use crate::time::Stamped;
 
-/// kwap configuration trait
+/// toad configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
   type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq;
@@ -59,13 +59,13 @@ impl<P: Platform, T> Retryable<P, T> {
   }
 }
 
-/// Configures `kwap` to use `Vec` for collections,
+/// Configures `toad` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing
 ///
 /// ```
-/// use kwap::platform::Std;
-/// use kwap::req::Req;
+/// use toad::platform::Std;
+/// use toad::req::Req;
 ///
 /// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
 /// ```
@@ -104,13 +104,13 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
   type Socket = Sock;
 }
 
-/// Configures `kwap` to use `Vec` for collections,
+/// Configures `toad` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing
 ///
 /// ```
-/// use kwap::platform::Std;
-/// use kwap::req::Req;
+/// use toad::platform::Std;
+/// use toad::req::Req;
 ///
 /// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
 /// ```
@@ -123,7 +123,7 @@ pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;
 
-/// Type alias using Config instead of explicit type parameters for [`kwap_msg::Message`]
-pub type Message<P> = kwap_msg::Message<<P as Platform>::MessagePayload,
+/// Type alias using Config instead of explicit type parameters for [`toad_msg::Message`]
+pub type Message<P> = toad_msg::Message<<P as Platform>::MessagePayload,
                                         <P as Platform>::MessageOptionBytes,
                                         <P as Platform>::MessageOptions>;

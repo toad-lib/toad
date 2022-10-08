@@ -1,5 +1,5 @@
-use kwap_common::Array;
-use kwap_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
+use toad_common::Array;
+use toad_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 
@@ -12,16 +12,16 @@ pub mod code;
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use kwap::platform::Std;
-/// use kwap::resp::Resp;
-/// # use kwap_msg::*;
+/// use toad::platform::Std;
+/// use toad::resp::Resp;
+/// # use toad_msg::*;
 /// # main();
 ///
 /// fn main() {
 ///   start_server(|req| {
 ///     let mut resp = Resp::<Std>::for_request(&req).unwrap();
 ///
-///     resp.set_code(kwap::resp::code::CONTENT);
+///     resp.set_code(toad::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
 ///
 ///     let payload = r#"""{
@@ -34,9 +34,9 @@ pub mod code;
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(kwap::req::Req<Std>) -> kwap::resp::Resp<Std>) {
+/// fn start_server(f: impl FnOnce(toad::req::Req<Std>) -> toad::resp::Resp<Std>) {
 ///   // servery things
-/// # f(kwap::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
+/// # f(toad::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -61,14 +61,14 @@ impl<P: Platform> Resp<P> {
   /// If the request is EMPTY or RESET, this will return None.
   ///
   /// ```
-  /// use kwap::platform::{Message, Std};
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::platform::{Message, Std};
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// req.set_msg_id(kwap_msg::Id(0));
-  /// req.set_msg_token(kwap_msg::Token(Default::default()));
+  /// req.set_msg_id(toad_msg::Id(0));
+  /// req.set_msg_token(toad_msg::Token(Default::default()));
   ///
   /// let resp = Resp::<Std>::for_request(&req).unwrap();
   ///
@@ -78,7 +78,7 @@ impl<P: Platform> Resp<P> {
   /// // note that Req's default type is CON, so the response will be an ACK.
   /// // this means that the token and id of the response will be the same
   /// // as the incoming request.
-  /// assert_eq!(resp_msg.ty, kwap_msg::Type::Ack);
+  /// assert_eq!(resp_msg.ty, toad_msg::Type::Ack);
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
@@ -121,7 +121,7 @@ impl<P: Platform> Resp<P> {
   /// with an ACK followed by a CON response, because the client
   /// will keep resending the request until they receive the ACK.
   ///
-  /// The `kwap` runtime will continually retry sending this until
+  /// The `toad` runtime will continually retry sending this until
   /// an ACKnowledgement from the client is received.
   pub fn con(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Con,
@@ -155,9 +155,9 @@ impl<P: Platform> Resp<P> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
@@ -172,31 +172,31 @@ impl<P: Platform> Resp<P> {
 
   /// Get the message type
   ///
-  /// See [`kwap_msg::Type`] for more info
-  pub fn msg_type(&self) -> kwap_msg::Type {
+  /// See [`toad_msg::Type`] for more info
+  pub fn msg_type(&self) -> toad_msg::Type {
     self.msg.ty
   }
 
   /// Get the message id
   ///
-  /// See [`kwap_msg::Id`] for more info
-  pub fn msg_id(&self) -> kwap_msg::Id {
+  /// See [`toad_msg::Id`] for more info
+  pub fn msg_id(&self) -> toad_msg::Id {
     self.msg.id
   }
 
   /// Get the message token
   ///
-  /// See [`kwap_msg::Token`] for more info
-  pub fn token(&self) -> kwap_msg::Token {
+  /// See [`toad_msg::Token`] for more info
+  pub fn token(&self) -> toad_msg::Token {
     self.msg.token
   }
 
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
@@ -214,9 +214,9 @@ impl<P: Platform> Resp<P> {
   /// Get the response code
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::{code, Resp};
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -224,16 +224,16 @@ impl<P: Platform> Resp<P> {
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
-  pub fn code(&self) -> kwap_msg::Code {
+  pub fn code(&self) -> toad_msg::Code {
     self.msg.code
   }
 
   /// Change the response code
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::{code, Resp};
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -241,7 +241,7 @@ impl<P: Platform> Resp<P> {
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
-  pub fn set_code(&mut self, code: kwap_msg::Code) {
+  pub fn set_code(&mut self, code: toad_msg::Code) {
     self.msg.code = code;
   }
 
@@ -251,9 +251,9 @@ impl<P: Platform> Resp<P> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -274,9 +274,9 @@ impl<P: Platform> Resp<P> {
   /// Add a payload to this response
   ///
   /// ```
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
-  /// use kwap::resp::Resp;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
+  /// use toad::resp::Resp;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");

@@ -2,7 +2,7 @@ use core::ops::RangeInclusive;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use kwap_common::prelude::*;
+use toad_common::prelude::*;
 use rand::{Rng, SeedableRng};
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
@@ -14,7 +14,7 @@ use rand::{Rng, SeedableRng};
 /// ```
 /// use embedded_time::clock::Clock;
 /// use embedded_time::duration::Milliseconds;
-/// use kwap::retry;
+/// use toad::retry;
 ///
 /// # main();
 /// fn main() {
@@ -29,7 +29,7 @@ use rand::{Rng, SeedableRng};
 ///     # }
 ///   };
 ///
-///   let clock = kwap::std::Clock::new();
+///   let clock = toad::std::Clock::new();
 ///   let now = || clock.try_now().unwrap();
 ///   let strategy = retry::Strategy::Delay { min: Milliseconds(1),
 ///                                           max: Milliseconds(2) };

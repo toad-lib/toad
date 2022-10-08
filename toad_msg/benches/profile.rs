@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use kwap_msg::*;
+use toad_msg::*;
 use tinyvec::ArrayVec;
 
 #[path = "bench_input.rs"]
@@ -16,14 +16,14 @@ fn profile(c: &mut Criterion) {
   let bytes: Vec<u8> = inp.get_bytes();
   let coap_lite_packet = coap_lite::Packet::from_bytes(&bytes).unwrap();
 
-  c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "kwap_msg/alloc"),
+  c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "toad_msg/alloc"),
                      &inp,
                      |b, inp| {
                        b.iter_batched(|| VecMessage::from(inp),
                                       |m| m.try_into_bytes::<Vec<u8>>().unwrap(),
                                       BatchSize::SmallInput)
                      });
-  c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "kwap_msg/no_alloc"),
+  c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "toad_msg/no_alloc"),
                      &inp,
                      |b, inp| {
                        b.iter_batched(|| ArrayMessage::from(inp),
@@ -34,10 +34,10 @@ fn profile(c: &mut Criterion) {
                      &coap_lite_packet,
                      |b, packet| b.iter(|| packet.to_bytes()));
 
-  c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "kwap_msg/alloc"),
+  c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "toad_msg/alloc"),
                      &bytes,
                      |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
-  c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "kwap_msg/no_alloc"),
+  c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "toad_msg/no_alloc"),
                      &bytes,
                      |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));
   c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "coap_lite"),

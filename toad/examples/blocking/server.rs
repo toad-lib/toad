@@ -1,16 +1,16 @@
 use std::thread::JoinHandle;
 
-use kwap::blocking::server::{Action, Actions};
-use kwap::net::Addrd;
-use kwap::platform::Std;
-use kwap::req::Req;
-use kwap::resp::{code, Resp};
+use toad::blocking::server::{Action, Actions};
+use toad::net::Addrd;
+use toad::platform::Std;
+use toad::req::Req;
+use toad::resp::{code, Resp};
 
 const PORT: u16 = 5555;
 pub const DISCOVERY_PORT: u16 = 1234;
 
 mod service {
-  use kwap::req::Method;
+  use toad::req::Method;
   use Action::{Continue, Exit, SendReq, SendResp};
 
   use super::*;
@@ -83,7 +83,7 @@ mod service {
     match unsafe { BROADCAST_RECIEVED } {
       | true => Actions::just(Continue),
       | false => {
-        let addr = kwap::multicast::all_coap_devices(DISCOVERY_PORT);
+        let addr = toad::multicast::all_coap_devices(DISCOVERY_PORT);
 
         let mut req = Req::<Std>::post(addr, "");
         req.non();
@@ -98,7 +98,7 @@ pub fn spawn() -> JoinHandle<()> {
   std::thread::Builder::new().stack_size(32 * 1024 * 1024)
                              .spawn(|| {
                                let mut server =
-                                 kwap::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
+                                 toad::blocking::Server::try_new([0, 0, 0, 0], PORT).unwrap();
 
                                server.middleware(&service::close_multicast_broadcast);
                                server.middleware(&service::exit);

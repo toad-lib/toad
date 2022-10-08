@@ -1,5 +1,5 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-macros.svg)](https://crates.io/crates/kwap-macros)
-[![docs.rs](https://docs.rs/kwap-macros/badge.svg)](https://docs.rs/kwap-macros/latest)
+[![crates.io](https://img.shields.io/crates/v/toad-macros.svg)](https://crates.io/crates/toad-macros)
+[![docs.rs](https://docs.rs/toad-macros/badge.svg)](https://docs.rs/toad-macros/latest)
 {{badges}}
 
 # {{crate}}
