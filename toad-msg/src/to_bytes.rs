@@ -1,4 +1,4 @@
-use kwap_common::GetSize;
+use toad_common::GetSize;
 use tinyvec::ArrayVec;
 
 use crate::*;
@@ -10,33 +10,33 @@ pub trait TryIntoBytes {
   /// Try to convert into a collection of bytes
   ///
   /// ```
-  /// use kwap_msg::TryIntoBytes;
+  /// use toad_msg::TryIntoBytes;
   ///
   /// // This one has static params that allocates space on the static
   /// // and uses `tinyvec::ArrayVec` as the byte buffer backing structure
-  /// let arrayvec_message = kwap_msg::ArrayVecMessage::<0, 0, 0> {
+  /// let arrayvec_message = toad_msg::ArrayVecMessage::<0, 0, 0> {
   ///   // ...
-  /// # id: kwap_msg::Id(0),
-  /// # ty: kwap_msg::Type::Con,
+  /// # id: toad_msg::Id(0),
+  /// # ty: toad_msg::Type::Con,
   /// # ver: Default::default(),
   /// # opts: Default::default(),
-  /// # payload: kwap_msg::Payload(Default::default()),
-  /// # token: kwap_msg::Token(Default::default()),
-  /// # code: kwap_msg::Code {class: 0, detail: 1},
+  /// # payload: toad_msg::Payload(Default::default()),
+  /// # token: toad_msg::Token(Default::default()),
+  /// # code: toad_msg::Code {class: 0, detail: 1},
   /// };
   ///
   /// let bytes: tinyvec::ArrayVec<[u8; 1024]> = arrayvec_message.try_into_bytes().unwrap();
   ///
   /// // This one uses Vec
-  /// let vec_message = kwap_msg::VecMessage {
+  /// let vec_message = toad_msg::VecMessage {
   ///   // ...
-  /// # id: kwap_msg::Id(0),
-  /// # ty: kwap_msg::Type::Con,
+  /// # id: toad_msg::Id(0),
+  /// # ty: toad_msg::Type::Con,
   /// # ver: Default::default(),
   /// # opts: Default::default(),
-  /// # payload: kwap_msg::Payload(Default::default()),
-  /// # token: kwap_msg::Token(Default::default()),
-  /// # code: kwap_msg::Code {class: 0, detail: 1},
+  /// # payload: toad_msg::Payload(Default::default()),
+  /// # token: toad_msg::Token(Default::default()),
+  /// # code: toad_msg::Code {class: 0, detail: 1},
   /// };
   ///
   /// let bytes: Vec<u8> = vec_message.try_into_bytes().unwrap();

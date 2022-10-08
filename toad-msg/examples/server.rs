@@ -3,9 +3,9 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Barrier};
 use std::thread::{self, JoinHandle};
 
-use kwap_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes};
+use toad_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes};
 
-type Message = kwap_msg::Message<Vec<u8>, Vec<u8>, Vec<kwap_msg::Opt<Vec<u8>>>>;
+type Message = toad_msg::Message<Vec<u8>, Vec<u8>, Vec<toad_msg::Opt<Vec<u8>>>>;
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));
@@ -92,7 +92,7 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
 }
 
 fn get_hello() -> Message {
-  use kwap_msg::*;
+  use toad_msg::*;
   Message { id: Id(1),
             ty: Type::Con,
             ver: Default::default(),
@@ -104,8 +104,8 @@ fn get_hello() -> Message {
             payload: Payload(Vec::new()) }
 }
 
-fn ok_hello(token: kwap_msg::Token) -> Message {
-  use kwap_msg::*;
+fn ok_hello(token: toad_msg::Token) -> Message {
+  use toad_msg::*;
   Message { id: Id(1),
             ty: Type::Ack, // ACK
             ver: Default::default(),
@@ -116,8 +116,8 @@ fn ok_hello(token: kwap_msg::Token) -> Message {
             payload: Payload("hi there!".as_bytes().to_vec()) }
 }
 
-fn not_found(token: kwap_msg::Token) -> Message {
-  use kwap_msg::*;
+fn not_found(token: toad_msg::Token) -> Message {
+  use toad_msg::*;
   Message { id: Id(1),
             ty: Type::Ack, // ACK
             ver: Default::default(),

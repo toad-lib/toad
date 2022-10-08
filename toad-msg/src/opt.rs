@@ -1,5 +1,5 @@
-use kwap_common::{Array, GetSize};
-use kwap_macros::rfc_7252_doc;
+use toad_common::{Array, GetSize};
+use toad_macros::rfc_7252_doc;
 
 use crate::from_bytes::*;
 
@@ -269,7 +269,7 @@ pub trait EnumerateOptNumbers<T>
   /// Creates an iterator which gives the current Opt along with its Number.
   ///
   /// ```
-  /// use kwap_msg::*;
+  /// use toad_msg::*;
   ///
   /// let opt_a = Opt { delta: OptDelta(12),
   ///                   value: OptValue(Vec::new()) };

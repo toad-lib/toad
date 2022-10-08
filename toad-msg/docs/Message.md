@@ -4,8 +4,8 @@ that has been parsed from a byte array
 To convert an iterator of bytes into a Message, there is a provided trait [`crate::TryFromBytes`].
 
 ```
-use kwap_msg::TryFromBytes;
-use kwap_msg::*;
+use toad_msg::TryFromBytes;
+use toad_msg::*;
 # //                       version  token len  code (2.05 Content)
 # //                       |        |          /
 # //                       |  type  |         /  message ID

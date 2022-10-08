@@ -12,7 +12,7 @@ pub trait GetSize {
   /// For collections this is always equivalent to calling an inherent `len` method.
   ///
   /// ```
-  /// use kwap_msg::GetSize;
+  /// use toad_msg::GetSize;
   ///
   /// assert_eq!(vec![1u8, 2].get_size(), 2)
   /// ```
@@ -28,7 +28,7 @@ pub trait GetSize {
   /// Check if the runtime size is zero
   ///
   /// ```
-  /// use kwap_msg::GetSize;
+  /// use toad_msg::GetSize;
   ///
   /// assert!(Vec::<u8>::new().size_is_zero())
   /// ```
