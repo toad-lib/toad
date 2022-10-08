@@ -438,7 +438,7 @@ version = "0.10.0"
 dependencies = [
  "embedded-time",
  "kwap-common",
- "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kwap-macros",
  "kwap-msg 0.5.1",
  "log",
  "nb 1.0.0",
@@ -462,15 +462,6 @@ dependencies = [
 [[package]]
 name = "kwap-macros"
 version = "0.1.7"
-dependencies = [
- "quote",
- "regex",
- "syn",
-]
-
-[[package]]
-name = "kwap-macros"
-version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f82fcc28520a13de1d0f916f7e264b4d0c06a9c14808b9f7d608ae2068c93286"
 dependencies = [
@@ -487,7 +478,7 @@ checksum = "9f17acf65ebd2ec5a7e211d596527d651ffa73da857a33f9e3d8386b808a36fc"
 dependencies = [
  "blake2",
  "kwap-common",
- "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kwap-macros",
  "tinyvec",
 ]
 
@@ -502,7 +493,7 @@ dependencies = [
  "heapless",
  "itertools",
  "kwap-common",
- "kwap-macros 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kwap-macros",
  "tinyvec",
 ]
 
@@ -1048,6 +1039,15 @@ name = "toad-common"
 version = "0.8.0"
 dependencies = [
  "tinyvec",
+]
+
+[[package]]
+name = "toad-macros"
+version = "0.1.7"
+dependencies = [
+ "quote",
+ "regex",
+ "syn",
 ]
 
 [[package]]
