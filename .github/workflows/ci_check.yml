@@ -26,7 +26,7 @@ jobs:
       id: package_changed
       with:
         filters: |
-          kwap-msg: ['kwap_msg/**']
+          toad-msg: ['toad-msg/**']
           toad-macros: ['toad-macros/**']
           toad-common: ['toad-common/**']
           kwap: ['kwap/**']
@@ -39,10 +39,10 @@ jobs:
           echo 'cargo-make already available.'
         fi
 
-    - name: 'check kwap-msg'
+    - name: 'check toad-msg'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.kwap-msg == 'true'
-      working-directory: 'kwap_msg'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-msg == 'true'
+      working-directory: 'toad-msg'
 
     - name: 'check toad-common'
       run: 'cargo make ci'

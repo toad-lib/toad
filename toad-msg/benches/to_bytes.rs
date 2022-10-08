@@ -1,12 +1,13 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use kwap_msg::*;
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use toad_msg::TryIntoBytes;
 
 #[path = "bench_input.rs"]
 mod bench_input;
 use bench_input::TestInput;
+use tinyvec::ArrayVec;
 
-fn message_from_bytes(c: &mut Criterion) {
-  let mut group = c.benchmark_group("msg/from_bytes");
+fn message_to_bytes(c: &mut Criterion) {
+  let mut group = c.benchmark_group("msg/to_bytes");
   group.measurement_time(std::time::Duration::from_secs(5));
 
   let inputs = vec![TestInput { tkl: 0,
@@ -66,25 +67,32 @@ fn message_from_bytes(c: &mut Criterion) {
                                 opt_size: 512,
                                 payload_size: 4096 },];
 
-  type ArrayMessage = ArrayVecMessage<4096, 32, 512>;
-
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/alloc/size", bytes.len()),
-                           &bytes,
-                           |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
+    group.bench_with_input(BenchmarkId::new("toad_msg/alloc/size", bytes.len()),
+                           inp,
+                           |b, inp| {
+                             b.iter_batched(|| inp.get_alloc_message(),
+                                            |m| m.try_into_bytes::<Vec<_>>().unwrap(),
+                                            BatchSize::SmallInput)
+                           });
 
-    group.bench_with_input(BenchmarkId::new("kwap_msg/no_alloc/size", bytes.len()),
-                           &bytes,
-                           |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));
+    group.bench_with_input(BenchmarkId::new("toad_msg/no_alloc/size", bytes.len()),
+                           inp,
+                           |b, inp| {
+                             b.iter_batched(|| inp.get_no_alloc_message::<4096, 32, 512>(),
+                                            |msg| msg.try_into_bytes::<ArrayVec<[u8; 20608]>>(),
+                                            BatchSize::SmallInput)
+                           });
 
+    let cl_packet = inp.get_coap_lite_packet();
     group.bench_with_input(BenchmarkId::new("coap_lite/size", bytes.len()),
-                           &bytes,
-                           |b, bytes| b.iter(|| coap_lite::Packet::from_bytes(bytes)));
+                           &cl_packet,
+                           |b, inp| b.iter(|| inp.to_bytes()));
   }
   group.finish();
 }
 
-criterion_group!(benches, message_from_bytes);
+criterion_group!(benches, message_to_bytes);
 criterion_main!(benches);

@@ -18,12 +18,12 @@ jobs:
           target
         key: ${{ runner.os }}-cargo
 
-    - name: 'publish kwap-msg'
-      if: startsWith(github.ref, 'refs/tags/kwap-msg@')
+    - name: 'publish toad-msg'
+      if: startsWith(github.ref, 'refs/tags/toad-msg@')
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
       run: 'cargo publish'
-      working-directory: 'kwap_msg'
+      working-directory: 'toad-msg'
 
     - name: 'publish toad-macros'
       if: startsWith(github.ref, 'refs/tags/toad-macros@')

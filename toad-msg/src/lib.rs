@@ -1,6 +1,6 @@
 //! Low-level representation of CoAP messages.
 //!
-//! The most notable item in `kwap_msg` is `Message`;
+//! The most notable item in `toad_msg` is `Message`;
 //! a CoAP message very close to the actual byte layout.
 //!
 //! ## Allocation
@@ -16,13 +16,13 @@
 //! to capture its idea of what makes a collection useful.
 //!
 //! This means that you may use a provided implementation (for `Vec` or `tinyvec::ArrayVec`)
-//! or provide your own collection (see the [custom collections example](https://github.com/clov-coffee/kwap/blob/main/kwap_msg/examples/custom_collections.rs))
+//! or provide your own collection (see the [custom collections example](https://github.com/clov-coffee/toad/blob/main/toad_msg/examples/custom_collections.rs))
 //!
 //! ```rust
-//! //! Note: both of these type aliases are exported by `kwap_msg` for convenience.
+//! //! Note: both of these type aliases are exported by `toad_msg` for convenience.
 //!
 //! use tinyvec::ArrayVec;
-//! use kwap_msg::{Message, Opt};
+//! use toad_msg::{Message, Opt};
 //!
 //! //                        Message Payload byte buffer
 //! //                        |
@@ -44,27 +44,27 @@
 //!          >;
 //! ```
 //!
-//! It may look a little ugly, but a core goal of `kwap` is to be platform- and alloc-agnostic.
+//! It may look a little ugly, but a core goal of `toad` is to be platform- and alloc-agnostic.
 //!
 //! ## Performance
 //! This crate uses `criterion` to measure performance of the heaped & heapless implementations in this crate as well as `coap_lite::Packet`.
 //!
-//! In general, `kwap_msg::VecMessage` performs identically to coap_lite (+/- 5%), and both are **much** faster than `kwap_msg::ArrayVecMessage`.
+//! In general, `toad_msg::VecMessage` performs identically to coap_lite (+/- 5%), and both are **much** faster than `toad_msg::ArrayVecMessage`.
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
 //! <details><summary><b>Click to expand chart</b></summary>
 //!
-//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/from_bytes.svg)
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/from_bytes.svg)
 //! </details>
 //!
 //! ### Deserializing from bytes
 //! <details><summary><b>Click to expand chart</b></summary>
 //!
-//! ![chart](https://raw.githubusercontent.com/clov-coffee/kwap/main/kwap_msg/docs/to_bytes.svg)
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/to_bytes.svg)
 //! </details>
 
-#![doc(html_root_url = "https://docs.rs/kwap-msg/0.6.1")]
+#![doc(html_root_url = "https://docs.rs/toad-msg/0.6.1")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -87,8 +87,6 @@ pub mod to_bytes;
 pub use code::*;
 #[doc(inline)]
 pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
-use kwap_common::{Array, GetSize};
-use kwap_macros::rfc_7252_doc;
 #[doc(inline)]
 pub use opt::*;
 #[cfg(feature = "alloc")]
@@ -96,6 +94,8 @@ use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
+use toad_common::{Array, GetSize};
+use toad_macros::rfc_7252_doc;
 
 #[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
@@ -132,8 +132,8 @@ pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OP
 /// </details>
 ///
 /// ```
-/// use kwap_msg::TryFromBytes;
-/// use kwap_msg::*;
+/// use toad_msg::TryFromBytes;
+/// use toad_msg::*;
 /// # //                       version  token len  code (2.05 Content)
 /// # //                       |        |          /
 /// # //                       |  type  |         /  message ID
@@ -201,12 +201,12 @@ impl<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<I
   ///
   /// use std::net::SocketAddr;
   ///
-  /// use kwap_msg::{Id, VecMessage as Message};
+  /// use toad_msg::{Id, VecMessage as Message};
   ///
   /// fn server_get_request() -> Option<(SocketAddr, Message)> {
   ///   // Servery sockety things...
   ///   # use std::net::{Ipv4Addr, ToSocketAddrs};
-  ///   # use kwap_msg::{Type, Code, Token, Version, Payload};
+  ///   # use toad_msg::{Type, Code, Token, Version, Payload};
   ///   # let addr = (Ipv4Addr::new(0, 0, 0, 0), 1234);
   ///   # let addr = addr.to_socket_addrs().unwrap().next().unwrap();
   ///   # let msg = Message { code: Code::new(0, 0),
@@ -347,7 +347,7 @@ impl Token {
   /// Currently uses the BLAKE2 hashing algorithm, but this may change in the future.
   ///
   /// ```
-  /// use kwap_msg::Token;
+  /// use toad_msg::Token;
   ///
   /// let my_token = Token::opaque(&[0, 1, 2]);
   /// ```

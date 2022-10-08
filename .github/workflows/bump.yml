@@ -36,7 +36,7 @@ jobs:
       id: package_changed
       with:
         filters: |
-          kwap-msg: ['kwap_msg/**']
+          toad-msg: ['toad-msg/**']
           toad-macros: ['toad-macros/**']
           toad-common: ['toad-common/**']
           kwap: ['kwap/**']
@@ -46,13 +46,13 @@ jobs:
     # - create version tag
     # - create version commits
 
-    - name: 'bump kwap-msg'
-      if: steps.package_changed.outputs.kwap-msg == 'true'
+    - name: 'bump toad-msg'
+      if: steps.package_changed.outputs.toad-msg == 'true'
       run: |
         npx standard-version \
-          --tag-prefix kwap-msg@ \
-          --releaseCommitMessageFormat 'chore(release): kwap-msg@{{currentTag}}'
-      working-directory: 'kwap_msg'
+          --tag-prefix toad-msg@ \
+          --releaseCommitMessageFormat 'chore(release): toad-msg@{{currentTag}}'
+      working-directory: 'toad-msg'
 
     - name: 'bump toad-macros'
       if: steps.package_changed.outputs.toad-macros == 'true'

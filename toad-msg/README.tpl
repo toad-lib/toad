@@ -1,5 +1,5 @@
-[![crates.io](https://img.shields.io/crates/v/kwap-msg.svg)](https://crates.io/crates/kwap-msg)
-[![docs.rs](https://docs.rs/kwap-msg/badge.svg)](https://docs.rs/kwap-msg/latest)
+[![crates.io](https://img.shields.io/crates/v/toad-msg.svg)](https://crates.io/crates/toad-msg)
+[![docs.rs](https://docs.rs/toad-msg/badge.svg)](https://docs.rs/toad-msg/latest)
 {{badges}}
 
 # {{crate}}
