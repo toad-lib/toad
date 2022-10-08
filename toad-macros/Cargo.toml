@@ -1,6 +1,6 @@
 [package]
 name = "toad-macros"
-version = "0.1.7"
+version = "0.2.0"
 edition = "2021"
 description = "Macros used by toad for boilerplate reduction"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]

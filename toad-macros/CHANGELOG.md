@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.2.0 (2022-10-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename kwap_macros -> toad-macros (#138)
+
+### Features
+
+* rename kwap_macros -> toad-macros ([#138](https://github.com/clov-coffee/toad/issues/138)) ([dbb2e9e](https://github.com/clov-coffee/toad/commit/dbb2e9e826ea56b4f032cae9f812e224772248dd))
+
 ### 0.1.7 (2022-01-11)
 
 ### 0.1.6 (2021-12-30)
