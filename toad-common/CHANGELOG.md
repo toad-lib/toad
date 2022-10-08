@@ -7,22 +7,22 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### ⚠ BREAKING CHANGES
 
-* rename kwap_msg -> toad_msg (#136)
+* rename toad_msg -> toad_msg (#136)
 
 ### Features
 
-* rename kwap_msg -> toad_msg ([#136](https://github.com/clov-coffee/toad/issues/136)) ([1035350](https://github.com/clov-coffee/toad/commit/1035350f453c1c0d5433a13b287f5fc9d5c556e9))
+* rename toad_msg -> toad_msg ([#136](https://github.com/clov-coffee/toad/issues/136)) ([1035350](https://github.com/clov-coffee/toad/commit/1035350f453c1c0d5433a13b287f5fc9d5c556e9))
 
 ## 0.8.0 (2022-10-08)
 
 
 ### ⚠ BREAKING CHANGES
 
-* rename kwap-common -> toad-common (#135)
+* rename toad-common -> toad-common (#135)
 
 ### Features
 
-* rename kwap-common -> toad-common ([#135](https://github.com/clov-coffee/toad/issues/135)) ([49312be](https://github.com/clov-coffee/toad/commit/49312be14bbc11ee95cdfc9915a45a3be4c79383))
+* rename toad-common -> toad-common ([#135](https://github.com/clov-coffee/toad/issues/135)) ([49312be](https://github.com/clov-coffee/toad/commit/49312be14bbc11ee95cdfc9915a45a3be4c79383))
 
 ## 0.7.0 (2022-05-25)
 

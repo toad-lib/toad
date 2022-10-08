@@ -2,8 +2,8 @@ use core::mem;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use kwap_common::prelude::*;
-use kwap_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
+use toad_common::prelude::*;
+use toad_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{IpAddr, SocketAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
@@ -271,7 +271,7 @@ impl<P: Platform> Core<P> {
   /// # Example
   /// See `./examples/client.rs`
   pub fn poll_resp(&mut self,
-                   token: kwap_msg::Token,
+                   token: toad_msg::Token,
                    sock: SocketAddr)
                    -> nb::Result<Resp<P>, Error<P>> {
     self.tick().bind(|_| {
@@ -311,7 +311,7 @@ impl<P: Platform> Core<P> {
   ///  | 0.00   |      Token: 0x20
   ///  |        |
   /// ```
-  pub fn poll_ping(&mut self, req_id: kwap_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<P>> {
+  pub fn poll_ping(&mut self, req_id: toad_msg::Id, addr: SocketAddr) -> nb::Result<(), Error<P>> {
     self.tick().bind(|_| {
                  self.check_ping(req_id, addr).map_err(|nb_err| {
                                                 nb_err.map(What::SockError)
@@ -350,7 +350,7 @@ impl<P: Platform> Core<P> {
   }
 
   fn try_get_resp(&mut self,
-                  token: kwap_msg::Token,
+                  token: toad_msg::Token,
                   sock: SocketAddr)
                   -> nb::Result<Resp<P>, <<P as Platform>::Socket as Socket>::Error> {
     let resp_matches = |o: &Option<Addrd<Resp<P>>>| {
@@ -374,7 +374,7 @@ impl<P: Platform> Core<P> {
   }
 
   fn check_ping(&mut self,
-                req_id: kwap_msg::Id,
+                req_id: toad_msg::Id,
                 addr: SocketAddr)
                 -> nb::Result<(), <<P as Platform>::Socket as Socket>::Error> {
     let still_qd =
@@ -438,7 +438,7 @@ impl<P: Platform> Core<P> {
   pub(crate) fn send_req(&mut self,
                          req: Req<P>,
                          secure: Secure)
-                         -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+                         -> Result<(toad_msg::Token, SocketAddr), Error<P>> {
     let port = req.get_option(7).expect("Uri-Port must be present");
     let port_bytes = port.value
                          .0
@@ -467,7 +467,7 @@ impl<P: Platform> Core<P> {
   pub(crate) fn send_addrd_req(&mut self,
                                mut req: Addrd<Req<P>>,
                                secure: Secure)
-                               -> Result<(kwap_msg::Token, SocketAddr), Error<P>> {
+                               -> Result<(toad_msg::Token, SocketAddr), Error<P>> {
     let addr = req.addr();
 
     if req.data().id.is_none() {
@@ -544,9 +544,9 @@ impl<P: Platform> Core<P> {
   /// ```
   /// use std::net::UdpSocket;
   ///
-  /// use kwap::core::Core;
-  /// use kwap::platform::Std;
-  /// use kwap::req::Req;
+  /// use toad::core::Core;
+  /// use toad::platform::Std;
+  /// use toad::req::Req;
   ///
   /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
   /// let mut core = Core::<Std>::new(Default::default(), sock);
@@ -556,7 +556,7 @@ impl<P: Platform> Core<P> {
   pub fn ping(&mut self,
               host: impl AsRef<str>,
               port: u16)
-              -> Result<(kwap_msg::Id, SocketAddr), Error<P>> {
+              -> Result<(toad_msg::Id, SocketAddr), Error<P>> {
     let when = When::None;
 
     host.as_ref()
@@ -571,7 +571,7 @@ impl<P: Platform> Core<P> {
 
           let mut msg: platform::Message<P> = req.into();
           msg.opts = Default::default();
-          msg.code = kwap_msg::Code::new(0, 0);
+          msg.code = toad_msg::Code::new(0, 0);
 
           Self::send_msg_sock(&mut self.sock, Addrd(msg, addr), Secure::IfSupported).map(|_| {
                                                                                       (id, addr)
@@ -582,7 +582,7 @@ impl<P: Platform> Core<P> {
 
 #[cfg(test)]
 mod tests {
-  use kwap_msg::TryIntoBytes;
+  use toad_msg::TryIntoBytes;
   use no_std_net::{Ipv4Addr, SocketAddrV4};
   use tinyvec::ArrayVec;
 
@@ -602,11 +602,11 @@ mod tests {
     let (id, addr) = client.ping("0.0.0.0", 5632).unwrap();
 
     let resp = Msg { id,
-                     token: kwap_msg::Token(Default::default()),
-                     code: kwap_msg::Code::new(0, 0),
+                     token: toad_msg::Token(Default::default()),
+                     code: toad_msg::Code::new(0, 0),
                      ver: Default::default(),
-                     ty: kwap_msg::Type::Reset,
-                     payload: kwap_msg::Payload(Default::default()),
+                     ty: toad_msg::Type::Reset,
+                     payload: toad_msg::Payload(Default::default()),
                      opts: Default::default() };
 
     let _bytes = resp.try_into_bytes::<ArrayVec<[u8; 1152]>>().unwrap();

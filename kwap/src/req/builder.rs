@@ -1,4 +1,4 @@
-use kwap_common::prelude::*;
+use toad_common::prelude::*;
 use no_std_net::SocketAddr;
 
 use super::{Method, Req};
@@ -18,9 +18,9 @@ pub enum Error {
 /// note: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
-/// use kwap::platform::Std;
-/// use kwap::req::ReqBuilder;
-/// use kwap::ContentFormat;
+/// use toad::platform::Std;
+/// use toad::req::ReqBuilder;
+/// use toad::ContentFormat;
 ///
 /// let payload = r#"""{
 ///              "name": "Jameson",
@@ -36,8 +36,8 @@ pub enum Error {
 ///
 /// let rep = send(&request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
-/// # fn send(req: &kwap::req::Req<Std>) -> kwap::resp::Resp<Std> {
-/// #   let mut rep = kwap::resp::Resp::for_request(req).unwrap();
+/// # fn send(req: &toad::req::Req<Std>) -> toad::resp::Resp<Std> {
+/// #   let mut rep = toad::resp::Resp::for_request(req).unwrap();
 /// #   rep.set_payload("Hello, Jameson!".bytes());
 /// #   rep
 /// # }

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use embedded_time::duration::Milliseconds;
-use kwap_macros::rfc_7252_doc;
+use toad_macros::rfc_7252_doc;
 
 use crate::retry::{Attempts, Strategy};
 
@@ -74,9 +74,9 @@ impl Config {
   ///
   /// ```
   /// use embedded_time::duration::Milliseconds as Millis;
-  /// use kwap::config::{BytesPerSecond, Config};
-  /// use kwap::retry::Attempts;
-  /// use kwap::retry::Strategy::Exponential;
+  /// use toad::config::{BytesPerSecond, Config};
+  /// use toad::retry::Attempts;
+  /// use toad::retry::Strategy::Exponential;
   ///
   /// let config = Config::new().token_seed(35718)
   ///                           .max_concurrent_requests(142)
@@ -102,7 +102,7 @@ impl Config {
     self
   }
 
-  /// Set the seed used to generate message [`Token`](kwap_msg::Token)s.
+  /// Set the seed used to generate message [`Token`](toad_msg::Token)s.
   ///
   /// The default value is 0, although it is
   /// best practice to set this to something else.

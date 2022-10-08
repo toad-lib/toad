@@ -2,7 +2,7 @@
 use core::fmt::Write;
 use core::ops::{Div, Mul};
 
-use kwap_common::prelude::*;
+use toad_common::prelude::*;
 use tinyvec::ArrayVec;
 
 pub(crate) trait Capacity: GetSize {
@@ -18,7 +18,7 @@ pub(crate) trait Capacity: GetSize {
 
 impl<T: GetSize> Capacity for T {}
 
-pub(crate) fn code_to_human(code: kwap_msg::Code) -> Writable<ArrayVec<[u8; 4]>> {
+pub(crate) fn code_to_human(code: toad_msg::Code) -> Writable<ArrayVec<[u8; 4]>> {
   let mut buf: Writable<ArrayVec<[u8; 4]>> = Writable::default();
   code.to_human().iter().for_each(|char| {
                           write!(buf, "{}", char).ok();

@@ -5,7 +5,7 @@ use std::net::UdpSocket;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
-use kwap_common::prelude::*;
+use toad_common::prelude::*;
 use openssl::ssl::{MidHandshakeSslStream,
                    Ssl,
                    SslAcceptor,
@@ -38,7 +38,7 @@ mod error {
   #[derive(Debug)]
   pub enum Error {
     /// There was in issue within openssl - this is more likely
-    /// to be a bug in `kwap` than a bug in `openssl`.
+    /// to be a bug in `toad` than a bug in `openssl`.
     Ssl(openssl::ssl::Error),
     /// There was an IO error raised by the underlying socket
     Io(std::io::Error),
@@ -197,7 +197,7 @@ pub mod conn {
           .bind(|rx_addr| {
             if rx_addr == self.addr {
               let recv = Socket::recv(self.sock.as_ref(), buf);
-              recv.expect_nonblocking("kwap::std::net::UdpConn::peek lied!")
+              recv.expect_nonblocking("toad::std::net::UdpConn::peek lied!")
             } else {
               // The message in the socket is for someone else,
               // so we should yield
@@ -346,7 +346,7 @@ impl SecureUdpSocket {
         log::error!("{}",
                     ["SecureUdpSocket::connect",
                      "called in server mode.",
-                     "This is a bug in `kwap`",
+                     "This is a bug in `toad`",
                      "and should be filed as an issue."].join(" "));
         let not_found = Error::ConnectionNotFound;
         Err(not_found.into())
@@ -377,7 +377,7 @@ impl SecureUdpSocket {
       log::error!("{}",
                   ["SecureUdpSocket::accept",
                    "called in client mode.",
-                   "This is a bug in `kwap`",
+                   "This is a bug in `toad`",
                    "and should be filed as an issue."].join(" "));
       Err(not_found.into())
     };

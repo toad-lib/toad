@@ -1,10 +1,10 @@
-use kwap::blocking::client::ClientResultExt;
-use kwap::blocking::Client;
-use kwap::core::Error;
-use kwap::net::Addrd;
-use kwap::platform::Std;
-use kwap::req::Req;
-use kwap::resp::Resp;
+use toad::blocking::client::ClientResultExt;
+use toad::blocking::Client;
+use toad::core::Error;
+use toad::net::Addrd;
+use toad::platform::Std;
+use toad::req::Req;
+use toad::resp::Resp;
 
 #[path = "./server.rs"]
 mod server;
@@ -13,7 +13,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for Result<Resp<Std>, kwap::core::Error<Std>> {
+impl Log for Result<Resp<Std>, toad::core::Error<Std>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
@@ -54,7 +54,7 @@ fn main() {
 
   let mut client = Client::new_std();
   let Addrd(_, addr) =
-    Client::<Std>::listen_multicast(kwap::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
+    Client::<Std>::listen_multicast(toad::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
 
   log::info!("Got multicast message from {:?}", addr);
   log::info!("Server's location is {:?}", addr);

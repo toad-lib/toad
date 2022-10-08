@@ -7,11 +7,11 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### ⚠ BREAKING CHANGES
 
-* rename kwap_macros -> toad-macros (#138)
+* rename toad_macros -> toad-macros (#138)
 
 ### Features
 
-* rename kwap_macros -> toad-macros ([#138](https://github.com/clov-coffee/toad/issues/138)) ([dbb2e9e](https://github.com/clov-coffee/toad/commit/dbb2e9e826ea56b4f032cae9f812e224772248dd))
+* rename toad_macros -> toad-macros ([#138](https://github.com/clov-coffee/toad/issues/138)) ([dbb2e9e](https://github.com/clov-coffee/toad/commit/dbb2e9e826ea56b4f032cae9f812e224772248dd))
 
 ### 0.1.7 (2022-01-11)
 

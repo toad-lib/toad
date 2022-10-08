@@ -1,10 +1,10 @@
-[![crates.io](https://img.shields.io/crates/v/kwap.svg)](https://crates.io/crates/kwap)
-[![docs.rs](https://docs.rs/kwap/badge.svg)](https://docs.rs/kwap/latest)
+[![crates.io](https://img.shields.io/crates/v/toad.svg)](https://crates.io/crates/toad)
+[![docs.rs](https://docs.rs/toad/badge.svg)](https://docs.rs/toad/latest)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
 
-# kwap
+# toad
 
-`kwap` is a Rust CoAP implementation that aims to be:
+`toad` is a Rust CoAP implementation that aims to be:
 - Platform-independent
 - Extensible
 - Approachable

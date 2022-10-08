@@ -1,6 +1,6 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Clock;
-use kwap_common::prelude::*;
+use toad_common::prelude::*;
 use no_std_net::SocketAddr;
 
 use crate::config::Config;
@@ -19,12 +19,12 @@ use crate::std::{secure, SecureUdpSocket};
 /// This is used for bring-your-own platform use cases, like embedded.
 #[derive(Clone, Debug)]
 pub struct ClientConfig<Cfg: Platform> {
-  /// The clock that the kwap runtime will use
+  /// The clock that the toad runtime will use
   /// to keep track of time.
   ///
   /// For `std` platforms, this is [`crate::std::Clock`].
   pub clock: Cfg::Clock,
-  /// The network abstraction that the kwap runtime
+  /// The network abstraction that the toad runtime
   /// will use to interact with the network.
   ///
   /// For `std` platforms, this is [`std::net::UdpSocket`].
@@ -64,9 +64,9 @@ impl Client<StdSecure> {
   /// Create a new Client secured by DTLS
   ///
   /// ```no_run
-  /// use kwap::blocking::Client;
-  /// use kwap::req::ReqBuilder;
-  /// use kwap::ContentFormat;
+  /// use toad::blocking::Client;
+  /// use toad::req::ReqBuilder;
+  /// use toad::ContentFormat;
   ///
   /// let mut client = Client::try_new_secure(1234).unwrap();
   /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
@@ -96,9 +96,9 @@ impl Client<Std> {
   /// Create a new Client for a platform supporting Rust's standard library.
   ///
   /// ```no_run
-  /// use kwap::blocking::Client;
-  /// use kwap::req::ReqBuilder;
-  /// use kwap::ContentFormat;
+  /// use toad::blocking::Client;
+  /// use toad::req::ReqBuilder;
+  /// use toad::ContentFormat;
   ///
   /// let mut client = Client::new_std();
   /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)

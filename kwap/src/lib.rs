@@ -1,4 +1,4 @@
-//! `kwap` is a Rust CoAP implementation that aims to be:
+//! `toad` is a Rust CoAP implementation that aims to be:
 //! - Platform-independent
 //! - Extensible
 //! - Approachable
@@ -24,7 +24,7 @@
 //! - While _classes_ of status codes are the same (Success 2xx -> 2.xx, Client error 4xx -> 4.xx, Server error 5xx -> 5.xx), the semantics of the individual response codes differ.
 
 // docs
-#![doc(html_root_url = "https://docs.rs/kwap/0.10.0")]
+#![doc(html_root_url = "https://docs.rs/toad/0.10.0")]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 // -
 // style
@@ -80,7 +80,7 @@ pub mod time;
 /// configuring runtime behavior
 pub mod config;
 
-/// `std`-only kwap stuff
+/// `std`-only toad stuff
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod std;
@@ -110,14 +110,14 @@ pub mod multicast {
 
 macro_rules! code {
   (rfc7252($section:literal) $name:ident = $c:literal.$d:literal) => {
-    #[doc = kwap_macros::rfc_7252_doc!($section)]
+    #[doc = toad_macros::rfc_7252_doc!($section)]
     #[allow(clippy::zero_prefixed_literal)]
-    pub const $name: kwap_msg::Code = kwap_msg::Code::new($c, $d);
+    pub const $name: toad_msg::Code = toad_msg::Code::new($c, $d);
   };
   (rfc7252($section:literal) $name:ident = $newtype:tt($c:literal.$d:literal)) => {
-    #[doc = kwap_macros::rfc_7252_doc!($section)]
+    #[doc = toad_macros::rfc_7252_doc!($section)]
     #[allow(clippy::zero_prefixed_literal)]
-    pub const $name: $newtype = $newtype(kwap_msg::Code::new($c, $d));
+    pub const $name: $newtype = $newtype(toad_msg::Code::new($c, $d));
   };
 }
 

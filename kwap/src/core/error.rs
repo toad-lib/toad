@@ -1,5 +1,5 @@
-use kwap_msg::to_bytes::MessageToBytesError;
-use kwap_msg::MessageParseError;
+use toad_msg::to_bytes::MessageToBytesError;
+use toad_msg::MessageParseError;
 use no_std_net::SocketAddr;
 
 use crate::net::Socket;
@@ -11,7 +11,7 @@ pub enum When {
   /// We were polling for a message when the error occurred
   Polling,
   /// We were sending a message
-  SendingMessage(Option<SocketAddr>, kwap_msg::Id, kwap_msg::Token),
+  SendingMessage(Option<SocketAddr>, toad_msg::Id, toad_msg::Token),
   /// Not sure that `When` is valuable anymore
   None,
 }

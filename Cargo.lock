@@ -428,13 +428,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwap"
+name = "toad"
 version = "0.10.0"
 dependencies = [
  "embedded-time",
- "kwap-common",
- "kwap-macros",
- "kwap-msg",
+ "toad-common",
+ "toad-macros",
+ "toad-msg",
  "log",
  "nb 1.0.0",
  "no-std-net",
@@ -446,7 +446,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwap-common"
+name = "toad-common"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "deb551a38a821d85a93afebde6278c68adf87a454bf1e23010d6e8242f07e2a6"
@@ -455,7 +455,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwap-macros"
+name = "toad-macros"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f82fcc28520a13de1d0f916f7e264b4d0c06a9c14808b9f7d608ae2068c93286"
@@ -466,14 +466,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "kwap-msg"
+name = "toad-msg"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f17acf65ebd2ec5a7e211d596527d651ffa73da857a33f9e3d8386b808a36fc"
 dependencies = [
  "blake2",
- "kwap-common",
- "kwap-macros",
+ "toad-common",
+ "toad-macros",
  "tinyvec",
 ]
 

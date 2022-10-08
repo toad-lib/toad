@@ -1,14 +1,14 @@
 use std::net::UdpSocket;
 
-use kwap::blocking::client::{ClientConfig, ClientResultExt};
-use kwap::blocking::Client;
-use kwap::core::Error;
-use kwap::net::Addrd;
-use kwap::platform::{Std, StdSecure};
-use kwap::req::Req;
-use kwap::resp::Resp;
-use kwap::std::secure::SecureUdpSocket;
-use kwap::std::Clock;
+use toad::blocking::client::{ClientConfig, ClientResultExt};
+use toad::blocking::Client;
+use toad::core::Error;
+use toad::net::Addrd;
+use toad::platform::{Std, StdSecure};
+use toad::req::Req;
+use toad::resp::Resp;
+use toad::std::secure::SecureUdpSocket;
+use toad::std::Clock;
 use openssl::ssl::{SslConnector, SslMethod, SslOptions, SslVerifyMode};
 
 #[path = "./secure_server.rs"]
@@ -18,7 +18,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for Result<Resp<StdSecure>, kwap::core::Error<StdSecure>> {
+impl Log for Result<Resp<StdSecure>, toad::core::Error<StdSecure>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
