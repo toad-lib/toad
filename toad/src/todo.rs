@@ -2,8 +2,8 @@
 use core::fmt::Write;
 use core::ops::{Div, Mul};
 
-use toad_common::prelude::*;
 use tinyvec::ArrayVec;
+use toad_common::prelude::*;
 
 pub(crate) trait Capacity: GetSize {
   fn capacity(&self) -> Option<f32> {

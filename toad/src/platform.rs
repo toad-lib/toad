@@ -1,11 +1,11 @@
 use core::fmt::Debug;
 
 use embedded_time::Clock;
-use toad_common::prelude::*;
-use toad_msg::{Id, Opt, OptNumber, Token};
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::{collections::BTreeMap, vec::Vec};
+use toad_common::prelude::*;
+use toad_msg::{Id, Opt, OptNumber, Token};
 
 use crate::net::Socket;
 use crate::time::Stamped;

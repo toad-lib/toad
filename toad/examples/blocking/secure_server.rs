@@ -3,15 +3,15 @@ use std::io::Read;
 use std::net::UdpSocket;
 use std::thread::JoinHandle;
 
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::x509::X509;
 use toad::blocking::server::{Action, Actions};
 use toad::net::Addrd;
 use toad::platform::StdSecure;
 use toad::req::Req;
 use toad::resp::{code, Resp};
 use toad::std::{Clock, SecureUdpSocket};
-use openssl::pkey::PKey;
-use openssl::rsa::Rsa;
-use openssl::x509::X509;
 
 const PORT: u16 = 1111;
 pub const DISCOVERY_PORT: u16 = 1234;

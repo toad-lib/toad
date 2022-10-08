@@ -428,56 +428,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "toad"
-version = "0.10.0"
-dependencies = [
- "embedded-time",
- "toad-common",
- "toad-macros",
- "toad-msg",
- "log",
- "nb 1.0.0",
- "no-std-net",
- "openssl",
- "rand",
- "rand_chacha",
- "simple_logger",
- "tinyvec",
-]
-
-[[package]]
-name = "toad-common"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb551a38a821d85a93afebde6278c68adf87a454bf1e23010d6e8242f07e2a6"
-dependencies = [
- "tinyvec",
-]
-
-[[package]]
-name = "toad-macros"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f82fcc28520a13de1d0f916f7e264b4d0c06a9c14808b9f7d608ae2068c93286"
-dependencies = [
- "quote",
- "regex",
- "syn",
-]
-
-[[package]]
-name = "toad-msg"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f17acf65ebd2ec5a7e211d596527d651ffa73da857a33f9e3d8386b808a36fc"
-dependencies = [
- "blake2",
- "toad-common",
- "toad-macros",
- "tinyvec",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1015,6 +965,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
+name = "toad"
+version = "0.10.0"
+dependencies = [
+ "embedded-time",
+ "log",
+ "nb 1.0.0",
+ "no-std-net",
+ "openssl",
+ "rand",
+ "rand_chacha",
+ "simple_logger",
+ "tinyvec",
+ "toad-common 0.8.0",
+ "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-msg 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "toad-common"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1060,6 +1028,18 @@ dependencies = [
  "criterion",
  "heapless",
  "itertools",
+ "tinyvec",
+ "toad-common 0.8.0",
+ "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "toad-msg"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "272379f9100c758634f5c77c9c972cac023e2e0948805aaf28c6dd6bc0adf217"
+dependencies = [
+ "blake2",
  "tinyvec",
  "toad-common 0.8.0",
  "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",

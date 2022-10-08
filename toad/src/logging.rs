@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
-use toad_common::prelude::*;
 use tinyvec::ArrayVec;
+use toad_common::prelude::*;
 
 use crate::platform;
 use crate::todo::code_to_human;

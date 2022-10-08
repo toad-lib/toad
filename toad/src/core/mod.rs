@@ -2,11 +2,11 @@ use core::mem;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use toad_common::prelude::*;
-use toad_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 use no_std_net::{IpAddr, SocketAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
+use toad_common::prelude::*;
+use toad_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 
 mod error;
 #[doc(inline)]
@@ -582,9 +582,9 @@ impl<P: Platform> Core<P> {
 
 #[cfg(test)]
 mod tests {
-  use toad_msg::TryIntoBytes;
   use no_std_net::{Ipv4Addr, SocketAddrV4};
   use tinyvec::ArrayVec;
+  use toad_msg::TryIntoBytes;
 
   use super::*;
   use crate::platform;

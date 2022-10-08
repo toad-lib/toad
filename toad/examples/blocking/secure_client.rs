@@ -1,5 +1,6 @@
 use std::net::UdpSocket;
 
+use openssl::ssl::{SslConnector, SslMethod, SslOptions, SslVerifyMode};
 use toad::blocking::client::{ClientConfig, ClientResultExt};
 use toad::blocking::Client;
 use toad::core::Error;
@@ -9,7 +10,6 @@ use toad::req::Req;
 use toad::resp::Resp;
 use toad::std::secure::SecureUdpSocket;
 use toad::std::Clock;
-use openssl::ssl::{SslConnector, SslMethod, SslOptions, SslVerifyMode};
 
 #[path = "./secure_server.rs"]
 mod server;

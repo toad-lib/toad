@@ -1,6 +1,6 @@
+use no_std_net::SocketAddr;
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::MessageParseError;
-use no_std_net::SocketAddr;
 
 use crate::net::Socket;
 use crate::platform::Platform;

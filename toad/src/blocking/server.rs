@@ -468,8 +468,8 @@ mod tests {
   use core::time::Duration;
   use std::thread;
 
-  use toad_msg::{Id, Token, Type};
   use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+  use toad_msg::{Id, Token, Type};
 
   use super::*;
   use crate::req::method::Method;

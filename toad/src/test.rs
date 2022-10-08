@@ -7,10 +7,10 @@ use ::std::sync::Mutex;
 use ::std::thread;
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
-use toad_msg::{TryFromBytes, TryIntoBytes};
 use net::*;
 use no_std_net::SocketAddr;
 use std_alloc::sync::Arc;
+use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
 

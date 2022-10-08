@@ -2,8 +2,8 @@ use core::ops::RangeInclusive;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use toad_common::prelude::*;
 use rand::{Rng, SeedableRng};
+use toad_common::prelude::*;
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.

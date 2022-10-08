@@ -1,5 +1,7 @@
 use core::fmt::Write;
 
+use no_std_net::SocketAddr;
+use tinyvec::ArrayVec;
 use toad_common::prelude::*;
 use toad_msg::{EnumerateOptNumbers,
                Id,
@@ -10,8 +12,6 @@ use toad_msg::{EnumerateOptNumbers,
                Token,
                TryIntoBytes,
                Type};
-use no_std_net::SocketAddr;
-use tinyvec::ArrayVec;
 
 use crate::ToCoapValue;
 

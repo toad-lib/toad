@@ -5,7 +5,6 @@ use std::net::UdpSocket;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
-use toad_common::prelude::*;
 use openssl::ssl::{MidHandshakeSslStream,
                    Ssl,
                    SslAcceptor,
@@ -13,6 +12,7 @@ use openssl::ssl::{MidHandshakeSslStream,
                    SslContext,
                    SslMethod,
                    SslMode};
+use toad_common::prelude::*;
 
 use super::convert::nb_to_io;
 use super::{convert, Addrd, Socket};

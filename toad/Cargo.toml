@@ -38,11 +38,11 @@ test = []
 docs = []
 
 [dependencies]
+toad-common = "0.8.0"
+toad-msg = "0.7.0"
+toad-macros = "0.2.0"
 log = "0.4"
-toad-msg = "0.5.1"
-toad-common = "0.6.4"
 tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }
-toad-macros = "0.1.6"
 no-std-net = "0.6"
 embedded-time = "0.12"
 nb = "1"

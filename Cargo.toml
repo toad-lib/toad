@@ -1,5 +1,5 @@
 [workspace]
-members = ["toad*", "toad-common", "toad-macros", "toad-msg"]
+members = ["toad*"]
 
 [profile.bench]
 debug = true
