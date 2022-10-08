@@ -1,5 +1,5 @@
-use toad_common::GetSize;
 use tinyvec::ArrayVec;
+use toad_common::GetSize;
 
 use crate::*;
 

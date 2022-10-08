@@ -87,8 +87,6 @@ pub mod to_bytes;
 pub use code::*;
 #[doc(inline)]
 pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
-use toad_common::{Array, GetSize};
-use toad_macros::rfc_7252_doc;
 #[doc(inline)]
 pub use opt::*;
 #[cfg(feature = "alloc")]
@@ -96,6 +94,8 @@ use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
+use toad_common::{Array, GetSize};
+use toad_macros::rfc_7252_doc;
 
 #[doc = rfc_7252_doc!("5.5")]
 #[derive(Clone, Debug, PartialEq, PartialOrd)]

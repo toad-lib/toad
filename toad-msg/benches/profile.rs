@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use toad_msg::*;
 use tinyvec::ArrayVec;
+use toad_msg::*;
 
 #[path = "bench_input.rs"]
 mod bench_input;

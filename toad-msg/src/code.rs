@@ -1,6 +1,6 @@
-use toad_macros::rfc_7252_doc;
 #[cfg(feature = "alloc")]
 use std_alloc::string::{String, ToString};
+use toad_macros::rfc_7252_doc;
 
 #[doc = rfc_7252_doc!("12.1")]
 /// <details><summary><b>RFC7252 Section 12.1.1 Method Codes</b></summary>

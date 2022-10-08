@@ -1,5 +1,5 @@
-use toad_msg::*;
 use tinyvec::ArrayVec;
+use toad_msg::*;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct TestInput {
