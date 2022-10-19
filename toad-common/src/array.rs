@@ -1,45 +1,5 @@
 use core::ops::{Deref, DerefMut};
 
-/// Collections that can be mutably split in two
-pub trait Split
-  where Self: Sized
-{
-  /// Split a collection at some index, yielding 2 new collections
-  /// where the first contains the range `0..n` and the second `n..`.
-  ///
-  /// _This is an abstracted [`Vec.split_off`]_
-  ///
-  /// ```
-  /// use toad_common::Split;
-  ///
-  /// let vec = vec![1, 2, 3];
-  ///
-  /// let (before, after) = Split::split(vec, 1);
-  /// assert_eq!(before, vec![1]);
-  /// assert_eq!(after, vec![2, 3]);
-  /// ```
-  fn split(self, at: usize) -> (Self, Self);
-}
-
-macro_rules! veclike_split {
-  ($self:ident, $at:ident) => {{
-    let new = $self.split_off($at);
-    ($self, new)
-  }};
-}
-
-impl<T> Split for Vec<T> {
-  fn split(mut self, at: usize) -> (Self, Self) {
-    veclike_split!(self, at)
-  }
-}
-
-impl<T, A: tinyvec::Array<Item = T>> Split for tinyvec::ArrayVec<A> {
-  fn split(mut self, at: usize) -> (Self, Self) {
-    veclike_split!(self, at)
-  }
-}
-
 /// Get the runtime size of some data structure
 ///
 /// # Deprecated
