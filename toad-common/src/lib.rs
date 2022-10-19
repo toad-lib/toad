@@ -17,6 +17,10 @@ pub mod result;
 /// Function utils
 pub mod fns;
 
+/// Cursor
+pub mod cursor;
+pub use cursor::*;
+
 /// Map
 pub mod map;
 pub use map::*;
