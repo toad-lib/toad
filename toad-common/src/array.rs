@@ -186,7 +186,6 @@ pub trait Array:
   + Deref<Target = [<Self as Array>::Item]>
   + DerefMut
   + Extend<<Self as Array>::Item>
-  + Split
   + FromIterator<<Self as Array>::Item>
   + IntoIterator<Item = <Self as Array>::Item>
 {
@@ -203,6 +202,30 @@ pub trait Array:
 
   /// Add a value to the end of a collection.
   fn push(&mut self, value: <Self as Array>::Item);
+}
+
+/// Collections that support extending themselves mutably from copyable slices
+pub trait AppendCopy<T: Copy> {
+  /// Extend self mutably, copying from a slice.
+  ///
+  /// Worst-case implementations copy 1 element at a time (time O(n))
+  ///
+  /// Best-case implementations copy as much of the origin slice
+  /// at once as possible (system word size), e.g. [`Vec::append`].
+  /// (still linear time, but on 64-bit systems this is 64 times faster than a 1-by-1 copy.)
+  fn append_copy<'a>(&mut self, i: &[T]);
+}
+
+impl<T: Copy> AppendCopy<T> for Vec<T> {
+  fn append_copy<'a>(&mut self, i: &[T]) {
+    self.extend(i);
+  }
+}
+
+impl<T: Copy, A: tinyvec::Array<Item = T>> AppendCopy<T> for tinyvec::ArrayVec<A> {
+  fn append_copy<'a>(&mut self, i: &[T]) {
+    self.extend_from_slice(i);
+  }
 }
 
 impl<T> Array for Vec<T> {
