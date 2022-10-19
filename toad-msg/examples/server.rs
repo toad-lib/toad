@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 
 use toad_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes};
 
-type Message = toad_msg::Message<Vec<u8>, Vec<u8>, Vec<toad_msg::Opt<Vec<u8>>>>;
+type Message = toad_msg::Message<Vec<u8>, Vec<toad_msg::Opt<Vec<u8>>>>;
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));

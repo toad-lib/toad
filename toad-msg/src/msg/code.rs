@@ -117,8 +117,13 @@ impl ToString for Code {
 
 impl From<u8> for Code {
   fn from(b: u8) -> Self {
+    // xxxyyyyy
+
+    // xxx => class
     let class = b >> 5;
-    let detail = b & 0b0011111;
+
+    // yyyyy => detail
+    let detail = b & 0b00011111;
 
     Code { class, detail }
   }
@@ -126,8 +131,8 @@ impl From<u8> for Code {
 
 impl From<Code> for u8 {
   fn from(code: Code) -> u8 {
-    let class = code.class << 5;
-    let detail = code.detail;
+    let class = (code.class << 5) & 0b11100000;
+    let detail = code.detail & 0b00011111;
 
     class | detail
   }
@@ -140,7 +145,7 @@ mod tests {
 
   #[test]
   fn parse_code() {
-    let byte = 0b0100_0101_u8;
+    let byte = 0b01000101_u8;
     let code = Code::from(byte);
     assert_eq!(code,
                Code { class: 2,
@@ -152,7 +157,7 @@ mod tests {
     let code = Code { class: 2,
                       detail: 5 };
     let actual: u8 = code.into();
-    let expected = 0b0100_0101_u8;
+    let expected = 0b01000101_u8;
     assert_eqb!(actual, expected)
   }
 }

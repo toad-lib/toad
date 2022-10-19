@@ -26,11 +26,9 @@
 //!
 //! //                        Message Payload byte buffer
 //! //                        |
-//! //                        |        Option Value byte buffer
-//! //                        |        |
-//! //                        |        |        Array of options in the message
-//! //                        vvvvvvv  vvvvvvv  vvvvvvvvvvvvvvvvv
-//! type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
+//! //                        |        Array of options in the message
+//! //                        vvvvvvv  vvvvvvvvvvvvvvvvv
+//! type VecMessage = Message<Vec<u8>, Vec<Opt<Vec<u8>>>>;
 //!
 //! // Used like: `ArrayVecMessage<1024, 256, 16>`; a message that can store a payload up to 1024 bytes, and up to 16 options each with up to a 256 byte value.
 //! type ArrayVecMessage<
@@ -39,7 +37,6 @@
 //!        const NUM_OPTS: usize,
 //!      > = Message<
 //!            ArrayVec<[u8; PAYLOAD_SIZE]>,
-//!            ArrayVec<[u8; OPT_SIZE]>,
 //!            ArrayVec<[Opt<ArrayVec<[u8; OPT_SIZE]>>; NUM_OPTS]>,
 //!          >;
 //! ```
@@ -75,291 +72,31 @@
 extern crate alloc as std_alloc;
 
 #[doc(hidden)]
-pub mod code;
-#[doc(hidden)]
 pub mod from_bytes;
 #[doc(hidden)]
-pub mod opt;
+pub mod msg;
 #[doc(hidden)]
 pub mod to_bytes;
 
 #[doc(inline)]
-pub use code::*;
+pub use from_bytes::TryFromBytes;
 #[doc(inline)]
-pub use from_bytes::{MessageParseError, OptParseError, TryFromBytes};
-#[doc(inline)]
-pub use opt::*;
+pub use msg::*;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
 use toad_common::{Array, GetSize};
-use toad_macros::rfc_7252_doc;
-
-#[doc = rfc_7252_doc!("5.5")]
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub struct Payload<C: Array<Item = u8>>(pub C);
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-pub type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
+pub type VecMessage = Message<Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
 /// Message that uses static fixed-capacity stack-allocating byte buffers
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
-  Message<ArrayVec<[u8; PAYLOAD_CAP]>,
-          ArrayVec<[u8; OPT_CAP]>,
-          ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
-
-/// # `Message` struct
-/// Low-level representation of a message that has been parsed from the raw binary format.
-///
-/// Note that `Message` is generic over 3 [`Array`]s:
-///  - `PayloadC`: the byte buffer used to store the message's [`Payload`]
-///  - `OptC`: byte buffer used to store [`Opt`]ion values ([`OptValue`])
-///  - `Opts`: collection of [`Opt`]ions in the message
-///
-/// Messages support both serializing to bytes and from bytes, by using the provided [`TryFromBytes`] and [`TryIntoBytes`] traits.
-///
-/// <details>
-/// <summary><b>RFC7252 - CoAP Messaging Model</b></summary>
-#[doc = concat!("\n#", rfc_7252_doc!("2.1"))]
-/// </details>
-/// <details>
-/// <summary><b>RFC7252 - CoAP Message Binary Format</b></summary>
-#[doc = concat!("\n#", rfc_7252_doc!("3"))]
-/// </details>
-///
-/// ```
-/// use toad_msg::TryFromBytes;
-/// use toad_msg::*;
-/// # //                       version  token len  code (2.05 Content)
-/// # //                       |        |          /
-/// # //                       |  type  |         /  message ID
-/// # //                       |  |     |        |   |
-/// # //                       vv vv vvvv vvvvvvvv vvvvvvvvvvvvvvvv
-/// # let header: [u8; 4] = 0b_01_00_0001_01000101_0000000000000001u32.to_be_bytes();
-/// # let token: [u8; 1] = [254u8];
-/// # let content_format: &[u8] = b"application/json";
-/// # let options: [&[u8]; 2] = [&[0b_1100_1101u8, 0b00000011u8], content_format];
-/// # let payload: [&[u8]; 2] = [&[0b_11111111u8], b"hello, world!"];
-/// let packet: Vec<u8> = /* bytes! */
-/// # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
-///
-/// // `VecMessage` uses `Vec` as the backing structure for byte buffers
-/// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
-/// # let opt = Opt {
-/// #   delta: OptDelta(12),
-/// #   value: OptValue(content_format.iter().map(|u| *u).collect()),
-/// # };
-/// let mut opts_expected = /* create expected options */
-/// # Vec::new();
-/// # opts_expected.push(opt);
-///
-/// let expected = VecMessage {
-///   id: Id(1),
-///   ty: Type::Con,
-///   ver: Version(1),
-///   token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-///   opts: opts_expected,
-///   code: Code {class: 2, detail: 5},
-///   payload: Payload(b"hello, world!".to_vec()),
-/// };
-///
-/// assert_eq!(msg, expected);
-/// ```
-#[derive(Clone, PartialEq, PartialOrd, Debug)]
-pub struct Message<PayloadC: Array<Item = u8>,
- OptC: Array<Item = u8> + 'static,
- Opts: Array<Item = Opt<OptC>>> {
-  /// see [`Id`] for details
-  pub id: Id,
-  /// see [`Type`] for details
-  pub ty: Type,
-  /// see [`Version`] for details
-  pub ver: Version,
-  /// see [`Token`] for details
-  pub token: Token,
-  /// see [`Code`] for details
-  pub code: Code,
-  /// see [`opt::Opt`] for details
-  pub opts: Opts,
-  /// see [`Payload`]
-  pub payload: Payload<PayloadC>,
-}
-
-impl<PayloadC: Array<Item = u8>, OptC: Array<Item = u8> + 'static, Opts: Array<Item = Opt<OptC>>>
-  Message<PayloadC, OptC, Opts>
-{
-  /// Create a new message that ACKs this one.
-  ///
-  /// This needs an [`Id`] to assign to the newly created message.
-  ///
-  /// ```
-  /// // we are a server
-  ///
-  /// use std::net::SocketAddr;
-  ///
-  /// use toad_msg::{Id, VecMessage as Message};
-  ///
-  /// fn server_get_request() -> Option<(SocketAddr, Message)> {
-  ///   // Servery sockety things...
-  ///   # use std::net::{Ipv4Addr, ToSocketAddrs};
-  ///   # use toad_msg::{Type, Code, Token, Version, Payload};
-  ///   # let addr = (Ipv4Addr::new(0, 0, 0, 0), 1234);
-  ///   # let addr = addr.to_socket_addrs().unwrap().next().unwrap();
-  ///   # let msg = Message { code: Code::new(0, 0),
-  ///   #                     id: Id(1),
-  ///   #                     ty: Type::Con,
-  ///   #                     ver: Version(1),
-  ///   #                     token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-  ///   #                     opts: vec![],
-  ///   #                     payload: Payload(vec![]) };
-  ///   # Some((addr, msg))
-  /// }
-  ///
-  /// fn server_send_msg(addr: SocketAddr, msg: Message) -> Result<(), ()> {
-  ///   // Message sendy bits...
-  ///   # Ok(())
-  /// }
-  ///
-  /// let (addr, req) = server_get_request().unwrap();
-  /// let ack_id = Id(req.id.0 + 1);
-  /// let ack = req.ack(ack_id);
-  ///
-  /// server_send_msg(addr, ack).unwrap();
-  /// ```
-  pub fn ack(&self, id: Id) -> Self {
-    Self { id,
-           token: self.token,
-           ver: Default::default(),
-           ty: Type::Ack,
-           code: Code::new(0, 0),
-           payload: Payload(Default::default()),
-           opts: Default::default() }
-  }
-}
-
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> GetSize
-  for Message<P, O, Os>
-{
-  fn get_size(&self) -> usize {
-    let header_size = 4;
-    let payload_marker_size = 1;
-    let payload_size = self.payload.0.get_size();
-    let token_size = self.token.0.len();
-    let opts_size: usize = self.opts.iter().map(|o| o.get_size()).sum();
-
-    header_size + payload_marker_size + payload_size + token_size + opts_size
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
-  }
-}
-
-/// Struct representing the first byte of a message.
-///
-/// ```text
-/// CoAP version
-/// |
-/// |  Message type (request, response, empty)
-/// |  |
-/// |  |  Length of token, in bytes. (4-bit integer)
-/// |  |  |
-/// vv vv vvvv
-/// 01 00 0000
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub(crate) struct Byte1 {
-  pub(crate) ver: Version,
-  pub(crate) ty: Type,
-  pub(crate) tkl: u8,
-}
-
-/// # Message ID
-///
-/// 16-bit unsigned integer in network byte order.  Used to
-/// detect message duplication and to match messages of type
-/// Acknowledgement/Reset to messages of type Confirmable/Non-
-/// confirmable.  The rules for generating a Message ID and matching
-/// messages are defined in RFC7252 Section 4
-///
-/// For a little more context and the difference between [`Id`] and [`Token`], see [`Token`].
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Id(pub u16);
-
-/// Indicates if this message is of
-/// type Confirmable (0), Non-confirmable (1), Acknowledgement (2), or Reset (3).
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
-pub enum Type {
-  /// Some messages do not require an acknowledgement.  This is
-  /// particularly true for messages that are repeated regularly for
-  /// application requirements, such as repeated readings from a sensor.
-  Non,
-  /// Some messages require an acknowledgement.  These messages are
-  /// called "Confirmable".  When no packets are lost, each Confirmable
-  /// message elicits exactly one return message of type Acknowledgement
-  /// or type Reset.
-  Con,
-  /// An Acknowledgement message acknowledges that a specific
-  /// Confirmable message arrived.  By itself, an Acknowledgement
-  /// message does not indicate success or failure of any request
-  /// encapsulated in the Confirmable message, but the Acknowledgement
-  /// message may also carry a Piggybacked Response.
-  Ack,
-  /// A Reset message indicates that a specific message (Confirmable or
-  /// Non-confirmable) was received, but some context is missing to
-  /// properly process it.  This condition is usually caused when the
-  /// receiving node has rebooted and has forgotten some state that
-  /// would be required to interpret the message.  Provoking a Reset
-  /// message (e.g., by sending an Empty Confirmable message) is also
-  /// useful as an inexpensive check of the liveness of an endpoint
-  /// ("CoAP ping").
-  Reset,
-}
-
-/// Version of the CoAP protocol that the message adheres to.
-///
-/// Right now, this will always be 1, but may support additional values in the future.
-///
-/// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Version(pub u8);
-
-impl Default for Version {
-  fn default() -> Self {
-    Version(1)
-  }
-}
-#[doc = rfc_7252_doc!("5.3.1")]
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
-pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
-
-impl Token {
-  /// Take an arbitrary-length sequence of bytes and turn it into an opaque message token
-  ///
-  /// Currently uses the BLAKE2 hashing algorithm, but this may change in the future.
-  ///
-  /// ```
-  /// use toad_msg::Token;
-  ///
-  /// let my_token = Token::opaque(&[0, 1, 2]);
-  /// ```
-  pub fn opaque(data: &[u8]) -> Token {
-    use blake2::digest::consts::U8;
-    use blake2::{Blake2b, Digest};
-
-    let mut digest = Blake2b::<U8>::new();
-    digest.update(data);
-    Token(Into::<[u8; 8]>::into(digest.finalize()).into())
-  }
-}
+  Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
 
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {

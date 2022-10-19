@@ -1,5 +1,5 @@
 use tinyvec::ArrayVec;
-use toad_common::GetSize;
+use toad_common::{AppendCopy, GetSize};
 
 use crate::*;
 
@@ -51,8 +51,9 @@ pub enum MessageToBytesError {
   TooLong { capacity: usize, size: usize },
 }
 
-impl<P: Array<Item = u8>, O: Array<Item = u8>, Os: Array<Item = Opt<O>>> TryIntoBytes
-  for Message<P, O, Os>
+impl<PayloadBytes: Array<Item = u8>,
+      OptionValue: Array<Item = u8> + AppendCopy<u8>,
+      Options: Array<Item = Opt<OptionValue>>> TryIntoBytes for Message<PayloadBytes, Options>
 {
   type Error = MessageToBytesError;
 
