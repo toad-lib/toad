@@ -209,6 +209,10 @@ impl<K: Eq + Hash, V> GetSize for HashMap<K, V> {
   fn max_size(&self) -> Option<usize> {
     None
   }
+
+  fn is_full(&self) -> bool {
+    false
+  }
 }
 
 impl<K, V> Reserve for BTreeMap<K, V> {}
@@ -219,6 +223,10 @@ impl<K, V> GetSize for BTreeMap<K, V> {
 
   fn max_size(&self) -> Option<usize> {
     None
+  }
+
+  fn is_full(&self) -> bool {
+    false
   }
 }
 
