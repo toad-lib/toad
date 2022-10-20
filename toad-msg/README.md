@@ -18,7 +18,7 @@ CoAP messages have some attributes whose size is dynamic:
 `Message` does not require an allocator and has no opinions about what kind of collection
 it uses internally to store these values.
 
-It solves this problem by being generic over the collections it needs and uses a `Collection` trait
+It solves this problem by being generic over the collections it needs and uses an `Array` trait
 to capture its idea of what makes a collection useful.
 
 This means that you may use a provided implementation (for `Vec` or `tinyvec::ArrayVec`)
@@ -32,11 +32,9 @@ use toad_msg::{Message, Opt};
 
 //                        Message Payload byte buffer
 //                        |
-//                        |        Option Value byte buffer
-//                        |        |
-//                        |        |        Collection of options in the message
-//                        vvvvvvv  vvvvvvv  vvvvvvvvvvvvvvvvv
-type VecMessage = Message<Vec<u8>, Vec<u8>, Vec<Opt<Vec<u8>>>>;
+//                        |        Array of options in the message
+//                        vvvvvvv  vvvvvvvvvvvvvvvvv
+type VecMessage = Message<Vec<u8>, Vec<Opt<Vec<u8>>>>;
 
 // Used like: `ArrayVecMessage<1024, 256, 16>`; a message that can store a payload up to 1024 bytes, and up to 16 options each with up to a 256 byte value.
 type ArrayVecMessage<
@@ -45,7 +43,6 @@ type ArrayVecMessage<
        const NUM_OPTS: usize,
      > = Message<
            ArrayVec<[u8; PAYLOAD_SIZE]>,
-           ArrayVec<[u8; OPT_SIZE]>,
            ArrayVec<[Opt<ArrayVec<[u8; OPT_SIZE]>>; NUM_OPTS]>,
          >;
 ```
@@ -59,15 +56,23 @@ In general, `toad_msg::VecMessage` performs identically to coap_lite (+/- 5%), a
 
 Benchmarks:
 #### Serializing to bytes
-<details><summary>**Click to expand chart**</summary>
+<details>
+<summary>
 
-![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/from_bytes.svg)
+**Click to expand chart**
+</summary>
+
+![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/from_bytes.svg)
 </details>
 
 #### Deserializing from bytes
-<details><summary>**Click to expand chart**</summary>
+<details>
+<summary>
 
-![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/to_bytes.svg)
+**Click to expand chart**
+</summary>
+
+![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/to_bytes.svg)
 </details>
 
 ## License

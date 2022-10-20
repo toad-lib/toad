@@ -50,15 +50,23 @@
 //!
 //! Benchmarks:
 //! ### Serializing to bytes
-//! <details><summary><b>Click to expand chart</b></summary>
+//! <details>
+//! <summary>
 //!
-//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/from_bytes.svg)
+//! **Click to expand chart**
+//! </summary>
+//!
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/from_bytes.svg)
 //! </details>
 //!
 //! ### Deserializing from bytes
-//! <details><summary><b>Click to expand chart</b></summary>
+//! <details>
+//! <summary>
 //!
-//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad_msg/docs/to_bytes.svg)
+//! **Click to expand chart**
+//! </summary>
+//!
+//! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/to_bytes.svg)
 //! </details>
 
 #![doc(html_root_url = "https://docs.rs/toad-msg/0.8.0")]
