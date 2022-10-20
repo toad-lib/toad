@@ -1,7 +1,7 @@
 use std::io;
 use std::net::UdpSocket;
 
-use toad_common::prelude::*;
+use toad_common::*;
 
 use crate::net::{Addrd, Socket};
 

@@ -2,7 +2,7 @@ use core::fmt::Write;
 
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_common::prelude::*;
+use toad_common::*;
 use toad_msg::{EnumerateOptNumbers,
                Id,
                Message,

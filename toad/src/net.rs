@@ -1,6 +1,6 @@
 use no_std_net::{SocketAddr, ToSocketAddrs};
 use tinyvec::ArrayVec;
-use toad_common::prelude::*;
+use toad_common::*;
 
 /// Data that came from a network socket
 #[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Debug, Clone, Copy)]
