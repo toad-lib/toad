@@ -6,12 +6,37 @@ All notable changes to this project will be documented in this file. See [standa
 
 
 ### ⚠ BREAKING CHANGES
-
-* **toad-msg:** parsing messages should use slices instead of iterators (#142)
+ * removed `TryConsumeNBytes`
+ * removed a type parameter from `Message`
+    * from `Message<PayloadBytes, OptionBytes, Options>`
+    * to `Message<PayloadBytes, Options>`
+ * added trait bounds for `Message<PayloadBytes, Options>` impls (non-breaking if you're using `Vec` or `tinyvec::ArrayVec`)
+    * `PayloadBytes: AppendCopy<u8>`
+    * `Options: AppendCopy<u8>`
+ * added trait bound `A: AsRef<[u8]>` for `TryFromBytes<A>`
+ * changed `TryFromBytes::<A>::try_from_bytes`
+    * from `fn<I: Iterator<...>>(bs: I) -> Result<...>`
+    * to `fn(bs: A) -> Result<...>`
+ * changed trait bound on `A` in `TryConsumeBytes<A>`
+    * from `A: Iterator<...>`
+    * to `A: AsRef<[u8]>`
+ * changed `TryConsumeBytes::<A>::try_consume_bytes`
+    * from `fn try_consume_bytes(bytes: &mut I) -> Result<Self, Self::Error>`
+    * to `fn try_consume_bytes(bytes: &mut Cursor<A>) -> Result<Self, Self::Error>;`
+ * refactored module structure (most likely non-breaking since they were all `pub` but `#[doc(hidden)]`)
 
 ### Features
+none
 
-* **toad-msg:** parsing messages should use slices instead of iterators ([#142](https://github.com/clov-coffee/toad/issues/142)) ([03b3a5b](https://github.com/clov-coffee/toad/commit/03b3a5b0155dd8104ced35825be3cebd051d81c9))
+### Bug Fixes
+ * removed trait bounds on all struct type parameters, but kept the trait bounds on the impls
+    * _the data structure doesn't care what it stores, but the **behavior** definitely does_
+
+### Performance Improvements
+ * rewrote message parsing to use the new cursor type in toad-common
+    * navigating buffers is now constant time from linear time
+    * filling toad-msg data structures by `Extend`ing from the source byte buffer should be many many times faster now
+       * this is owed to `Vec` and `tinyvec::ArrayVec` using more specialized "copy to end from slice" implementations that use `ptr::non_overlapping_copy` (See `toad_common::AppendCopy`) instead of copying one at a time
 
 ## 0.7.0 (2022-10-08)
 
