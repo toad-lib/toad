@@ -11,9 +11,11 @@ extern crate alloc;
 
 /// Extensions to Result
 pub mod result;
+pub use result::*;
 
 /// Function utils
 pub mod fns;
+pub use fns::*;
 
 /// Cursor
 pub mod cursor;
@@ -27,13 +29,6 @@ pub use map::*;
 pub mod array;
 pub use array::*;
 
-/// `toad` prelude
-pub mod prelude {
-  pub use array::*;
-  pub use cursor::*;
-  pub use fns::*;
-  pub use map::*;
-  pub use result::*;
-
-  pub use super::*;
-}
+/// Writable
+pub mod writable;
+pub use writable::*;
