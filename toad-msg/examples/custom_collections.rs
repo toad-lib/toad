@@ -3,8 +3,7 @@ use toad_common::{Array, GetSize, Reserve};
 use toad_msg::*;
 
 fn main() {
-  type StackMsg =
-    Message<HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
+  type StackMsg = Message<HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
 
   let stack_msg = StackMsg { code: Code { class: 2,
                                           detail: 5 },
@@ -34,13 +33,15 @@ pub(crate) mod collection_heapless_vec {
 
   use toad_common::AppendCopy;
 
-use super::*;
+  use super::*;
 
   #[derive(Debug, Default, PartialEq, Clone)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
 
   impl<const N: usize> AsRef<[u8]> for HeaplessVec<u8, N> {
-    fn as_ref(&self) -> &[u8] {self.0.as_ref()}
+    fn as_ref(&self) -> &[u8] {
+      self.0.as_ref()
+    }
   }
 
   impl<T: Copy + Default, const N: usize> AppendCopy<T> for HeaplessVec<T, N> {

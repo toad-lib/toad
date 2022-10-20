@@ -999,6 +999,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "toad-common"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d51655c67534c670a8e5fe02632b584aa06fa51822598703d271494557c08dfc"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "toad-macros"
 version = "0.2.0"
 dependencies = [
@@ -1029,7 +1038,7 @@ dependencies = [
  "heapless",
  "itertools",
  "tinyvec",
- "toad-common 0.9.0",
+ "toad-common 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

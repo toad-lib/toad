@@ -1,4 +1,4 @@
-use toad_common::{Array, GetSize, Cursor, AppendCopy};
+use toad_common::{AppendCopy, Array, Cursor, GetSize};
 use toad_macros::rfc_7252_doc;
 
 use crate::from_bytes::*;
@@ -7,24 +7,19 @@ pub mod parse_error;
 pub use parse_error::*;
 
 pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
-                                     bytes: &mut Cursor<A>,
-                                     reserved_err: OptParseError)
-                                     -> Result<u16, OptParseError> {
-  if head == 15 {
-    return Err(reserved_err);
-  }
-
+                                                     bytes: &mut Cursor<A>,
+                                                     reserved_err: OptParseError)
+                                                     -> Result<u16, OptParseError> {
   match head {
     | 13 => {
       let n = bytes.next().ok_or_else(OptParseError::eof)?;
       Ok((n as u16) + 13)
     },
-    | 14 => {
-      match bytes.take_exact(2) {
-        Some(&[a, b]) => Ok(u16::from_be_bytes([a, b]) + 269),
-        _ => Err(OptParseError::eof())
-      }
+    | 14 => match bytes.take_exact(2) {
+      | Some(&[a, b]) => Ok(u16::from_be_bytes([a, b]) + 269),
+      | _ => Err(OptParseError::eof()),
     },
+    | 15 => Err(reserved_err),
     | _ => Ok(head as u16),
   }
 }
@@ -72,7 +67,9 @@ impl<C: Array<Item = u8>> GetSize for Opt<C> {
     None
   }
 
-  fn is_full(&self) -> bool {false}
+  fn is_full(&self) -> bool {
+    false
+  }
 }
 
 impl<C: Array<Item = u8>> Opt<C> {
@@ -216,8 +213,8 @@ impl OptNumber {
 #[derive(Default, Clone, PartialEq, PartialOrd, Debug)]
 pub struct OptValue<C>(pub C);
 
-impl<V: Array<Item = u8> + AppendCopy<u8>, T: Array<Item = Opt<V>>, Bytes: AsRef<[u8]>> TryConsumeBytes<Bytes>
-  for T
+impl<V: Array<Item = u8> + AppendCopy<u8>, T: Array<Item = Opt<V>>, Bytes: AsRef<[u8]>>
+  TryConsumeBytes<Bytes> for T
 {
   type Error = OptParseError;
 
@@ -244,26 +241,35 @@ impl<Bytes: AsRef<[u8]>, V: Array<Item = u8> + AppendCopy<u8>> TryConsumeBytes<B
   type Error = OptParseError;
 
   fn try_consume_bytes(bytes: &mut Cursor<Bytes>) -> Result<Self, Self::Error> {
-    let byte1 = bytes.next().ok_or(OptParseError::OptionsExhausted).and_then(|b| if b == 0b11111111 {Err(OptParseError::OptionsExhausted)} else {Ok(b)})?;
+    let byte1 = bytes.next()
+                     .ok_or(OptParseError::OptionsExhausted)
+                     .and_then(|b| {
+                       if b == 0b11111111 {
+                         Err(OptParseError::OptionsExhausted)
+                       } else {
+                         Ok(b)
+                       }
+                     })?;
 
     // NOTE: Delta **MUST** be consumed before Value. see comment on `opt_len_or_delta` for more info
-    let delta = parse_opt_len_or_delta(byte1 >> 4, bytes, OptParseError::OptionDeltaReservedValue(15))?;
+    let delta = parse_opt_len_or_delta(byte1 >> 4,
+                                       bytes,
+                                       OptParseError::OptionDeltaReservedValue(15))?;
     let delta = OptDelta(delta);
 
     let len = parse_opt_len_or_delta(byte1 & 0b00001111,
                                      bytes,
-                                     OptParseError::ValueLengthReservedValue(15))? as usize;
+                                     OptParseError::ValueLengthReservedValue(15))?
+              as usize;
 
-    let value = {
-      let mut data = V::reserve(len);
-      data.append_copy(bytes.take(len));
+    let mut value = V::reserve(len);
+    value.append_copy(bytes.take(len));
 
-      if data.get_size() < len {
-        Err(Self::Error::UnexpectedEndOfStream)
-      } else {
-        Ok(OptValue(data))
-      }
-    }?;
+    if value.get_size() < len {
+      return Err(Self::Error::UnexpectedEndOfStream);
+    }
+
+    let value = OptValue(value);
 
     Ok(Opt { delta, value })
   }
