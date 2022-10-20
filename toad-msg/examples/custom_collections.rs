@@ -3,8 +3,8 @@ use toad_common::{Array, GetSize, Reserve};
 use toad_msg::*;
 
 fn main() {
-  type StackMsg =
-    Message<HeaplessVec<u8, 1>, HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
+  type StackMsg = Message<HeaplessVec<u8, 1>, HeaplessVec<Opt<HeaplessVec<u8, 1>>, 1>>;
+
   let stack_msg = StackMsg { code: Code { class: 2,
                                           detail: 5 },
                              ty: Type::Con,
@@ -31,9 +31,25 @@ pub(crate) mod collection_heapless_vec {
   use std::ops::{Deref, DerefMut, Index, IndexMut};
   use std::ptr;
 
+  use toad_common::AppendCopy;
+
   use super::*;
+
   #[derive(Debug, Default, PartialEq, Clone)]
   pub struct HeaplessVec<T: Default, const N: usize>(heapless::Vec<T, N>);
+
+  impl<const N: usize> AsRef<[u8]> for HeaplessVec<u8, N> {
+    fn as_ref(&self) -> &[u8] {
+      self.0.as_ref()
+    }
+  }
+
+  impl<T: Copy + Default, const N: usize> AppendCopy<T> for HeaplessVec<T, N> {
+    fn append_copy<'a>(&mut self, i: &[T]) {
+      self.0.extend(i.iter().copied());
+    }
+  }
+
   impl<T: Default, const N: usize> Array for HeaplessVec<T, N> {
     type Item = T;
     fn insert_at(&mut self, index: usize, value: T) {
@@ -103,8 +119,13 @@ pub(crate) mod collection_heapless_vec {
     fn get_size(&self) -> usize {
       self.0.len()
     }
+
     fn max_size(&self) -> Option<usize> {
       Some(N)
+    }
+
+    fn is_full(&self) -> bool {
+      self.0.len() >= N
     }
   }
   impl<T: Default, const N: usize> Extend<T> for HeaplessVec<T, N> {
