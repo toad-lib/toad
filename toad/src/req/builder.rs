@@ -1,5 +1,5 @@
 use no_std_net::SocketAddr;
-use toad_common::prelude::*;
+use toad_common::*;
 
 use super::{Method, Req};
 use crate::option::common_options;

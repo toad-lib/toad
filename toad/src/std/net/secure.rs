@@ -12,7 +12,7 @@ use openssl::ssl::{MidHandshakeSslStream,
                    SslContext,
                    SslMethod,
                    SslMode};
-use toad_common::prelude::*;
+use toad_common::*;
 
 use super::convert::nb_to_io;
 use super::{convert, Addrd, Socket};

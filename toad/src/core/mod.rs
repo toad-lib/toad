@@ -5,7 +5,7 @@ use embedded_time::{Clock, Instant};
 use no_std_net::{IpAddr, SocketAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
-use toad_common::prelude::*;
+use toad_common::*;
 use toad_msg::{CodeKind, Id, Token, TryFromBytes, TryIntoBytes, Type};
 
 mod error;

@@ -3,7 +3,7 @@ use core::ops::RangeInclusive;
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
 use rand::{Rng, SeedableRng};
-use toad_common::prelude::*;
+use toad_common::*;
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.
@@ -160,10 +160,10 @@ impl Strategy {
   pub fn range(&self) -> RangeInclusive<u64> {
     match self {
       | &Self::Delay { min: Milliseconds(min),
-                       max: Milliseconds(max), } => (min..=max),
+                       max: Milliseconds(max), } => min..=max,
 
       | &Self::Exponential { init_min: Milliseconds(min),
-                             init_max: Milliseconds(max), } => (min..=max),
+                             init_max: Milliseconds(max), } => min..=max,
     }
   }
 

@@ -1,7 +1,7 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Clock;
 use no_std_net::SocketAddr;
-use toad_common::prelude::*;
+use toad_common::*;
 
 use crate::config::Config;
 use crate::core::{Core, Error, Secure, What, When};

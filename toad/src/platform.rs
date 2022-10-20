@@ -4,7 +4,7 @@ use embedded_time::Clock;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::{collections::BTreeMap, vec::Vec};
-use toad_common::prelude::*;
+use toad_common::*;
 use toad_msg::{Id, Opt, OptNumber, Token};
 
 use crate::net::Socket;
@@ -13,9 +13,9 @@ use crate::time::Stamped;
 /// toad configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
-  type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq;
+  type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq + AppendCopy<u8>;
   /// What type should we use to store the option values?
-  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq;
+  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq + AppendCopy<u8>;
   /// What type should we use to store the options?
   type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug + PartialEq;
 
@@ -124,6 +124,5 @@ pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;
 
 /// Type alias using Config instead of explicit type parameters for [`toad_msg::Message`]
-pub type Message<P> = toad_msg::Message<<P as Platform>::MessagePayload,
-                                        <P as Platform>::MessageOptionBytes,
-                                        <P as Platform>::MessageOptions>;
+pub type Message<P> =
+  toad_msg::Message<<P as Platform>::MessagePayload, <P as Platform>::MessageOptions>;
