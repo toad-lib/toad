@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.8.0 (2022-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **toad-msg:** parsing messages should use slices instead of iterators (#142)
+
+### Features
+
+* **toad-msg:** parsing messages should use slices instead of iterators ([#142](https://github.com/clov-coffee/toad/issues/142)) ([03b3a5b](https://github.com/clov-coffee/toad/commit/03b3a5b0155dd8104ced35825be3cebd051d81c9))
+
 ## 0.7.0 (2022-10-08)
 
 

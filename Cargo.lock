@@ -979,7 +979,7 @@ dependencies = [
  "tinyvec",
  "toad-common 0.8.0",
  "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-msg 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-msg 0.7.0",
 ]
 
 [[package]]
@@ -1030,6 +1030,18 @@ dependencies = [
 [[package]]
 name = "toad-msg"
 version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "272379f9100c758634f5c77c9c972cac023e2e0948805aaf28c6dd6bc0adf217"
+dependencies = [
+ "blake2",
+ "tinyvec",
+ "toad-common 0.8.0",
+ "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "toad-msg"
+version = "0.8.0"
 dependencies = [
  "arrayvec",
  "blake2",
@@ -1039,18 +1051,6 @@ dependencies = [
  "itertools",
  "tinyvec",
  "toad-common 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "toad-msg"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "272379f9100c758634f5c77c9c972cac023e2e0948805aaf28c6dd6bc0adf217"
-dependencies = [
- "blake2",
- "tinyvec",
- "toad-common 0.8.0",
  "toad-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
