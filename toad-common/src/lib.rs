@@ -8,14 +8,14 @@
 #![deny(missing_docs)]
 
 extern crate alloc;
-use alloc::vec::Vec;
-use core::ops::{Deref, DerefMut};
 
 /// Extensions to Result
 pub mod result;
+pub use result::*;
 
 /// Function utils
 pub mod fns;
+pub use fns::*;
 
 /// Cursor
 pub mod cursor;
@@ -29,10 +29,6 @@ pub use map::*;
 pub mod array;
 pub use array::*;
 
-/// `toad` prelude
-pub mod prelude {
-  pub use fns::*;
-  pub use result::*;
-
-  pub use super::*;
-}
+/// Writable
+pub mod writable;
+pub use writable::*;
