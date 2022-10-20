@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.10.0 (2022-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove default GetSize.is_full implementation, add Cursor type, add AppendCopy trait (#140)
+
+### Features
+
+* remove default GetSize.is_full implementation, add Cursor type, add AppendCopy trait ([#140](https://github.com/clov-coffee/toad/issues/140)) ([3f11a1d](https://github.com/clov-coffee/toad/commit/3f11a1d02934ebb1dcf4ebe728a1297ba93087e3))
+
 ## 0.9.0 (2022-10-08)
 
 
