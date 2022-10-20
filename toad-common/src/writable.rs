@@ -1,3 +1,7 @@
+use core::ops::{Deref, DerefMut};
+
+use crate::Array;
+
 /// A writeable byte buffer
 ///
 /// (allows using `write!` and `format!` without allocations)

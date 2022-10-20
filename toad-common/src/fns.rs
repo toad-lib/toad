@@ -1,7 +1,7 @@
 /// Returns a function that discards its argument and always returns `r`.
 ///
 /// ```
-/// use toad_common::prelude::*;
+/// use toad_common::*;
 ///
 /// fn try_get_string() -> Result<String, std::io::Error> {
 ///   # Ok("".into())
@@ -19,7 +19,7 @@ pub fn const_<T, R>(r: R) -> impl FnOnce(T) -> R {
 /// A function that discards its argument and always returns unit `()`
 ///
 /// ```
-/// use toad_common::prelude::*;
+/// use toad_common::*;
 ///
 /// fn try_get_string() -> Result<String, std::io::Error> {
 ///   # Ok("".into())
