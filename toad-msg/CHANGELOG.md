@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.8.1 (2022-10-20)
+
+
+### Bug Fixes
+
+* **toad-msg:** update toad-common 0.10 -> 0.11 ([#145](https://github.com/clov-coffee/toad/issues/145)) ([62a05ce](https://github.com/clov-coffee/toad/commit/62a05ce433d253d2a98722807cd031b9fba8176d))
+
 ## 0.8.0 (2022-10-20)
 
 
