@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 0.12.0 (2022-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* lightly revise blocking client api (#148)
+
+### Bug Fixes
+
+* lightly revise blocking client api ([#148](https://github.com/clov-coffee/toad/issues/148)) ([f6181fb](https://github.com/clov-coffee/toad/commit/f6181fbf9a034ab1d861d5a3257941b0f42b608a))
+
 ### 0.11.1 (2022-10-20)
 
 
