@@ -18,34 +18,34 @@ use crate::std::{secure, SecureUdpSocket};
 ///
 /// This is used for bring-your-own platform use cases, like embedded.
 #[derive(Clone, Debug)]
-pub struct ClientConfig<Cfg: Platform> {
+pub struct ClientConfig<Clock, Socket> {
   /// The clock that the toad runtime will use
   /// to keep track of time.
   ///
   /// For `std` platforms, this is [`crate::std::Clock`].
-  pub clock: Cfg::Clock,
+  pub clock: Clock,
   /// The network abstraction that the toad runtime
   /// will use to interact with the network.
   ///
   /// For `std` platforms, this is [`std::net::UdpSocket`].
-  pub sock: Cfg::Socket,
+  pub sock: Socket,
 }
 
 // TODO(#80): Make clients usable by multiple threads
 // (Send + methods ask for &self and not &mut self)
 /// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
-pub struct Client<Cfg: Platform> {
-  core: Core<Cfg>,
+pub struct Client<P: Platform> {
+  core: Core<P>,
 }
 
 /// Helper methods on Client Results
-pub trait ClientResultExt<T, Cfg: Platform> {
+pub trait ClientResultExt<T, P: Platform> {
   /// If we timed out waiting for a response, consider that Ok(None).
   ///
   /// Usually used to handle sending non-confirmable requests that
   /// the server may have received but not responded to.
-  fn timeout_ok(self) -> Result<Option<T>, Error<Cfg>>;
+  fn timeout_ok(self) -> Result<Option<T>, Error<P>>;
 }
 
 impl<T, Cfg: Platform> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
@@ -100,7 +100,7 @@ impl Client<Std> {
   /// use toad::req::ReqBuilder;
   /// use toad::ContentFormat;
   ///
-  /// let mut client = Client::new_std();
+  /// let mut client = Client::new_std(1111);
   /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
   ///                                                                      .build()
   ///                                                                      .unwrap();
@@ -109,26 +109,26 @@ impl Client<Std> {
   ///
   /// println!("Hello, {}!", rep.payload_string().unwrap());
   /// ```
-  pub fn new_std() -> Self {
-    Client::<Std>::new_std_config(Config::default())
+  pub fn new_std(port: u16) -> Self {
+    Client::<Std>::new_std_config(port, Config::default())
   }
 
   /// Create a new std client with a specific runtime config
-  pub fn new_std_config(config: Config) -> Self {
+  pub fn new_std_config(port: u16, config: Config) -> Self {
     let clock = crate::std::Clock::new();
-    let sock = std::net::UdpSocket::bind("0.0.0.0:1111").unwrap();
+    let sock = std::net::UdpSocket::bind(format!("0.0.0.0:{}", port)).unwrap();
     Client::<Std>::new_config(config, ClientConfig { clock, sock })
   }
 }
 
 impl<P: Platform> Client<P> {
   /// Create a new request client
-  pub fn new(ClientConfig { clock, sock }: ClientConfig<P>) -> Self {
+  pub fn new(ClientConfig { clock, sock }: ClientConfig<P::Clock, P::Socket>) -> Self {
     Self { core: Core::new(clock, sock) }
   }
 
   /// Create a new request client with a specific runtime config
-  pub fn new_config(config: Config, ClientConfig { clock, sock }: ClientConfig<P>) -> Self {
+  pub fn new_config(config: Config, ClientConfig { clock, sock }: ClientConfig<P::Clock, P::Socket>) -> Self {
     Self { core: Core::new_config(config, clock, sock) }
   }
 
