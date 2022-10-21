@@ -5,6 +5,7 @@ use toad::net::Addrd;
 use toad::platform::Std;
 use toad::req::Req;
 use toad::resp::Resp;
+use toad::time::Timeout;
 
 #[path = "./server.rs"]
 mod server;
@@ -52,9 +53,10 @@ fn main() {
 
   let server = server::spawn();
 
-  let mut client = Client::new_std();
-  let Addrd(_, addr) =
-    Client::<Std>::listen_multicast(toad::std::Clock::new(), server::DISCOVERY_PORT).unwrap();
+  let mut client = Client::new_std(1111);
+  let Addrd(_, addr) = Client::<Std>::listen_multicast(toad::std::Clock::new(),
+                                                       server::DISCOVERY_PORT,
+                                                       Timeout::Never).unwrap();
 
   log::info!("Got multicast message from {:?}", addr);
   log::info!("Server's location is {:?}", addr);

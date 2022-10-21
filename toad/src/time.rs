@@ -1,6 +1,15 @@
 use embedded_time::clock::Error;
 use embedded_time::{Clock, Instant};
 
+/// Timeout configuration allowing for "never time out" as an option
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+pub enum Timeout {
+  /// Timeout after some number of milliseconds has elapsed
+  Millis(u64),
+  /// Never time out
+  Never,
+}
+
 /// Data associated with a timestamp
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Stamped<C: Clock, T>(pub T, pub Instant<C>);

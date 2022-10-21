@@ -13,6 +13,7 @@ use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 #[cfg(feature = "std")]
 use crate::std::{secure, SecureUdpSocket};
+use crate::time::Timeout;
 
 /// Platform struct containing things needed to make a new Client.
 ///
@@ -84,10 +85,14 @@ impl Client<StdSecure> {
   /// Create a new std client with a specific runtime config
   pub fn try_new_secure_config(port: u16, config: Config) -> secure::Result<Self> {
     let clock = crate::std::Clock::new();
-    std::net::UdpSocket::bind(format!("0.0.0.0:{}", port)).map_err(secure::Error::from).bind(
-        SecureUdpSocket::try_new_client
-    ).map(|sock|
-    Client::<StdSecure>::new_config(config, ClientConfig { clock, sock }))
+    let addr = format!("0.0.0.0:{}", port);
+
+    std::net::UdpSocket::bind(addr).map_err(secure::Error::from)
+                                   .bind(SecureUdpSocket::try_new_client)
+                                   .map(|sock| {
+                                     let client = ClientConfig { clock, sock };
+                                     Client::<StdSecure>::new_config(config, client)
+                                   })
   }
 }
 
@@ -116,7 +121,8 @@ impl Client<Std> {
   /// Create a new std client with a specific runtime config
   pub fn new_std_config(port: u16, config: Config) -> Self {
     let clock = crate::std::Clock::new();
-    let sock = std::net::UdpSocket::bind(format!("0.0.0.0:{}", port)).unwrap();
+    let addr = format!("0.0.0.0:{}", port);
+    let sock = std::net::UdpSocket::bind(addr).unwrap();
     Client::<Std>::new_config(config, ClientConfig { clock, sock })
   }
 }
@@ -128,7 +134,9 @@ impl<P: Platform> Client<P> {
   }
 
   /// Create a new request client with a specific runtime config
-  pub fn new_config(config: Config, ClientConfig { clock, sock }: ClientConfig<P::Clock, P::Socket>) -> Self {
+  pub fn new_config(config: Config,
+                    ClientConfig { clock, sock }: ClientConfig<P::Clock, P::Socket>)
+                    -> Self {
     Self { core: Core::new_config(config, clock, sock) }
   }
 
@@ -150,34 +158,38 @@ impl<P: Platform> Client<P> {
         .bind(|(token, addr)| nb::block!(self.core.poll_resp(token, addr)))
   }
 
-  /// Listen on a multicast address for a broadcast from a Server
-  ///
-  /// This will time out if nothing has been received after 1 second.
-  pub fn listen_multicast(clock: P::Clock, port: u16) -> Result<Addrd<Req<P>>, Error<P>> {
+  /// Listen on a multicast address for a broadcast from a Server.
+  pub fn listen_multicast(clock: P::Clock,
+                          port: u16,
+                          timeout: Timeout)
+                          -> Result<Addrd<Req<P>>, Error<P>> {
     let addr = crate::multicast::all_coap_devices(port);
 
     P::Socket::bind(addr).map_err(|e| When::None.what(What::SockError(e)))
                          .map(|sock| Self::new(ClientConfig { clock, sock }))
                          .bind(|mut client| loop {
                            let start = client.core.clock.try_now().unwrap();
-                           let since_start = |clock: &P::Clock| {
-                             let now = clock.try_now().unwrap();
-                             Milliseconds::<u64>::try_from(now - start).unwrap()
+                           let timed_out = |clock: &P::Clock| match timeout {
+                             | Timeout::Millis(ms) => {
+                               let now = clock.try_now().unwrap();
+                               let elapsed = Milliseconds::<u64>::try_from(now - start).unwrap();
+                               elapsed > Milliseconds(ms)
+                             },
+                             | _ => false,
                            };
 
                            match client.core.poll_req() {
+                             | Ok(x) => break Ok(x),
                              | Err(nb::Error::Other(e)) => {
                                log::error!("{:?}", e);
                                break Err(e);
                              },
-                             | Err(nb::Error::WouldBlock)
-                               if since_start(&client.core.clock) > Milliseconds(1000u64) =>
-                             {
-                               log::error!("timeout");
-                               break Err(When::None.what(What::Timeout));
+                             | Err(nb::Error::WouldBlock) => {
+                               if timed_out(&client.core.clock) {
+                                 log::error!("ERROR: timed out");
+                                 break Err(When::None.what(What::Timeout));
+                               }
                              },
-                             | Err(nb::Error::WouldBlock) => (),
-                             | Ok(x) => break Ok(x),
                            }
                          })
   }

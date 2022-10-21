@@ -10,6 +10,7 @@ use toad::req::Req;
 use toad::resp::Resp;
 use toad::std::secure::SecureUdpSocket;
 use toad::std::Clock;
+use toad::time::Timeout;
 
 #[path = "./secure_server.rs"]
 mod server;
@@ -68,7 +69,7 @@ fn main() {
                                                            sock:
                                                              SecureUdpSocket::new_client(conn, sock) });
   let Addrd(_, addr) =
-    Client::<Std>::listen_multicast(Clock::new(), server::DISCOVERY_PORT).unwrap();
+    Client::<Std>::listen_multicast(Clock::new(), server::DISCOVERY_PORT, Timeout::Never).unwrap();
 
   log::info!("Got multicast message from {:?}", addr);
   log::info!("Server's location is {:?}", addr);
