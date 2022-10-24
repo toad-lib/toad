@@ -8,11 +8,15 @@ use ::std::thread;
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
 use net::*;
-use no_std_net::SocketAddr;
+use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std_alloc::sync::Arc;
 use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
+
+pub fn dummy_addr() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TimeoutState {
@@ -50,7 +54,7 @@ impl Timeout {
 }
 
 /// Config implementor using mocks for clock and sock
-pub type Config = crate::platform::Alloc<ClockMock, SockMock>;
+pub type Platform = crate::platform::Alloc<ClockMock, SockMock>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClockMock(pub Cell<u64>);

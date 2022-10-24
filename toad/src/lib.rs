@@ -69,6 +69,9 @@ pub mod req;
 /// low-level coap behavior
 pub mod core;
 
+/// low-level coap behavior
+pub mod step;
+
 /// platform configuration
 pub mod platform;
 
