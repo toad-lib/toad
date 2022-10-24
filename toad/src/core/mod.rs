@@ -1,4 +1,6 @@
+use core::marker::PhantomData;
 use core::mem;
+use core::ops::Deref;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
@@ -22,9 +24,12 @@ use crate::retry::RetryTimer;
 use crate::time::Stamped;
 use crate::todo::Capacity;
 
+/// DTLS mode
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub(crate) enum Secure {
+pub enum Secure {
+  /// Opt in to DTLS, if platform supports it
   IfSupported,
+  /// Explicitly opt out of DTLS
   #[allow(dead_code)]
   No,
 }

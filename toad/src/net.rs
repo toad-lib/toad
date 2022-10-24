@@ -36,6 +36,11 @@ impl<T> Addrd<T> {
   pub fn addr(&self) -> SocketAddr {
     self.1
   }
+
+  /// Turn the entire structure into something else
+  pub fn fold<R>(self, f: impl FnOnce(T, SocketAddr) -> R) -> R {
+    f(self.0, self.1)
+  }
 }
 
 impl<T> AsMut<T> for Addrd<T> {
