@@ -5,6 +5,31 @@ use core::ops::{Div, Mul};
 use tinyvec::ArrayVec;
 use toad_common::*;
 
+/// String with capacity of 1KB
+#[derive(Debug, Copy, Clone, Default)]
+pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
+
+impl core::fmt::Write for String1Kb {
+  fn write_str(&mut self, s: &str) -> core::fmt::Result {
+    self.0.write_str(s)
+  }
+}
+
+impl<'a> From<&'a str> for String1Kb {
+  fn from(s: &'a str) -> Self {
+    let mut arr = Writable::default();
+    ArrayVec::extend_from_slice(&mut arr, s.as_bytes());
+
+    Self(arr)
+  }
+}
+
+impl AsRef<str> for String1Kb {
+  fn as_ref(&self) -> &str {
+    self.0.as_str()
+  }
+}
+
 pub(crate) trait Capacity: GetSize {
   fn capacity(&self) -> Option<f32> {
     self.max_size()
