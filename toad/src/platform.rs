@@ -1,14 +1,15 @@
 use core::fmt::Debug;
 
-use embedded_time::Clock;
+use embedded_time::{Clock, Instant};
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::{collections::BTreeMap, vec::Vec};
 use toad_common::*;
 use toad_msg::{Id, Opt, OptNumber, Token};
 
-use crate::net::Socket;
+use crate::net::{Addrd, Socket};
 use crate::time::Stamped;
+use crate::todo::String1Kb;
 
 /// toad configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
@@ -38,8 +39,42 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What should we use to keep track of time?
   type Clock: Clock<T = u64>;
 
+  /// TODO
+  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone;
+
   /// What should we use for networking?
   type Socket: Socket;
+
+  /// TODO
+  type Effects: Array<Item = Effect<Self>>;
+}
+
+/// TODO
+#[allow(missing_debug_implementations)]
+pub struct Snapshot<P: Platform> {
+  /// TODO
+  pub time: Instant<P::Clock>,
+
+  /// TODO
+  pub recvd_dgram: Addrd<P::Dgram>,
+}
+
+impl<P: Platform> Clone for Snapshot<P> {
+  fn clone(&self) -> Self {
+    Self { time: self.time.clone(),
+           recvd_dgram: self.recvd_dgram.clone() }
+  }
+}
+
+/// TODO
+#[allow(missing_debug_implementations)]
+#[derive(Clone, Copy)]
+pub enum Effect<P: Platform> {
+  /// TODO
+  SendDgram(Addrd<P::Dgram>),
+
+  /// TODO
+  Log(log::Level, String1Kb),
 }
 
 /// Used to associate a value with a RetryTimer.
@@ -100,8 +135,10 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
   type MessageIdHistoryBySocket = BTreeMap<SocketAddr, Self::MessageIdHistory>;
   type MessageTokenHistoryBySocket = BTreeMap<SocketAddr, Self::MessageTokenHistory>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
+  type Dgram = Vec<u8>;
   type Clock = Clk;
   type Socket = Sock;
+  type Effects = Vec<Effect<Self>>;
 }
 
 /// Configures `toad` to use `Vec` for collections,

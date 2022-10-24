@@ -474,7 +474,7 @@ mod tests {
   use super::*;
   use crate::req::method::Method;
   use crate::resp::{code, Resp};
-  use crate::test::{ClockMock, Config as Test, SockMock, Timeout};
+  use crate::test::{ClockMock, Platform as Test, SockMock, Timeout};
 
   type TestServer<'a> = Server<'a, Test, Vec<&'a Middleware<Test>>>;
 
