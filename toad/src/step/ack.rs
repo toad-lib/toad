@@ -1,6 +1,6 @@
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::TryIntoBytes;
+use toad_msg::{CodeKind, TryIntoBytes, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
@@ -73,18 +73,20 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
               snap: &crate::platform::Snapshot<P>,
               effects: &mut <P as Platform>::Effects)
               -> StepOutput<Self::PollReq, Error<Inner::Error>> {
-    if let Some(req) = exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
-      let ack = Resp::ack(req.as_ref().data()).try_into_bytes();
-
-      match ack {
-        | Ok(bytes) => {
-          effects.push(Effect::SendDgram(req.as_ref().map(|_| bytes)));
-          Some(Ok(req))
-        },
-        | Err(e) => Some(Err(nb::Error::Other(Error::SerializingAck(e)))),
-      }
-    } else {
-      None
+    match exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
+      | Some(req)
+        if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
+      {
+        match Resp::ack(req.as_ref().data()).try_into_bytes() {
+          | Ok(bytes) => {
+            effects.push(Effect::SendDgram(Addrd(bytes, req.addr())));
+            Some(Ok(req))
+          },
+          | Err(e) => Some(Err(nb::Error::Other(Error::SerializingAck(e)))),
+        }
+      },
+      | Some(req) => Some(Ok(req)),
+      | None => None,
     }
   }
 
@@ -165,7 +167,36 @@ mod test {
         and snapshot default { test::default_snapshot() }
       WHEN
         poll_req is invoked
-        and inner.poll_req returns req { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }
+        and inner.poll_req returns non_request { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }
+      THEN
+        poll_req should return_req { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }
+        effects should be_empty { vec![] }
+  );
+
+  test::test_step!(
+      GIVEN
+        this step { AckRequests::new }
+        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
+        and io sequence { Default::default() }
+        and snapshot default { test::default_snapshot() }
+      WHEN
+        poll_req is invoked
+        and inner.poll_req returns response { Some(Ok(test_msg(Type::Ack, Code::new(0, 00)).0)) }
+      THEN
+        poll_req should return_req { Some(Ok(test_msg(
+            Type::Ack, Code::new(0, 00)).0)) }
+        effects should be_empty { vec![] }
+  );
+
+  test::test_step!(
+      GIVEN
+        this step { AckRequests::new }
+        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
+        and io sequence { Default::default() }
+        and snapshot default { test::default_snapshot() }
+      WHEN
+        poll_req is invoked
+        and inner.poll_req returns con_request { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }
       THEN
         poll_req should return_req { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }
         effects should include_ack { vec![Effect::SendDgram(Addrd(Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0).try_into_bytes().unwrap(), crate::test::dummy_addr()))] }
