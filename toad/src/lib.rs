@@ -69,7 +69,66 @@ pub mod req;
 /// low-level coap behavior
 pub mod core;
 
-/// low-level coap behavior
+/// # CoAP core runtime
+///
+/// The core CoAP runtime is broken into discrete steps
+/// that are mostly deterministic and therefore highly
+/// testable.
+///
+/// Steps are expressed as types that impl a [`Step`](crate::step::Step) trait
+/// which defines 2 flows: "poll for a request" and "poll for a response to a request i sent"
+///
+/// Steps are usually parameterized by 1 type; the Step that came before it.
+///
+/// This means that the entire CoAP runtime transparently describes what happens
+/// when a message is received, and layers can be swapped or added at the end
+/// without forking `toad`.
+///
+/// # Step demands
+/// Steps demand 2 pieces of information:
+///  - A snapshot of the system's state right now
+///  - A mutable reference to a list of effectful actions to perform once all steps have run
+///
+/// The system state allows for all steps to have access to the same effectful information
+/// e.g. system time, random number generation, incoming network messages
+///
+/// The list of Effects allows for steps to deterministically express the IO that it would
+/// like to be performed, e.g. log to stdout or send network messages.
+///
+/// # Step philosophy
+/// In general, steps aim to be as deterministic as possible. The obvious exception
+/// to this is the mutable reference to `Effects`, but philosophically this can be
+/// thought of as a performance-enhanced immutable list.
+///
+/// The effect of this is that each step can be thought of as a state machine, such that
+/// if you send the same sequence of inputs you will always receive the same output.
+///
+/// For steps defined in `toad`, this philosophy will **always** be respected
+///
+/// If you are a `toad` user, this philosophy **may** be respected, but the implications
+/// of performing IO in your steps (e.g. network requests) will not affect the runtime
+/// in any way.
+///
+/// # Example
+/// ```no_run
+/// Bake<PourIntoCakeTin<MixEverything<MixDry<MixWet<GatherIngredients<Empty>>>>>>
+/// ```
+/// exploded:
+/// ```no_run
+/// Bake<
+///   PourIntoCakeTin<
+///     MixEverything<
+///       MixDry<
+///         MixWet<
+///           GatherIngredients<
+///             Empty
+///           >
+///         >
+///       >
+///     >
+///   >
+/// >
+/// ```
 pub mod step;
 
 /// platform configuration
