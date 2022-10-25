@@ -109,11 +109,11 @@ pub mod core;
 /// in any way.
 ///
 /// # Example
-/// ```no_run
+/// ```text
 /// Bake<PourIntoCakeTin<MixEverything<MixDry<MixWet<GatherIngredients<Empty>>>>>>
 /// ```
 /// exploded:
-/// ```no_run
+/// ```text
 /// Bake<
 ///   PourIntoCakeTin<
 ///     MixEverything<
