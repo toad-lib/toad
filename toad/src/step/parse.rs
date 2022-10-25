@@ -12,7 +12,7 @@ use crate::resp::Resp;
 /// most likely this is the [`Empty`](crate::step::Empty) step.
 ///
 /// See the [module documentation](crate::step::parse) for more.
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Parse<S>(S);
 
 impl<S> Parse<S> {
