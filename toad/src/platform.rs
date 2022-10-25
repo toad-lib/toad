@@ -40,7 +40,7 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type Clock: Clock<T = u64>;
 
   /// TODO
-  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone;
+  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + Debug + PartialEq;
 
   /// What should we use for networking?
   type Socket: Socket;
@@ -67,14 +67,38 @@ impl<P: Platform> Clone for Snapshot<P> {
 }
 
 /// TODO
-#[allow(missing_debug_implementations)]
-#[derive(Clone, Copy)]
 pub enum Effect<P: Platform> {
   /// TODO
   SendDgram(Addrd<P::Dgram>),
 
   /// TODO
   Log(log::Level, String1Kb),
+}
+
+impl<P: Platform> Clone for Effect<P> {
+  fn clone(&self) -> Self {match self {
+    Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
+    Effect::Log(l, m) => Effect::Log(*l, *m),
+  }}
+}
+
+impl<P: Platform> core::fmt::Debug for Effect<P> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      | Self::SendDgram(a) => f.debug_tuple("SendDgram").field(a).finish(),
+      | Self::Log(l, s) => f.debug_tuple("Log").field(l).field(s).finish(),
+    }
+  }
+}
+
+impl<P: Platform> PartialEq for Effect<P> {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      | (Self::SendDgram(a), Self::SendDgram(b)) => a == b,
+      | (Self::Log(al, am), Self::Log(bl, bm)) => al == bl && am == bm,
+      | _ => false,
+    }
+  }
 }
 
 /// Used to associate a value with a RetryTimer.

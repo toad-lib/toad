@@ -128,33 +128,33 @@ mod test {
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot default { test::default_snapshot() }
       WHEN
         poll_req is invoked
         and inner.poll_req returns error { Some(Err(nb::Error::Other(()))) }
       THEN
-        poll_req should return error { Some(Err(nb::Error::Other(Error::Inner(())))) }
+        poll_req should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot default { test::default_snapshot() }
       WHEN
         poll_req is invoked
         and inner.poll_req returns would_block { Some(Err(nb::Error::WouldBlock)) }
       THEN
-        poll_req should return would_block { Some(Err(nb::Error::WouldBlock)) }
+        poll_req should block { Some(Err(nb::Error::WouldBlock)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot received_con_req {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
@@ -164,13 +164,13 @@ mod test {
         poll_req is invoked
         and inner.poll_req returns nothing { None }
       THEN
-        poll_req should return a_request { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1)) }
+        poll_req should return_request { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot received_empty {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
@@ -180,13 +180,13 @@ mod test {
         poll_req is invoked
         and inner.poll_req returns nothing { None }
       THEN
-        poll_req should return an_ack_request { Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1)) }
+        poll_req should return_request { Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot received_response {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
@@ -196,13 +196,13 @@ mod test {
         poll_req is invoked
         and inner.poll_req returns nothing { None }
       THEN
-        poll_req should return nothing { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }
+        poll_req should return_request { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot default { test::default_snapshot() }
         and req had token { Token(Default::default()) }
@@ -211,13 +211,13 @@ mod test {
         poll_resp is invoked
         and inner.poll_resp returns error { Some(Err(nb::Error::Other(()))) }
       THEN
-        poll_resp should return error { Some(Err(nb::Error::Other(Error::Inner(())))) }
+        poll_resp should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot default { test::default_snapshot() }
         and req had token { Token(Default::default()) }
@@ -226,13 +226,13 @@ mod test {
         poll_resp is invoked
         and inner.poll_resp returns would_block { Some(Err(nb::Error::WouldBlock)) }
       THEN
-        poll_resp should return would_block { Some(Err(nb::Error::WouldBlock)) }
+        poll_resp should block { Some(Err(nb::Error::WouldBlock)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot received_ack {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
@@ -244,13 +244,13 @@ mod test {
         poll_resp is invoked
         and inner.poll_resp returns nothing { None }
       THEN
-        poll_resp should return a_response { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2)) }
+        poll_resp should return_response { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2)) }
   );
 
   test::test_step!(
       GIVEN
         this step { Parse::new }
-        and inner step { impl Step<type Error = (), type PollReq = (), type PollResp = ()> }
+        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
         and io sequence { Default::default() }
         and snapshot received_request {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
@@ -262,6 +262,6 @@ mod test {
         poll_resp is invoked
         and inner.poll_resp returns nothing { None }
       THEN
-        poll_resp should return request_as_response { Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2)) }
+        poll_resp should return_response { Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2)) }
   );
 }
