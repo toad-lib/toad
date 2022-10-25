@@ -67,13 +67,19 @@ impl<P: Platform> Clone for Snapshot<P> {
 }
 
 /// TODO
-#[allow(missing_debug_implementations)]
 pub enum Effect<P: Platform> {
   /// TODO
   SendDgram(Addrd<P::Dgram>),
 
   /// TODO
   Log(log::Level, String1Kb),
+}
+
+impl<P: Platform> Clone for Effect<P> {
+  fn clone(&self) -> Self {match self {
+    Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
+    Effect::Log(l, m) => Effect::Log(*l, *m),
+  }}
 }
 
 impl<P: Platform> core::fmt::Debug for Effect<P> {
