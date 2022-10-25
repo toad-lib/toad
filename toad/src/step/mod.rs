@@ -38,6 +38,7 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 /// use toad::platform::{Effect, Snapshot, Std};
 /// use toad::step::{exec_inner_step, Step, StepOutput};
 ///
+/// #[derive(Default)]
 /// struct Inner;
 /// impl Step<Std> for Inner {
 ///   type PollReq = ();
@@ -61,6 +62,7 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 ///   }
 /// }
 ///
+/// #[derive(Default)]
 /// struct MyStep<Inner>(Inner);
 ///
 /// #[derive(Debug, PartialEq)]
@@ -147,6 +149,7 @@ impl Error for () {}
 /// use toad::platform::{Effect, Snapshot, Std};
 /// use toad::step::{PassThrough, Step, StepOutput};
 ///
+/// #[derive(Default)]
 /// struct ICantFailButInnerMight<Inner>(Inner);
 ///
 /// impl<Inner: Step<Std>> Step<Std> for ICantFailButInnerMight<Inner> {
@@ -183,7 +186,7 @@ impl<E: Error> Error for PassThrough<E> {}
 /// A step in the message-handling CoAP runtime.
 ///
 /// See the [module documentation](crate::step) for more.
-pub trait Step<P: Platform> {
+pub trait Step<P: Platform>: Default {
   /// Type that this step returns when polling for a request
   type PollReq;
 
@@ -217,7 +220,7 @@ pub trait Step<P: Platform> {
 /// This step is usually at the bottom / beginning of step chains.
 ///
 /// e.g.
-/// ```no_run
+/// ```text
 /// FilterResponses<AckRequests<Parse<Empty>>>
 /// ```
 /// means
@@ -227,7 +230,7 @@ pub trait Step<P: Platform> {
 /// then Ack requests
 /// then Filter responses
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Empty;
 
 impl<P: Platform> Step<P> for Empty {
@@ -263,6 +266,7 @@ pub(self) mod test {
   #[macro_export]
   macro_rules! dummy_step {
     (poll_req: $poll_req_ty:ty => $poll_req:expr, poll_resp: $poll_resp_ty:ty => $poll_resp:expr, error: $error_ty:ty) => {
+      #[derive(Default)]
       pub struct Dummy;
 
       impl Step<$crate::test::Platform> for Dummy {
