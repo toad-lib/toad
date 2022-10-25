@@ -9,6 +9,14 @@ use toad_common::*;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
 
+impl PartialEq for String1Kb {
+  fn eq(&self, other: &Self) -> bool {
+    self.0.as_str() == other.0.as_str()
+  }
+}
+
+impl Eq for String1Kb {}
+
 impl core::fmt::Write for String1Kb {
   fn write_str(&mut self, s: &str) -> core::fmt::Result {
     self.0.write_str(s)
