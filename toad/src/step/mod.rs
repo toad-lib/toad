@@ -6,12 +6,18 @@ use toad_msg::Token;
 use crate::platform::{self, Platform};
 
 /// TODO
-pub type MessageParsing<S> = Parse<S>;
-
-/// TODO
 pub mod ack;
 
-/// TODO
+/// # Parsing step
+/// This module contains types representing the step of the
+/// CoAP message lifecycle where UDP datagrams enter and are
+/// parsed as CoAP messages.
+///
+/// ```text
+/// Dgram --> Message --> Req
+///        |           |
+///        -> Error    -> Resp
+/// ```
 pub mod parse;
 
 /// ```text
@@ -22,7 +28,92 @@ pub mod parse;
 /// ```
 pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 
-/// TODO
+/// Macro to execute inner steps,
+/// converting the `Option<nb::Result<T, E>>` to `Option<T>`
+/// by returning the inner step's Errors & WouldBlock
+///
+/// ```
+/// use embedded_time::Clock;
+/// use no_std_net::SocketAddr;
+/// use toad::platform::{Effect, Snapshot, Std};
+/// use toad::step::{exec_inner_step, Step, StepOutput};
+///
+/// struct Inner;
+/// impl Step<Std> for Inner {
+///   type PollReq = ();
+///   type PollResp = ();
+///   type Error = ();
+///
+///   fn poll_req(&mut self,
+///               snap: &Snapshot<Std>,
+///               effects: &mut Vec<Effect<Std>>)
+///               -> StepOutput<Self::PollReq, Self::Error> {
+///     Some(Err(nb::Error::Other(())))
+///   }
+///
+///   fn poll_resp(&mut self,
+///                snap: &Snapshot<Std>,
+///                effects: &mut Vec<Effect<Std>>,
+///                token: toad_msg::Token,
+///                addr: SocketAddr)
+///                -> StepOutput<Self::PollResp, Self::Error> {
+///     Some(Err(nb::Error::Other(())))
+///   }
+/// }
+///
+/// struct MyStep<Inner>(Inner);
+///
+/// #[derive(Debug, PartialEq)]
+/// enum MyError<E> {
+///   MyStepMessedUp,
+///   InnerStepMessedUp(E),
+/// }
+///
+/// impl<E: toad::step::Error> toad::step::Error for MyError<E> {}
+///
+/// impl<Inner: Step<Std>> Step<Std> for MyStep<Inner> {
+///   type PollReq = ();
+///   type PollResp = ();
+///   type Error = MyError<Inner::Error>;
+///
+///   fn poll_req(&mut self,
+///               snap: &Snapshot<Std>,
+///               effects: &mut Vec<Effect<Std>>)
+///               -> StepOutput<Self::PollReq, Self::Error> {
+///     exec_inner_step!(self.0.poll_req(snap, effects), MyError::InnerStepMessedUp);
+///
+///     panic!("macro didn't return Inner's error");
+///   }
+///
+///   fn poll_resp(&mut self,
+///                snap: &Snapshot<Std>,
+///                effects: &mut Vec<Effect<Std>>,
+///                token: toad_msg::Token,
+///                addr: SocketAddr)
+///                -> StepOutput<Self::PollResp, Self::Error> {
+///     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr),
+///                      MyError::InnerStepMessedUp);
+///
+///     panic!("macro didn't return Inner's error");
+///   }
+/// }
+///
+/// let token = toad_msg::Token(Default::default());
+///
+/// let addr: SocketAddr = {
+///   // 192.168.0.1:8080
+/// # use no_std_net::*;
+/// # SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+/// };
+///
+/// let snap = Snapshot::<Std> { recvd_dgram: toad::net::Addrd(Default::default(), addr),
+///                              time: toad::std::Clock::new().try_now().unwrap() };
+///
+/// assert_eq!(MyStep(Inner).poll_req(&snap, &mut Default::default()),
+///            Some(Err(nb::Error::Other(MyError::InnerStepMessedUp(())))));
+/// assert_eq!(MyStep(Inner).poll_resp(&snap, &mut Default::default(), token, addr),
+///            Some(Err(nb::Error::Other(MyError::InnerStepMessedUp(())))));
+/// ```
 #[macro_export]
 macro_rules! exec_inner_step {
   ($result:expr, $err:expr) => {
@@ -41,37 +132,78 @@ macro_rules! exec_inner_step {
 
 pub use exec_inner_step;
 
-use self::parse::Parse;
-
-/// TODO
+/// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
 
 impl Error for Infallible {}
 impl Error for () {}
 
-/// TODO
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// An [`Error`] that just passes an inner step's error
+/// through, for steps that are infallible but wrap fallible
+/// steps.
+///
+/// ```
+/// # use no_std_net::SocketAddr;
+/// use toad::platform::{Effect, Snapshot, Std};
+/// use toad::step::{PassThrough, Step, StepOutput};
+///
+/// struct ICantFailButInnerMight<Inner>(Inner);
+///
+/// impl<Inner: Step<Std>> Step<Std> for ICantFailButInnerMight<Inner> {
+///   type PollReq = ();
+///   type PollResp = ();
+///   type Error = PassThrough<Inner::Error>;
+///   # fn poll_req(&mut self,
+///   #             snap: &Snapshot<Std>,
+///   #             effects: &mut Vec<Effect<Std>>)
+///   #             -> StepOutput<Self::PollReq, Self::Error> {
+///   #   panic!();
+///   # }
+///   # fn poll_resp(&mut self,
+///   #              snap: &Snapshot<Std>,
+///   #              effects: &mut Vec<Effect<Std>>,
+///   #              token: toad_msg::Token,
+///   #              addr: SocketAddr)
+///   #              -> StepOutput<Self::PollResp, Self::Error> {
+///   #   panic!();
+///   # }
+/// }
+/// ```
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PassThrough<E>(E);
+
+impl<E: core::fmt::Debug> core::fmt::Debug for PassThrough<E> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    self.0.fmt(f)
+  }
+}
+
 impl<E: Error> Error for PassThrough<E> {}
 
-/// TODO
+/// A step in the message-handling CoAP runtime.
+///
+/// See the [module documentation](crate::step) for more.
 pub trait Step<P: Platform> {
-  /// TODO
+  /// Type that this step returns when polling for a request
   type PollReq;
 
-  /// TODO
+  /// Type that this step returns when polling for a response
   type PollResp;
 
-  /// TODO
+  /// Type of error that can be yielded by poll_req / poll_resp
   type Error: Error;
 
-  /// TODO
+  /// Poll for an inbound request
+  ///
+  /// (A message which we have no existing conception of)
   fn poll_req(&mut self,
               snap: &platform::Snapshot<P>,
               effects: &mut P::Effects)
               -> StepOutput<Self::PollReq, Self::Error>;
 
-  /// TODO
+  /// Poll for an inbound response
+  ///
+  /// (A message which we are expecting as a direct result of a message we sent)
   fn poll_resp(&mut self,
                snap: &platform::Snapshot<P>,
                effects: &mut P::Effects,
@@ -80,7 +212,21 @@ pub trait Step<P: Platform> {
                -> StepOutput<Self::PollResp, Self::Error>;
 }
 
-/// TODO
+/// A step that does nothing
+///
+/// This step is usually at the bottom / beginning of step chains.
+///
+/// e.g.
+/// ```no_run
+/// FilterResponses<AckRequests<Parse<Empty>>>
+/// ```
+/// means
+/// ```text
+/// Do nothing
+/// then Parse datagrams
+/// then Ack requests
+/// then Filter responses
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Empty;
 
@@ -111,7 +257,6 @@ pub(self) mod test {
   use embedded_time::Clock;
 
   use super::*;
-  use crate::net::Addrd;
   use crate::test;
   use crate::test::ClockMock;
 
@@ -155,7 +300,7 @@ pub(self) mod test {
     (
       GIVEN
         this step {$step:expr}
-        and inner step {impl Step<type Error = $inner_error_ty:ty, type PollReq = $inner_poll_req_ty:ty, type PollResp = $inner_poll_resp_ty:ty}
+        and inner step {impl Step<type Error = $inner_error_ty:ty, type PollReq = $inner_poll_req_ty:ty, type PollResp = $inner_poll_resp_ty:ty>}
         and io sequence {$ios:expr}
         and snapshot $snapshot_ident:ident {$snapshot:expr}
       WHEN
@@ -174,6 +319,33 @@ pub(self) mod test {
           let snap = $snapshot;
           let mut ios = $ios;
           assert_eq!(step.poll_req(&snap, &mut ios), $expect);
+        }
+      }
+    };
+    (
+      GIVEN
+        this step {$step:expr}
+        and inner step {impl Step<type Error = $inner_error_ty:ty, type PollReq = $inner_poll_req_ty:ty, type PollResp = $inner_poll_resp_ty:ty>}
+        and io sequence {$ios:expr}
+        and snapshot $snapshot_ident:ident {$snapshot:expr}
+        and req had token {$token:expr}
+        and req was sent to addr {$addr:expr}
+      WHEN
+        poll_resp is invoked
+        and inner.poll_resp returns $inner_poll_resp_returns_ident:ident {$inner_poll_resp_returns:expr}
+      THEN
+        poll_resp should return $expect_ident:ident {$expect:expr}
+    ) => {
+      paste::paste! {
+        #[test]
+        fn [<poll_resp_should_return_ $expect_ident:lower _when_platform_state_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_resp_returns_ident:lower>]() {
+          $crate::dummy_step!(poll_req: $inner_poll_req_ty => panic!(), poll_resp: $inner_poll_resp_ty => $inner_poll_resp_returns, error: $inner_error_ty);
+
+          let mut step = $step(Dummy);
+
+          let snap = $snapshot;
+          let mut ios = $ios;
+          assert_eq!(step.poll_resp(&snap, &mut ios, $token, $addr), $expect);
         }
       }
     };
