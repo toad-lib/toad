@@ -304,18 +304,18 @@ pub(self) mod test {
     (
       GIVEN
         this step {$step:expr}
-        and inner step {impl Step<type Error = $inner_error_ty:ty, type PollReq = $inner_poll_req_ty:ty, type PollResp = $inner_poll_resp_ty:ty>}
+        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
         and io sequence {$ios:expr}
         and snapshot $snapshot_ident:ident {$snapshot:expr}
       WHEN
         poll_req is invoked
         and inner.poll_req returns $inner_poll_req_returns_ident:ident {$inner_poll_req_returns:expr}
       THEN
-        poll_req should return $expect_ident:ident {$expect:expr}
+        poll_req should $expect_ident:ident {$expect:expr}
     ) => {
       paste::paste! {
         #[test]
-        fn [<poll_req_should_return_ $expect_ident:lower _when_platform_state_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_req_returns_ident:lower>]() {
+        fn [<poll_req_should_ $expect_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_req_returns_ident:lower>]() {
           $crate::dummy_step!(poll_req: $inner_poll_req_ty => $inner_poll_req_returns, poll_resp: $inner_poll_resp_ty => panic!(), error: $inner_error_ty);
 
           let mut step = $step(Dummy);
@@ -329,7 +329,34 @@ pub(self) mod test {
     (
       GIVEN
         this step {$step:expr}
-        and inner step {impl Step<type Error = $inner_error_ty:ty, type PollReq = $inner_poll_req_ty:ty, type PollResp = $inner_poll_resp_ty:ty>}
+        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
+        and io sequence {$ios:expr}
+        and snapshot $snapshot_ident:ident {$snapshot:expr}
+      WHEN
+        poll_req is invoked
+        and inner.poll_req returns $inner_poll_req_returns_ident:ident {$inner_poll_req_returns:expr}
+      THEN
+        poll_req should $expect_ident:ident {$expect:expr}
+        effects should $expect_effects_ident:ident {$expect_effects:expr}
+    ) => {
+      paste::paste! {
+        #[test]
+        fn [<poll_req_should_ $expect_ident:lower _and_effects_should_ $expect_effects_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_req_returns_ident:lower>]() {
+          $crate::dummy_step!(poll_req: $inner_poll_req_ty => $inner_poll_req_returns, poll_resp: $inner_poll_resp_ty => panic!(), error: $inner_error_ty);
+
+          let mut step = $step(Dummy);
+
+          let snap = $snapshot;
+          let mut ios = $ios;
+          assert_eq!(step.poll_req(&snap, &mut ios), $expect);
+          assert_eq!(ios, $expect_effects);
+        }
+      }
+    };
+    (
+      GIVEN
+        this step {$step:expr}
+        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
         and io sequence {$ios:expr}
         and snapshot $snapshot_ident:ident {$snapshot:expr}
         and req had token {$token:expr}
@@ -338,11 +365,11 @@ pub(self) mod test {
         poll_resp is invoked
         and inner.poll_resp returns $inner_poll_resp_returns_ident:ident {$inner_poll_resp_returns:expr}
       THEN
-        poll_resp should return $expect_ident:ident {$expect:expr}
+        poll_resp should $expect_ident:ident {$expect:expr}
     ) => {
       paste::paste! {
         #[test]
-        fn [<poll_resp_should_return_ $expect_ident:lower _when_platform_state_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_resp_returns_ident:lower>]() {
+        fn [<poll_resp_should_ $expect_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_resp_returns_ident:lower>]() {
           $crate::dummy_step!(poll_req: $inner_poll_req_ty => panic!(), poll_resp: $inner_poll_resp_ty => $inner_poll_resp_returns, error: $inner_error_ty);
 
           let mut step = $step(Dummy);
