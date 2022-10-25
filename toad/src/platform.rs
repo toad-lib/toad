@@ -76,10 +76,12 @@ pub enum Effect<P: Platform> {
 }
 
 impl<P: Platform> Clone for Effect<P> {
-  fn clone(&self) -> Self {match self {
-    Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
-    Effect::Log(l, m) => Effect::Log(*l, *m),
-  }}
+  fn clone(&self) -> Self {
+    match self {
+      | Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
+      | Effect::Log(l, m) => Effect::Log(*l, *m),
+    }
+  }
 }
 
 impl<P: Platform> core::fmt::Debug for Effect<P> {
