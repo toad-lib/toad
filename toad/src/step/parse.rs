@@ -89,12 +89,16 @@ impl<Inner: Step<P>, P: Platform> Step<P> for Parse<Inner> {
     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner);
     Some(common!(snap.recvd_dgram.as_ref()).map(|addrd| addrd.map(Resp::from)))
   }
+
+  fn message_sent(&mut self, msg: &Addrd<crate::platform::Message<P>>) -> Result<(), Self::Error> {
+    self.0.message_sent(msg).map_err(Error::Inner)
+  }
 }
 
 #[cfg(test)]
 mod test {
   use embedded_time::Clock;
-  use toad_msg::{Code, Token, Type};
+  use toad_msg::{Code, Type};
 
   use super::super::test;
   use super::{Error, Parse, Step};
@@ -127,141 +131,110 @@ mod test {
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns error { Some(Err(nb::Error::Other(()))) }
-      THEN
-        poll_req should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN inner_errors [
+          (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
+          (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
+        ]
+      THEN this_should_error
+        [
+          (poll_req => { Some(Err(nb::Error::Other(Error::Inner(())))) }),
+          (poll_resp => { Some(Err(nb::Error::Other(Error::Inner(())))) })
+        ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns would_block { Some(Err(nb::Error::WouldBlock)) }
-      THEN
-        poll_req should block { Some(Err(nb::Error::WouldBlock)) }
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN inner_would_block [
+        (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
+        (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
+      ]
+      THEN this_should_block [
+        (poll_req => {Some(Err(nb::Error::WouldBlock))}),
+        (poll_resp => {Some(Err(nb::Error::WouldBlock))})
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot received_con_req {
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN con_request_recvd [
+        (inner.poll_req => {None}),
+        (snapshot = {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
                                recvd_dgram: test_msg(Type::Con, Code::new(1, 01)).0 }
-        }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns nothing { None }
-      THEN
-        poll_req should return_request { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1)) }
+        })
+      ]
+      THEN poll_req_should_parse_it [
+        (poll_req => {Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1))})
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot received_empty {
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN empty_ack_recvd [
+        (inner.poll_req => {None}),
+        (snapshot = {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
                                recvd_dgram: test_msg(Type::Ack, Code::new(0, 0)).0 }
-        }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns nothing { None }
-      THEN
-        poll_req should return_request { Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1)) }
+        })
+      ]
+      THEN poll_req_should_parse_it [
+        (poll_req => { Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1)) })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot received_response {
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN piggy_ack_recvd [
+        (inner.poll_req => {None}),
+        (snapshot = {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
                                recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0 }
-        }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns nothing { None }
-      THEN
-        poll_req should return_request { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }
+        })
+      ]
+      THEN poll_req_should_parse_it [
+        (poll_req => {Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns error { Some(Err(nb::Error::Other(()))) }
-      THEN
-        poll_resp should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN recvd_ack [
+          (inner.poll_resp => {None}),
+          (snapshot = {
+            platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
+                                 recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0 }
+          })
+        ]
+      THEN poll_resp_should_parse_it [
+        (poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2)) })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns would_block { Some(Err(nb::Error::WouldBlock)) }
-      THEN
-        poll_resp should block { Some(Err(nb::Error::WouldBlock)) }
-  );
-
-  test::test_step!(
-      GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot received_ack {
-          platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                               recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0 }
-        }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns nothing { None }
-      THEN
-        poll_resp should return_response { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2)) }
-  );
-
-  test::test_step!(
-      GIVEN
-        this step { Parse::new }
-        and inner step { impl Step<Error = (), PollReq = (), PollResp = ()> }
-        and io sequence { Default::default() }
-        and snapshot received_request {
+        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
+        this step { Parse::new };
+      WHEN request_recvd [
+        (inner.poll_resp => {None}),
+        (snapshot = {
           platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
                                recvd_dgram: test_msg(Type::Con, Code::new(1, 1)).0 }
-        }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns nothing { None }
-      THEN
-        poll_resp should return_response { Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2)) }
+        })
+      ]
+      THEN poll_resp_should_parse_it [
+        (poll_resp => { Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2)) })
+      ]
   );
 }
