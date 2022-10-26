@@ -15,10 +15,10 @@ use crate::resp::Resp;
 ///
 /// See the [module documentation](crate::step::parse) for more.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct AckRequests<S>(S);
+pub struct Ack<S>(S);
 
-impl<S> AckRequests<S> {
-  /// Create a new AckRequests step
+impl<S> Ack<S> {
+  /// Create a new Ack step
   pub fn new(s: S) -> Self {
     Self(s)
   }
@@ -63,7 +63,7 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 impl<E: super::Error> super::Error for Error<E> {}
 
 impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: Platform> Step<P>
-  for AckRequests<Inner>
+  for Ack<Inner>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
@@ -98,6 +98,10 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
                -> StepOutput<Self::PollResp, Error<Inner::Error>> {
     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner).map(Ok)
   }
+
+  fn message_sent(&mut self, msg: &Addrd<crate::platform::Message<P>>) -> Result<(), Self::Error> {
+    self.0.message_sent(msg).map_err(Error::Inner)
+  }
 }
 
 #[cfg(test)]
@@ -105,7 +109,7 @@ mod test {
   use toad_msg::{Code, Token, Type};
 
   use super::super::test;
-  use super::{AckRequests, Effect, Error, Step, TryIntoBytes};
+  use super::{Ack, Effect, Error, Step, TryIntoBytes};
   use crate::net::Addrd;
   use crate::platform;
   use crate::req::Req;
@@ -135,115 +139,81 @@ mod test {
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns error { Some(Err(nb::Error::Other(()))) }
-      THEN
-        poll_req should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
+        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_errors [
+        (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
+        (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
+      ]
+      THEN this_should_error [
+        (poll_req  => { Some(Err(nb::Error::Other(Error::Inner(())))) }),
+        (poll_resp => { Some(Err(nb::Error::Other(Error::Inner(())))) })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns would_block { Some(Err(nb::Error::WouldBlock)) }
-      THEN
-        poll_req should block { Some(Err(nb::Error::WouldBlock)) }
+        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_blocks [
+        (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
+        (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
+      ]
+      THEN this_should_block [
+        (poll_req  => { Some(Err(nb::Error::WouldBlock)) }),
+        (poll_resp => { Some(Err(nb::Error::WouldBlock)) })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns non_request { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }
-      THEN
-        poll_req should return_req { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }
-        effects should be_empty { vec![] }
+        inner step { impl Step< PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_yields_non_request [
+        (inner.poll_req => { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) })
+      ]
+      THEN poll_req_should_noop [
+        (poll_req => { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }),
+        (effects == { vec![] })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns response { Some(Ok(test_msg(Type::Ack, Code::new(0, 00)).0)) }
-      THEN
-        poll_req should return_req { Some(Ok(test_msg(
-            Type::Ack, Code::new(0, 00)).0)) }
-        effects should be_empty { vec![] }
+        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_yields_response [
+        (inner.poll_req => { Some(Ok(test_msg(Type::Ack, Code::new(0, 00)).0)) })
+      ]
+      THEN poll_req_should_noop [
+        (poll_req => { Some(Ok(test_msg( Type::Ack, Code::new(0, 00)).0)) }),
+        (effects == { vec![] })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns con_request { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }
-      THEN
-        poll_req should return_req { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }
-        effects should include_ack { vec![Effect::SendDgram(Addrd(Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0).try_into_bytes().unwrap(), crate::test::dummy_addr()))] }
+        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_yields_con_request [
+        (inner.poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) })
+      ]
+      THEN poll_req_should_ack [
+        (poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }),
+        (effects == { vec![Effect::SendDgram(Addrd(Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0).try_into_bytes().unwrap(), crate::test::dummy_addr()))] })
+      ]
   );
 
   test::test_step!(
       GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns error { Some(Err(nb::Error::Other(()))) }
-      THEN
-        poll_resp should error { Some(Err(nb::Error::Other(Error::Inner(())))) }
-  );
-
-  test::test_step!(
-      GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns would_block { Some(Err(nb::Error::WouldBlock)) }
-      THEN
-        poll_resp should block { Some(Err(nb::Error::WouldBlock)) }
-  );
-
-  test::test_step!(
-      GIVEN
-        this step { AckRequests::new }
-        and inner step { impl Step<Error = (), PollReq = InnerPollReq, PollResp = InnerPollResp> }
-        and io sequence { Default::default() }
-        and snapshot default { test::default_snapshot() }
-        and req had token { Token(Default::default()) }
-        and req was sent to addr { crate::test::dummy_addr() }
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns resp { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }
-      THEN
-        poll_resp should echo { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }
+        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
+        this step { Ack::new };
+      WHEN inner_yields_anything [
+        (inner.poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) })
+      ]
+      THEN poll_resp_should_noop [
+        (poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }),
+        (effects == { vec![] })
+      ]
   );
 }
