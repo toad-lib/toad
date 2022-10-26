@@ -3,7 +3,10 @@ use core::convert::Infallible;
 use no_std_net::SocketAddr;
 use toad_msg::Token;
 
+use crate::net::Addrd;
 use crate::platform::{self, Platform};
+
+type Core = Ack<Parse<Empty>>;
 
 /// TODO
 pub mod ack;
@@ -35,7 +38,8 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 /// ```
 /// use embedded_time::Clock;
 /// use no_std_net::SocketAddr;
-/// use toad::platform::{Effect, Snapshot, Std};
+/// use toad::net::Addrd;
+/// use toad::platform::{Effect, Message, Snapshot, Std};
 /// use toad::step::{exec_inner_step, Step, StepOutput};
 ///
 /// #[derive(Default)]
@@ -59,6 +63,10 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 ///                addr: SocketAddr)
 ///                -> StepOutput<Self::PollResp, Self::Error> {
 ///     Some(Err(nb::Error::Other(())))
+///   }
+///
+///   fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
+///     Ok(())
 ///   }
 /// }
 ///
@@ -98,6 +106,10 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 ///
 ///     panic!("macro didn't return Inner's error");
 ///   }
+///
+///   fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
+///     Ok(())
+///   }
 /// }
 ///
 /// let token = toad_msg::Token(Default::default());
@@ -134,6 +146,9 @@ macro_rules! exec_inner_step {
 
 pub use exec_inner_step;
 
+use self::ack::Ack;
+use self::parse::Parse;
+
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
 
@@ -145,8 +160,9 @@ impl Error for () {}
 /// steps.
 ///
 /// ```
-/// # use no_std_net::SocketAddr;
-/// use toad::platform::{Effect, Snapshot, Std};
+/// use no_std_net::SocketAddr;
+/// use toad::net::Addrd;
+/// use toad::platform::{Effect, Message, Snapshot, Std};
 /// use toad::step::{PassThrough, Step, StepOutput};
 ///
 /// #[derive(Default)]
@@ -169,6 +185,9 @@ impl Error for () {}
 ///   #              addr: SocketAddr)
 ///   #              -> StepOutput<Self::PollResp, Self::Error> {
 ///   #   panic!();
+///   # }
+///   # fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
+///   #   panic!()
 ///   # }
 /// }
 /// ```
@@ -213,6 +232,9 @@ pub trait Step<P: Platform>: Default {
                token: Token,
                addr: SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error>;
+
+  /// A message has been sent over the wire
+  fn message_sent(&mut self, msg: &Addrd<platform::Message<P>>) -> Result<(), Self::Error>;
 }
 
 /// A step that does nothing
@@ -253,21 +275,34 @@ impl<P: Platform> Step<P> for Empty {
                -> StepOutput<(), Infallible> {
     None
   }
+
+  fn message_sent(&mut self, _: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
+    Ok(())
+  }
 }
 
 #[cfg(test)]
-pub(self) mod test {
+pub mod test {
   use embedded_time::Clock;
 
   use super::*;
   use crate::test;
   use crate::test::ClockMock;
 
+  pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
+    platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
+                         recvd_dgram: crate::net::Addrd(Default::default(),
+                                                        crate::test::dummy_addr()) }
+  }
+
   #[macro_export]
   macro_rules! dummy_step {
-    (poll_req: $poll_req_ty:ty => $poll_req:expr, poll_resp: $poll_resp_ty:ty => $poll_resp:expr, error: $error_ty:ty) => {
+    ({impl Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       #[derive(Default)]
-      pub struct Dummy;
+      struct Dummy;
+
+      static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
+      static mut POLL_RESP_MOCK: Option<::nb::Result<$poll_resp_ty, $error_ty>> = None;
 
       impl Step<$crate::test::Platform> for Dummy {
         type PollReq = $poll_req_ty;
@@ -278,7 +313,7 @@ pub(self) mod test {
                     _: &$crate::platform::Snapshot<$crate::test::Platform>,
                     _: &mut <$crate::test::Platform as $crate::platform::Platform>::Effects)
                     -> $crate::step::StepOutput<Self::PollReq, Self::Error> {
-          $poll_req
+          unsafe { POLL_REQ_MOCK.clone() }
         }
 
         fn poll_resp(&mut self,
@@ -287,100 +322,178 @@ pub(self) mod test {
                      _: toad_msg::Token,
                      _: no_std_net::SocketAddr)
                      -> $crate::step::StepOutput<Self::PollResp, ()> {
-          $poll_resp
+          unsafe { POLL_RESP_MOCK.clone() }
+        }
+
+        fn message_sent(&mut self,
+                        _: &Addrd<$crate::platform::Message<$crate::test::Platform>>)
+                        -> Result<(), Self::Error> {
+          Ok(())
         }
       }
     };
   }
 
-  pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
-    platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
-                         recvd_dgram: crate::net::Addrd(Default::default(),
-                                                        crate::test::dummy_addr()) }
+  #[macro_export]
+  macro_rules! test_step_when {
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      when (inner.poll_req => {$inner_step_returns:expr})
+    ) => {
+      *$poll_req_mock = $inner_step_returns
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects_mut:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      when (effects = {$effects:expr})
+    ) => {
+      *$effects_mut = $effects
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      when (inner.poll_resp => {$inner_step_returns:expr})
+    ) => {
+      *$poll_resp_mock = $inner_step_returns
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      when (snapshot = {$snapshot:expr})
+    ) => {
+      *$snapshot_mut = $snapshot
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token_mut:expr,
+      addr = $addr:expr,
+      when (poll_resp_token = {$token:expr})
+    ) => {
+      *$token_mut = $token
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr_mut:expr,
+      when (poll_resp_addr = {$addr:expr})
+    ) => {
+      *$addr_mut = $addr
+    };
+  }
+
+  #[macro_export]
+  macro_rules! test_step_expect {
+    (
+      step = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (poll_req => {$expect:expr})
+    ) => {
+      assert_eq!($step.poll_req($snap, $effects), $expect)
+    };
+    (
+      step = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (poll_resp => {$expect:expr})
+    ) => {
+      assert_eq!($step.poll_resp($snap, $effects, $token, $addr), $expect)
+    };
+    (
+      step = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (effects == {$expect:expr})
+    ) => {
+      assert_eq!($effects, &$expect)
+    };
   }
 
   #[macro_export]
   macro_rules! test_step {
     (
       GIVEN
-        this step {$step:expr}
-        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
-        and io sequence {$ios:expr}
-        and snapshot $snapshot_ident:ident {$snapshot:expr}
+        inner step $inner_step:tt;
+        this step {$step:expr};
       WHEN
-        poll_req is invoked
-        and inner.poll_req returns $inner_poll_req_returns_ident:ident {$inner_poll_req_returns:expr}
+        $when_summary:ident [$($when:tt),+]
       THEN
-        poll_req should $expect_ident:ident {$expect:expr}
+        $then_summary:ident [$($expect:tt),+]
     ) => {
       paste::paste! {
         #[test]
-        fn [<poll_req_should_ $expect_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_req_returns_ident:lower>]() {
-          $crate::dummy_step!(poll_req: $inner_poll_req_ty => $inner_poll_req_returns, poll_resp: $inner_poll_resp_ty => panic!(), error: $inner_error_ty);
+        fn [<when_ $when_summary:lower _then_ $then_summary:lower>]() {
+          #![allow(unused_mut)]
+          #![allow(unused_variables)]
+
+          use $crate::{dummy_step, test_step_when, test_step_expect, test, platform};
+
+          dummy_step!($inner_step);
+
+          let mut effects: <test::Platform as platform::Platform>::Effects = Default::default();
+          let mut snapshot: platform::Snapshot<test::Platform> = $crate::step::test::default_snapshot();
+          let mut token = ::toad_msg::Token(Default::default());
+          let mut addr = test::dummy_addr();
+
+          unsafe {
+            $(
+                test_step_when!(
+                  poll_req_mock = &mut POLL_REQ_MOCK,
+                  poll_resp_mock = &mut POLL_RESP_MOCK,
+                  effects = &mut effects,
+                  snapshot = &mut snapshot,
+                  token = &mut token,
+                  addr = &mut addr,
+                  when $when
+                )
+            );+
+          };
 
           let mut step = $step(Dummy);
 
-          let snap = $snapshot;
-          let mut ios = $ios;
-          assert_eq!(step.poll_req(&snap, &mut ios), $expect);
-        }
-      }
-    };
-    (
-      GIVEN
-        this step {$step:expr}
-        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
-        and io sequence {$ios:expr}
-        and snapshot $snapshot_ident:ident {$snapshot:expr}
-      WHEN
-        poll_req is invoked
-        and inner.poll_req returns $inner_poll_req_returns_ident:ident {$inner_poll_req_returns:expr}
-      THEN
-        poll_req should $expect_ident:ident {$expect:expr}
-        effects should $expect_effects_ident:ident {$expect_effects:expr}
-    ) => {
-      paste::paste! {
-        #[test]
-        fn [<poll_req_should_ $expect_ident:lower _and_effects_should_ $expect_effects_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_req_returns_ident:lower>]() {
-          $crate::dummy_step!(poll_req: $inner_poll_req_ty => $inner_poll_req_returns, poll_resp: $inner_poll_resp_ty => panic!(), error: $inner_error_ty);
-
-          let mut step = $step(Dummy);
-
-          let snap = $snapshot;
-          let mut ios = $ios;
-          assert_eq!(step.poll_req(&snap, &mut ios), $expect);
-          assert_eq!(ios, $expect_effects);
-        }
-      }
-    };
-    (
-      GIVEN
-        this step {$step:expr}
-        and inner step {impl Step<Error = $inner_error_ty:ty, PollReq = $inner_poll_req_ty:ty, PollResp = $inner_poll_resp_ty:ty>}
-        and io sequence {$ios:expr}
-        and snapshot $snapshot_ident:ident {$snapshot:expr}
-        and req had token {$token:expr}
-        and req was sent to addr {$addr:expr}
-      WHEN
-        poll_resp is invoked
-        and inner.poll_resp returns $inner_poll_resp_returns_ident:ident {$inner_poll_resp_returns:expr}
-      THEN
-        poll_resp should $expect_ident:ident {$expect:expr}
-    ) => {
-      paste::paste! {
-        #[test]
-        fn [<poll_resp_should_ $expect_ident:lower _when_snap_ $snapshot_ident:lower _and_inner_returns_ $inner_poll_resp_returns_ident:lower>]() {
-          $crate::dummy_step!(poll_req: $inner_poll_req_ty => panic!(), poll_resp: $inner_poll_resp_ty => $inner_poll_resp_returns, error: $inner_error_ty);
-
-          let mut step = $step(Dummy);
-
-          let snap = $snapshot;
-          let mut ios = $ios;
-          assert_eq!(step.poll_resp(&snap, &mut ios, $token, $addr), $expect);
+          $(
+            test_step_expect!(
+              step = &mut step,
+              snap = &snapshot,
+              effects = &mut effects,
+              token = token,
+              addr = addr,
+              expect $expect
+            )
+          );+
         }
       }
     };
   }
 
-  pub use {dummy_step, test_step};
+  pub use {dummy_step, test_step, test_step_when};
 }
