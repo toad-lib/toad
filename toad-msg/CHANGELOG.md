@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.8.3 (2022-10-27)
+
+
+### Bug Fixes
+
+* impl ord ([#156](https://github.com/clov-coffee/toad/issues/156)) ([3cb36fc](https://github.com/clov-coffee/toad/commit/3cb36fc1dc4303153ce7b4eba9e81261240d50ac))
+
 ### 0.8.2 (2022-10-27)
 
 
