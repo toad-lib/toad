@@ -37,7 +37,7 @@ pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
 /// and does not compute or store the Option Number.
 ///
 /// To get [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
-#[derive(Clone, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct Opt<C> {
   /// See [`OptDelta`]
   pub delta: OptDelta,
@@ -105,7 +105,7 @@ impl<C: Array<Item = u8>> Opt<C> {
 ///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
-#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct OptDelta(pub u16);
 
 #[doc = rfc_7252_doc!("5.4.6")]
@@ -116,7 +116,7 @@ pub struct OptDelta(pub u16);
 /// # `OptNumber` struct
 /// Because Option Numbers are only able to be computed in the context of other options, in order to
 /// get Option Numbers you must have a collection of [`Opt`]s, and use the provided [`EnumerateOptNumbers`].
-#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug, Default)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct OptNumber(pub u32);
 
 #[doc = rfc_7252_doc!("5.4.1")]
@@ -210,7 +210,7 @@ impl OptNumber {
 }
 
 #[doc = rfc_7252_doc!("3.2")]
-#[derive(Default, Clone, Hash, PartialEq, PartialOrd, Debug)]
+#[derive(Default, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
 pub struct OptValue<C>(pub C);
 
 impl<V: Array<Item = u8> + AppendCopy<u8>, T: Array<Item = Opt<V>>, Bytes: AsRef<[u8]>>

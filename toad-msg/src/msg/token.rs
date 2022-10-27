@@ -1,12 +1,7 @@
-use tinyvec::ArrayVec;
-use toad_common::Cursor;
 use toad_macros::rfc_7252_doc;
 
-use super::MessageParseError;
-use crate::from_bytes::TryConsumeBytes;
-
 #[doc = rfc_7252_doc!("5.3.1")]
-#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
 pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
 
 impl Token {
