@@ -6,7 +6,7 @@ use super::MessageParseError;
 use crate::from_bytes::TryConsumeBytes;
 
 #[doc = rfc_7252_doc!("5.3.1")]
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug)]
 pub struct Token(pub tinyvec::ArrayVec<[u8; 8]>);
 
 impl Token {
