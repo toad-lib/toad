@@ -3,7 +3,7 @@
 /// Right now, this will always be 1, but may support additional values in the future.
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
 pub struct Version(pub u8);
 
 impl Default for Version {
