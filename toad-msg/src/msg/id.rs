@@ -16,7 +16,7 @@ use crate::Message;
 /// For a little more context and the difference between [`Id`] and [`Token`], see [`Token`].
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Debug)]
 pub struct Id(pub u16);
 
 impl Id {

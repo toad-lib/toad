@@ -4,7 +4,7 @@ use super::MessageParseError;
 /// type Confirmable (0), Non-confirmable (1), Acknowledgement (2), or Reset (3).
 ///
 /// See [RFC7252 - Message Details](https://datatracker.ietf.org/doc/html/rfc7252#section-3) for context
-#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, Eq, Ord, PartialEq, PartialOrd, Debug)]
 pub enum Type {
   /// Some messages do not require an acknowledgement.  This is
   /// particularly true for messages that are repeated regularly for
