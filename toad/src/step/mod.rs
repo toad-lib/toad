@@ -8,19 +8,37 @@ use crate::platform::{self, Platform};
 
 type Core = Ack<Parse<Empty>>;
 
-/// TODO
+/// # ACKing incoming messages
+///
+/// This step will send empty ACK messages to
+/// all received CON messages (applies to both server & client flows)
 pub mod ack;
 
-/// # Parsing step
-/// This module contains types representing the step of the
-/// CoAP message lifecycle where UDP datagrams enter and are
-/// parsed as CoAP messages.
+/// # Buffering Responses
 ///
-/// ```text
-/// Dgram --> Message --> Req
-///        |           |
-///        -> Error    -> Resp
-/// ```
+/// This step module only applies to the client flow.
+///
+/// [`BufferResponses`](buffer_responses::alloc::BufferResponses) ([`no_alloc`](buffer_responses::no_alloc::BufferResponses))
+/// handles responses received during the client flow (polling for a response to a sent request)
+///
+/// If the response gotten matches the token of the sent request, nothing is done and
+/// the next step will get the response.
+///
+/// If the response does not match the request token, and it has not seen a response to this
+/// request yet, then the response is stored in the buffer and `WouldBlock` is yielded.
+///
+/// If the response does not match the request token, and it has buffered a response to this
+/// request, then the response is stored in the buffer and the matching response is taken out of the buffer.
+pub mod buffer_responses;
+
+/// # Parsing step
+///
+/// This step is responsible for initiating the Step pipe
+/// by reading the platform's [`Snapshot`](crate::platform::Snapshot) for
+/// a dgram received from an external source.
+///
+/// This step does no filtering whatsoever and _just_ parses the dgram
+/// into a [`toad_msg::Message`] then into a [`Req`](crate::req::Req) or [`Resp`](crate::resp::Resp).
 pub mod parse;
 
 /// ```text
@@ -120,8 +138,8 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 /// # SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
 /// };
 ///
-/// let snap = Snapshot::<Std> { recvd_dgram: toad::net::Addrd(Default::default(), addr),
-///                              time: toad::std::Clock::new().try_now().unwrap() };
+/// let snap = Snapshot::<Std>::new(toad::std::Clock::new().try_now().unwrap(),
+///                                 toad::net::Addrd(Default::default(), addr));
 ///
 /// assert_eq!(MyStep(Inner).poll_req(&snap, &mut Default::default()),
 ///            Some(Err(nb::Error::Other(MyError::InnerStepMessedUp(())))));
@@ -290,19 +308,22 @@ pub mod test {
   use crate::test::ClockMock;
 
   pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
-    platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
-                         recvd_dgram: crate::net::Addrd(Default::default(),
-                                                        crate::test::dummy_addr()) }
+    platform::Snapshot::new(ClockMock::new().try_now().unwrap(),
+                            crate::net::Addrd(Default::default(), crate::test::dummy_addr()))
   }
 
   #[macro_export]
   macro_rules! dummy_step {
-    ({impl Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
+    ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       #[derive(Default)]
       struct Dummy;
 
       static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
-      static mut POLL_RESP_MOCK: Option<::nb::Result<$poll_resp_ty, $error_ty>> = None;
+      static mut POLL_RESP_MOCK: Option<Box<dyn Fn() -> Option<::nb::Result<$poll_resp_ty,
+                                                                            $error_ty>>>> = None;
+      unsafe {
+        POLL_RESP_MOCK = Some(Box::new(|| None));
+      }
 
       impl Step<$crate::test::Platform> for Dummy {
         type PollReq = $poll_req_ty;
@@ -322,7 +343,7 @@ pub mod test {
                      _: toad_msg::Token,
                      _: no_std_net::SocketAddr)
                      -> $crate::step::StepOutput<Self::PollResp, ()> {
-          unsafe { POLL_RESP_MOCK.clone() }
+          unsafe { POLL_RESP_MOCK.as_ref().unwrap()() }
         }
 
         fn message_sent(&mut self,
@@ -367,7 +388,18 @@ pub mod test {
       addr = $addr:expr,
       when (inner.poll_resp => {$inner_step_returns:expr})
     ) => {
-      *$poll_resp_mock = $inner_step_returns
+      *$poll_resp_mock = Some(Box::new(|| $inner_step_returns))
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      when (inner.poll_resp = {$poll_resp_fake:expr})
+    ) => {
+      *$poll_resp_mock = Some(Box::new($poll_resp_fake))
     };
     (
       poll_req_mock = $poll_req_mock:expr,
@@ -407,27 +439,46 @@ pub mod test {
   #[macro_export]
   macro_rules! test_step_expect {
     (
-      step = $step:expr,
+      step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (poll_req => {$expect:expr})
-    ) => {
-      assert_eq!($step.poll_req($snap, $effects), $expect)
-    };
+      expect (poll_req(_, _) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_req($snap, $effects))
+    }};
     (
-      step = $step:expr,
+      step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (poll_resp => {$expect:expr})
-    ) => {
-      assert_eq!($step.poll_resp($snap, $effects, $token, $addr), $expect)
-    };
+      expect (poll_resp(_, _, _, _) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_resp($snap, $effects, $token, $addr))
+    }};
     (
-      step = $step:expr,
+      step: $step_ty:ty = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $_t:expr,
+      addr = $_a:expr,
+      expect (poll_resp(_, _, $token:expr, $addr:expr) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_resp($snap, $effects, $token, $addr))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
       token = $token:expr,
@@ -441,13 +492,9 @@ pub mod test {
   #[macro_export]
   macro_rules! test_step {
     (
-      GIVEN
-        inner step $inner_step:tt;
-        this step {$step:expr};
-      WHEN
-        $when_summary:ident [$($when:tt),+]
-      THEN
-        $then_summary:ident [$($expect:tt),+]
+      GIVEN $step:ty where $inner:ty: $inner_step:tt;
+      WHEN $when_summary:ident [$($when:tt),+]
+      THEN $then_summary:ident [$($expect:tt),+]
     ) => {
       paste::paste! {
         #[test]
@@ -478,11 +525,11 @@ pub mod test {
             );+
           };
 
-          let mut step = $step(Dummy);
+          let mut step = $step::default();
 
           $(
             test_step_expect!(
-              step = &mut step,
+              step: $step = &mut step,
               snap = &snapshot,
               effects = &mut effects,
               token = token,
