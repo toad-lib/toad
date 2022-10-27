@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 0.8.2 (2022-10-27)
+
+
+### Features
+
+* **msg:** impl hash for structs ([#155](https://github.com/clov-coffee/toad/issues/155)) ([d64d6d2](https://github.com/clov-coffee/toad/commit/d64d6d2cb69cc9da9855411457e24c5bd335019d))
+
 ### 0.8.1 (2022-10-20)
 
 
