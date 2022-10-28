@@ -395,7 +395,7 @@ impl<P: Platform> Req<P> {
   }
 
   /// Iterate over the options attached to this request
-  pub fn opts(&self) -> impl Iterator<Item = &(OptNumber, Opt<P::MessageOptionBytes>)> {
+  pub fn opts(&self) -> impl Iterator<Item = (&OptNumber, &Opt<P::MessageOptionBytes>)> {
     self.opts.iter().flat_map(|opts| opts.iter())
   }
 }

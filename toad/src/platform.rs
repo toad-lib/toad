@@ -39,39 +39,55 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What should we use to keep track of time?
   type Clock: Clock<T = u64>;
 
-  /// TODO
+  /// How will network datagrams be stored?
   type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + Debug + PartialEq;
 
   /// What should we use for networking?
   type Socket: Socket;
 
-  /// TODO
+  /// How will we store a sequence of effects to perform?
   type Effects: Array<Item = Effect<Self>>;
 }
 
-/// TODO
+/// A snapshot of the platform's state at any given moment.
+///
+/// This struct's fields should not be considered stable and any
+/// patterns matching against its structure must use the wildcard pattern:
+///
+/// ```text
+/// match snap {
+///   Snapshot {time, recvd_dgram, ..} => (),
+/// }
+/// ```
 #[allow(missing_debug_implementations)]
+#[non_exhaustive]
 pub struct Snapshot<P: Platform> {
-  /// TODO
+  /// The current system time at the start of the step pipe
   pub time: Instant<P::Clock>,
 
-  /// TODO
+  /// A UDP datagram received from somewhere
   pub recvd_dgram: Addrd<P::Dgram>,
+}
+
+impl<P: Platform> Snapshot<P> {
+  /// Create a snapshot
+  pub fn new(time: Instant<P::Clock>, recvd_dgram: Addrd<P::Dgram>) -> Self {
+    Self { time, recvd_dgram }
+  }
 }
 
 impl<P: Platform> Clone for Snapshot<P> {
   fn clone(&self) -> Self {
-    Self { time: self.time.clone(),
-           recvd_dgram: self.recvd_dgram.clone() }
+    Self::new(self.time, self.recvd_dgram.clone())
   }
 }
 
-/// TODO
+/// Side effects that platforms must support performing
 pub enum Effect<P: Platform> {
-  /// TODO
+  /// Send a UDP message to a remote address
   SendDgram(Addrd<P::Dgram>),
 
-  /// TODO
+  /// Log to some external log provider
   Log(log::Level, String1Kb),
 }
 

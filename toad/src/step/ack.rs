@@ -14,8 +14,14 @@ use crate::resp::Resp;
 /// most likely this is the [`Empty`](crate::step::Empty) step.
 ///
 /// See the [module documentation](crate::step::parse) for more.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Ack<S>(S);
+
+impl<S: Default> Default for Ack<S> {
+  fn default() -> Self {
+    Ack(Default::default())
+  }
+}
 
 impl<S> Ack<S> {
   /// Create a new Ack step
@@ -106,7 +112,7 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
 
 #[cfg(test)]
 mod test {
-  use toad_msg::{Code, Token, Type};
+  use toad_msg::{Code, Type};
 
   use super::super::test;
   use super::{Ack, Effect, Error, Step, TryIntoBytes};
@@ -138,81 +144,80 @@ mod test {
   }
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_errors [
         (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
         (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
       ]
       THEN this_should_error [
-        (poll_req  => { Some(Err(nb::Error::Other(Error::Inner(())))) }),
-        (poll_resp => { Some(Err(nb::Error::Other(Error::Inner(())))) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_blocks [
         (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
         (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
       ]
       THEN this_should_block [
-        (poll_req  => { Some(Err(nb::Error::WouldBlock)) }),
-        (poll_resp => { Some(Err(nb::Error::WouldBlock)) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step< PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_non_request [
         (inner.poll_req => { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) })
       ]
       THEN poll_req_should_noop [
-        (poll_req => { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) }),
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0))) }),
         (effects == { vec![] })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_response [
         (inner.poll_req => { Some(Ok(test_msg(Type::Ack, Code::new(0, 00)).0)) })
       ]
       THEN poll_req_should_noop [
-        (poll_req => { Some(Ok(test_msg( Type::Ack, Code::new(0, 00)).0)) }),
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg( Type::Ack, Code::new(0, 00)).0))) }),
         (effects == { vec![] })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_con_request [
         (inner.poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) })
       ]
       THEN poll_req_should_ack [
-        (poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) }),
-        (effects == { vec![Effect::SendDgram(Addrd(Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0).try_into_bytes().unwrap(), crate::test::dummy_addr()))] })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0))) }),
+        (effects == {
+          vec![
+            Effect::SendDgram(
+              Addrd(
+                Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0)
+                  .try_into_bytes()
+                  .unwrap(),
+                crate::test::dummy_addr()
+              )
+            )
+          ]
+        })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()> };
-        this step { Ack::new };
+      GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_anything [
         (inner.poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) })
       ]
       THEN poll_resp_should_noop [
-        (poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1))) }),
         (effects == { vec![] })
       ]
   );
