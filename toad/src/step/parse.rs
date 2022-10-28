@@ -130,111 +130,107 @@ mod test {
   }
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN inner_errors [
           (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
           (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
         ]
       THEN this_should_error
         [
-          (poll_req => { Some(Err(nb::Error::Other(Error::Inner(())))) }),
-          (poll_resp => { Some(Err(nb::Error::Other(Error::Inner(())))) })
+          (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(())))) )}),
+          (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
         ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN inner_would_block [
         (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
         (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
       ]
       THEN this_should_block [
-        (poll_req => {Some(Err(nb::Error::WouldBlock))}),
-        (poll_resp => {Some(Err(nb::Error::WouldBlock))})
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN con_request_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                               recvd_dgram: test_msg(Type::Con, Code::new(1, 01)).0 }
+          platform::Snapshot::new(
+            crate::test::ClockMock::new().try_now().unwrap(),
+            test_msg(Type::Con, Code::new(1, 01)).0,
+          )
         })
       ]
       THEN poll_req_should_parse_it [
-        (poll_req => {Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1))})
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out,Some(Ok(test_msg(Type::Con, Code::new(1, 01)).1)))})
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN empty_ack_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                               recvd_dgram: test_msg(Type::Ack, Code::new(0, 0)).0 }
+          platform::Snapshot::new(
+            crate::test::ClockMock::new().try_now().unwrap(),
+            test_msg(Type::Ack, Code::new(0, 0)).0,
+          )
         })
       ]
       THEN poll_req_should_parse_it [
-        (poll_req => { Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1)) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Ack, Code::new(0, 0)).1))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN piggy_ack_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                               recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0 }
+          platform::Snapshot::new(
+            crate::test::ClockMock::new().try_now().unwrap(),
+            test_msg(Type::Ack, Code::new(2, 04)).0,
+          )
         })
       ]
       THEN poll_req_should_parse_it [
-        (poll_req => {Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out,Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN recvd_ack [
           (inner.poll_resp => {None}),
           (snapshot = {
-            platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                                 recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0 }
+            platform::Snapshot::new(
+              crate::test::ClockMock::new().try_now().unwrap(),
+              test_msg(Type::Ack, Code::new(2, 04)).0,
+            )
           })
         ]
       THEN poll_resp_should_parse_it [
-        (poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2)) })
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).2))) })
       ]
   );
 
   test::test_step!(
-      GIVEN
-        inner step { impl Step<PollReq = (), PollResp = (), Error = ()> };
-        this step { Parse::new };
+      GIVEN Parse::<Dummy> where Dummy: {Step<PollReq = (), PollResp = (), Error = ()>};
       WHEN request_recvd [
         (inner.poll_resp => {None}),
         (snapshot = {
-          platform::Snapshot { time: crate::test::ClockMock::new().try_now().unwrap(),
-                               recvd_dgram: test_msg(Type::Con, Code::new(1, 1)).0 }
+          platform::Snapshot::new(
+            crate::test::ClockMock::new().try_now().unwrap(),
+            test_msg(Type::Con, Code::new(1, 1)).0,
+          )
         })
       ]
       THEN poll_resp_should_parse_it [
-        (poll_resp => { Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2)) })
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(1, 1)).2))) })
       ]
   );
 }

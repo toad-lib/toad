@@ -18,6 +18,10 @@ pub fn dummy_addr() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
 }
 
+pub fn dummy_addr_2() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 2), 8080))
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TimeoutState {
   Canceled,
