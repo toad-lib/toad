@@ -1,6 +1,4 @@
-use core::marker::PhantomData;
 use core::mem;
-use core::ops::Deref;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
