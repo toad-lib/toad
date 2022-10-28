@@ -1,6 +1,7 @@
+use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 use toad_common::Map;
-use toad_msg::{Id, Token};
+use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
 use crate::exec_inner_step;
@@ -25,7 +26,7 @@ pub mod alloc {
   /// For more information see [`super::BufferResponses`]
   /// or the [module documentation](crate::step::buffer_responses).
   pub type BufferResponses<S, P> =
-    super::BufferResponses<S, BTreeMap<Addrd<Token>, Addrd<Resp<P>>>>;
+    super::BufferResponses<S, BTreeMap<(SocketAddr, Token, Type), Addrd<Resp<P>>>>;
 }
 
 /// `BufferResponses` that does not use
@@ -39,7 +40,7 @@ pub mod no_alloc {
   /// For more information see [`super::BufferResponses`]
   /// or the [module documentation](crate::step::buffer_responses).
   pub type BufferResponses<S, P> =
-    super::BufferResponses<S, ArrayVec<[(Addrd<Token>, Addrd<Resp<P>>); 16]>>;
+    super::BufferResponses<S, ArrayVec<[((SocketAddr, Token, Type), Addrd<Resp<P>>); 16]>>;
 }
 
 /// Struct responsible for buffering and yielding responses to the request
@@ -87,7 +88,7 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 impl<E: super::Error> super::Error for Error<E> {}
 
 impl<P: Platform,
-      B: Map<Addrd<Token>, Addrd<Resp<P>>>,
+      B: Map<(SocketAddr, Token, Type), Addrd<Resp<P>>>,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
   for BufferResponses<S, B>
@@ -114,15 +115,23 @@ impl<P: Platform,
     let resp = exec_inner_step!(self.inner.poll_resp(snap, effects, token, addr),
                                 Error::Inner);
 
+    if self.buffer.is_full() {
+      return Some(Err(nb::Error::Other(Error::CapacityExhausted)));
+    }
+
     match resp {
-      | Some(resp) if Addrd(token, addr) == resp.as_ref().map(|r| r.msg.token) => Some(Ok(resp)),
-      | Some(_) if self.buffer.is_full() => Some(Err(nb::Error::Other(Error::CapacityExhausted))),
       | Some(resp) => {
         self.buffer
-            .insert(resp.as_ref().map(|r| r.msg.token), resp)
+            .insert((resp.addr(), resp.data().msg.token, resp.data().msg.ty),
+                    resp)
             .ok();
 
-        match self.buffer.remove(&Addrd(token, addr)) {
+        match self.buffer
+                  .remove(&(addr, token, Type::Ack))
+                  .or_else(|| self.buffer.remove(&(addr, token, Type::Con)))
+                  .or_else(|| self.buffer.remove(&(addr, token, Type::Non)))
+                  .or_else(|| self.buffer.remove(&(addr, token, Type::Reset)))
+        {
           | Some(resp) => Some(Ok(resp)),
           | None => Some(Err(nb::Error::WouldBlock)),
         }
@@ -138,6 +147,9 @@ impl<P: Platform,
 
 #[cfg(test)]
 mod test {
+  use tinyvec::array_vec;
+  use toad_msg::Id;
+
   use super::*;
   use crate::step::test::test_step;
 
@@ -192,7 +204,6 @@ mod test {
     ]
   );
 
-  type Out = StepOutput<Addrd<Resp<crate::test::Platform>>, Error<()>>;
   test_step!(
     GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_yields_response [
@@ -204,46 +215,35 @@ mod test {
           static mut CALL: u8 = 1;
 
           struct Case {
-            token: Token,
+            ty: Type,
+            token: u8,
             id: Id,
             addr: SocketAddr,
           }
 
-          let Case {token, id, addr} =
+          let addr_1 = crate::test::dummy_addr();
+          let addr_2 = crate::test::dummy_addr_2();
+
+          let skip = Case { ty: Type::Reset, token: 255, id: Id(255), addr: addr_2 };
+
+          let Case {token, ty, id, addr} =
             match CALL {
-              1 => Case {
-                token: Token(ArrayVec::from([1; 8])),
-                id: Id(1),
-                addr: crate::test::dummy_addr(),
-              },
-              2 => Case {
-                token: Token(ArrayVec::from([2; 8])),
-                id: Id(2),
-                addr: crate::test::dummy_addr(),
-              },
-              3 => Case {
-                token: Token(ArrayVec::from([1; 8])),
-                id: Id(1),
-                addr: crate::test::dummy_addr_2(),
-              },
-              4 => Case {
-                token: Token(ArrayVec::from([2; 8])),
-                id: Id(2),
-                addr: crate::test::dummy_addr_2(),
-              },
-              _ => Case {
-                token: Token(ArrayVec::from([CALL; 8])),
-                id: Id(2),
-                addr: crate::test::dummy_addr_2(),
-              },
+              | 1 => Case { ty: Type::Ack, token: 1, id: Id(1), addr: addr_1 },
+              | 2 => Case { ty: Type::Ack, token: 2, id: Id(2), addr: addr_1 },
+              | 3 => Case { ty: Type::Ack, token: 1, id: Id(1), addr: addr_2 },
+              | 4 => Case { ty: Type::Ack, token: 2, id: Id(1), addr: addr_2 },
+              | 5 | 6 => skip,
+              | 7 => Case { ty: Type::Ack, token: 3, id: Id(2), addr: addr_2 },
+              | 8 => Case { ty: Type::Non, token: 3, id: Id(3), addr: addr_2 },
+              | _ => skip,
             };
 
           CALL += 1;
 
           let msg = platform::Message::<crate::test::Platform> {
             ver: Default::default(),
-            token,
-            ty: Type::Con,
+            token: Token(Some(token).into_iter().collect()),
+            ty,
             code: Code::new(1, 01),
             id,
             opts: vec![],
@@ -259,79 +259,100 @@ mod test {
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([2; 8])),
+          Token(array_vec!([u8; 8] => 2)),
           crate::test::dummy_addr_2()
         ) should satisfy {
-          |out: Out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
+          // CACHED: ACK Token(1) Id(1) dummy_addr
+          |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
         }
       ),
-      // CACHED: Token([1; 8]) Id(1) dummy_addr
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([2; 8])),
+          Token(array_vec!([u8; 8] => 2)),
           crate::test::dummy_addr_2()
         ) should satisfy {
-          |out: Out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
+          // CACHED: ACK Token(2) Id(2) dummy_addr
+          |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
         }
       ),
-      // CACHED: Token([2; 8]) Id(2) dummy_addr
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([2; 8])),
+          Token(array_vec!([u8; 8] => 2)),
           crate::test::dummy_addr_2()
         ) should satisfy {
-          |out: Out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
+          // CACHED: ACK Token(1) Id(1) dummy_addr_2
+          |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock)))
         }
       ),
-      // CACHED: Token([1; 8]) Id(1) dummy_addr_2
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([2; 8])),
+          Token(array_vec!([u8; 8] => 2)),
           crate::test::dummy_addr_2()
         ) should satisfy {
-          |out: Out| assert_eq!(out.expect("a").expect("a").data().msg.id, Id(2))
+          // POPPED: ACK Token(2) Id(2) dummy_addr_2
+          |out| assert_eq!(out.expect("a").expect("a").data().msg.id, Id(1))
         }
       ),
-      // RETURNED: Token([2; 8]) Id(2) dummy_addr_2
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([1; 8])),
+          toad_msg::Token(array_vec!([u8; 8] => 1)),
           crate::test::dummy_addr()
         ) should satisfy {
-          |out: Out| assert_eq!(out.expect("b").expect("b").data().msg.id, Id(1))
+          // POPPED: ACK Token(1) Id(1) dummy_addr
+          |out| assert_eq!(out.expect("b").expect("b").data().msg.id, Id(1))
         }
       ),
-      // POPPED: Token([1; 8]) Id(1) dummy_addr
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([2; 8])),
+          Token(array_vec!([u8; 8] => 2)),
           crate::test::dummy_addr()
         ) should satisfy {
-          |out: Out| assert_eq!(out.expect("c").expect("c").data().msg.id, Id(2))
+          // POPPED: ACK Token(2) Id(2) dummy_addr
+          |out| assert_eq!(out.expect("c").expect("c").data().msg.id, Id(2))
         }
       ),
-      // POPPED: Token([2; 8]) Id(2) dummy_addr
+      (poll_resp(_, _, _, _) should satisfy { |_| () } ), // CACHED: ACK Token(3) Id(2) dummy_addr_2
+      (poll_resp(_, _, _, _) should satisfy { |_| () } ), // CACHED: NON Token(3) Id(3) dummy_addr_2
+      (
+        poll_resp(
+         _,
+          _,
+          Token(array_vec!([u8; 8] => 3)),
+          crate::test::dummy_addr_2()
+        ) should satisfy {
+          |out| {
+            // POPPED: ACK Token(1) Id(2) dummy_addr_2
+            let msg = out.expect("d").expect("d").unwrap().msg;
+            assert_eq!(msg.id, Id(2));
+            assert_eq!(msg.ty, Type::Ack);
+          }
+        }
+      ),
       (
         poll_resp(
           _,
           _,
-          toad_msg::Token(ArrayVec::from([1; 8])),
+          Token(array_vec!([u8; 8] => 3)),
           crate::test::dummy_addr_2()
         ) should satisfy {
-          |out: Out| assert_eq!(out.expect("d").expect("d").data().msg.id, Id(1))
+          |out| {
+            // POPPED: NON Token(1) Id(3) dummy_addr_2
+            let msg = out.expect("e").expect("e").unwrap().msg;
+            assert_eq!(msg.id, Id(3));
+            assert_eq!(msg.ty, Type::Non);
+          }
         }
       )
-      // POPPED: Token([1; 8]) Id(1) dummy_addr_2
     ]
   );
 }

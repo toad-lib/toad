@@ -18,7 +18,9 @@ use crate::resp::Resp;
 pub struct Ack<S>(S);
 
 impl<S: Default> Default for Ack<S> {
-  fn default() -> Self {Ack(Default::default())}
+  fn default() -> Self {
+    Ack(Default::default())
+  }
 }
 
 impl<S> Ack<S> {
@@ -113,7 +115,7 @@ mod test {
   use toad_msg::{Code, Type};
 
   use super::super::test;
-  use super::{Ack, Effect, Error, Step, StepOutput, TryIntoBytes};
+  use super::{Ack, Effect, Error, Step, TryIntoBytes};
   use crate::net::Addrd;
   use crate::platform;
   use crate::req::Req;

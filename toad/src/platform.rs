@@ -60,29 +60,25 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
 /// }
 /// ```
 #[allow(missing_debug_implementations)]
+#[non_exhaustive]
 pub struct Snapshot<P: Platform> {
   /// The current system time at the start of the step pipe
   pub time: Instant<P::Clock>,
 
   /// A UDP datagram received from somewhere
   pub recvd_dgram: Addrd<P::Dgram>,
-
-  /// You must use the wildcard pattern, muahahaha
-  __: (),
 }
 
 impl<P: Platform> Snapshot<P> {
   /// Create a snapshot
   pub fn new(time: Instant<P::Clock>, recvd_dgram: Addrd<P::Dgram>) -> Self {
-    Self { time,
-           recvd_dgram,
-           __: () }
+    Self { time, recvd_dgram }
   }
 }
 
 impl<P: Platform> Clone for Snapshot<P> {
   fn clone(&self) -> Self {
-    Self::new(self.time.clone(), self.recvd_dgram.clone())
+    Self::new(self.time, self.recvd_dgram.clone())
   }
 }
 

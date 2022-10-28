@@ -6,8 +6,6 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, Platform};
 
-type Core = Ack<Parse<Empty>>;
-
 /// # ACKing incoming messages
 ///
 /// This step will send empty ACK messages to
@@ -163,9 +161,6 @@ macro_rules! exec_inner_step {
 }
 
 pub use exec_inner_step;
-
-use self::ack::Ack;
-use self::parse::Parse;
 
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
@@ -448,7 +443,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_req($snap, $effects))
     }};
     (
@@ -461,7 +457,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp($snap, $effects, $token, $addr))
     }};
     (
@@ -474,7 +471,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp, <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp($snap, $effects, $token, $addr))
     }};
     (
