@@ -150,7 +150,7 @@ mod test {
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
     ]
-    THEN this_should_block [
+    THEN this_should_error [
       (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
       (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
     ]
@@ -195,7 +195,7 @@ mod test {
   type Out = StepOutput<Addrd<Resp<crate::test::Platform>>, Error<()>>;
   test_step!(
     GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
-    WHEN inner_yields_request [
+    WHEN inner_yields_response [
       (inner.poll_resp = {
         || {
           use toad_msg::*;
