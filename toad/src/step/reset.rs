@@ -1,14 +1,15 @@
-use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_common::{Array, Map};
+use toad_common::{Array, Map, GetSize};
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{Code, Id, Payload, Token, TryIntoBytes, Type};
+use core::fmt::Write;
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
 use crate::platform::{Effect, Platform};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::todo::String1Kb;
 use crate::{exec_inner_step, platform};
 
 /// `BufferResponses` that uses BTreeMap
@@ -52,6 +53,14 @@ pub struct Reset<S, B> {
   inner: S,
 }
 
+impl<S, B> Reset<S, B> {
+  fn warn_ack_ignored<P: Platform>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
+    let mut string = String1Kb::default();
+    write!(string, "{} -> {}b ACK {:?} ignored", msg.addr(), msg.data().get_size(), msg.data().token).ok();
+    string
+  }
+}
+
 impl<S: Default, B: Default> Default for Reset<S, B> {
   fn default() -> Self {
     Self { buffer: Default::default(),
@@ -92,7 +101,7 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 impl<E: super::Error> super::Error for Error<E> {}
 
 macro_rules! common {
-  ($msg:expr, $effects:expr, $buffer:expr) => {
+  ($in:expr, $msg:expr, $effects:expr, $buffer:expr) => {{
     let msg = $msg;
 
     if msg.data().ty == Type::Ack && !$buffer.has(&msg.map(|m| m.token)) {
@@ -105,11 +114,17 @@ macro_rules! common {
                                            opts: Default::default() };
 
       match reset.try_into_bytes() {
-        | Ok(dgram) => $effects.push(Effect::SendDgram(Addrd(dgram, msg.addr()))),
-        | Err(e) => return Some(Err(nb::Error::Other(Error::SerializingResetFailed(e)))),
-      };
+        | Ok(dgram) => {
+          $effects.push(Effect::SendDgram(Addrd(dgram, msg.addr())));
+          $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
+          None
+        },
+        | Err(e) => Some(Err(nb::Error::Other(Error::SerializingResetFailed(e)))),
+      }
+    } else {
+      Some(Ok($in))
     }
-  };
+  }};
 }
 
 impl<P: Platform,
@@ -131,9 +146,7 @@ impl<P: Platform,
     match req {
       | Some(req) => {
         let msg = req.as_ref().map(|r| &r.msg);
-        common!(msg, effects, self.buffer);
-
-        Some(Ok(req))
+        common!(req, msg, effects, self.buffer)
       },
       | None => None,
     }
@@ -151,9 +164,7 @@ impl<P: Platform,
     match resp {
       | Some(resp) => {
         let msg = resp.as_ref().map(|r| &r.msg);
-        common!(msg, effects, self.buffer);
-
-        Some(Ok(resp))
+        common!(resp, msg, effects, self.buffer)
       },
       | None => None,
     }
@@ -223,12 +234,12 @@ mod test {
 
   test_step!(
     GIVEN alloc::Reset::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
-    WHEN ack_received [
+    WHEN unexpected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
       (inner.message_sent = { |_| Ok(()) })
     ]
-    THEN reset_should_be_sent [
+    THEN should_ignore_and_send_reset [
       (
         poll_resp(
           _,
@@ -236,16 +247,12 @@ mod test {
           test_message(Type::Con).data().token,
           crate::test::dummy_addr()
         ) should satisfy {
-          |out| assert!(out.unwrap().is_ok())
+          |out| assert_eq!(out, None)
         }
       ),
+      (poll_req(_, _) should satisfy { |out| assert_eq!(out, None) }),
       (
-        poll_req(_, _) should satisfy {
-          |out| assert!(out.unwrap().is_ok())
-        }
-      ),
-      (
-        effects == {{
+        effects should satisfy {|effects| {
           use toad_msg::{Id, TryIntoBytes};
 
           let msg = test_message(Type::Reset);
@@ -255,10 +262,10 @@ mod test {
             msg
           });
 
-          vec![
-            Effect::SendDgram(msg.clone().map(TryIntoBytes::try_into_bytes).map(Result::unwrap)),
-            Effect::SendDgram(msg.map(TryIntoBytes::try_into_bytes).map(Result::unwrap)),
-          ]
+          assert_eq!(effects[0], Effect::SendDgram(msg.clone().map(TryIntoBytes::try_into_bytes).map(Result::unwrap)));
+          assert!(matches!(effects[1], Effect::Log(log::Level::Warn, _)));
+          assert_eq!(effects[2], Effect::SendDgram(msg.map(TryIntoBytes::try_into_bytes).map(Result::unwrap)));
+          assert!(matches!(effects[3], Effect::Log(log::Level::Warn, _)));
         }}
       )
     ]
