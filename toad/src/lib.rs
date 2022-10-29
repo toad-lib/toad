@@ -71,63 +71,49 @@ pub mod core;
 
 /// # CoAP core runtime
 ///
-/// The core CoAP runtime is broken into discrete steps
-/// that are mostly deterministic and therefore highly
-/// testable.
+/// The toad runtime is defined as a sequence of single-responsibility steps
+/// that are (mostly) deterministic and highly testable.
 ///
-/// Steps are expressed as types that impl a [`Step`](crate::step::Step) trait
-/// which defines 2 flows: "poll for a request" and "poll for a response to a request i sent"
+/// Steps are types that impl the [`Step`](crate::step::Step) trait which allows:
+///  * internal state
+///  * performing side effects via [`Effect`](crate::platform::Effect)
+///  * reading system state via [`Snapshot`](crate::platform::Snapshot)
+///  * being notified any time a message is sent ([`message_sent`](crate::step::Step.message_sent))
+///  * defining behavior for client flows ([`poll_resp`](crate::step::Step.poll_resp))
+///  * defining behavior for server flows ([`poll_req`](crate::step::Step.poll_req))
 ///
-/// Steps are usually parameterized by 1 type; the Step that came before it.
+/// Steps almost always include a type parameter of a step to perform first,
+/// allowing for the runtime to be defined as a sequence of `Step`s.
 ///
-/// This means that the entire CoAP runtime transparently describes what happens
-/// when a message is received, and layers can be swapped or added at the end
-/// without forking `toad`.
-///
-/// # Step demands
-/// Steps demand 2 pieces of information:
-///  - A snapshot of the system's state right now
-///  - A mutable reference to a list of effectful actions to perform once all steps have run
-///
-/// The system state allows for all steps to have access to the same effectful information
-/// e.g. system time, random number generation, incoming network messages
-///
-/// The list of Effects allows for steps to deterministically express the IO that it would
-/// like to be performed, e.g. log to stdout or send network messages.
+/// The benefit to users is that if runtime behavior needs to be customized,
+/// Steps can be swapped or added at the end without forking the entire crate.
 ///
 /// # Step philosophy
-/// In general, steps aim to be as deterministic as possible. The obvious exception
-/// to this is the mutable reference to `Effects`, but philosophically this can be
-/// thought of as a performance-enhanced immutable list.
+/// **NOTE**: For steps defined in `toad`, this philosophy will **always** be respected
+/// but isn't necessary for Steps defined in your application.
 ///
-/// The effect of this is that each step can be thought of as a state machine, such that
-/// if you send the same sequence of inputs you will always receive the same output.
+/// Steps must:
+///  * perform no side effects with 2 exceptions:
+///     * managing internal state
+///     * appending to the list of `effects`
+///  * **always** issue logs when messages are willfully ignored
 ///
-/// For steps defined in `toad`, this philosophy will **always** be respected
-///
-/// If you are a `toad` user, this philosophy **may** be respected, but the implications
-/// of performing IO in your steps (e.g. network requests) will not affect the runtime
-/// in any way.
+/// When these rules are followed, steps can be thought of as state machines.
+/// (If you send the same sequence of inputs you will **always** receive the same output)
 ///
 /// # Example
+/// flow
+/// ```text
+/// Gather Ingredients
+///   -> Mix Wet Ingredients
+///   -> Mix Dry Ingredients
+///   -> Mix Everything together
+///   -> Pour into cake tin
+///   -> Bake
+/// ```
+/// as types:
 /// ```text
 /// Bake<PourIntoCakeTin<MixEverything<MixDry<MixWet<GatherIngredients<Empty>>>>>>
-/// ```
-/// exploded:
-/// ```text
-/// Bake<
-///   PourIntoCakeTin<
-///     MixEverything<
-///       MixDry<
-///         MixWet<
-///           GatherIngredients<
-///             Empty
-///           >
-///         >
-///       >
-///     >
-///   >
-/// >
 /// ```
 pub mod step;
 
