@@ -531,6 +531,17 @@ pub mod test {
     ) => {
       assert_eq!($effects, &$expect)
     };
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (effects should satisfy {$f:expr})
+    ) => {{
+      let f: Box<dyn Fn(&Vec<$crate::platform::Effect<$crate::test::Platform>>)> = Box::new($f);
+      f($effects)
+    }};
   }
 
   #[macro_export]
