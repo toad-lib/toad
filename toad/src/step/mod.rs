@@ -6,6 +6,15 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, Platform};
 
+/// # Responding Reset to incoming messages
+///
+/// (applies to both server & client flows)
+///
+/// This step will track the tokens of all CONfirmable messages sent,
+/// and respond [`toad_msg::Type::Reset`] to ACKs that acknowledge a
+/// message we aren't aware of.
+pub mod reset;
+
 /// # ACKing incoming messages
 ///
 /// This step will send empty ACK messages to
@@ -316,8 +325,13 @@ pub mod test {
       static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
       static mut POLL_RESP_MOCK: Option<Box<dyn Fn() -> Option<::nb::Result<$poll_resp_ty,
                                                                             $error_ty>>>> = None;
+      static mut MESSAGE_SENT_MOCK:
+        Option<Box<dyn Fn(&$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
+                          -> Result<(), $error_ty>>> = None;
+
       unsafe {
         POLL_RESP_MOCK = Some(Box::new(|| None));
+        MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
       }
 
       impl Step<$crate::test::Platform> for Dummy {
@@ -342,9 +356,9 @@ pub mod test {
         }
 
         fn message_sent(&mut self,
-                        _: &Addrd<$crate::platform::Message<$crate::test::Platform>>)
+                        msg: &$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
                         -> Result<(), Self::Error> {
-          Ok(())
+          unsafe { MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
         }
       }
     };
@@ -355,6 +369,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -366,6 +381,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects_mut:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -377,6 +393,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -388,6 +405,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -399,6 +417,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token:expr,
@@ -410,6 +429,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token_mut:expr,
@@ -421,6 +441,7 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token:expr,
@@ -429,10 +450,35 @@ pub mod test {
     ) => {
       *$addr_mut = $addr
     };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      message_sent_mock = $message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr_mut:expr,
+      when (inner.message_sent = {$inner_msg_sent:expr})
+    ) => {
+      *$message_sent_mock = Some(Box::new($inner_msg_sent))
+    };
   }
 
   #[macro_export]
   macro_rules! test_step_expect {
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (message_sent($msg:expr) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::Step;
+
+      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.message_sent(&$msg))
+    }};
     (
       step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
@@ -514,6 +560,7 @@ pub mod test {
                 test_step_when!(
                   poll_req_mock = &mut POLL_REQ_MOCK,
                   poll_resp_mock = &mut POLL_RESP_MOCK,
+                  message_sent_mock = &mut MESSAGE_SENT_MOCK,
                   effects = &mut effects,
                   snapshot = &mut snapshot,
                   token = &mut token,

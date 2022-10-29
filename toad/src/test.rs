@@ -14,6 +14,8 @@ use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
 
+pub type Message = crate::platform::Message<Platform>;
+
 pub fn dummy_addr() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
 }
