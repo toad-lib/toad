@@ -1,5 +1,3 @@
-use core::convert::Infallible;
-
 use no_std_net::SocketAddr;
 use toad_msg::Token;
 
@@ -95,100 +93,6 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 ///   | Some(Err(nb::Error::Other(e))) => return Some(Err(nb::Error::Other($err(e)))),
 /// }
 /// ```
-///
-/// ```
-/// use embedded_time::Clock;
-/// use no_std_net::SocketAddr;
-/// use toad::net::Addrd;
-/// use toad::platform::{Effect, Message, Snapshot, Std};
-/// use toad::step::{exec_inner_step, Step, StepOutput};
-///
-/// #[derive(Default)]
-/// struct Inner;
-/// impl Step<Std> for Inner {
-///   type PollReq = ();
-///   type PollResp = ();
-///   type Error = ();
-///
-///   fn poll_req(&mut self,
-///               snap: &Snapshot<Std>,
-///               effects: &mut Vec<Effect<Std>>)
-///               -> StepOutput<Self::PollReq, Self::Error> {
-///     Some(Err(nb::Error::Other(())))
-///   }
-///
-///   fn poll_resp(&mut self,
-///                snap: &Snapshot<Std>,
-///                effects: &mut Vec<Effect<Std>>,
-///                token: toad_msg::Token,
-///                addr: SocketAddr)
-///                -> StepOutput<Self::PollResp, Self::Error> {
-///     Some(Err(nb::Error::Other(())))
-///   }
-///
-///   fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
-///     Ok(())
-///   }
-/// }
-///
-/// #[derive(Default)]
-/// struct MyStep<Inner>(Inner);
-///
-/// #[derive(Debug, PartialEq)]
-/// enum MyError<E> {
-///   MyStepMessedUp,
-///   InnerStepMessedUp(E),
-/// }
-///
-/// impl<E: toad::step::Error> toad::step::Error for MyError<E> {}
-///
-/// impl<Inner: Step<Std>> Step<Std> for MyStep<Inner> {
-///   type PollReq = ();
-///   type PollResp = ();
-///   type Error = MyError<Inner::Error>;
-///
-///   fn poll_req(&mut self,
-///               snap: &Snapshot<Std>,
-///               effects: &mut Vec<Effect<Std>>)
-///               -> StepOutput<Self::PollReq, Self::Error> {
-///     exec_inner_step!(self.0.poll_req(snap, effects), MyError::InnerStepMessedUp);
-///
-///     panic!("macro didn't return Inner's error");
-///   }
-///
-///   fn poll_resp(&mut self,
-///                snap: &Snapshot<Std>,
-///                effects: &mut Vec<Effect<Std>>,
-///                token: toad_msg::Token,
-///                addr: SocketAddr)
-///                -> StepOutput<Self::PollResp, Self::Error> {
-///     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr),
-///                      MyError::InnerStepMessedUp);
-///
-///     panic!("macro didn't return Inner's error");
-///   }
-///
-///   fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
-///     Ok(())
-///   }
-/// }
-///
-/// let token = toad_msg::Token(Default::default());
-///
-/// let addr: SocketAddr = {
-///   // 192.168.0.1:8080
-/// # use no_std_net::*;
-/// # SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
-/// };
-///
-/// let snap = Snapshot::<Std>::new(toad::std::Clock::new().try_now().unwrap(),
-///                                 toad::net::Addrd(Default::default(), addr));
-///
-/// assert_eq!(MyStep(Inner).poll_req(&snap, &mut Default::default()),
-///            Some(Err(nb::Error::Other(MyError::InnerStepMessedUp(())))));
-/// assert_eq!(MyStep(Inner).poll_resp(&snap, &mut Default::default(), token, addr),
-///            Some(Err(nb::Error::Other(MyError::InnerStepMessedUp(())))));
-/// ```
 #[macro_export]
 macro_rules! exec_inner_step {
   ($result:expr, $err:expr) => {
@@ -210,55 +114,7 @@ pub use exec_inner_step;
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
 
-impl Error for Infallible {}
 impl Error for () {}
-
-/// An [`Error`] that just passes an inner step's error
-/// through, for steps that are infallible but wrap fallible
-/// steps.
-///
-/// ```
-/// use no_std_net::SocketAddr;
-/// use toad::net::Addrd;
-/// use toad::platform::{Effect, Message, Snapshot, Std};
-/// use toad::step::{PassThrough, Step, StepOutput};
-///
-/// #[derive(Default)]
-/// struct ICantFailButInnerMight<Inner>(Inner);
-///
-/// impl<Inner: Step<Std>> Step<Std> for ICantFailButInnerMight<Inner> {
-///   type PollReq = ();
-///   type PollResp = ();
-///   type Error = PassThrough<Inner::Error>;
-///   # fn poll_req(&mut self,
-///   #             snap: &Snapshot<Std>,
-///   #             effects: &mut Vec<Effect<Std>>)
-///   #             -> StepOutput<Self::PollReq, Self::Error> {
-///   #   panic!();
-///   # }
-///   # fn poll_resp(&mut self,
-///   #              snap: &Snapshot<Std>,
-///   #              effects: &mut Vec<Effect<Std>>,
-///   #              token: toad_msg::Token,
-///   #              addr: SocketAddr)
-///   #              -> StepOutput<Self::PollResp, Self::Error> {
-///   #   panic!();
-///   # }
-///   # fn message_sent(&mut self, msg: &Addrd<Message<Std>>) -> Result<(), Self::Error> {
-///   #   panic!()
-///   # }
-/// }
-/// ```
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PassThrough<E>(E);
-
-impl<E: core::fmt::Debug> core::fmt::Debug for PassThrough<E> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    self.0.fmt(f)
-  }
-}
-
-impl<E: Error> Error for PassThrough<E> {}
 
 /// A step in the message-handling CoAP runtime.
 ///
@@ -271,19 +127,26 @@ pub trait Step<P: Platform>: Default {
   type PollResp;
 
   /// Type of error that can be yielded by poll_req / poll_resp
-  type Error: Error;
+  type Error: Error + From<<Self::Inner as Step<P>>::Error>;
 
-  /// Poll for an inbound request
+  /// Inner step that will be performed before this one.
+  type Inner: Step<P>;
+
+  /// Get reference to inner step
   ///
-  /// (A message which we have no existing conception of)
+  /// This is used by default event handler implementations
+  /// to invoke the handler for the inner step.
+  fn inner(&mut self) -> &mut Self::Inner;
+
+  /// # Poll for an inbound request
+  /// This corresponds to the **server** flow.
   fn poll_req(&mut self,
               snap: &platform::Snapshot<P>,
               effects: &mut P::Effects)
               -> StepOutput<Self::PollReq, Self::Error>;
 
-  /// Poll for an inbound response
-  ///
-  /// (A message which we are expecting as a direct result of a message we sent)
+  /// # Poll for an inbound response
+  /// This corresponds to the **client** flow.
   fn poll_resp(&mut self,
                snap: &platform::Snapshot<P>,
                effects: &mut P::Effects,
@@ -291,37 +154,35 @@ pub trait Step<P: Platform>: Default {
                addr: SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error>;
 
-  /// A message has been sent over the wire
-  fn message_sent(&mut self, msg: &Addrd<platform::Message<P>>) -> Result<(), Self::Error>;
+  /// Invoked before messages are sent, allowing for internal state change & modification.
+  fn before_message_sent(&mut self,
+                         msg: &mut Addrd<platform::Message<P>>)
+                         -> Result<(), Self::Error> {
+    self.inner()
+        .before_message_sent(msg)
+        .map_err(Self::Error::from)
+  }
+
+  /// Invoked after messages are sent, allowing for internal state change.
+  fn on_message_sent(&mut self, msg: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
+    self.inner().on_message_sent(msg).map_err(Self::Error::from)
+  }
 }
 
-/// A step that does nothing
-///
-/// This step is usually at the bottom / beginning of step chains.
-///
-/// e.g.
-/// ```text
-/// FilterResponses<AckRequests<Parse<Empty>>>
-/// ```
-/// means
-/// ```text
-/// Do nothing
-/// then Parse datagrams
-/// then Ack requests
-/// then Filter responses
-/// ```
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Empty;
-
-impl<P: Platform> Step<P> for Empty {
+impl<P: Platform> Step<P> for () {
   type PollReq = ();
   type PollResp = ();
-  type Error = Infallible;
+  type Error = ();
+  type Inner = ();
+
+  fn inner(&mut self) -> &mut Self::Inner {
+    panic!("Step.inner invoked for unit (). This is incorrect and would likely cause recursion without return")
+  }
 
   fn poll_req(&mut self,
               _: &platform::Snapshot<P>,
               _: &mut <P as Platform>::Effects)
-              -> StepOutput<(), Infallible> {
+              -> StepOutput<(), ()> {
     None
   }
 
@@ -330,11 +191,17 @@ impl<P: Platform> Step<P> for Empty {
                _: &mut <P as Platform>::Effects,
                _: Token,
                _: SocketAddr)
-               -> StepOutput<(), Infallible> {
+               -> StepOutput<(), ()> {
     None
   }
 
-  fn message_sent(&mut self, _: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
+  fn before_message_sent(&mut self,
+                         _: &mut Addrd<platform::Message<P>>)
+                         -> Result<(), Self::Error> {
+    Ok(())
+  }
+
+  fn on_message_sent(&mut self, _: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
     Ok(())
   }
 }
@@ -356,24 +223,34 @@ pub mod test {
   macro_rules! dummy_step {
     ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       #[derive(Default)]
-      struct Dummy;
+      struct Dummy(());
 
       static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
       static mut POLL_RESP_MOCK: Option<Box<dyn Fn() -> Option<::nb::Result<$poll_resp_ty,
                                                                             $error_ty>>>> = None;
-      static mut MESSAGE_SENT_MOCK:
+
+      static mut ON_MESSAGE_SENT_MOCK:
         Option<Box<dyn Fn(&$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
+                          -> Result<(), $error_ty>>> = None;
+      static mut BEFORE_MESSAGE_SENT_MOCK:
+        Option<Box<dyn Fn(&mut $crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
                           -> Result<(), $error_ty>>> = None;
 
       unsafe {
         POLL_RESP_MOCK = Some(Box::new(|| None));
-        MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
+        ON_MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
+        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
       }
 
       impl Step<$crate::test::Platform> for Dummy {
         type PollReq = $poll_req_ty;
         type PollResp = $poll_resp_ty;
         type Error = $error_ty;
+        type Inner = ();
+
+        fn inner(&mut self) -> &mut () {
+          &mut self.0
+        }
 
         fn poll_req(&mut self,
                     _: &$crate::platform::Snapshot<$crate::test::Platform>,
@@ -391,10 +268,16 @@ pub mod test {
           unsafe { POLL_RESP_MOCK.as_ref().unwrap()() }
         }
 
-        fn message_sent(&mut self,
+        fn before_message_sent(&mut self,
+                        msg: &mut $crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
+                        -> Result<(), Self::Error> {
+          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
+        }
+
+        fn on_message_sent(&mut self,
                         msg: &$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
                         -> Result<(), Self::Error> {
-          unsafe { MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
+          unsafe { ON_MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
         }
       }
     };
@@ -405,7 +288,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -417,7 +301,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects_mut:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -429,7 +314,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -441,7 +327,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot:expr,
       token = $token:expr,
@@ -453,7 +340,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token:expr,
@@ -465,7 +353,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token_mut:expr,
@@ -477,7 +366,8 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token:expr,
@@ -489,14 +379,28 @@ pub mod test {
     (
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
-      message_sent_mock = $message_sent_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
       effects = $effects:expr,
       snapshot = $snapshot_mut:expr,
       token = $token:expr,
       addr = $addr_mut:expr,
-      when (inner.message_sent = {$inner_msg_sent:expr})
+      when (inner.before_message_sent = {$before_message_sent:expr})
     ) => {
-      *$message_sent_mock = Some(Box::new($inner_msg_sent))
+      *$before_message_sent_mock = Some(Box::new($before_message_sent))
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr_mut:expr,
+      when (inner.on_message_sent = {$on_message_sent:expr})
+    ) => {
+      *$on_message_sent_mock = Some(Box::new($on_message_sent))
     };
   }
 
@@ -508,12 +412,25 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (message_sent($msg:expr) should satisfy {$assert_fn:expr})
+      expect (before_message_sent($msg:expr) should satisfy {$assert_fn:expr})
     ) => {{
       use $crate::step::Step;
 
       let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
-      assert_fn($step.message_sent(&$msg))
+      assert_fn($step.before_message_sent(&mut $msg))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (on_message_sent($msg:expr) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::Step;
+
+      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.on_message_sent(&$msg))
     }};
     (
       step: $step_ty:ty = $step:expr,
@@ -607,7 +524,8 @@ pub mod test {
                 test_step_when!(
                   poll_req_mock = &mut POLL_REQ_MOCK,
                   poll_resp_mock = &mut POLL_RESP_MOCK,
-                  message_sent_mock = &mut MESSAGE_SENT_MOCK,
+                  before_message_sent_mock = &mut BEFORE_MESSAGE_SENT_MOCK,
+                  on_message_sent_mock = &mut ON_MESSAGE_SENT_MOCK,
                   effects = &mut effects,
                   snapshot = &mut snapshot,
                   token = &mut token,

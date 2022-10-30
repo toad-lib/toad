@@ -57,6 +57,12 @@ pub enum Error<E> {
   Inner(E),
 }
 
+impl<E> From<E> for Error<E> {
+  fn from(e: E) -> Self {
+    Error::Inner(e)
+  }
+}
+
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
@@ -74,6 +80,11 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
   type Error = Error<Inner::Error>;
+  type Inner = Inner;
+
+  fn inner(&mut self) -> &mut Inner {
+    &mut self.0
+  }
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
@@ -103,10 +114,6 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Error<Inner::Error>> {
     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner).map(Ok)
-  }
-
-  fn message_sent(&mut self, msg: &Addrd<crate::platform::Message<P>>) -> Result<(), Self::Error> {
-    self.0.message_sent(msg).map_err(Error::Inner)
   }
 }
 

@@ -76,6 +76,12 @@ pub enum Error<E> {
   CapacityExhausted,
 }
 
+impl<E> From<E> for Error<E> {
+  fn from(e: E) -> Self {
+    Error::Inner(e)
+  }
+}
+
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
@@ -96,6 +102,11 @@ impl<P: Platform,
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
   type Error = Error<E>;
+  type Inner = S;
+
+  fn inner(&mut self) -> &mut Self::Inner {
+    &mut self.inner
+  }
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
@@ -138,10 +149,6 @@ impl<P: Platform,
       },
       | None => None,
     }
-  }
-
-  fn message_sent(&mut self, msg: &Addrd<crate::platform::Message<P>>) -> Result<(), Self::Error> {
-    self.inner.message_sent(msg).map_err(Error::Inner)
   }
 }
 
