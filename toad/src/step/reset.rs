@@ -1,8 +1,9 @@
+use core::fmt::Write;
+
 use tinyvec::ArrayVec;
-use toad_common::{Array, Map, GetSize};
+use toad_common::{Array, GetSize, Map};
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{Code, Id, Payload, Token, TryIntoBytes, Type};
-use core::fmt::Write;
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
@@ -56,7 +57,11 @@ pub struct Reset<S, B> {
 impl<S, B> Reset<S, B> {
   fn warn_ack_ignored<P: Platform>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
     let mut string = String1Kb::default();
-    write!(string, "{} -> {}b ACK {:?} ignored", msg.addr(), msg.data().get_size(), msg.data().token).ok();
+    write!(string,
+           "{} -> {}b ACK {:?} ignored",
+           msg.addr(),
+           msg.data().get_size(),
+           msg.data().token).ok();
     string
   }
 }
@@ -84,6 +89,12 @@ pub enum Error<E> {
   CapacityExhausted,
   /// Failed to serialize outbound Reset message
   SerializingResetFailed(MessageToBytesError),
+}
+
+impl<E> From<E> for Error<E> {
+  fn from(e: E) -> Self {
+    Error::Inner(e)
+  }
 }
 
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
@@ -136,6 +147,11 @@ impl<P: Platform,
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
   type Error = Error<E>;
+  type Inner = S;
+
+  fn inner(&mut self) -> &mut Self::Inner {
+    &mut self.inner
+  }
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
@@ -170,8 +186,10 @@ impl<P: Platform,
     }
   }
 
-  fn message_sent(&mut self, msg: &Addrd<crate::platform::Message<P>>) -> Result<(), Self::Error> {
-    self.inner.message_sent(msg).map_err(Error::Inner)?;
+  fn on_message_sent(&mut self,
+                     msg: &Addrd<crate::platform::Message<P>>)
+                     -> Result<(), Self::Error> {
+    self.inner.on_message_sent(msg).map_err(Error::Inner)?;
 
     match msg.data().ty {
       | Type::Con => self.buffer
@@ -211,12 +229,12 @@ mod test {
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) }),
-      (inner.message_sent = { |_| Err(()) })
+      (inner.on_message_sent = { |_| Err(()) })
     ]
     THEN this_should_error [
       (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
       (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
-      (message_sent(test_message(Type::Con)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
+      (on_message_sent(test_message(Type::Con)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
     ]
   );
 
@@ -237,7 +255,7 @@ mod test {
     WHEN unexpected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
-      (inner.message_sent = { |_| Ok(()) })
+      (inner.on_message_sent = { |_| Ok(()) })
     ]
     THEN should_ignore_and_send_reset [
       (
@@ -276,12 +294,12 @@ mod test {
     WHEN expected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
-      (inner.message_sent = { |_| Ok(()) })
+      (inner.on_message_sent = { |_| Ok(()) })
     ]
     THEN all_good [
-      (message_sent(test_message(Type::Con)) should satisfy { |_| () }),
+      (on_message_sent(test_message(Type::Con)) should satisfy { |_| () }),
       (
-        message_sent({
+        on_message_sent({
           let Addrd(mut msg, addr) = test_message(Type::Con);
           msg.token = Token(array_vec!(_ => 2));
           Addrd(msg, addr)
