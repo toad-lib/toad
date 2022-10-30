@@ -6,46 +6,72 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, Platform};
 
-/// # Responding Reset to incoming messages
+/// # Send Reset to ACKs we don't recognize
+/// * Client Flow ✓
+/// * Server Flow ✓
 ///
-/// (applies to both server & client flows)
+/// ## Internal State
+/// This step will store the tokens of all CONfirmable messages sent,
+/// removing them as they are acknowledged.
 ///
-/// This step will track the tokens of all CONfirmable messages sent,
-/// and respond [`toad_msg::Type::Reset`] to ACKs that acknowledge a
-/// message we aren't aware of.
+/// ## Behavior
+/// If an ACK is received by a client or server that does not match any
+/// pending CONfirmable messages, this step will:
+///  * Reply to the ACK with a Reset message
+///  * Log that the ACK was ignored
+///
+/// ## Transformation
+/// If an ACK is received by a client or server that does not match any
+/// pending CONfirmable messages, this step will cause further steps
+/// to ignore it by yielding None.
 pub mod reset;
 
-/// # ACKing incoming messages
+/// # ACK incoming messages
+/// * Client Flow ✓
+/// * Server Flow ✓
 ///
-/// This step will send empty ACK messages to
-/// all received CON messages (applies to both server & client flows)
+/// ## Internal State
+/// None
+///
+/// ## Behavior
+/// If a CON is received by a client or server,
+/// this step will reply with an ACK.
+///
+/// ## Transformation
+/// None
 pub mod ack;
 
-/// # Buffering Responses
+/// # Ensure clients only receive relevant response
+/// * Client Flow ✓
+/// * Server Flow ✗
 ///
-/// This step module only applies to the client flow.
+/// ## Internal State
+///  * Stores all responses received
 ///
-/// [`BufferResponses`](buffer_responses::alloc::BufferResponses) ([`no_alloc`](buffer_responses::no_alloc::BufferResponses))
-/// handles responses received during the client flow (polling for a response to a sent request)
+/// ## Behavior
+///  * Store incoming response
+///  * If we've never seen a response matching the polled request, yield WouldBlock
+///  * If we have seen exactly one matching response, pop it from the buffer & yield it
+///  * If we have seen more than one matching response with different [`Type`](toad_msg::Type)s, pop & yield in this priority:
+///      1. ACK
+///      1. CON
+///      1. NON
+///      1. RESET
 ///
-/// If the response gotten matches the token of the sent request, nothing is done and
-/// the next step will get the response.
-///
-/// If the response does not match the request token, and it has not seen a response to this
-/// request yet, then the response is stored in the buffer and `WouldBlock` is yielded.
-///
-/// If the response does not match the request token, and it has buffered a response to this
-/// request, then the response is stored in the buffer and the matching response is taken out of the buffer.
+/// ## Transformation
+/// None
 pub mod buffer_responses;
 
-/// # Parsing step
+/// # Parse messages from dgrams
+/// * Client Flow ✓
+/// * Server Flow ✓
 ///
-/// This step is responsible for initiating the Step pipe
-/// by reading the platform's [`Snapshot`](crate::platform::Snapshot) for
-/// a dgram received from an external source.
+/// ## Internal State
+/// None
 ///
-/// This step does no filtering whatsoever and _just_ parses the dgram
-/// into a [`toad_msg::Message`] then into a [`Req`](crate::req::Req) or [`Resp`](crate::resp::Resp).
+/// ## Behavior
+///  * Parse dgrams from snapshot into Message
+///  * Wrap Message with Req/Resp (no filtering)
 pub mod parse;
 
 /// ```text
@@ -59,6 +85,16 @@ pub type StepOutput<T, E> = Option<nb::Result<T, E>>;
 /// Macro to execute inner steps,
 /// converting the `Option<nb::Result<T, E>>` to `Option<T>`
 /// by returning the inner step's Errors & WouldBlock
+///
+/// ```text
+/// match $result {
+///   | None => None,
+///   | Some(Ok(t)) => Some(t),
+///   | Some(Err(nb::Error::WouldBlock)) if $run_anyway_when_would_block => None,
+///   | Some(Err(nb::Error::WouldBlock)) => return Some(Err(nb::Error::WouldBlock)),
+///   | Some(Err(nb::Error::Other(e))) => return Some(Err(nb::Error::Other($err(e)))),
+/// }
+/// ```
 ///
 /// ```
 /// use embedded_time::Clock;
