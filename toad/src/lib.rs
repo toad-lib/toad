@@ -93,7 +93,7 @@ pub mod core;
 /// but isn't necessary for Steps defined in your application.
 ///
 /// Steps must:
-///  * perform no side effects with 2 exceptions:
+///  * perform no IO with some exceptions:
 ///     * managing internal state
 ///     * appending to the list of `effects`
 ///  * **always** issue logs when messages are willfully ignored

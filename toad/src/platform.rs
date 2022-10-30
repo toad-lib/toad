@@ -49,15 +49,10 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type Effects: Array<Item = Effect<Self>>;
 }
 
-/// A snapshot of the platform's state at any given moment.
-///
-/// This struct's fields should not be considered stable and any
-/// patterns matching against its structure must use the wildcard pattern:
+/// A snapshot of the system's state at a given moment
 ///
 /// ```text
-/// match snap {
-///   Snapshot {time, recvd_dgram, ..} => (),
-/// }
+/// let Snapshot {time, recvd_dgram, ..} = snap;
 /// ```
 #[allow(missing_debug_implementations)]
 #[non_exhaustive]
@@ -137,8 +132,7 @@ impl<P: Platform, T> Retryable<P, T> {
 }
 
 /// Configures `toad` to use `Vec` for collections,
-/// `UdpSocket` for networking,
-/// and [`crate::std::Clock`] for timing
+/// `UdpSocket` for networking, and [`crate::std::Clock`] for timing
 ///
 /// ```
 /// use toad::platform::Std;
@@ -197,11 +191,11 @@ impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
 
-/// [`Std`] but secured with DTLS
+/// [`Std`] secured with DTLS
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;
 
-/// Type alias using Config instead of explicit type parameters for [`toad_msg::Message`]
+/// [`toad_msg::Message`] shorthand using Platform types
 pub type Message<P> =
   toad_msg::Message<<P as Platform>::MessagePayload, <P as Platform>::MessageOptions>;
