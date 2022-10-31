@@ -1,14 +1,15 @@
 use core::fmt::Debug;
 
-use embedded_time::{Clock, Instant};
+use embedded_time::Instant;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::{collections::BTreeMap, vec::Vec};
 use toad_common::*;
 use toad_msg::{Id, Opt, OptNumber, Token};
 
+use crate::config::ConfigData;
 use crate::net::{Addrd, Socket};
-use crate::time::Stamped;
+use crate::time::{Clock, Stamped};
 use crate::todo::String1Kb;
 
 /// toad configuration trait
@@ -37,7 +38,7 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
     + PartialEq;
 
   /// What should we use to keep track of time?
-  type Clock: Clock<T = u64>;
+  type Clock: Clock;
 
   /// How will network datagrams be stored?
   type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + Debug + PartialEq;
@@ -62,18 +63,16 @@ pub struct Snapshot<P: Platform> {
 
   /// A UDP datagram received from somewhere
   pub recvd_dgram: Addrd<P::Dgram>,
-}
 
-impl<P: Platform> Snapshot<P> {
-  /// Create a snapshot
-  pub fn new(time: Instant<P::Clock>, recvd_dgram: Addrd<P::Dgram>) -> Self {
-    Self { time, recvd_dgram }
-  }
+  /// Runtime config, includes many useful timings
+  pub config: ConfigData,
 }
 
 impl<P: Platform> Clone for Snapshot<P> {
   fn clone(&self) -> Self {
-    Self::new(self.time, self.recvd_dgram.clone())
+    Self { time: self.time,
+           recvd_dgram: self.recvd_dgram.clone(),
+           config: self.config }
   }
 }
 
@@ -144,25 +143,25 @@ impl<P: Platform, T> Retryable<P, T> {
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
 pub struct Alloc<Clk, Sock>(core::marker::PhantomData<(Clk, Sock)>)
-  where Clk: Clock<T = u64> + 'static,
+  where Clk: Clock + 'static,
         Sock: Socket + 'static;
 
 #[cfg(feature = "alloc")]
-impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {
+impl<Clk: Clock + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     write!(f, "Alloc::<_, _>(_)")
   }
 }
 
 #[cfg(feature = "alloc")]
-impl<Clk: Clock<T = u64> + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
+impl<Clk: Clock + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
   fn clone(&self) -> Self {
     Self(Default::default())
   }
 }
 
 #[cfg(feature = "alloc")]
-impl<Clk: Clock<T = u64> + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Clk, Sock> {
+impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Clk, Sock> {
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = Vec<Opt<Vec<u8>>>;

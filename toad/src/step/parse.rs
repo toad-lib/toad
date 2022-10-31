@@ -166,10 +166,11 @@ mod test {
       WHEN con_request_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot::new(
-            crate::test::ClockMock::new().try_now().unwrap(),
-            test_msg(Type::Con, Code::new(1, 01)).0,
-          )
+          platform::Snapshot {
+            time: crate::test::ClockMock::new().try_now().unwrap(),
+            recvd_dgram: test_msg(Type::Con, Code::new(1, 01)).0,
+            config: Default::default(),
+          }
         })
       ]
       THEN poll_req_should_parse_it [
@@ -182,10 +183,11 @@ mod test {
       WHEN empty_ack_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot::new(
-            crate::test::ClockMock::new().try_now().unwrap(),
-            test_msg(Type::Ack, Code::new(0, 0)).0,
-          )
+          platform::Snapshot {
+            time: crate::test::ClockMock::new().try_now().unwrap(),
+            recvd_dgram: test_msg(Type::Ack, Code::new(0, 0)).0,
+            config: Default::default(),
+          }
         })
       ]
       THEN poll_req_should_parse_it [
@@ -198,10 +200,11 @@ mod test {
       WHEN piggy_ack_recvd [
         (inner.poll_req => {None}),
         (snapshot = {
-          platform::Snapshot::new(
-            crate::test::ClockMock::new().try_now().unwrap(),
-            test_msg(Type::Ack, Code::new(2, 04)).0,
-          )
+          platform::Snapshot {
+            time: crate::test::ClockMock::new().try_now().unwrap(),
+            recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0,
+            config: Default::default(),
+          }
         })
       ]
       THEN poll_req_should_parse_it [
@@ -214,10 +217,11 @@ mod test {
       WHEN recvd_ack [
           (inner.poll_resp => {None}),
           (snapshot = {
-            platform::Snapshot::new(
-              crate::test::ClockMock::new().try_now().unwrap(),
-              test_msg(Type::Ack, Code::new(2, 04)).0,
-            )
+            platform::Snapshot {
+              time: crate::test::ClockMock::new().try_now().unwrap(),
+              recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0,
+              config: Default::default(),
+            }
           })
         ]
       THEN poll_resp_should_parse_it [
@@ -230,10 +234,11 @@ mod test {
       WHEN request_recvd [
         (inner.poll_resp => {None}),
         (snapshot = {
-          platform::Snapshot::new(
-            crate::test::ClockMock::new().try_now().unwrap(),
-            test_msg(Type::Con, Code::new(1, 1)).0,
-          )
+          platform::Snapshot {
+           time: crate::test::ClockMock::new().try_now().unwrap(),
+           recvd_dgram: test_msg(Type::Con, Code::new(1, 1)).0,
+           config: Default::default(),
+          }
         })
       ]
       THEN poll_resp_should_parse_it [
