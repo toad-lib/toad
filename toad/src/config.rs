@@ -5,38 +5,46 @@ use toad_macros::rfc_7252_doc;
 
 use crate::retry::{Attempts, Strategy};
 
-pub(crate) struct ConfigData {
+/// Built runtime config
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConfigData {
   pub(crate) token_seed: u16,
   pub(crate) con_retry_strategy: Strategy,
-  pub(crate) default_leisure_millis: u32,
+  pub(crate) default_leisure_millis: u64,
   pub(crate) max_retransmit_attempts: u16,
   pub(crate) nstart: u8,
   pub(crate) probing_rate_bytes_per_sec: u16,
 }
 
+impl Default for ConfigData {
+  fn default() -> Self {
+    Config::default().into()
+  }
+}
+
 impl ConfigData {
-  pub(crate) fn max_transmit_span_millis(&self) -> u32 {
+  pub(crate) fn max_transmit_span_millis(&self) -> u64 {
     self.con_retry_strategy
         .max_time(Attempts(self.max_retransmit_attempts - 1))
-        .0 as u32
+        .0 as u64
   }
 
-  pub(crate) fn max_transmit_wait_millis(&self) -> u32 {
+  pub(crate) fn max_transmit_wait_millis(&self) -> u64 {
     self.con_retry_strategy
         .max_time(Attempts(self.max_retransmit_attempts))
-        .0 as u32
+        .0 as u64
   }
 
   // TODO: adjust these on the fly based on actual timings?
-  pub(crate) fn max_latency_millis(&self) -> u32 {
+  pub(crate) fn max_latency_millis(&self) -> u64 {
     100_000
   }
 
-  pub(crate) fn expected_processing_delay_millis(&self) -> u32 {
+  pub(crate) fn expected_processing_delay_millis(&self) -> u64 {
     200
   }
 
-  pub(crate) fn exchange_lifetime_millis(&self) -> u32 {
+  pub(crate) fn exchange_lifetime_millis(&self) -> u64 {
     self.max_transmit_span_millis()
     + (2 * self.max_latency_millis())
     + self.expected_processing_delay_millis()
@@ -51,18 +59,25 @@ impl ConfigData {
 /// unacknowledged confirmable requests?"
 ///
 /// For an example see [`Config::new`].
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Config {
   token_seed: Option<u16>,
   con_retry_strategy: Option<Strategy>,
-  default_leisure_millis: Option<u32>,
+  default_leisure_millis: Option<u64>,
   max_retransmit_attempts: Option<u16>,
   nstart: Option<u8>,
   probing_rate_bytes_per_sec: Option<u16>,
-  /// Users who use a struct literal to initialize this
-  /// /must/ use ..Default::default(),
-  /// which makes adding fields to this struct non-breaking.
-  __non_exhaustive: (),
+}
+
+impl Default for Config {
+  fn default() -> Self {
+    Self { token_seed: None,
+           con_retry_strategy: None,
+           default_leisure_millis: None,
+           max_retransmit_attempts: None,
+           nstart: None,
+           probing_rate_bytes_per_sec: None }
+  }
 }
 
 /// Bytes / Second
@@ -140,7 +155,7 @@ impl Config {
   /// - responses to our NON requests
   /// - responses to our acked CON requests
   ///
-  /// The default value is 1,000 (1KB)
+  /// The default value is 1,000 (1KB/s)
   pub fn probing_rate(mut self, probing_rate: BytesPerSecond) -> Self {
     self.probing_rate_bytes_per_sec = Some(probing_rate.0);
     self
@@ -169,7 +184,7 @@ impl Config {
   ///
   /// The default value is 5 seconds.
   #[doc = rfc_7252_doc!("8.2")]
-  pub fn default_leisure(mut self, default_leisure: Milliseconds<u32>) -> Self {
+  pub fn default_leisure(mut self, default_leisure: Milliseconds<u64>) -> Self {
     self.default_leisure_millis = Some(default_leisure.0);
     self
   }

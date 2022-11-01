@@ -5,6 +5,9 @@ use core::ops::{Div, Mul};
 use tinyvec::ArrayVec;
 use toad_common::*;
 
+/// A [`Map`](toad_common::Map) stored completely on the stack
+pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;
+
 /// String with capacity of 1KB
 #[derive(Debug, Copy, Clone, Default)]
 pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
