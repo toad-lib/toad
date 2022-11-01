@@ -24,6 +24,10 @@ pub fn dummy_addr_2() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 2), 8080))
 }
 
+pub fn dummy_addr_3() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 3), 8080))
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TimeoutState {
   Canceled,
@@ -73,12 +77,16 @@ impl ClockMock {
   pub fn set(&self, to: u64) {
     self.0.set(to);
   }
+
+  pub fn instant(n: u64) -> Instant<Self> {
+    Instant::new(n)
+  }
 }
 
 impl embedded_time::Clock for ClockMock {
   type T = u64;
 
-  const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000_000);
+  const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
 
   fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
     Ok(Instant::new(self.0.get()))

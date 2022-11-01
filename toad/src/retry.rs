@@ -1,9 +1,11 @@
 use core::ops::RangeInclusive;
 
 use embedded_time::duration::Milliseconds;
-use embedded_time::{Clock, Instant};
+use embedded_time::Instant;
 use rand::{Rng, SeedableRng};
 use toad_common::*;
+
+use crate::time::{Clock, Millis};
 
 /// A non-blocking timer that allows a fixed-delay or exponential-backoff retry,
 /// that lives alongside some operation to retry.
@@ -45,9 +47,9 @@ use toad_common::*;
 /// }
 /// ```
 #[derive(Debug, Clone, Copy)]
-pub struct RetryTimer<C: Clock<T = u64>> {
+pub struct RetryTimer<C: Clock> {
   start: Instant<C>,
-  init: Milliseconds<u64>,
+  init: Millis,
   strategy: Strategy,
   attempts: Attempts,
   max_attempts: Attempts,
@@ -69,14 +71,14 @@ pub enum YouShould {
   Retry,
 }
 
-impl<C: Clock<T = u64>> RetryTimer<C> {
+impl<C: Clock> RetryTimer<C> {
   /// Create a new retrier
   pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
     Self { start,
            strategy,
            init: if strategy.has_jitter() {
              let mut rand =
-               Ok(start.duration_since_epoch()).bind(Milliseconds::try_from)
+               Ok(start.duration_since_epoch()).bind(Millis::try_from)
                                                .map(|Milliseconds(ms)| {
                                                  rand_chacha::ChaCha8Rng::seed_from_u64(ms)
                                                })
@@ -112,13 +114,13 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
   }
 
   /// Check if the strategy says an appropriate time has passed
-  pub fn is_ready(&self, Milliseconds(time_passed): Milliseconds<u64>, attempts: u16) -> bool {
+  pub fn is_ready(&self, Milliseconds(time_passed): Millis, attempts: u16) -> bool {
     if attempts == 0 {
       return true;
     }
 
     match self.strategy {
-      | Strategy::Delay { .. } => time_passed >= (self.init.0 * attempts as u64),
+      | Strategy::Delay { .. } => time_passed >= self.init.0 * (attempts as u64),
       | Strategy::Exponential { .. } => {
         time_passed >= Strategy::total_delay_exp(self.init, attempts)
       },
@@ -127,7 +129,7 @@ impl<C: Clock<T = u64>> RetryTimer<C> {
 }
 
 /// Strategy to employ when retrying
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Strategy {
   /// Generate a random delay between `min` and `max`,
   /// and wait until this delay has passed between attempts.
@@ -135,17 +137,17 @@ pub enum Strategy {
   /// After each failed attempt, double the delay before retrying again.
   Exponential {
     /// Minimum (inclusive) delay for second attempt
-    init_min: Milliseconds<u64>,
+    init_min: Millis,
     /// Maximum (inclusive) delay for second attempt
-    init_max: Milliseconds<u64>,
+    init_max: Millis,
   },
   /// Generate a random delay between `min` and `max`,
   /// and wait until this delay has passed between attempts.
   Delay {
     /// Minimum (inclusive) delay for attempts
-    min: Milliseconds<u64>,
+    min: Millis,
     /// Maximum (inclusive) delay for attempts
-    max: Milliseconds<u64>,
+    max: Millis,
   },
 }
 
@@ -168,7 +170,7 @@ impl Strategy {
   }
 
   /// Get the amount of time this strategy will take if all attempts fail
-  pub fn max_time(&self, max_attempts: Attempts) -> Milliseconds<u64> {
+  pub fn max_time(&self, max_attempts: Attempts) -> Millis {
     Milliseconds(match self {
                    | Self::Exponential { init_max, .. } => {
                      Self::total_delay_exp(*init_max, max_attempts.0)
@@ -180,7 +182,7 @@ impl Strategy {
 
   /// Given the initial delay and number of attempts that have been performed,
   /// yields the delay until the next retry should be attempted.
-  const fn total_delay_exp(Milliseconds(init): Milliseconds<u64>, attempt: u16) -> u64 {
+  const fn total_delay_exp(Milliseconds(init): Millis, attempt: u16) -> u64 {
     // | attempt | total delay      |
     // | 1       | init             |
     // | 2       | init * 2         |
@@ -194,6 +196,7 @@ impl Strategy {
 #[cfg(test)]
 mod test {
   use embedded_time::rate::Fraction;
+  use embedded_time::Clock;
 
   use super::*;
 
@@ -204,7 +207,7 @@ mod test {
     }
   }
 
-  impl Clock for FakeClock {
+  impl embedded_time::Clock for FakeClock {
     type T = u64;
 
     const SCALING_FACTOR: Fraction = Fraction::new(1, 1000);
