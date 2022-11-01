@@ -32,6 +32,11 @@ impl<T> Addrd<T> {
     &self.0
   }
 
+  /// Mutably borrow the contents of the addressed item
+  pub fn data_mut(&mut self) -> &mut T {
+    &mut self.0
+  }
+
   /// Copy the socket address for the data
   pub fn addr(&self) -> SocketAddr {
     self.1
