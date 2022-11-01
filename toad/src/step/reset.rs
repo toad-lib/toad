@@ -187,9 +187,12 @@ impl<P: Platform,
   }
 
   fn on_message_sent(&mut self,
+                     snap: &platform::Snapshot<P>,
                      msg: &Addrd<crate::platform::Message<P>>)
                      -> Result<(), Self::Error> {
-    self.inner.on_message_sent(msg).map_err(Error::Inner)?;
+    self.inner
+        .on_message_sent(snap, msg)
+        .map_err(Error::Inner)?;
 
     match msg.data().ty {
       | Type::Con => self.buffer
@@ -229,12 +232,12 @@ mod test {
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) }),
-      (inner.on_message_sent = { |_| Err(()) })
+      (inner.on_message_sent = { |_, _| Err(()) })
     ]
     THEN this_should_error [
       (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
       (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
-      (on_message_sent(test_message(Type::Con)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
+      (on_message_sent(_, test_message(Type::Con)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
     ]
   );
 
@@ -255,7 +258,7 @@ mod test {
     WHEN unexpected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
-      (inner.on_message_sent = { |_| Ok(()) })
+      (inner.on_message_sent = { |_, _| Ok(()) })
     ]
     THEN should_ignore_and_send_reset [
       (
@@ -294,16 +297,19 @@ mod test {
     WHEN expected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
-      (inner.on_message_sent = { |_| Ok(()) })
+      (inner.on_message_sent = { |_, _| Ok(()) })
     ]
     THEN all_good [
-      (on_message_sent(test_message(Type::Con)) should satisfy { |_| () }),
+      (on_message_sent(_, test_message(Type::Con)) should satisfy { |_| () }),
       (
-        on_message_sent({
-          let Addrd(mut msg, addr) = test_message(Type::Con);
-          msg.token = Token(array_vec!(_ => 2));
-          Addrd(msg, addr)
-        }) should satisfy { |_| () }
+        on_message_sent(
+          _,
+          {
+            let Addrd(mut msg, addr) = test_message(Type::Con);
+            msg.token = Token(array_vec!(_ => 2));
+            Addrd(msg, addr)
+          }
+        ) should satisfy { |_| () }
       ),
       (
         poll_resp(

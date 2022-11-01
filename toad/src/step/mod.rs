@@ -4,6 +4,22 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, Platform};
 
+/// # Assign message Ids to those with Id(0)
+/// * Client Flow ✓
+/// * Server Flow ✓
+///
+/// ## Internal State
+/// This step will store a buffer of the last 32 unique IDs sent and received
+/// per connection.
+///
+/// ## Behavior
+/// Whenever a message is sent with an Id of 0, the Id is replaced with a new Id
+/// that has not been sent or received yet.
+///
+/// ## Transformation
+/// None
+pub mod provision_ids;
+
 /// # Send Reset to ACKs we don't recognize
 /// * Client Flow ✓
 /// * Server Flow ✓
@@ -109,7 +125,20 @@ macro_rules! exec_inner_step {
   };
 }
 
-pub use exec_inner_step;
+/// Specialized `?` operator for use in step bodies, allowing early-exit
+/// for Result, Option<Result> and Option<nb::Result>.
+#[macro_export]
+macro_rules! _try {
+  (Result; $r:expr) => {_try!(Option<Result>; Some($r))};
+  (Option<Result>; $r:expr) => {_try!(Option<nb::Result>; $r.map(|r| r.map_err(nb::Error::Other)))};
+  (Option<nb::Result>; $r:expr) => {match $r {
+    None => return None,
+    Some(Err(e)) => return Some(Err(e)),
+    Some(Ok(a)) => a,
+  }};
+}
+
+pub use {_try, exec_inner_step};
 
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
@@ -156,16 +185,22 @@ pub trait Step<P: Platform>: Default {
 
   /// Invoked before messages are sent, allowing for internal state change & modification.
   fn before_message_sent(&mut self,
+                         snap: &platform::Snapshot<P>,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     self.inner()
-        .before_message_sent(msg)
+        .before_message_sent(snap, msg)
         .map_err(Self::Error::from)
   }
 
   /// Invoked after messages are sent, allowing for internal state change.
-  fn on_message_sent(&mut self, msg: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
-    self.inner().on_message_sent(msg).map_err(Self::Error::from)
+  fn on_message_sent(&mut self,
+                     snap: &platform::Snapshot<P>,
+                     msg: &Addrd<platform::Message<P>>)
+                     -> Result<(), Self::Error> {
+    self.inner()
+        .on_message_sent(snap, msg)
+        .map_err(Self::Error::from)
   }
 }
 
@@ -196,12 +231,16 @@ impl<P: Platform> Step<P> for () {
   }
 
   fn before_message_sent(&mut self,
+                         _: &platform::Snapshot<P>,
                          _: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     Ok(())
   }
 
-  fn on_message_sent(&mut self, _: &Addrd<platform::Message<P>>) -> Result<(), Self::Error> {
+  fn on_message_sent(&mut self,
+                     _: &platform::Snapshot<P>,
+                     _: &Addrd<platform::Message<P>>)
+                     -> Result<(), Self::Error> {
     Ok(())
   }
 }
@@ -215,34 +254,38 @@ pub mod test {
   use crate::test::ClockMock;
 
   pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
-    platform::Snapshot::new(ClockMock::new().try_now().unwrap(),
-                            crate::net::Addrd(Default::default(), crate::test::dummy_addr()))
+    platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
+                         recvd_dgram: crate::net::Addrd(Default::default(),
+                                                        crate::test::dummy_addr()),
+                         config: crate::config::Config::default().into() }
   }
 
   #[macro_export]
   macro_rules! dummy_step {
     ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
+      use $crate::net::Addrd;
+      use $crate::{platform, step, test};
+
       #[derive(Default)]
       struct Dummy(());
 
       static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
       static mut POLL_RESP_MOCK: Option<Box<dyn Fn() -> Option<::nb::Result<$poll_resp_ty,
                                                                             $error_ty>>>> = None;
-
-      static mut ON_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
-                          -> Result<(), $error_ty>>> = None;
+      static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+                                                           &Addrd<test::Message>)
+                                                           -> Result<(), $error_ty>>> = None;
       static mut BEFORE_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&mut $crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
-                          -> Result<(), $error_ty>>> = None;
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+                          &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
         POLL_RESP_MOCK = Some(Box::new(|| None));
-        ON_MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
-        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_| Ok(())));
+        ON_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
+        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
       }
 
-      impl Step<$crate::test::Platform> for Dummy {
+      impl Step<test::Platform> for Dummy {
         type PollReq = $poll_req_ty;
         type PollResp = $poll_resp_ty;
         type Error = $error_ty;
@@ -253,31 +296,33 @@ pub mod test {
         }
 
         fn poll_req(&mut self,
-                    _: &$crate::platform::Snapshot<$crate::test::Platform>,
-                    _: &mut <$crate::test::Platform as $crate::platform::Platform>::Effects)
-                    -> $crate::step::StepOutput<Self::PollReq, Self::Error> {
+                    _: &platform::Snapshot<test::Platform>,
+                    _: &mut <test::Platform as platform::Platform>::Effects)
+                    -> step::StepOutput<Self::PollReq, Self::Error> {
           unsafe { POLL_REQ_MOCK.clone() }
         }
 
         fn poll_resp(&mut self,
-                     _: &$crate::platform::Snapshot<$crate::test::Platform>,
-                     _: &mut <$crate::test::Platform as $crate::platform::Platform>::Effects,
+                     _: &platform::Snapshot<test::Platform>,
+                     _: &mut <test::Platform as platform::Platform>::Effects,
                      _: toad_msg::Token,
                      _: no_std_net::SocketAddr)
-                     -> $crate::step::StepOutput<Self::PollResp, ()> {
+                     -> step::StepOutput<Self::PollResp, ()> {
           unsafe { POLL_RESP_MOCK.as_ref().unwrap()() }
         }
 
         fn before_message_sent(&mut self,
-                        msg: &mut $crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
-                        -> Result<(), Self::Error> {
-          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
+                               snap: &platform::Snapshot<test::Platform>,
+                               msg: &mut Addrd<test::Message>)
+                               -> Result<(), Self::Error> {
+          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
         }
 
         fn on_message_sent(&mut self,
-                        msg: &$crate::net::Addrd<$crate::platform::Message<$crate::test::Platform>>)
-                        -> Result<(), Self::Error> {
-          unsafe { ON_MESSAGE_SENT_MOCK.as_ref().unwrap()(msg) }
+                           snap: &platform::Snapshot<test::Platform>,
+                           msg: &Addrd<test::Message>)
+                           -> Result<(), Self::Error> {
+          unsafe { ON_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
         }
       }
     };
@@ -425,12 +470,12 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (on_message_sent($msg:expr) should satisfy {$assert_fn:expr})
+      expect (on_message_sent(_, $msg:expr) should satisfy {$assert_fn:expr})
     ) => {{
       use $crate::step::Step;
 
       let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
-      assert_fn($step.on_message_sent(&$msg))
+      assert_fn($step.on_message_sent($snap, &$msg))
     }};
     (
       step: $step_ty:ty = $step:expr,
@@ -495,6 +540,19 @@ pub mod test {
       let f: Box<dyn Fn(&Vec<$crate::platform::Effect<$crate::test::Platform>>)> = Box::new($f);
       f($effects)
     }};
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $snap:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (before_message_sent(_, $msg:expr) should be ok with {$f:expr})
+    ) => {{
+      let mut msg = $msg;
+      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      let f: Box<dyn Fn($crate::net::Addrd<$crate::test::Message>)> = Box::new($f);
+      f(msg)
+    }};
   }
 
   #[macro_export]
@@ -510,7 +568,7 @@ pub mod test {
           #![allow(unused_mut)]
           #![allow(unused_variables)]
 
-          use $crate::{dummy_step, test_step_when, test_step_expect, test, platform};
+          use $crate::{dummy_step, test_step_when, test_step_expect};
 
           dummy_step!($inner_step);
 
