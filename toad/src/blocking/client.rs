@@ -13,7 +13,7 @@ use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 #[cfg(feature = "std")]
 use crate::std::{secure, SecureUdpSocket};
-use crate::time::Timeout;
+use crate::time::{Millis, Timeout};
 
 /// Platform struct containing things needed to make a new Client.
 ///
@@ -172,7 +172,7 @@ impl<P: Platform> Client<P> {
                            let timed_out = |clock: &P::Clock| match timeout {
                              | Timeout::Millis(ms) => {
                                let now = clock.try_now().unwrap();
-                               let elapsed = Milliseconds::<u64>::try_from(now - start).unwrap();
+                               let elapsed = Millis::try_from(now - start).unwrap();
                                elapsed > Milliseconds(ms)
                              },
                              | _ => false,
