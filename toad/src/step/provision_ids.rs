@@ -367,7 +367,8 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 
 #[cfg(test)]
 mod test {
-  use toad_common::Map;
+  use embedded_time::duration::Microseconds;
+use toad_common::Map;
 
   use super::*;
   use crate::step::test::test_step;
@@ -495,17 +496,16 @@ mod test {
   fn seen_should_prune_ids_older_than_exchange_lifetime() {
     let mut step = alloc::ProvisionIds::<P, ()>::default();
     let cfg = Config::default();
-    let exchange_lifetime_nanos = cfg.exchange_lifetime_millis() * 1_000;
+    let exchange_lifetime_micros = cfg.exchange_lifetime_millis() * 1_000;
 
-    // let's make sure that the exchange lifetime is what we expect,
-    // and that the clock considers 1 "tick" to be a nanosecond
-    assert_eq!(Milliseconds::try_from(ClockMock::instant(1_000_000).duration_since_epoch()),
-               Ok(Milliseconds(1_000u64)));
+    // This test assumes that the clock considers 1 "tick" to be 1 microsecond.
+    assert_eq!(Microseconds::try_from(ClockMock::instant(1).duration_since_epoch()),
+               Ok(Microseconds(1u64)));
 
     step.seen(cfg, ClockMock::instant(0), crate::test::dummy_addr(), Id(1));
     step.seen(cfg, ClockMock::instant(1), crate::test::dummy_addr(), Id(2));
     step.seen(cfg,
-              ClockMock::instant(exchange_lifetime_nanos + 1_000),
+              ClockMock::instant(exchange_lifetime_micros + 1_000),
               crate::test::dummy_addr(),
               Id(3));
 
