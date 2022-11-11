@@ -30,9 +30,10 @@ pub trait Buf<P>
         })
         .try_for_each(|(_, msg)| -> Result<(), Error<E>> {
           let bytes = msg.data()
-                         .clone() // TODO: remove this clone when
+                         // TODO: remove this clone when
                          // try_from_bytes is `&self -> Result<_, _>`,
-                         // instead of `self -> Result<_, _>`
+                         // instead of        ` self -> Result<_, _>`
+                         .clone()
                          .try_into_bytes()
                          .map_err(Error::RetrySerializingFailed)?;
           effects.push(Effect::SendDgram(msg.as_ref().map(|_| bytes)));
@@ -92,38 +93,25 @@ pub trait Buf<P>
                          time: Instant<P::Clock>,
                          config: Config)
                          -> Result<(), Error<E>> {
-    macro_rules! con_preack_retry_timer {
-      () => {
-        RetryTimer::new(time,
-                        config.msg.con_requests.unacked_retry_strategy,
-                        config.msg.con_requests.max_attempts)
-      };
-    }
-
-    macro_rules! non_retry_timer {
-      () => {
-        RetryTimer::new(time,
-                        config.msg.non_requests.retry_strategy,
-                        config.msg.non_requests.max_attempts)
-      };
-    }
-
     match msg.data().ty {
       | Type::Con | Type::Non if self.is_full() => Err(Error::RetryBufferFull),
       | Type::Con => {
-        self.push((State::ConPreAck { timer: con_preack_retry_timer!(),
-                                      post_ack_strategy: config.msg
-                                                               .con_requests
-                                                               .acked_retry_strategy,
-                                      post_ack_max_attempts: config.msg
-                                                                   .con_requests
-                                                                   .max_attempts },
+        self.push((State::ConPreAck { timer: RetryTimer::new(time,
+                                                             config.msg
+                                                                   .con
+                                                                   .unacked_retry_strategy,
+                                                             config.msg.con.max_attempts),
+                                      post_ack_strategy: config.msg.con.acked_retry_strategy,
+                                      post_ack_max_attempts: config.msg.con.max_attempts },
                    msg.clone()));
 
         Ok(())
       },
       | Type::Non if msg.data().code.kind() == CodeKind::Request => {
-        self.push((State::Just(non_retry_timer!()), msg.clone()));
+        self.push((State::Just(RetryTimer::new(time,
+                                               config.msg.non.retry_strategy,
+                                               config.msg.non.max_attempts)),
+                   msg.clone()));
 
         Ok(())
       },
@@ -357,16 +345,15 @@ mod tests {
     let sec_delay = Milliseconds(sec_delay);
     let strategy_acked_con_or_non = Strategy::Delay { min: sec_delay,
                                                       max: sec_delay };
-    Config { msg: config::Msg { con_requests:
-                                  config::ConRequests { unacked_retry_strategy:
-                                                          Strategy::Delay { min: con_delay,
-                                                                            max: con_delay },
-                                                        acked_retry_strategy:
-                                                          strategy_acked_con_or_non,
-                                                        ..Default::default() },
-                                non_requests: config::NonRequests { retry_strategy:
-                                                                      strategy_acked_con_or_non,
-                                                                    ..Default::default() },
+    Config { msg: config::Msg { con: config::Con { unacked_retry_strategy:
+                                                     Strategy::Delay { min: con_delay,
+                                                                       max: con_delay },
+                                                   acked_retry_strategy:
+                                                     strategy_acked_con_or_non,
+                                                   ..Default::default() },
+                                non: config::Non { retry_strategy:
+                                                     strategy_acked_con_or_non,
+                                                   ..Default::default() },
                                 ..Default::default() },
              ..Default::default() }
   }

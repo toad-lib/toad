@@ -219,8 +219,8 @@ impl<P: Platform> Core<P> {
         .try_now()
         .map(|now| {
           RetryTimer::new(now,
-                          self.config.msg.con_requests.unacked_retry_strategy,
-                          self.config.msg.con_requests.max_attempts)
+                          self.config.msg.con.unacked_retry_strategy,
+                          self.config.msg.con.max_attempts)
         })
         .map_err(|_| when.what(What::ClockError))
         .map(|timer| Retryable(t, timer))

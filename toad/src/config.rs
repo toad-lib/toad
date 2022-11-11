@@ -12,17 +12,17 @@ pub struct BytesPerSecond(pub u16);
 /// Configuration options related to parsing & handling outbound CON requests
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConRequests {
+pub struct Con {
   /// Retry strategy for CON requests that
   /// have not yet been ACKed.
   ///
   /// Defaults to an exponential retry strategy:
   /// ```
   /// use embedded_time::duration::Milliseconds;
-  /// use toad::config::ConRequests;
+  /// use toad::config::Con;
   /// use toad::retry::Strategy;
   ///
-  /// assert_eq!(ConRequests::default().unacked_retry_strategy,
+  /// assert_eq!(Con::default().unacked_retry_strategy,
   ///            Strategy::Exponential { init_min: Milliseconds(500),
   ///                                    init_max: Milliseconds(1_000) });
   /// ```
@@ -37,10 +37,10 @@ pub struct ConRequests {
   /// Defaults to a lazy exponential retry strategy:
   /// ```
   /// use embedded_time::duration::Milliseconds;
-  /// use toad::config::ConRequests;
+  /// use toad::config::Con;
   /// use toad::retry::Strategy;
   ///
-  /// assert_eq!(ConRequests::default().acked_retry_strategy,
+  /// assert_eq!(Con::default().acked_retry_strategy,
   ///            Strategy::Exponential { init_min: Milliseconds(1_000),
   ///                                    init_max: Milliseconds(2_000) });
   /// ```
@@ -50,10 +50,10 @@ pub struct ConRequests {
   ///
   /// Defaults to 4 attempts.
   /// ```
-  /// use toad::config::ConRequests;
+  /// use toad::config::Con;
   /// use toad::retry::Attempts;
   ///
-  /// assert_eq!(ConRequests::default().max_attempts, Attempts(4));
+  /// assert_eq!(Con::default().max_attempts, Attempts(4));
   /// ```
   pub max_attempts: Attempts,
 }
@@ -61,7 +61,7 @@ pub struct ConRequests {
 /// Configuration options related to parsing & handling outbound NON requests
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NonRequests {
+pub struct Non {
   /// Strategy to use when we sent a NON request and haven't yet
   /// received a response.
   ///
@@ -71,10 +71,10 @@ pub struct NonRequests {
   /// Defaults to a pessimistic exponential retry strategy:
   /// ```
   /// use embedded_time::duration::Milliseconds;
-  /// use toad::config::NonRequests;
+  /// use toad::config::Non;
   /// use toad::retry::Strategy;
   ///
-  /// assert_eq!(NonRequests::default().retry_strategy,
+  /// assert_eq!(Non::default().retry_strategy,
   ///            Strategy::Exponential { init_min: Milliseconds(250),
   ///                                    init_max: Milliseconds(500) });
   /// ```
@@ -84,10 +84,10 @@ pub struct NonRequests {
   ///
   /// Defaults to 4 attempts.
   /// ```
-  /// use toad::config::NonRequests;
+  /// use toad::config::Non;
   /// use toad::retry::Attempts;
   ///
-  /// assert_eq!(NonRequests::default().max_attempts, Attempts(4));
+  /// assert_eq!(Non::default().max_attempts, Attempts(4));
   /// ```
   pub max_attempts: Attempts,
 }
@@ -133,11 +133,11 @@ pub struct Msg {
   /// ```
   pub probing_rate: BytesPerSecond,
 
-  /// See [`ConRequests`]
-  pub con_requests: ConRequests,
+  /// See [`Con`]
+  pub con: Con,
 
-  /// See [`NonRequests`]
-  pub non_requests: NonRequests,
+  /// See [`Non`]
+  pub non: Non,
 
   /// Set the maximum amount of time we should delay
   /// our response to multicast requests.
@@ -157,22 +157,21 @@ pub struct Msg {
   pub multicast_response_leisure: Millis,
 }
 
-impl Default for ConRequests {
+impl Default for Con {
   fn default() -> Self {
-    ConRequests { unacked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(500),
-                                                                  init_max:
-                                                                    Milliseconds(1_000) },
-                  acked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(1_000),
-                                                                init_max: Milliseconds(2_000) },
-                  max_attempts: Attempts(4) }
+    Con { unacked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(500),
+                                                          init_max: Milliseconds(1_000) },
+          acked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(1_000),
+                                                        init_max: Milliseconds(2_000) },
+          max_attempts: Attempts(4) }
   }
 }
 
-impl Default for NonRequests {
+impl Default for Non {
   fn default() -> Self {
-    NonRequests { retry_strategy: Strategy::Exponential { init_min: Milliseconds(250),
-                                                          init_max: Milliseconds(500) },
-                  max_attempts: Attempts(4) }
+    Non { retry_strategy: Strategy::Exponential { init_min: Milliseconds(250),
+                                                  init_max: Milliseconds(500) },
+          max_attempts: Attempts(4) }
   }
 }
 
@@ -180,8 +179,8 @@ impl Default for Msg {
   fn default() -> Self {
     Msg { token_seed: 0,
           probing_rate: BytesPerSecond(1000),
-          con_requests: ConRequests::default(),
-          non_requests: NonRequests::default(),
+          con: Con::default(),
+          non: Non::default(),
           multicast_response_leisure: Milliseconds(5000) }
   }
 }
@@ -215,21 +214,21 @@ impl Default for Config {
 impl Config {
   pub(crate) fn max_transmit_span_millis(&self) -> u64 {
     let acked_con = self.msg
-                        .con_requests
+                        .con
                         .acked_retry_strategy
-                        .max_time(self.msg.con_requests.max_attempts - Attempts(1))
+                        .max_time(self.msg.con.max_attempts - Attempts(1))
                         .0 as u64;
 
     let unacked_con = self.msg
-                          .con_requests
+                          .con
                           .unacked_retry_strategy
-                          .max_time(self.msg.con_requests.max_attempts - Attempts(1))
+                          .max_time(self.msg.con.max_attempts - Attempts(1))
                           .0 as u64;
 
     let non = self.msg
-                  .non_requests
+                  .non
                   .retry_strategy
-                  .max_time(self.msg.non_requests.max_attempts - Attempts(1))
+                  .max_time(self.msg.non.max_attempts - Attempts(1))
                   .0 as u64;
 
     acked_con.max(unacked_con).max(non)
@@ -237,21 +236,21 @@ impl Config {
 
   pub(crate) fn max_transmit_wait_millis(&self) -> u64 {
     let acked_con = self.msg
-                        .con_requests
+                        .con
                         .acked_retry_strategy
-                        .max_time(self.msg.con_requests.max_attempts)
+                        .max_time(self.msg.con.max_attempts)
                         .0 as u64;
 
     let unacked_con = self.msg
-                          .con_requests
+                          .con
                           .unacked_retry_strategy
-                          .max_time(self.msg.con_requests.max_attempts)
+                          .max_time(self.msg.con.max_attempts)
                           .0 as u64;
 
     let non = self.msg
-                  .non_requests
+                  .non
                   .retry_strategy
-                  .max_time(self.msg.non_requests.max_attempts)
+                  .max_time(self.msg.non.max_attempts)
                   .0 as u64;
 
     acked_con.max(unacked_con).max(non)

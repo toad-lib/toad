@@ -368,7 +368,7 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 #[cfg(test)]
 mod test {
   use embedded_time::duration::Microseconds;
-use toad_common::Map;
+  use toad_common::Map;
 
   use super::*;
   use crate::step::test::test_step;
