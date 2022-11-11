@@ -93,6 +93,7 @@ pub struct Non {
 }
 
 /// Configuration options related to parsing & handling messages
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Msg {
   /// Seed used to generate message [`Token`](toad_msg::Token)s,
