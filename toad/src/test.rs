@@ -14,7 +14,55 @@ use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
 
+#[macro_export]
+macro_rules! msg {
+  (CON GET x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 1} x.x.x.x:$port) };
+  (CON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 2} x.x.x.x:$port) };
+  (CON POST x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 3} x.x.x.x:$port) };
+  (CON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 4} x.x.x.x:$port) };
+  (NON GET x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 1} x.x.x.x:$port) };
+  (NON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 2} x.x.x.x:$port) };
+  (NON POST x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 3} x.x.x.x:$port) };
+  (NON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 4} x.x.x.x:$port) };
+
+  (CON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Con} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (NON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Non} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (ACK {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (ACK EMPTY x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new(0, 0)} x.x.x.x:$port)
+  }};
+
+  ({$ty:expr} {$code:expr} x.x.x.x:$port:literal) => {{
+    use $crate::net::Addrd;
+    use no_std_net::*;
+    use toad_msg::*;
+
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), $port));
+
+    Addrd(test::Message {
+      ver: Default::default(),
+      ty: $ty,
+      token: Token(Default::default()),
+      code: $code,
+      id: Id(0),
+      opts: Default::default(),
+      payload: Payload(Default::default()),
+    }, addr)
+  }};
+}
+
+pub use msg;
+
 pub type Message = crate::platform::Message<Platform>;
+pub type Snapshot = crate::platform::Snapshot<Platform>;
+pub type Req = crate::req::Req<Platform>;
+pub type Resp = crate::resp::Resp<Platform>;
 
 pub fn dummy_addr() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))

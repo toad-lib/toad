@@ -1,4 +1,4 @@
-use core::ops::RangeInclusive;
+use core::ops::{Add, Mul, RangeInclusive, Sub};
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
@@ -46,7 +46,7 @@ use crate::time::{Clock, Millis};
 ///   }
 /// }
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct RetryTimer<C: Clock> {
   start: Instant<C>,
   init: Millis,
@@ -55,9 +55,76 @@ pub struct RetryTimer<C: Clock> {
   max_attempts: Attempts,
 }
 
+impl<C> Copy for RetryTimer<C> where C: Clock {}
+impl<C> Clone for RetryTimer<C> where C: Clock
+{
+  fn clone(&self) -> Self {
+    Self { start: self.start,
+           init: self.init,
+           strategy: self.strategy,
+           attempts: self.attempts,
+           max_attempts: self.max_attempts }
+  }
+}
+
+impl<C> PartialEq for RetryTimer<C> where C: Clock
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.start == other.start
+    && self.init == other.init
+    && self.strategy == other.strategy
+    && self.attempts == other.attempts
+    && self.max_attempts == other.max_attempts
+  }
+}
+
+impl<C> Eq for RetryTimer<C> where C: Clock {}
+
+impl<C> PartialOrd for RetryTimer<C> where C: Clock
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl<C> Ord for RetryTimer<C> where C: Clock
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.start
+        .cmp(&other.start)
+        .then(self.init.cmp(&other.init))
+        .then(self.attempts.cmp(&other.attempts))
+        .then(self.max_attempts.cmp(&other.max_attempts))
+  }
+}
+
 /// A number of attempts
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Attempts(pub u16);
+
+impl Add for Attempts {
+  type Output = Self;
+
+  fn add(self, rhs: Self) -> Self::Output {
+    Self(self.0 + rhs.0)
+  }
+}
+
+impl Sub for Attempts {
+  type Output = Self;
+
+  fn sub(self, rhs: Self) -> Self::Output {
+    Self(self.0 - rhs.0)
+  }
+}
+
+impl Mul for Attempts {
+  type Output = Self;
+
+  fn mul(self, rhs: Self) -> Self::Output {
+    Self(self.0 * rhs.0)
+  }
+}
 
 /// Result of [`RetryTimer.what_should_i_do`].
 ///

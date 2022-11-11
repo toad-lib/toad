@@ -8,7 +8,7 @@ use toad_common::{Array, GetSize, InsertError, Map};
 use toad_msg::Id;
 
 use super::{Step, _try};
-use crate::config::ConfigData;
+use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
 use crate::platform::Platform;
@@ -145,7 +145,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   where Ids: IdsBySocketAddr<P>,
         P: Platform
 {
-  fn prune(&mut self, now: Instant<P::Clock>, config: ConfigData) {
+  fn prune(&mut self, now: Instant<P::Clock>, config: Config) {
     for (_, ids) in self.seen.iter_mut() {
       ids.sort_by_key(|t| t.time());
       let remove_before =
@@ -202,7 +202,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   /// Generate a Message ID that has not been used yet with the connection with this socket
   ///
   /// best case O(1), worst case O(n)
-  fn next(&mut self, config: ConfigData, time: Instant<P::Clock>, addr: SocketAddr) -> Id {
+  fn next(&mut self, config: Config, time: Instant<P::Clock>, addr: SocketAddr) -> Id {
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
       | None => {
         self.new_addr(addr);
@@ -260,7 +260,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   }
 
   /// Mark an Id + Addr pair as being seen at `time`.
-  fn seen(&mut self, config: ConfigData, now: Instant<P::Clock>, addr: SocketAddr, id: Id) {
+  fn seen(&mut self, config: Config, now: Instant<P::Clock>, addr: SocketAddr, id: Id) {
     self.prune(now, config);
 
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
@@ -429,7 +429,7 @@ mod test {
   #[test]
   fn seen_should_remove_oldest_addr_when_new_addr_would_exceed_capacity() {
     let mut step = no_alloc::ProvisionIds::<P, (), 16, 2>::default();
-    let cfg = ConfigData::default();
+    let cfg = Config::default();
 
     step.seen(cfg, ClockMock::instant(0), crate::test::dummy_addr(), Id(1));
     step.seen(cfg,
@@ -452,7 +452,7 @@ mod test {
   #[test]
   fn seen_should_remove_empty_addr_when_new_addr_would_exceed_capacity() {
     let mut step = no_alloc::ProvisionIds::<P, (), 16, 2>::default();
-    let cfg = ConfigData::default();
+    let cfg = Config::default();
 
     Map::insert(&mut step.seen,
                 SocketAddrWithDefault(crate::test::dummy_addr()),
@@ -476,7 +476,7 @@ mod test {
   #[test]
   fn seen_should_remove_oldest_id_when_about_to_exceed_capacity() {
     let mut step = no_alloc::ProvisionIds::<P, (), 2, 1>::default();
-    let cfg = ConfigData::default();
+    let cfg = Config::default();
 
     step.seen(cfg, ClockMock::instant(0), crate::test::dummy_addr(), Id(0));
     step.seen(cfg, ClockMock::instant(1), crate::test::dummy_addr(), Id(1));
@@ -494,18 +494,18 @@ mod test {
   #[test]
   fn seen_should_prune_ids_older_than_exchange_lifetime() {
     let mut step = alloc::ProvisionIds::<P, ()>::default();
-    let cfg = ConfigData::default();
+    let cfg = Config::default();
+    let exchange_lifetime_nanos = cfg.exchange_lifetime_millis() * 1_000;
 
     // let's make sure that the exchange lifetime is what we expect,
     // and that the clock considers 1 "tick" to be a nanosecond
-    assert_eq!(cfg.exchange_lifetime_millis(), 212_200);
-    assert_eq!(Milliseconds::try_from(ClockMock::instant(212_200_000).duration_since_epoch()),
-               Ok(Milliseconds(212_200u64)));
+    assert_eq!(Milliseconds::try_from(ClockMock::instant(1_000_000).duration_since_epoch()),
+               Ok(Milliseconds(1_000u64)));
 
     step.seen(cfg, ClockMock::instant(0), crate::test::dummy_addr(), Id(1));
     step.seen(cfg, ClockMock::instant(1), crate::test::dummy_addr(), Id(2));
     step.seen(cfg,
-              ClockMock::instant(212_201_000),
+              ClockMock::instant(exchange_lifetime_nanos + 1_000),
               crate::test::dummy_addr(),
               Id(3));
 
