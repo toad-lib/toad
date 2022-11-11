@@ -13,11 +13,15 @@ use crate::platform::{self, Platform};
 /// not need to be resent
 ///
 /// ## Behavior
-/// When a confirmable message is sent & not ACKed, uses the
-/// [con_retry_strategy](crate::config::Config.con_retry_strategy).
+/// For outbound confirmable requests & responses, uses the params in [`Config.msg.con`](crate::config::Con).
 ///
-/// For NON messages or acked CONs, uses [`secondary_retry_strategy`](crate::config::Config::secondary_retry_strategy)
-/// not exceeding [`probing_rate`](crate::config::Config.probing_rate).
+/// For outbound non-confirmable requests, uses the params in [`Config.msg.non`](crate::config::Non).
+///
+/// Outbound non-confirmable responses and ACKs will never be retried.
+///
+/// Note that the bandwidth used for retrying will never significantly exceed
+/// [`probing_rate`](crate::config::Config.probing_rate), so retries may be delayed
+/// by a small amount to respect this parameter.
 ///
 /// ## Transformation
 /// None
@@ -87,9 +91,9 @@ pub mod ack;
 ///  * If we have seen exactly one matching response, pop it from the buffer & yield it
 ///  * If we have seen more than one matching response with different [`Type`](toad_msg::Type)s, pop & yield in this priority:
 ///      1. ACK
-///      1. CON
-///      1. NON
-///      1. RESET
+///      2. CON
+///      3. NON
+///      4. RESET
 ///
 /// ## Transformation
 /// None
