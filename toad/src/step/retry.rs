@@ -1,6 +1,6 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
-use toad_common::{Array, GetSize};
+use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
 
@@ -13,12 +13,12 @@ use crate::resp::Resp;
 use crate::retry::{Attempts, RetryTimer, Strategy, YouShould};
 use crate::time::Clock;
 
-/// TODO
+/// Buffer used to store messages queued for retry
 pub trait Buf<P>
   where P: Platform,
         Self: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>
 {
-  /// TODO
+  /// Do some black box magic to send all messages that need to be sent
   fn attempt_all<E>(&mut self,
                     time: Instant<P::Clock>,
                     effects: &mut <P as Platform>::Effects)
@@ -41,7 +41,7 @@ pub trait Buf<P>
         })
   }
 
-  /// TODO
+  /// We saw a response and should remove all tracking of a token (if we have any)
   fn forget(&mut self, token: Token) {
     match self.iter()
               .enumerate()
@@ -54,7 +54,8 @@ pub trait Buf<P>
     }
   }
 
-  /// TODO
+  /// We saw an ACK and should transition the retry state for matching outbound
+  /// CONs to the "acked" state
   fn mark_acked(&mut self, token: Token, time: Instant<P::Clock>) {
     let (ix, new_timer) = match self.iter()
                                     .enumerate()
@@ -71,7 +72,10 @@ pub trait Buf<P>
     self.get_mut(ix).unwrap().0 = State::Just(new_timer);
   }
 
-  /// TODO
+  /// Called when a response of any kind to any request is
+  /// received
+  ///
+  /// May invoke `mark_acked` & `forget`
   fn seen_response<E>(&mut self,
                       time: Instant<P::Clock>,
                       msg: &Addrd<Resp<P>>)
@@ -87,7 +91,8 @@ pub trait Buf<P>
     }
   }
 
-  /// TODO
+  /// Called when a message of any kind is sent,
+  /// and may store it to be retried in the future
   fn store_retryables<E>(&mut self,
                          msg: &Addrd<platform::Message<P>>,
                          time: Instant<P::Clock>,
@@ -126,7 +131,9 @@ impl<T, P> Buf<P> for T
 {
 }
 
-/// TODO
+/// `Retry` that uses `Vec`
+///
+/// Only enabled when feature "alloc" enabled.
 #[cfg(feature = "alloc")]
 pub mod alloc {
   use std_alloc::vec::Vec;
@@ -134,40 +141,59 @@ pub mod alloc {
   use crate::net::Addrd;
   use crate::platform;
 
-  /// TODO
+  /// `Retry` that uses heap allocation to store the buffer of messages
+  /// to be retried.
+  ///
+  /// Only enabled when feature "alloc" enabled.
+  ///
+  /// For more information see [`super::Retry`]
+  /// or the [module documentation](crate::step::retry).
   pub type Retry<P, Inner> = super::Retry<Inner,
                                           Vec<(super::State<<P as platform::Platform>::Clock>,
                                                Addrd<platform::Message<P>>)>>;
 }
 
-/// TODO
+/// `Retry` that does not use
+/// heap allocation and stores messages to be
+/// retried on the stack.
 pub mod no_alloc {
   use tinyvec::ArrayVec;
 
   use crate::net::Addrd;
   use crate::platform;
 
-  /// TODO
+  /// `Retry` that does not use heap allocation
+  /// and stores messages to be retried on the stack.
+  ///
+  /// For more information see [`super::BufferResponses`]
+  /// or the [module documentation](crate::step::buffer_responses).
   pub type Retry<P, Inner, const N: usize = 16> =
     super::Retry<Inner,
                  ArrayVec<[(super::State<<P as platform::Platform>::Clock>,
                            Addrd<platform::Message<P>>); N]>>;
 }
 
-/// TODO
+/// The state of a message stored in the retry [buffer](Buf)
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum State<C>
   where C: Clock
 {
-  /// TODO
+  /// A message that is not an un-acked CON
+  ///
+  /// (meaning the retry strategy will never change)
   Just(RetryTimer<C>),
-  /// TODO
+  /// A message that is an un-acked CON
+  ///
+  /// This means that when it is acked,
+  /// we will need to replace the current
+  /// retry timer with one using the
+  /// [acked CON retry strategy](crate::config::Con.acked_retry_strategy).
   ConPreAck {
-    /// TODO
+    /// The current (unacked) retry state
     timer: RetryTimer<C>,
-    /// TODO
+    /// The strategy to use once the message is acked
     post_ack_strategy: Strategy,
-    /// TODO
+    /// The max number of retry attempts for the post-ack state
     post_ack_max_attempts: Attempts,
   },
 }
@@ -235,7 +261,7 @@ impl<Inner, Buffer> Default for Retry<Inner, Buffer>
   }
 }
 
-/// TODO
+/// Errors that can be encountered when retrying messages
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum Error<E> {
   /// The inner step failed.

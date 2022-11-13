@@ -149,7 +149,7 @@ macro_rules! exec_inner_step {
 }
 
 /// Specialized `?` operator for use in step bodies, allowing early-exit
-/// for Result, Option<Result> and Option<nb::Result>.
+/// for `Result`, `Option<Result>` and `Option<nb::Result>`.
 #[macro_export]
 macro_rules! _try {
   (Result; $r:expr) => {_try!(Option<Result>; Some($r))};
