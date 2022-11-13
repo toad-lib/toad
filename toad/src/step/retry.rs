@@ -2,7 +2,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
+use toad_msg::{CodeKind, Token, TryIntoBytes, Type, Code};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
@@ -57,10 +57,13 @@ pub trait Buf<P>
   /// We saw an ACK and should transition the retry state for matching outbound
   /// CONs to the "acked" state
   fn mark_acked(&mut self, token: Token, time: Instant<P::Clock>) {
-    let (ix, new_timer) = match self.iter()
-                                    .enumerate()
-                                    .find(|(_, (_, msg))| msg.data().token == token)
+    let found = self.iter()
+                    .enumerate()
+                    .find(|(_, (_, msg))| msg.data().token == token);
+
+    let (ix, new_timer) = match found
     {
+      | Some((ix, _)) if self[ix].1.data().code.kind() == CodeKind::Response => return self.forget(token),
       | Some((ix,
               (State::ConPreAck { post_ack_strategy,
                                   post_ack_max_attempts,
@@ -76,16 +79,16 @@ pub trait Buf<P>
   /// received
   ///
   /// May invoke `mark_acked` & `forget`
-  fn seen_response<E>(&mut self,
+  fn maybe_seen_response<E>(&mut self,
                       time: Instant<P::Clock>,
-                      msg: &Addrd<Resp<P>>)
+                      msg: Addrd<&platform::Message<P>>)
                       -> Result<(), Error<E>> {
-    match msg.data().msg.ty {
-      | Type::Ack if msg.data().msg.code.kind() == CodeKind::Empty => {
-        Ok(self.mark_acked(msg.data().msg.token, time))
+    match (msg.data().ty, msg.data().code.kind()) {
+      | (Type::Ack, CodeKind::Empty) => {
+        Ok(self.mark_acked(msg.data().token, time))
       },
-      | _ if msg.data().msg.code.kind() == CodeKind::Response => {
-        Ok(self.forget(msg.data().msg.token))
+      | (_, CodeKind::Response) => {
+        Ok(self.forget(msg.data().token))
       },
       | _ => Ok(()),
     }
@@ -198,16 +201,6 @@ pub enum State<C>
   },
 }
 
-impl<C> State<C> where C: Clock
-{
-  fn timer(&mut self) -> &mut RetryTimer<C> {
-    match self {
-      | Self::Just(t) => t,
-      | Self::ConPreAck { timer, .. } => timer,
-    }
-  }
-}
-
 impl<C> Copy for State<C> where C: Clock {}
 impl<C> Clone for State<C> where C: Clock
 {
@@ -239,6 +232,13 @@ impl<C> State<C> where C: Clock
 {
   fn new(time: Instant<C>, strat: Strategy, max_attempts: Attempts) -> Self {
     Self::Just(RetryTimer::new(time, strat, max_attempts))
+  }
+
+  fn timer(&mut self) -> &mut RetryTimer<C> {
+    match self {
+      | Self::Just(t) => t,
+      | Self::ConPreAck { timer, .. } => timer,
+    }
   }
 }
 
@@ -310,12 +310,14 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
     //  * CON responses WILL     be retried
     //  * NON responses WILL NOT be retried
     //  * ACKs          WILL NOT be retried
+    //  * RESET         WILL NOT be retried
     _try!(Result; self.buf.attempt_all::<Inner::Error>(snap.time, effects));
 
     let req = self.inner
                   .poll_req(snap, effects)
                   .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let req = _try!(Option<nb::Result>; req);
+    _try!(Result; self.buf.maybe_seen_response::<Inner::Error>(snap.time, req.as_ref().map(|r| &r.msg)));
     Some(Ok(req))
   }
 
@@ -326,8 +328,9 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {
     // CLIENT FLOW:
-    //  * CON requests WILL be retried
-    //  * NON requests WILL be retried
+    //  * CON requests WILL     be retried
+    //  * NON requests WILL     be retried
+    //  * RESET        WILL NOT be retried
     _try!(Result; self.buf.attempt_all::<Inner::Error>(snap.time, effects));
 
     let resp =
@@ -335,7 +338,7 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
           .poll_resp(snap, effects, token, addr)
           .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let resp = _try!(Option<nb::Result>; resp);
-    _try!(Result; self.buf.seen_response::<Inner::Error>(snap.time, &resp));
+    _try!(Result; self.buf.maybe_seen_response::<Inner::Error>(snap.time, resp.as_ref().map(|r| &r.msg)));
     Some(Ok(resp))
   }
 
@@ -423,19 +426,15 @@ mod tests {
    */
   test_step!(
     GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
-    WHEN con_sent [
+    WHEN con_request_sent [
       (inner.poll_resp = {
         |Snapshot {time, ..}, _, _, _| {
           let time: u64 = Milliseconds::try_from(time.duration_since_epoch()).unwrap().0;
 
-          if time == 350 {
-            // got it!
-            Some(Ok(test::msg!(ACK EMPTY x.x.x.x:0000).map(Resp::from)))
-          } else if time == 850 {
-            // here it is!
-            Some(Ok(test::msg!(NON {2 . 04} x.x.x.x:0000).map(Resp::from)))
-          } else {
-            None
+          match time {
+            350 => Some(Ok(test::msg!(ACK EMPTY x.x.x.x:0000).map(Resp::from))),
+            850 => Some(Ok(test::msg!(NON {2 . 04} x.x.x.x:0000).map(Resp::from))),
+            _ => None,
           }
         }
       })
@@ -512,9 +511,220 @@ mod tests {
     ]
   );
 
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
+   * |     50 | CON response sent                                 |
+   * |    250 | con_retry_strategy delay has passed, so we resend |
+   * |    350 | got ACK, will never retry again                   |
+   * |    750 | sec_retry_strategy delay has passed, no resend    |
+   * | 10_000 | should not have retried                           |
+   */
+  test_step!(
+    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN con_response_sent [
+      (inner.poll_req = {
+        |Snapshot {time, ..}, _| {
+          let time: u64 = Milliseconds::try_from(time.duration_since_epoch()).unwrap().0;
+
+          match time {
+            350 => Some(Ok(test::msg!(ACK EMPTY x.x.x.x:0000).map(Req::from))),
+            _ => None
+          }
+        }
+      })
+    ]
+    THEN this_should_retry_appropriately /* see comment above */ [
+      (
+        on_message_sent(
+          snap_time(config(200, 400), 50),
+          test::msg!(CON {2 . 04} x.x.x.x:1111)
+        ) should satisfy { |_| () }
+      ),
+      (poll_req(snap_time(config(200, 400), 150), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_req(snap_time(config(200, 400), 250), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      }),
+      (
+        poll_req(
+          snap_time(config(200, 400), 350),
+          _
+        ) should satisfy {
+          |out| assert!(matches!(out, Some(Ok(r)) if r.data().msg.ty == Type::Ack))
+        }
+      ),
+      (poll_req(snap_time(config(200, 400), 550), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      }),
+      (poll_req(snap_time(config(200, 400), 750), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      }),
+      (poll_req(snap_time(config(200, 400), 10_000), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      })
+    ]
+  );
+
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
+   * |     50 | NON request sent                                  |
+   * |    250 | non_retry_strategy delay has passed, so we resend |
+   * |    350 | got response, will never retry again              |
+   * | 10_000 | should not have retried                           |
+   */
+  test_step!(
+    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN non_request_sent [
+      (inner.poll_resp = {
+        |Snapshot {time, ..}, _, _, _| {
+          let time: u64 = Milliseconds::try_from(time.duration_since_epoch()).unwrap().0;
+
+          match time {
+            350 => Some(Ok(test::msg!(NON {2 . 04} x.x.x.x:0000).map(Resp::from))),
+                _ => None,
+          }
+        }
+      })
+    ]
+    THEN this_should_retry_appropriately /* see comment above */ [
+      (
+        on_message_sent(
+          snap_time(config(200, 200), 50),
+          test::msg!(NON GET x.x.x.x:1111)
+        ) should satisfy { |_| () }
+      ),
+      (poll_resp(snap_time(config(200, 200), 150), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 200), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(NON GET x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      }),
+      (
+        poll_resp(
+          snap_time(config(200, 200), 350),
+          _,
+          _,
+          _
+        ) should satisfy {
+          |out| assert!(matches!(out, Some(Ok(r)) if r.data().msg.ty == Type::Non))
+        }
+      ),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(NON GET x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      }),
+      (poll_resp(snap_time(config(200, 200), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy {
+        |e| {
+          let dgram = test::msg!(NON GET x.x.x.x:1111)
+                           .map(toad_msg::TryIntoBytes::try_into_bytes)
+                           .map(Result::unwrap);
+
+          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+        }
+      })
+    ]
+  );
+
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
+   * |     50 | ACK response sent                                 |
+   * |    250 | con_retry_strategy delay has passed               |
+   * |    --- | but no resend should occur                        |
+   * | 10_000 | should not have retried                           |
+   */
+  test_step!(
+    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN we_send_ack [
+      (inner.poll_req => {None})
+    ]
+    THEN this_should_never_retry /* see comment above */ [
+      (
+        on_message_sent(
+          snap_time(config(200, 400), 50),
+          test::msg!(ACK EMPTY x.x.x.x:0000)
+        ) should satisfy { |_| () }
+      ),
+      (poll_resp(snap_time(config(200, 400), 150), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) })
+    ]
+  );
+
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
+   * |     50 | NON response sent                                 |
+   * |    250 | con_retry_strategy delay has passed               |
+   * |    --- | but no resend should occur                        |
+   * | 10_000 | should not have retried                           |
+   */
+  test_step!(
+    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN we_send_non_response [
+      (inner.poll_req => {None})
+    ]
+    THEN this_should_never_retry /* see comment above */ [
+      (
+        on_message_sent(
+          snap_time(config(200, 400), 50),
+          test::msg!(NON {2 . 05} x.x.x.x:0000)
+        ) should satisfy { |_| () }
+      ),
+      (poll_resp(snap_time(config(200, 400), 150), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) })
+    ]
+  );
+
   // TODO:
-  //  * ACKs are not retried
-  //  * NON responses are not retried
-  //  * NON requests are retried
-  //  * CON responses are retried
+  //  * RESETs are never retried
 }

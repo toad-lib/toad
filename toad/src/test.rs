@@ -16,14 +16,14 @@ use super::*;
 
 #[macro_export]
 macro_rules! msg {
-  (CON GET x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 1} x.x.x.x:$port) };
-  (CON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 2} x.x.x.x:$port) };
-  (CON POST x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 3} x.x.x.x:$port) };
-  (CON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 4} x.x.x.x:$port) };
-  (NON GET x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 1} x.x.x.x:$port) };
-  (NON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 2} x.x.x.x:$port) };
-  (NON POST x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 3} x.x.x.x:$port) };
-  (NON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 4} x.x.x.x:$port) };
+  (CON GET x.x.x.x:$port:literal) => { $crate::test::msg!(CON {1 . 1} x.x.x.x:$port) };
+  (CON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(CON {1 . 2} x.x.x.x:$port) };
+  (CON POST x.x.x.x:$port:literal) => { $crate::test::msg!(CON {1 . 3} x.x.x.x:$port) };
+  (CON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(CON {1 . 4} x.x.x.x:$port) };
+  (NON GET x.x.x.x:$port:literal) => { $crate::test::msg!(NON {1 . 1} x.x.x.x:$port) };
+  (NON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(NON {1 . 2} x.x.x.x:$port) };
+  (NON POST x.x.x.x:$port:literal) => { $crate::test::msg!(NON {1 . 3} x.x.x.x:$port) };
+  (NON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(NON {1 . 4} x.x.x.x:$port) };
 
   (CON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
     $crate::test::msg!({toad_msg::Type::Con} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)

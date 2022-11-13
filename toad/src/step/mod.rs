@@ -292,7 +292,10 @@ pub mod test {
       #[derive(Default)]
       struct Dummy(());
 
-      static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
+      static mut POLL_REQ_MOCK:
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+                          &mut <test::Platform as platform::Platform>::Effects)
+                          -> Option<::nb::Result<$poll_req_ty, $error_ty>>>> = None;
       static mut POLL_RESP_MOCK:
         Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
                           &mut <test::Platform as platform::Platform>::Effects,
@@ -307,6 +310,7 @@ pub mod test {
                           &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
+        POLL_REQ_MOCK = Some(Box::new(|_, _| None));
         POLL_RESP_MOCK = Some(Box::new(|_, _, _, _| None));
         ON_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
         BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
@@ -323,10 +327,10 @@ pub mod test {
         }
 
         fn poll_req(&mut self,
-                    _: &platform::Snapshot<test::Platform>,
-                    _: &mut <test::Platform as platform::Platform>::Effects)
+                    a: &platform::Snapshot<test::Platform>,
+                    b: &mut <test::Platform as platform::Platform>::Effects)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
-          unsafe { POLL_REQ_MOCK.clone() }
+          unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
         fn poll_resp(&mut self,
@@ -366,9 +370,22 @@ pub mod test {
       snapshot = $snapshot:expr,
       token = $token:expr,
       addr = $addr:expr,
+      when (inner.poll_req = {$poll_req_fake:expr})
+    ) => {
+      *$poll_req_mock = Some(Box::new($poll_req_fake))
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
       when (inner.poll_req => {$inner_step_returns:expr})
     ) => {
-      *$poll_req_mock = $inner_step_returns
+      *$poll_req_mock = Some(Box::new(|_, _| $inner_step_returns))
     };
     (
       poll_req_mock = $poll_req_mock:expr,
@@ -530,6 +547,20 @@ pub mod test {
       let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
                                            <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_req($snap, $effects))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $_s:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (poll_req($snap:expr, _) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_req(&$snap, $effects))
     }};
     (
       step: $step_ty:ty = $step:expr,
