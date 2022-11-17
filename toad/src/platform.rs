@@ -7,7 +7,7 @@ use std_alloc::{collections::BTreeMap, vec::Vec};
 use toad_common::*;
 use toad_msg::{Id, Opt, OptNumber, Token};
 
-use crate::config::ConfigData;
+use crate::config::Config;
 use crate::net::{Addrd, Socket};
 use crate::time::{Clock, Stamped};
 use crate::todo::String1Kb;
@@ -65,7 +65,7 @@ pub struct Snapshot<P: Platform> {
   pub recvd_dgram: Addrd<P::Dgram>,
 
   /// Runtime config, includes many useful timings
-  pub config: ConfigData,
+  pub config: Config,
 }
 
 impl<P: Platform> Clone for Snapshot<P> {

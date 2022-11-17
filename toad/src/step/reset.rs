@@ -86,9 +86,9 @@ pub enum Error<E> {
   ///
   /// Only applicable to [`BufferResponses`] that uses `ArrayVec` or
   /// similar heapless backing structure.
-  CapacityExhausted,
+  ResetBufferCapacityExhausted,
   /// Failed to serialize outbound Reset message
-  SerializingResetFailed(MessageToBytesError),
+  ResetSerializingFailed(MessageToBytesError),
 }
 
 impl<E> From<E> for Error<E> {
@@ -100,10 +100,10 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::SerializingResetFailed(e) => {
+      | Self::ResetSerializingFailed(e) => {
         f.debug_tuple("SerializingResetFailed").field(e).finish()
       },
-      | Self::CapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
+      | Self::ResetBufferCapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }
@@ -130,7 +130,7 @@ macro_rules! common {
           $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
           None
         },
-        | Err(e) => Some(Err(nb::Error::Other(Error::SerializingResetFailed(e)))),
+        | Err(e) => Some(Err(nb::Error::Other(Error::ResetSerializingFailed(e)))),
       }
     } else {
       Some(Ok($in))
@@ -197,7 +197,7 @@ impl<P: Platform,
     match msg.data().ty {
       | Type::Con => self.buffer
                          .insert(msg.as_ref().map(|m| m.token), ())
-                         .map_err(|_| Error::CapacityExhausted),
+                         .map_err(|_| Error::ResetBufferCapacityExhausted),
       | _ => Ok(()),
     }
   }

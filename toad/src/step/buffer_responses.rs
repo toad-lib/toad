@@ -73,7 +73,7 @@ pub enum Error<E> {
   ///
   /// Only applicable to [`BufferResponses`] that uses `ArrayVec` or
   /// similar heapless backing structure.
-  CapacityExhausted,
+  BufferResponsesFull,
 }
 
 impl<E> From<E> for Error<E> {
@@ -85,7 +85,7 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::CapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
+      | Self::BufferResponsesFull => f.debug_struct("CapacityExhausted").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }
@@ -127,7 +127,7 @@ impl<P: Platform,
                                 Error::Inner);
 
     if self.buffer.is_full() {
-      return Some(Err(nb::Error::Other(Error::CapacityExhausted)));
+      return Some(Err(nb::Error::Other(Error::BufferResponsesFull)));
     }
 
     match resp {
@@ -215,7 +215,7 @@ mod test {
     GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_yields_response [
       (inner.poll_resp = {
-        || {
+        |_, _, _, _| {
           use toad_msg::*;
           use no_std_net::SocketAddr;
 
