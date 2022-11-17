@@ -12,7 +12,7 @@ mod error;
 #[doc(inline)]
 pub use error::*;
 
-use crate::config::{Config, ConfigData};
+use crate::config::Config;
 use crate::logging;
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
@@ -60,7 +60,7 @@ pub struct Core<P: Platform> {
 
   largest_msg_id_seen: Option<u16>,
   rand: rand_chacha::ChaCha8Rng,
-  config: ConfigData,
+  config: Config,
 }
 
 impl<P: Platform> Core<P> {
@@ -188,7 +188,7 @@ impl<P: Platform> Core<P> {
     #[allow(clippy::many_single_char_names)]
     let bytes = {
       let ([a, b], [c, d, e, f, g, h, i, j]) =
-        (self.config.token_seed.to_be_bytes(), now_millis.to_be_bytes());
+        (self.config.msg.token_seed.to_be_bytes(), now_millis.to_be_bytes());
       [a, b, c, d, e, f, g, h, i, j]
     };
 
@@ -219,8 +219,8 @@ impl<P: Platform> Core<P> {
         .try_now()
         .map(|now| {
           RetryTimer::new(now,
-                          self.config.con_retry_strategy,
-                          crate::retry::Attempts(self.config.max_retransmit_attempts))
+                          self.config.msg.con.unacked_retry_strategy,
+                          self.config.msg.con.max_attempts)
         })
         .map_err(|_| when.what(What::ClockError))
         .map(|timer| Retryable(t, timer))
