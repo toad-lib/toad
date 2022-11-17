@@ -725,6 +725,39 @@ mod tests {
     ]
   );
 
-  // TODO:
-  //  * RESETs are never retried
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
+   * |     50 | RESET response sent                               |
+   * |    250 | con_retry_strategy delay has passed               |
+   * |    --- | but no resend should occur                        |
+   * | 10_000 | should not have retried                           |
+   */
+  test_step!(
+    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN we_send_reset_request_or_response [
+      (inner.poll_req => {None}),
+      (inner.poll_resp => {None})
+    ]
+    THEN this_should_never_retry [
+      (
+        on_message_sent(
+          snap_time(config(200, 400), 50),
+          test::msg!(NON {2 . 05} x.x.x.x:0000)
+        ) should satisfy { |_| () }
+      ),
+      (poll_resp(snap_time(config(200, 400), 150), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_req(snap_time(config(200, 400), 150), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_req(snap_time(config(200, 400), 250), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) }),
+      (poll_req(snap_time(config(200, 400), 10_000), _) should satisfy { |out| assert_eq!(out, None) }),
+      (effects should satisfy { |e| assert_eq!(e, &vec![]) })
+    ]
+  );
 }
