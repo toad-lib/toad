@@ -1,38 +1,260 @@
 #![allow(dead_code)]
 
 use embedded_time::duration::Milliseconds;
-use toad_macros::rfc_7252_doc;
 
 use crate::retry::{Attempts, Strategy};
+use crate::time::Millis;
 
-/// Built runtime config
+/// Bytes / Second
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConfigData {
-  pub(crate) token_seed: u16,
-  pub(crate) con_retry_strategy: Strategy,
-  pub(crate) default_leisure_millis: u64,
-  pub(crate) max_retransmit_attempts: u16,
-  pub(crate) nstart: u8,
-  pub(crate) probing_rate_bytes_per_sec: u16,
+pub struct BytesPerSecond(pub u16);
+
+/// Configuration options related to parsing & handling outbound CON requests
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Con {
+  /// Retry strategy for CON requests that
+  /// have not yet been ACKed.
+  ///
+  /// Defaults to an exponential retry strategy:
+  /// ```
+  /// use embedded_time::duration::Milliseconds;
+  /// use toad::config::Con;
+  /// use toad::retry::Strategy;
+  ///
+  /// assert_eq!(Con::default().unacked_retry_strategy,
+  ///            Strategy::Exponential { init_min: Milliseconds(500),
+  ///                                    init_max: Milliseconds(1_000) });
+  /// ```
+  pub unacked_retry_strategy: Strategy,
+  /// Retry strategy for CON requests that have been ACKed.
+  ///
+  /// Usually this should be **lazier** than `unacked_retry_strategy`,
+  /// since we can reasonably expect the duration between "received request"
+  /// and "responded with ACK" to be much shorter than "responded with ACK" and
+  /// "sent actual response."
+  ///
+  /// Defaults to a lazy exponential retry strategy:
+  /// ```
+  /// use embedded_time::duration::Milliseconds;
+  /// use toad::config::Con;
+  /// use toad::retry::Strategy;
+  ///
+  /// assert_eq!(Con::default().acked_retry_strategy,
+  ///            Strategy::Exponential { init_min: Milliseconds(1_000),
+  ///                                    init_max: Milliseconds(2_000) });
+  /// ```
+  pub acked_retry_strategy: Strategy,
+  /// Number of times we are allowed to resend a CON request
+  /// before erroring.
+  ///
+  /// Defaults to 4 attempts.
+  /// ```
+  /// use toad::config::Con;
+  /// use toad::retry::Attempts;
+  ///
+  /// assert_eq!(Con::default().max_attempts, Attempts(4));
+  /// ```
+  pub max_attempts: Attempts,
 }
 
-impl Default for ConfigData {
+/// Configuration options related to parsing & handling outbound NON requests
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Non {
+  /// Strategy to use when we sent a NON request and haven't yet
+  /// received a response.
+  ///
+  /// **Note** that in a future commit there will be a method by which NON
+  /// requests can be "flung" without any expectation of a response.
+  ///
+  /// Defaults to a pessimistic exponential retry strategy:
+  /// ```
+  /// use embedded_time::duration::Milliseconds;
+  /// use toad::config::Non;
+  /// use toad::retry::Strategy;
+  ///
+  /// assert_eq!(Non::default().retry_strategy,
+  ///            Strategy::Exponential { init_min: Milliseconds(250),
+  ///                                    init_max: Milliseconds(500) });
+  /// ```
+  pub retry_strategy: Strategy,
+  /// Number of times we are allowed to resend a NON request
+  /// before erroring.
+  ///
+  /// Defaults to 4 attempts.
+  /// ```
+  /// use toad::config::Non;
+  /// use toad::retry::Attempts;
+  ///
+  /// assert_eq!(Non::default().max_attempts, Attempts(4));
+  /// ```
+  pub max_attempts: Attempts,
+}
+
+/// Configuration options related to parsing & handling messages
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Msg {
+  /// Seed used to generate message [`Token`](toad_msg::Token)s,
+  /// customizable to allow for your application to generate tokens
+  /// less guessably.
+  ///
+  /// The default value is 0, although it is
+  /// best practice to set this to something else.
+  /// (random integer, machine identifier)
+  ///
+  /// _e.g. if you're developing a swarm of
+  /// smart CoAP-enabled thermostats, each one would ideally
+  /// have a distinct token seed._
+  ///
+  /// ```
+  /// use toad::config::Msg;
+  ///
+  /// assert_eq!(Msg::default().token_seed, 0);
+  /// ```
+  // token_seed
+  // ||
+  // xx xxxxxxxx
+  //    |      |
+  //    timestamp
+  pub token_seed: u16,
+
+  /// Set the transmission rate that we should do our best
+  /// not to exceed when waiting for:
+  /// - responses to our NON requests
+  /// - responses to our acked CON requests
+  ///
+  /// Defaults to `BytesPerSecond(1000)`
+  ///
+  /// ```
+  /// use toad::config::{BytesPerSecond, Msg};
+  ///
+  /// assert_eq!(Msg::default().probing_rate, BytesPerSecond(1000));
+  /// ```
+  pub probing_rate: BytesPerSecond,
+
+  /// See [`Con`]
+  pub con: Con,
+
+  /// See [`Non`]
+  pub non: Non,
+
+  /// Set the maximum amount of time we should delay
+  /// our response to multicast requests.
+  ///
+  /// The actual delay will be random between zero
+  /// and this value.
+  ///
+  /// Defaults to 5000 milliseconds.
+  ///
+  /// ```
+  /// use embedded_time::duration::Milliseconds;
+  /// use toad::config::Msg;
+  ///
+  /// assert_eq!(Msg::default().multicast_response_leisure,
+  ///            Milliseconds(5000u64));
+  /// ```
+  pub multicast_response_leisure: Millis,
+}
+
+impl Default for Con {
   fn default() -> Self {
-    Config::default().into()
+    Con { unacked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(500),
+                                                          init_max: Milliseconds(1_000) },
+          acked_retry_strategy: Strategy::Exponential { init_min: Milliseconds(1_000),
+                                                        init_max: Milliseconds(2_000) },
+          max_attempts: Attempts(4) }
   }
 }
 
-impl ConfigData {
+impl Default for Non {
+  fn default() -> Self {
+    Non { retry_strategy: Strategy::Exponential { init_min: Milliseconds(250),
+                                                  init_max: Milliseconds(500) },
+          max_attempts: Attempts(4) }
+  }
+}
+
+impl Default for Msg {
+  fn default() -> Self {
+    Msg { token_seed: 0,
+          probing_rate: BytesPerSecond(1000),
+          con: Con::default(),
+          non: Non::default(),
+          multicast_response_leisure: Milliseconds(5000) }
+  }
+}
+
+/// Runtime config
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Config {
+  /// See [`Msg`]
+  pub msg: Msg,
+  /// Maximum number of requests that
+  /// can be in flight at a given moment
+  ///
+  /// Default value is `1` (no concurrency)
+  ///
+  /// ```
+  /// use toad::config::Config;
+  ///
+  /// assert_eq!(Config::default().max_concurrent_requests, 1);
+  /// ```
+  pub max_concurrent_requests: u8,
+}
+
+impl Default for Config {
+  fn default() -> Self {
+    Config { msg: Msg::default(),
+             max_concurrent_requests: 1 }
+  }
+}
+
+impl Config {
   pub(crate) fn max_transmit_span_millis(&self) -> u64 {
-    self.con_retry_strategy
-        .max_time(Attempts(self.max_retransmit_attempts - 1))
-        .0 as u64
+    let acked_con = self.msg
+                        .con
+                        .acked_retry_strategy
+                        .max_time(self.msg.con.max_attempts - Attempts(1))
+                        .0 as u64;
+
+    let unacked_con = self.msg
+                          .con
+                          .unacked_retry_strategy
+                          .max_time(self.msg.con.max_attempts - Attempts(1))
+                          .0 as u64;
+
+    let non = self.msg
+                  .non
+                  .retry_strategy
+                  .max_time(self.msg.non.max_attempts - Attempts(1))
+                  .0 as u64;
+
+    acked_con.max(unacked_con).max(non)
   }
 
   pub(crate) fn max_transmit_wait_millis(&self) -> u64 {
-    self.con_retry_strategy
-        .max_time(Attempts(self.max_retransmit_attempts))
-        .0 as u64
+    let acked_con = self.msg
+                        .con
+                        .acked_retry_strategy
+                        .max_time(self.msg.con.max_attempts)
+                        .0 as u64;
+
+    let unacked_con = self.msg
+                          .con
+                          .unacked_retry_strategy
+                          .max_time(self.msg.con.max_attempts)
+                          .0 as u64;
+
+    let non = self.msg
+                  .non
+                  .retry_strategy
+                  .max_time(self.msg.non.max_attempts)
+                  .0 as u64;
+
+    acked_con.max(unacked_con).max(non)
   }
 
   // TODO: adjust these on the fly based on actual timings?
@@ -48,166 +270,5 @@ impl ConfigData {
     self.max_transmit_span_millis()
     + (2 * self.max_latency_millis())
     + self.expected_processing_delay_millis()
-  }
-}
-
-/// CoAP runtime config
-///
-/// Allows you to configure things like
-/// "how many concurrent requests are we allowed
-/// to send?" and "how long should we wait to resend
-/// unacknowledged confirmable requests?"
-///
-/// For an example see [`Config::new`].
-#[derive(Debug, Clone, Copy)]
-pub struct Config {
-  token_seed: Option<u16>,
-  con_retry_strategy: Option<Strategy>,
-  default_leisure_millis: Option<u64>,
-  max_retransmit_attempts: Option<u16>,
-  nstart: Option<u8>,
-  probing_rate_bytes_per_sec: Option<u16>,
-}
-
-impl Default for Config {
-  fn default() -> Self {
-    Self { token_seed: None,
-           con_retry_strategy: None,
-           default_leisure_millis: None,
-           max_retransmit_attempts: None,
-           nstart: None,
-           probing_rate_bytes_per_sec: None }
-  }
-}
-
-/// Bytes / Second
-#[derive(Debug, Clone, Copy)]
-pub struct BytesPerSecond(pub u16);
-
-impl Config {
-  /// Creates a new (empty) runtime config
-  ///
-  /// ```
-  /// use embedded_time::duration::Milliseconds as Millis;
-  /// use toad::config::{BytesPerSecond, Config};
-  /// use toad::retry::Attempts;
-  /// use toad::retry::Strategy::Exponential;
-  ///
-  /// let config = Config::new().token_seed(35718)
-  ///                           .max_concurrent_requests(142)
-  ///                           .probing_rate(BytesPerSecond(10_000))
-  ///                           .max_con_request_retries(Attempts(10))
-  ///                           .con_retry_strategy(Exponential { init_min: Millis(500),
-  ///                                                             init_max: Millis(750) });
-  /// ```
-  pub fn new() -> Self {
-    Default::default()
-  }
-
-  /// Set the retry strategy we should use to figure out when
-  /// we should resend outgoing CON requests that have not been
-  /// ACKed yet.
-  ///
-  /// Default value:
-  /// ```ignore
-  /// Strategy::Exponential { init_min: Seconds(2), init_max: Seconds(3) }
-  /// ```
-  pub fn con_retry_strategy(mut self, strat: Strategy) -> Self {
-    self.con_retry_strategy = Some(strat);
-    self
-  }
-
-  /// Set the seed used to generate message [`Token`](toad_msg::Token)s.
-  ///
-  /// The default value is 0, although it is
-  /// best practice to set this to something else.
-  /// This could be a random integer, or a machine identifier.
-  ///
-  /// _e.g. if you're developing a swarm of
-  /// smart CoAP-enabled thermostats, each one would ideally
-  /// have a distinct token_seed._
-  ///
-  /// The purpose of the seed is to make it more
-  /// difficult for an observer of unencrypted
-  /// CoAP traffic to guess what the next token will be.
-  ///
-  /// Tokens are generated by smooshing together
-  /// the 2-byte seed with an 8-byte timestamp from
-  /// the system clock.
-  ///
-  /// ```text
-  /// Core.token_seed
-  /// ||
-  /// xx xxxxxxxx
-  ///    |      |
-  ///    timestamp
-  /// ```
-  ///
-  /// Then a hashing algorithm is used to make it opaque and
-  /// reduce the size to 8 bytes.
-  pub fn token_seed(mut self, token_seed: u16) -> Self {
-    self.token_seed = Some(token_seed);
-    self
-  }
-
-  /// Set the transmission rate that we should do our best
-  /// not to exceed when waiting for:
-  /// - responses to our NON requests
-  /// - responses to our acked CON requests
-  ///
-  /// The default value is 1,000 (1KB/s)
-  pub fn probing_rate(mut self, probing_rate: BytesPerSecond) -> Self {
-    self.probing_rate_bytes_per_sec = Some(probing_rate.0);
-    self
-  }
-
-  /// Set the number of concurrent requests we are allowed
-  /// to have in-flight for each server.
-  ///
-  /// The default value is 1 (no concurrency)
-  pub fn max_concurrent_requests(mut self, n: u8) -> Self {
-    self.nstart = Some(n);
-    self
-  }
-
-  /// Set the maximum number of times we should re-send
-  /// confirmable requests before getting a response.
-  ///
-  /// The default value is 4 attempts
-  pub fn max_con_request_retries(mut self, max_tries: Attempts) -> Self {
-    self.max_retransmit_attempts = Some(max_tries.0);
-    self
-  }
-
-  /// Set the maximum amount of time we should wait to
-  /// respond to incoming multicast requests.
-  ///
-  /// The default value is 5 seconds.
-  #[doc = rfc_7252_doc!("8.2")]
-  pub fn default_leisure(mut self, default_leisure: Milliseconds<u64>) -> Self {
-    self.default_leisure_millis = Some(default_leisure.0);
-    self
-  }
-}
-
-impl From<Config> for ConfigData {
-  fn from(Config { token_seed,
-                   default_leisure_millis,
-                   max_retransmit_attempts,
-                   nstart,
-                   probing_rate_bytes_per_sec,
-                   con_retry_strategy,
-                   .. }: Config)
-          -> Self {
-    ConfigData { token_seed: token_seed.unwrap_or(0),
-                 default_leisure_millis: default_leisure_millis.unwrap_or(5_000),
-                 max_retransmit_attempts: max_retransmit_attempts.unwrap_or(4),
-                 nstart: nstart.unwrap_or(1),
-                 probing_rate_bytes_per_sec: probing_rate_bytes_per_sec.unwrap_or(1_000),
-                 con_retry_strategy:
-                   con_retry_strategy.unwrap_or(Strategy::Exponential { init_min:
-                                                                          Milliseconds(2_000),
-                                                                        init_max:
-                                                                          Milliseconds(3_000) }) }
   }
 }
