@@ -37,7 +37,7 @@ type InnerPollResp<P> = Addrd<Resp<P>>;
 #[derive(Clone, PartialEq)]
 pub enum Error<E> {
   /// Error serializing outbound ACK
-  SerializingAck(MessageToBytesError),
+  AckSerializingFailed(MessageToBytesError),
   /// The inner step failed.
   ///
   /// This variant's Debug representation is completely
@@ -66,7 +66,7 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::SerializingAck(e) => f.debug_tuple("SerializingAck").field(e).finish(),
+      | Self::AckSerializingFailed(e) => f.debug_tuple("SerializingAck").field(e).finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }
@@ -99,7 +99,7 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
             effects.push(Effect::SendDgram(Addrd(bytes, req.addr())));
             Some(Ok(req))
           },
-          | Err(e) => Some(Err(nb::Error::Other(Error::SerializingAck(e)))),
+          | Err(e) => Some(Err(nb::Error::Other(Error::AckSerializingFailed(e)))),
         }
       },
       | Some(req) => Some(Ok(req)),
