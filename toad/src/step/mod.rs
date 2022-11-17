@@ -4,13 +4,36 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, Platform};
 
+/// # Buffer & resend messages until they get a sufficient response
+/// * Client Flow ✓
+/// * Server Flow ✓
+///
+/// ## Internal State
+/// Stores all messages sent, removing them when they will
+/// not need to be resent
+///
+/// ## Behavior
+/// For outbound confirmable requests & responses, uses the params in [`Config.msg.con`](crate::config::Con).
+///
+/// For outbound non-confirmable requests, uses the params in [`Config.msg.non`](crate::config::Non).
+///
+/// Outbound non-confirmable responses and ACKs will never be retried.
+///
+/// Note that the bandwidth used for retrying will never significantly exceed
+/// [`probing_rate`](crate::config::Config.probing_rate), so retries may be delayed
+/// by a small amount to respect this parameter.
+///
+/// ## Transformation
+/// None
+pub mod retry;
+
 /// # Assign message Ids to those with Id(0)
 /// * Client Flow ✓
 /// * Server Flow ✓
 ///
 /// ## Internal State
-/// This step will store a buffer of the last 32 unique IDs sent and received
-/// per connection.
+/// This step will track all Ids seen per connection, pruning them as they age out
+/// of the exchange lifetime.
 ///
 /// ## Behavior
 /// Whenever a message is sent with an Id of 0, the Id is replaced with a new Id
@@ -68,9 +91,9 @@ pub mod ack;
 ///  * If we have seen exactly one matching response, pop it from the buffer & yield it
 ///  * If we have seen more than one matching response with different [`Type`](toad_msg::Type)s, pop & yield in this priority:
 ///      1. ACK
-///      1. CON
-///      1. NON
-///      1. RESET
+///      2. CON
+///      3. NON
+///      4. RESET
 ///
 /// ## Transformation
 /// None
@@ -126,7 +149,7 @@ macro_rules! exec_inner_step {
 }
 
 /// Specialized `?` operator for use in step bodies, allowing early-exit
-/// for Result, Option<Result> and Option<nb::Result>.
+/// for `Result`, `Option<Result>` and `Option<nb::Result>`.
 #[macro_export]
 macro_rules! _try {
   (Result; $r:expr) => {_try!(Option<Result>; Some($r))};
@@ -257,7 +280,7 @@ pub mod test {
     platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
                          recvd_dgram: crate::net::Addrd(Default::default(),
                                                         crate::test::dummy_addr()),
-                         config: crate::config::Config::default().into() }
+                         config: crate::config::Config::default() }
   }
 
   #[macro_export]
@@ -269,9 +292,16 @@ pub mod test {
       #[derive(Default)]
       struct Dummy(());
 
-      static mut POLL_REQ_MOCK: Option<::nb::Result<$poll_req_ty, $error_ty>> = None;
-      static mut POLL_RESP_MOCK: Option<Box<dyn Fn() -> Option<::nb::Result<$poll_resp_ty,
-                                                                            $error_ty>>>> = None;
+      static mut POLL_REQ_MOCK:
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+                          &mut <test::Platform as platform::Platform>::Effects)
+                          -> Option<::nb::Result<$poll_req_ty, $error_ty>>>> = None;
+      static mut POLL_RESP_MOCK:
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+                          &mut <test::Platform as platform::Platform>::Effects,
+                          toad_msg::Token,
+                          no_std_net::SocketAddr)
+                          -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
       static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
                                                            &Addrd<test::Message>)
                                                            -> Result<(), $error_ty>>> = None;
@@ -280,7 +310,8 @@ pub mod test {
                           &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
-        POLL_RESP_MOCK = Some(Box::new(|| None));
+        POLL_REQ_MOCK = Some(Box::new(|_, _| None));
+        POLL_RESP_MOCK = Some(Box::new(|_, _, _, _| None));
         ON_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
         BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
       }
@@ -296,19 +327,19 @@ pub mod test {
         }
 
         fn poll_req(&mut self,
-                    _: &platform::Snapshot<test::Platform>,
-                    _: &mut <test::Platform as platform::Platform>::Effects)
+                    a: &platform::Snapshot<test::Platform>,
+                    b: &mut <test::Platform as platform::Platform>::Effects)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
-          unsafe { POLL_REQ_MOCK.clone() }
+          unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
         fn poll_resp(&mut self,
-                     _: &platform::Snapshot<test::Platform>,
-                     _: &mut <test::Platform as platform::Platform>::Effects,
-                     _: toad_msg::Token,
-                     _: no_std_net::SocketAddr)
+                     a: &platform::Snapshot<test::Platform>,
+                     b: &mut <test::Platform as platform::Platform>::Effects,
+                     c: toad_msg::Token,
+                     d: no_std_net::SocketAddr)
                      -> step::StepOutput<Self::PollResp, ()> {
-          unsafe { POLL_RESP_MOCK.as_ref().unwrap()() }
+          unsafe { POLL_RESP_MOCK.as_ref().unwrap()(a, b, c, d) }
         }
 
         fn before_message_sent(&mut self,
@@ -339,9 +370,22 @@ pub mod test {
       snapshot = $snapshot:expr,
       token = $token:expr,
       addr = $addr:expr,
+      when (inner.poll_req = {$poll_req_fake:expr})
+    ) => {
+      *$poll_req_mock = Some(Box::new($poll_req_fake))
+    };
+    (
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot:expr,
+      token = $token:expr,
+      addr = $addr:expr,
       when (inner.poll_req => {$inner_step_returns:expr})
     ) => {
-      *$poll_req_mock = $inner_step_returns
+      *$poll_req_mock = Some(Box::new(|_, _| $inner_step_returns))
     };
     (
       poll_req_mock = $poll_req_mock:expr,
@@ -367,7 +411,7 @@ pub mod test {
       addr = $addr:expr,
       when (inner.poll_resp => {$inner_step_returns:expr})
     ) => {
-      *$poll_resp_mock = Some(Box::new(|| $inner_step_returns))
+      *$poll_resp_mock = Some(Box::new(|_, _, _, _| $inner_step_returns))
     };
     (
       poll_req_mock = $poll_req_mock:expr,
@@ -479,6 +523,19 @@ pub mod test {
     }};
     (
       step: $step_ty:ty = $step:expr,
+      snap = $_s:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (on_message_sent($snap:expr, $msg:expr) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::Step;
+
+      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.on_message_sent(&$snap, &$msg))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
       token = $token:expr,
@@ -493,6 +550,20 @@ pub mod test {
     }};
     (
       step: $step_ty:ty = $step:expr,
+      snap = $_s:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (poll_req($snap:expr, _) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_req(&$snap, $effects))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
       token = $token:expr,
@@ -504,6 +575,20 @@ pub mod test {
       let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
                                            <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp($snap, $effects, $token, $addr))
+    }};
+    (
+      step: $step_ty:ty = $step:expr,
+      snap = $_s:expr,
+      effects = $effects:expr,
+      token = $token:expr,
+      addr = $addr:expr,
+      expect (poll_resp($snap:expr, _, _, _) should satisfy {$assert_fn:expr})
+    ) => {{
+      use $crate::step::{Step, StepOutput};
+
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
+                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      assert_fn($step.poll_resp(&$snap, $effects, $token, $addr))
     }};
     (
       step: $step_ty:ty = $step:expr,
