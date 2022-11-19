@@ -1,14 +1,8 @@
-use core::iter::Product;
-use core::marker::PhantomData;
-
-use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
-use tinyvec::ArrayVec;
-use toad_common::{Array, GetSize, InsertError, Map};
 use toad_msg::{CodeKind, Token};
 
-use super::{Step, _try};
+use super::Step;
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
@@ -99,10 +93,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
 #[cfg(test)]
 mod test {
-  use embedded_time::duration::Microseconds;
-
   use super::*;
-  use crate::config;
   use crate::step::test::test_step;
   use crate::test::{ClockMock, Snapshot};
 

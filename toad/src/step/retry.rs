@@ -2,7 +2,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{Code, CodeKind, Token, TryIntoBytes, Type};
+use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
