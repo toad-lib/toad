@@ -29,14 +29,14 @@ pub mod retry;
 
 /// # Assign message tokens to those with Token(0)
 /// * Client Flow ✓
-/// * Server Flow ✓
+/// * Server Flow ✗
 ///
 /// ## Internal State
 /// None
 ///
 /// ## Behavior
-/// Whenever a message is sent with an Token of 0, the Token is replaced
-/// with a new Token that has not been sent or received yet.
+/// Whenever a request is sent with an Token of 0, the Token is replaced
+/// with a new Token that has not been used yet.
 ///
 /// ## Transformation
 /// None
