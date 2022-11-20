@@ -663,7 +663,7 @@ pub mod test {
   macro_rules! test_step {
     (
       GIVEN $step:ty where $inner:ty: $inner_step:tt;
-      WHEN $when_summary:ident [$($when:tt),+]
+      WHEN $when_summary:ident [$($when:tt),*]
       THEN $then_summary:ident [$($expect:tt),+]
     ) => {
       paste::paste! {
@@ -694,7 +694,7 @@ pub mod test {
                   addr = &mut addr,
                   when $when
                 )
-            );+
+            );*
           };
 
           let mut step = $step::default();
