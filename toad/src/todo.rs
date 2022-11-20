@@ -4,6 +4,17 @@ use core::ops::{Div, Mul};
 
 use tinyvec::ArrayVec;
 use toad_common::*;
+use toad_msg::Opt;
+
+/// TODO
+pub trait MessagePayload: Array<Item = u8> {}
+/// TODO
+pub trait MessageOptionValue: Array<Item = u8> + AppendCopy<u8> {}
+/// TODO
+pub trait MessageOptions<V>: Array<Item = Opt<V>>
+  where V: MessageOptionValue
+{
+}
 
 /// A [`Map`](toad_common::Map) stored completely on the stack
 pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;

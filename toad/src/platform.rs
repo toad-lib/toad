@@ -9,8 +9,8 @@ use toad_msg::{Id, Opt, OptNumber, Token};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
-use crate::time::{Clock, Stamped};
-use crate::todo::String1Kb;
+use crate::time::{self, Clock, Stamped};
+use crate::todo::{self, String1Kb};
 
 /// toad configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
@@ -47,8 +47,19 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type Socket: Socket;
 
   /// How will we store a sequence of effects to perform?
-  type Effects: Array<Item = Effect<Self>>;
+  type Effects: Array<Item = EffectForPlatform<Self>>;
 }
+
+pub type EffectForPlatform<P> =
+  Effect<<P as Platform>::MessagePayload,
+ <P as Platform>::MessageOptionBytes,
+ <P as Platform>::MessageOptions>;
+
+pub type SnapshotForPlatform<P> =
+Snapshot<<P as Platform>::MessagePayload,
+ <P as Platform>::MessageOptionBytes,
+ <P as Platform>::MessageOptions,
+ <P as Platform>::Clock> ;
 
 /// A snapshot of the system's state at a given moment
 ///
@@ -57,18 +68,21 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
 /// ```
 #[allow(missing_debug_implementations)]
 #[non_exhaustive]
-pub struct Snapshot<P: Platform> {
+pub struct Snapshot<MessagePayload: todo::MessagePayload,
+ MessageOptionValue: todo::MessageOptionValue,
+ MessageOptions: todo::MessageOptions<MessageOptionValue>,
+ Clock: time::Clock> {
   /// The current system time at the start of the step pipe
-  pub time: Instant<P::Clock>,
+  pub time: Instant<Clock>,
 
   /// A UDP datagram received from somewhere
-  pub recvd_dgram: Addrd<P::Dgram>,
+  pub recvd_dgram: Addrd<toad_msg::Message<MessagePayload, MessageOptions>>,
 
   /// Runtime config, includes many useful timings
   pub config: Config,
 }
 
-impl<P: Platform> Clone for Snapshot<P> {
+impl<P: Platform> Clone for SnapshotForPlatform<P> {
   fn clone(&self) -> Self {
     Self { time: self.time,
            recvd_dgram: self.recvd_dgram.clone(),
@@ -77,15 +91,17 @@ impl<P: Platform> Clone for Snapshot<P> {
 }
 
 /// Side effects that platforms must support performing
-pub enum Effect<P: Platform> {
-  /// Send a UDP message to a remote address
-  SendDgram(Addrd<P::Dgram>),
+pub enum Effect<MessagePayload: todo::MessagePayload,
+ MessageOptionValue: todo::MessageOptionValue,
+ MessageOptions: todo::MessageOptions<MessageOptionValue>> {
+  /// Send a CoAP message to a remote address
+  SendMessage(Addrd<toad_msg::Message<MessagePayload, MessageOptions>>),
 
   /// Log to some external log provider
   Log(log::Level, String1Kb),
 }
 
-impl<P: Platform> Clone for Effect<P> {
+impl<P: Platform> Clone for EffectForPlatform<P> {
   fn clone(&self) -> Self {
     match self {
       | Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
@@ -94,7 +110,7 @@ impl<P: Platform> Clone for Effect<P> {
   }
 }
 
-impl<P: Platform> core::fmt::Debug for Effect<P> {
+impl<P: Platform> core::fmt::Debug for EffectForPlatform<P> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
       | Self::SendDgram(a) => f.debug_tuple("SendDgram").field(a).finish(),
@@ -103,7 +119,7 @@ impl<P: Platform> core::fmt::Debug for Effect<P> {
   }
 }
 
-impl<P: Platform> PartialEq for Effect<P> {
+impl<P: Platform> PartialEq for EffectForPlatform<P> {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
       | (Self::SendDgram(a), Self::SendDgram(b)) => a == b,
@@ -173,7 +189,7 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Cl
   type Dgram = Vec<u8>;
   type Clock = Clk;
   type Socket = Sock;
-  type Effects = Vec<Effect<Self>>;
+  type Effects = Vec<EffectForPlatform<Self>>;
 }
 
 /// Configures `toad` to use `Vec` for collections,

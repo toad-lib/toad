@@ -1,8 +1,10 @@
 use no_std_net::SocketAddr;
-use toad_msg::Token;
+use toad_common::Array;
+use toad_msg::{Message, Token};
 
 use crate::net::Addrd;
-use crate::platform::{self, Platform};
+use crate::platform::{self, Effect};
+use crate::{time, todo};
 
 /// # Buffer & resend messages until they get a sufficient response
 /// * Client Flow ✓
@@ -186,7 +188,12 @@ impl Error for () {}
 /// A step in the message-handling CoAP runtime.
 ///
 /// See the [module documentation](crate::step) for more.
-pub trait Step<P: Platform>: Default {
+pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+               MessagePayload: todo::MessagePayload,
+               MessageOptionValue: todo::MessageOptionValue,
+               MessageOptions: todo::MessageOptions<MessageOptionValue>,
+               Clock: time::Clock>: Default
+{
   /// Type that this step returns when polling for a request
   type PollReq;
 
@@ -194,10 +201,15 @@ pub trait Step<P: Platform>: Default {
   type PollResp;
 
   /// Type of error that can be yielded by poll_req / poll_resp
-  type Error: Error + From<<Self::Inner as Step<P>>::Error>;
+  type Error: Error
+    + From<<Self::Inner as Step<Effects,
+                              MessagePayload,
+                              MessageOptionValue,
+                              MessageOptions,
+                              Clock>>::Error>;
 
   /// Inner step that will be performed before this one.
-  type Inner: Step<P>;
+  type Inner: Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, Clock>;
 
   /// Get reference to inner step
   ///
@@ -208,23 +220,29 @@ pub trait Step<P: Platform>: Default {
   /// # Poll for an inbound request
   /// This corresponds to the **server** flow.
   fn poll_req(&mut self,
-              snap: &platform::Snapshot<P>,
-              effects: &mut P::Effects)
+              snap: &platform::Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error>;
 
   /// # Poll for an inbound response
   /// This corresponds to the **client** flow.
   fn poll_resp(&mut self,
-               snap: &platform::Snapshot<P>,
-               effects: &mut P::Effects,
+               snap: &platform::Snapshot<MessagePayload,
+                                   MessageOptionValue,
+                                   MessageOptions,
+                                   Clock>,
+               effects: &mut Effects,
                token: Token,
                addr: SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error>;
 
   /// Invoked before messages are sent, allowing for internal state change & modification.
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<P>,
-                         msg: &mut Addrd<platform::Message<P>>)
+                         snap: &platform::Snapshot<MessagePayload,
+                                             MessageOptionValue,
+                                             MessageOptions,
+                                             Clock>,
+                         msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner()
         .before_message_sent(snap, msg)
@@ -233,8 +251,11 @@ pub trait Step<P: Platform>: Default {
 
   /// Invoked after messages are sent, allowing for internal state change.
   fn on_message_sent(&mut self,
-                     snap: &platform::Snapshot<P>,
-                     msg: &Addrd<platform::Message<P>>)
+                     snap: &platform::Snapshot<MessagePayload,
+                                         MessageOptionValue,
+                                         MessageOptions,
+                                         Clock>,
+                     msg: &Addrd<Message<MessagePayload, MessageOptions>>)
                      -> Result<(), Self::Error> {
     self.inner()
         .on_message_sent(snap, msg)
@@ -242,7 +263,11 @@ pub trait Step<P: Platform>: Default {
   }
 }
 
-impl<P: Platform> Step<P> for () {
+impl<Effs: Array<Item = Effect<MP, MOV, MOs>>,
+               MP: todo::MessagePayload,
+               MOV: todo::MessageOptionValue,
+               MOs: todo::MessageOptions<MOV>,
+               Clock: time::Clock> Step<Effs, MP, MOV, MOs, Clock> for () {
   type PollReq = ();
   type PollResp = ();
   type Error = ();
@@ -253,15 +278,15 @@ impl<P: Platform> Step<P> for () {
   }
 
   fn poll_req(&mut self,
-              _: &platform::Snapshot<P>,
-              _: &mut <P as Platform>::Effects)
+              _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+              _: &mut Effs)
               -> StepOutput<(), ()> {
     None
   }
 
   fn poll_resp(&mut self,
-               _: &platform::Snapshot<P>,
-               _: &mut <P as Platform>::Effects,
+               _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+               _: &mut Effs,
                _: Token,
                _: SocketAddr)
                -> StepOutput<(), ()> {
@@ -269,15 +294,15 @@ impl<P: Platform> Step<P> for () {
   }
 
   fn before_message_sent(&mut self,
-                         _: &platform::Snapshot<P>,
-                         _: &mut Addrd<platform::Message<P>>)
+                         _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+                         _: &mut Addrd<Message<MP, MOs>>)
                          -> Result<(), Self::Error> {
     Ok(())
   }
 
   fn on_message_sent(&mut self,
-                     _: &platform::Snapshot<P>,
-                     _: &Addrd<platform::Message<P>>)
+                     _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+                     _: &Addrd<Message<MP, MOs>>)
                      -> Result<(), Self::Error> {
     Ok(())
   }
@@ -291,7 +316,7 @@ pub mod test {
   use crate::test;
   use crate::test::ClockMock;
 
-  pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
+  pub fn default_snapshot() -> platform::SnapshotForPlatform<test::Platform> {
     platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
                          recvd_dgram: crate::net::Addrd(Default::default(),
                                                         crate::test::dummy_addr()),
@@ -302,26 +327,27 @@ pub mod test {
   macro_rules! dummy_step {
     ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       use $crate::net::Addrd;
-      use $crate::{platform, step, test};
+      use $crate::{platform, platform::Platform, step, test};
+      use $crate::test::Platform as P;
 
       #[derive(Default)]
       struct Dummy(());
 
       static mut POLL_REQ_MOCK:
-        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
-                          &mut <test::Platform as platform::Platform>::Effects)
+        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
+                          &mut <P as platform::Platform>::Effects)
                           -> Option<::nb::Result<$poll_req_ty, $error_ty>>>> = None;
       static mut POLL_RESP_MOCK:
-        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
-                          &mut <test::Platform as platform::Platform>::Effects,
+        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
+                          &mut <P as platform::Platform>::Effects,
                           toad_msg::Token,
                           no_std_net::SocketAddr)
                           -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
-      static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+      static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
                                                            &Addrd<test::Message>)
                                                            -> Result<(), $error_ty>>> = None;
       static mut BEFORE_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
                           &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
@@ -331,7 +357,13 @@ pub mod test {
         BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
       }
 
-      impl Step<test::Platform> for Dummy {
+      impl Step<
+        <P as Platform>::Effects,
+        <P as Platform>::MessagePayload,
+        <P as Platform>::MessageOptionBytes,
+        <P as Platform>::MessageOptions,
+        <P as Platform>::Clock
+      > for Dummy {
         type PollReq = $poll_req_ty;
         type PollResp = $poll_resp_ty;
         type Error = $error_ty;
@@ -342,14 +374,14 @@ pub mod test {
         }
 
         fn poll_req(&mut self,
-                    a: &platform::Snapshot<test::Platform>,
+                    a: &platform::SnapshotForPlatform<test::Platform>,
                     b: &mut <test::Platform as platform::Platform>::Effects)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
           unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
         fn poll_resp(&mut self,
-                     a: &platform::Snapshot<test::Platform>,
+                     a: &platform::SnapshotForPlatform<test::Platform>,
                      b: &mut <test::Platform as platform::Platform>::Effects,
                      c: toad_msg::Token,
                      d: no_std_net::SocketAddr)
@@ -358,14 +390,14 @@ pub mod test {
         }
 
         fn before_message_sent(&mut self,
-                               snap: &platform::Snapshot<test::Platform>,
+                               snap: &platform::SnapshotForPlatform<test::Platform>,
                                msg: &mut Addrd<test::Message>)
                                -> Result<(), Self::Error> {
           unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
         }
 
         fn on_message_sent(&mut self,
-                           snap: &platform::Snapshot<test::Platform>,
+                           snap: &platform::SnapshotForPlatform<test::Platform>,
                            msg: &Addrd<test::Message>)
                            -> Result<(), Self::Error> {
           unsafe { ON_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
