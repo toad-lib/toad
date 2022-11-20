@@ -663,7 +663,7 @@ pub mod test {
   macro_rules! test_step {
     (
       GIVEN $step:ty where $inner:ty: $inner_step:tt;
-      WHEN $when_summary:ident [$($when:tt),+]
+      WHEN $when_summary:ident [$($when:tt),*]
       THEN $then_summary:ident [$($expect:tt),+]
     ) => {
       paste::paste! {
@@ -671,6 +671,8 @@ pub mod test {
         fn [<when_ $when_summary:lower _then_ $then_summary:lower>]() {
           #![allow(unused_mut)]
           #![allow(unused_variables)]
+          #![allow(unused_imports)]
+          #![allow(unused_unsafe)]
 
           use $crate::{dummy_step, test_step_when, test_step_expect};
 
@@ -694,7 +696,7 @@ pub mod test {
                   addr = &mut addr,
                   when $when
                 )
-            );+
+            );*
           };
 
           let mut step = $step::default();

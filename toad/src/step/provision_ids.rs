@@ -22,6 +22,7 @@ use crate::time::Stamped;
 #[cfg(feature = "alloc")]
 pub mod alloc {
   use ::std_alloc::collections::BTreeMap;
+  use ::std_alloc::vec::Vec;
 
   use super::*;
 
@@ -301,17 +302,8 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
 
 macro_rules! common {
   ($self:expr, $snap:expr, $req_or_resp:expr) => {{
-    let mut r = $req_or_resp;
-    let addr = r.addr();
-    let id = &mut r.data_mut().msg.id;
-
-    if *id == Id(0) {
-      let new = $self.next($snap.config, $snap.time, addr);
-      *id = new;
-    } else {
-      $self.seen($snap.config, $snap.time, addr, *id);
-    }
-
+    let r = $req_or_resp;
+    $self.seen($snap.config, $snap.time, r.addr(), r.data().msg.id);
     Some(Ok(r))
   }};
 }
@@ -416,14 +408,21 @@ mod test {
 
   test_step!(
     GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
-    WHEN inner_yields_id_zero [
+    WHEN message_sent_with_id_zero []
+    THEN this_should_assign_nonzero_id [
+      (before_message_sent(_, test_msg(Id(0))) should be ok with { |msg| assert!(matches!(msg.data().id, Id(n) if n > 0)) })
+    ]
+  );
+
+  test_step!(
+    GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    WHEN req_or_resp_recvd_with_id_zero [
       (inner.poll_req => { Some(Ok(test_msg(Id(0)).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_msg(Id(0)).map(Resp::from))) })
     ]
-    THEN this_should_assign_nonzero_id [
-      (poll_req(_, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(n) if n > 0)) }),
-      (poll_resp(_, _, _, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(n) if n > 0)) }),
-      (before_message_sent(_, test_msg(Id(0))) should be ok with { |msg| assert!(matches!(msg.data().id, Id(n) if n > 0)) })
+    THEN id_should_be_respected [
+      (poll_req(_, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(0))) }),
+      (poll_resp(_, _, _, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(0))) })
     ]
   );
 
