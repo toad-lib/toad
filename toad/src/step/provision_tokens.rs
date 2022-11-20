@@ -1,15 +1,17 @@
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
-use toad_msg::{CodeKind, Token};
+use toad_common::Array;
+use toad_msg::{CodeKind, Token, Message};
 
-use super::{Step, _try};
+use super::{Step, _try, StepOutput};
 use crate::config::Config;
 use crate::net::Addrd;
-use crate::platform;
+use crate::platform::{self, Effect};
 use crate::platform::Platform;
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::time::Millis;
+use crate::time::{Millis, self};
+use crate::todo;
 
 /// Errors that can be encountered when provisioning tokens
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -73,12 +75,30 @@ impl<Inner> ProvisionTokens<Inner> {
   }
 }
 
-impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
-  where P: Platform,
-        Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>
+impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for ProvisionTokens<Inner>
+  where E: super::Error,
+        Inner: Step<Effects,
+                    MessagePayload,
+                    MessageOptionValue,
+                    MessageOptions,
+                    NumberedOptions,
+                    Clock,
+                    PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    Error = E>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
+        Clock: time::Clock
 {
-  type PollReq = Addrd<Req<P>>;
-  type PollResp = Addrd<Resp<P>>;
+  type PollReq = Addrd<  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = Error<E>;
   type Inner = Inner;
 
@@ -87,8 +107,11 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
   }
 
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<P>,
-                         msg: &mut Addrd<platform::Message<P>>)
+                         snap: &platform::Snapshot<MessagePayload,
+                                             MessageOptionValue,
+                                             MessageOptions,
+                                             Clock>,
+                         msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner.before_message_sent(snap, msg)?;
 
@@ -105,20 +128,23 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
   }
 
   fn poll_req(&mut self,
-              snap: &platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
-              -> super::StepOutput<Self::PollReq, Self::Error> {
+              snap: &platform::Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              effects: &mut Effects)
+              -> StepOutput<Self::PollReq, Self::Error> {
     self.inner
         .poll_req(snap, effects)
         .map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 
   fn poll_resp(&mut self,
-               snap: &platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               snap: &platform::Snapshot<MessagePayload,
+                                   MessageOptionValue,
+                                   MessageOptions,
+                                   Clock>,
+               effects: &mut Effects,
                token: Token,
                addr: SocketAddr)
-               -> super::StepOutput<Self::PollResp, Self::Error> {
+               -> StepOutput<Self::PollResp, Self::Error> {
     self.inner
         .poll_resp(snap, effects, token, addr)
         .map(|r| r.map_err(|e| e.map(Error::Inner)))
@@ -128,11 +154,13 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::step::test::test_step;
+  use crate::req::ReqForPlatform;
+use crate::resp::RespForPlatform;
+use crate::step::test::test_step;
   use crate::test::{ClockMock, Snapshot};
 
-  type InnerPollReq = Addrd<Req<crate::test::Platform>>;
-  type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type InnerPollReq = Addrd<  ReqForPlatform<crate::test::Platform>>;
+  type InnerPollResp = Addrd<RespForPlatform<crate::test::Platform>>;
 
   test_step!(
     GIVEN ProvisionTokens::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};

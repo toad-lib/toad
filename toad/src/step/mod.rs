@@ -60,26 +60,6 @@ pub mod provision_tokens;
 /// None
 pub mod provision_ids;
 
-/// # Send Reset to ACKs we don't recognize
-/// * Client Flow ✓
-/// * Server Flow ✓
-///
-/// ## Internal State
-/// This step will store the tokens of all CONfirmable messages sent,
-/// removing them as they are acknowledged.
-///
-/// ## Behavior
-/// If an ACK is received by a client or server that does not match any
-/// pending CONfirmable messages, this step will:
-///  * Reply to the ACK with a Reset message
-///  * Log that the ACK was ignored
-///
-/// ## Transformation
-/// If an ACK is received by a client or server that does not match any
-/// pending CONfirmable messages, this step will cause further steps
-/// to ignore it by yielding None.
-pub mod reset;
-
 /// # ACK incoming messages
 /// * Client Flow ✓
 /// * Server Flow ✓
