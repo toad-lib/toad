@@ -2,7 +2,7 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_msg::{CodeKind, Token};
 
-use super::Step;
+use super::{_try, Step};
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
@@ -10,6 +10,32 @@ use crate::platform::Platform;
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Millis;
+
+/// Errors that can be encountered when provisioning tokens
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+pub enum Error<E> {
+  /// The inner step failed.
+  ///
+  /// This variant's Debug representation is completely
+  /// replaced by the inner type E's debug representation.
+  Inner(E),
+  /// This exceedingly rare error will only ever happen
+  /// when the [`Clock`](crate::time::Clock) implementation
+  /// is defined as 1 tick meaning 1 second.
+  ///
+  /// If this is the case, it would be highly advised to use
+  /// milli ticks, as seconds are too granular to be reliable
+  /// for timings used in `toad`.
+  MillisSinceEpochWouldOverflow,
+}
+
+impl<E> super::Error for Error<E> where E: super::Error {}
+
+impl<E> From<E> for Error<E> {
+  fn from(e: E) -> Self {
+    Error::Inner(e)
+  }
+}
 
 /// Step responsible for replacing all message ids of zero `Id(0)` (assumed to be meaningless)
 /// with a new meaningful Id that is guaranteed to be unique to the conversation with
@@ -27,10 +53,11 @@ impl<Inner> Default for ProvisionTokens<Inner> where Inner: Default
 }
 
 impl<Inner> ProvisionTokens<Inner> {
-  fn next<Clock>(&mut self, now: Instant<Clock>, cfg: Config) -> Token
+  fn next<E, Clock>(&mut self, now: Instant<Clock>, cfg: Config) -> Result<Token, Error<E>>
     where Clock: crate::time::Clock
   {
-    let now_since_epoch = Millis::try_from(now.duration_since_epoch()).unwrap();
+    // TODO(orion): we may want to handle this
+    let now_since_epoch = Millis::try_from(now.duration_since_epoch()).map_err(|_| Error::MillisSinceEpochWouldOverflow)?;
 
     #[allow(clippy::many_single_char_names)]
     let bytes = {
@@ -39,7 +66,7 @@ impl<Inner> ProvisionTokens<Inner> {
       [a, b, c, d, e, f, g, h, i, j]
     };
 
-    Token::opaque(&bytes)
+    Ok(Token::opaque(&bytes))
   }
 }
 
@@ -49,7 +76,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
-  type Error = E;
+  type Error = Error<E>;
   type Inner = Inner;
 
   fn inner(&mut self) -> &mut Self::Inner {
@@ -64,7 +91,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
     let token = match (msg.data().code.kind(), msg.data().token) {
       | (CodeKind::Request, t) if t == Token(Default::default()) => {
-        self.next(snap.time, snap.config)
+        self.next(snap.time, snap.config)?
       },
       | (_, t) => t,
     };
@@ -78,7 +105,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
               snap: &platform::Snapshot<P>,
               effects: &mut <P as Platform>::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
-    self.inner.poll_req(snap, effects)
+    self.inner.poll_req(snap, effects).map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 
   fn poll_resp(&mut self,
@@ -87,7 +114,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
                token: Token,
                addr: SocketAddr)
                -> super::StepOutput<Self::PollResp, Self::Error> {
-    self.inner.poll_resp(snap, effects, token, addr)
+    self.inner.poll_resp(snap, effects, token, addr).map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 }
 
@@ -107,8 +134,8 @@ mod test {
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
     ]
     THEN this_should_error [
-      (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) }),
-      (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) })
+      (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
+      (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
     ]
   );
 
