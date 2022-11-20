@@ -1,4 +1,3 @@
-use tinyvec::ArrayVec;
 use toad_common::Cursor;
 
 /// Trait for converting a sequence of bytes into some data structure

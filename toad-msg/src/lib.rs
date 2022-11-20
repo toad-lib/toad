@@ -95,7 +95,7 @@ use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
-use toad_common::{Array, GetSize};
+use toad_common::Array;
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
