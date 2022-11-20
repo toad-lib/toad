@@ -5,13 +5,13 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, InsertError, Map};
-use toad_msg::Id;
+use toad_msg::{Id, Message};
 
-use super::{Step, _try};
+use super::{Step, _try, StepOutput};
 use crate::config::Config;
 use crate::net::Addrd;
-use crate::platform;
-use crate::platform::Platform;
+use crate::{platform, time, todo};
+use crate::platform::{Platform, Effect, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Stamped;
@@ -36,7 +36,7 @@ pub mod alloc {
   ///
   /// For more information see [`super::ProvisionIds`]
   /// or the [module documentation](crate::step::provision_ids).
-  pub type ProvisionIds<P, S> = super::ProvisionIds<P, S, Map<P>>;
+  pub type ProvisionIds<P, S> = super::ProvisionIds<S, Map<P>>;
 }
 
 /// `ProvisionIds` that uses ArrayVec, storing Ids on
@@ -57,7 +57,7 @@ pub mod no_alloc {
   /// For more information see [`super::ProvisionIds`]
   /// or the [module documentation](crate::step::provision_ids).
   pub type ProvisionIds<P, S, const ID_BUFFER_SIZE: usize, const MAX_ADDRS: usize> =
-    super::ProvisionIds<P, S, Map<P, ID_BUFFER_SIZE, MAX_ADDRS>>;
+    super::ProvisionIds<S, Map<P, ID_BUFFER_SIZE, MAX_ADDRS>>;
 }
 
 /// Supertrait type shenanigans
@@ -69,9 +69,9 @@ pub mod no_alloc {
 /// type parameters to the step, although it does add a minorly annoying restriction
 /// that if you want to use something other than BTreeMap or ArrayVec,
 /// you would have to wrap your collection in a newtype.
-pub trait IdsBySocketAddr<P: Platform>: Map<SocketAddrWithDefault, Self::Ids> {
+pub trait IdsBySocketAddr<C>: Map<SocketAddrWithDefault, Self::Ids> where C: time::Clock {
   /// the "given `A` which is an..." type above
-  type Ids: Array<Item = Stamped<P::Clock, IdWithDefault>>;
+  type Ids: Array<Item = Stamped<C, IdWithDefault>>;
 }
 
 #[cfg(feature = "alloc")]
@@ -124,29 +124,17 @@ impl Default for IdWithDefault {
 /// Step responsible for replacing all message ids of zero `Id(0)` (assumed to be meaningless)
 /// with a new meaningful Id that is guaranteed to be unique to the conversation with
 /// the message's origin/destination address.
-#[derive(Debug, Clone)]
-pub struct ProvisionIds<P, Inner, SeenIds> {
+#[derive(Debug, Clone, Default)]
+pub struct ProvisionIds<Inner, SeenIds> {
   inner: Inner,
   seen: SeenIds,
-  __p: PhantomData<P>,
 }
 
-impl<P, Inner, SeenIds> Default for ProvisionIds<P, Inner, SeenIds>
-  where Inner: Default,
-        SeenIds: Default
+impl<Inner, Ids, C> ProvisionIds<Inner, Ids>
+  where Ids: IdsBySocketAddr<C>,
+        C: time::Clock
 {
-  fn default() -> Self {
-    Self { inner: Default::default(),
-           seen: Default::default(),
-           __p: PhantomData }
-  }
-}
-
-impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
-  where Ids: IdsBySocketAddr<P>,
-        P: Platform
-{
-  fn prune(&mut self, now: Instant<P::Clock>, config: Config) {
+  fn prune(&mut self, now: Instant<C>, config: Config) {
     for (_, ids) in self.seen.iter_mut() {
       ids.sort_by_key(|t| t.time());
       let remove_before =
@@ -176,7 +164,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
     {
       | Ok(_) => (),
       | Err(InsertError::CapacityExhausted) => {
-        let mut to_remove: Option<Stamped<P::Clock, SocketAddrWithDefault>> = None;
+        let mut to_remove: Option<Stamped<C, SocketAddrWithDefault>> = None;
 
         for (addr, ids) in self.seen.iter_mut() {
           if ids.is_empty() {
@@ -203,7 +191,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   /// Generate a Message ID that has not been used yet with the connection with this socket
   ///
   /// best case O(1), worst case O(n)
-  fn next(&mut self, config: Config, time: Instant<P::Clock>, addr: SocketAddr) -> Id {
+  fn next(&mut self, config: Config, time: Instant<C>, addr: SocketAddr) -> Id {
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
       | None => {
         self.new_addr(addr);
@@ -261,7 +249,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   }
 
   /// Mark an Id + Addr pair as being seen at `time`.
-  fn seen(&mut self, config: Config, now: Instant<P::Clock>, addr: SocketAddr, id: Id) {
+  fn seen(&mut self, config: Config, now: Instant<C>, addr: SocketAddr, id: Id) {
     self.prune(now, config);
 
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
@@ -308,13 +296,31 @@ macro_rules! common {
   }};
 }
 
-impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
-  where P: Platform,
-        Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>,
-        Ids: IdsBySocketAddr<P>
+impl<Inner, E, Effects, Ids, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for ProvisionIds<Inner, Ids>
+where Ids: IdsBySocketAddr<Clock>,
+E: super::Error,
+        Inner: Step<Effects,
+                    MessagePayload,
+                    MessageOptionValue,
+                    MessageOptions,
+                    NumberedOptions,
+                    Clock,
+                    PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    Error = E>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
+        Clock: time::Clock
 {
-  type PollReq = Addrd<Req<P>>;
-  type PollResp = Addrd<Resp<P>>;
+  type PollReq = Addrd<  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = E;
   type Inner = Inner;
 
@@ -323,28 +329,31 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
   }
 
   fn poll_req(&mut self,
-              snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
-              -> super::StepOutput<Self::PollReq, Self::Error> {
+              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              effects: &mut Effects)
+              -> StepOutput<Self::PollReq, Self::Error> {
     let req = self.inner.poll_req(snap, effects);
     let req = _try!(Option<nb::Result>; req);
     common!(self, snap, req)
   }
 
   fn poll_resp(&mut self,
-               snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               effects: &mut Effects,
                token: toad_msg::Token,
-               addr: SocketAddr)
-               -> super::StepOutput<Self::PollResp, Self::Error> {
+               addr: no_std_net::SocketAddr)
+               -> StepOutput<Self::PollResp, Self::Error> {
     let resp = self.inner.poll_resp(snap, effects, token, addr);
     let resp = _try!(Option<nb::Result>; resp);
     common!(self, snap, resp)
   }
 
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<P>,
-                         msg: &mut Addrd<platform::Message<P>>)
+                         snap: &platform::Snapshot<MessagePayload,
+                                             MessageOptionValue,
+                                             MessageOptions,
+                                             Clock>,
+                         msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner.before_message_sent(snap, msg)?;
 
@@ -363,11 +372,13 @@ mod test {
   use toad_common::Map;
 
   use super::*;
-  use crate::step::test::test_step;
+  use crate::req::ReqForPlatform;
+use crate::resp::RespForPlatform;
+use crate::step::test::test_step;
   use crate::test::{ClockMock, Platform as P};
 
-  type InnerPollReq = Addrd<Req<crate::test::Platform>>;
-  type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type InnerPollReq = Addrd<  ReqForPlatform<crate::test::Platform>>;
+  type InnerPollResp = Addrd<RespForPlatform<crate::test::Platform>>;
 
   fn test_msg(id: Id) -> Addrd<crate::test::Message> {
     use toad_msg::*;
