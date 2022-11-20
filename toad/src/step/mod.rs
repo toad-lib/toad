@@ -27,6 +27,21 @@ use crate::platform::{self, Platform};
 /// None
 pub mod retry;
 
+/// # Assign message tokens to those with Token(0)
+/// * Client Flow ✓
+/// * Server Flow ✗
+///
+/// ## Internal State
+/// None
+///
+/// ## Behavior
+/// Whenever a request is sent with an Token of 0, the Token is replaced
+/// with a new Token that has not been used yet.
+///
+/// ## Transformation
+/// None
+pub mod provision_tokens;
+
 /// # Assign message Ids to those with Id(0)
 /// * Client Flow ✓
 /// * Server Flow ✓
@@ -497,16 +512,20 @@ pub mod test {
   macro_rules! test_step_expect {
     (
       step: $step_ty:ty = $step:expr,
-      snap = $snap:expr,
+      snap = $__s:expr,
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (before_message_sent($msg:expr) should satisfy {$assert_fn:expr})
+      expect (before_message_sent($snap:expr, $msg:expr) should satisfy {$assert_fn:expr})
     ) => {{
+      use $crate::net::Addrd;
       use $crate::step::Step;
+      use $crate::test;
 
-      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
-      assert_fn($step.before_message_sent(&mut $msg))
+      let mut msg = $msg;
+      let assert_fn: Box<dyn Fn(Addrd<test::Message>)> = Box::new($assert_fn);
+      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      assert_fn(msg)
     }};
     (
       step: $step_ty:ty = $step:expr,
