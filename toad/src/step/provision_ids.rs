@@ -22,6 +22,7 @@ use crate::time::Stamped;
 #[cfg(feature = "alloc")]
 pub mod alloc {
   use ::std_alloc::collections::BTreeMap;
+  use ::std_alloc::vec::Vec;
 
   use super::*;
 

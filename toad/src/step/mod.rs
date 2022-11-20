@@ -671,6 +671,8 @@ pub mod test {
         fn [<when_ $when_summary:lower _then_ $then_summary:lower>]() {
           #![allow(unused_mut)]
           #![allow(unused_variables)]
+          #![allow(unused_imports)]
+          #![allow(unused_unsafe)]
 
           use $crate::{dummy_step, test_step_when, test_step_expect};
 
