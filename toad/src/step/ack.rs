@@ -4,9 +4,10 @@ use toad_msg::{CodeKind, TryIntoBytes, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{Effect, Platform};
-use crate::req::Req;
-use crate::resp::Resp;
+use crate::platform::{Effect, Platform, Snapshot};
+use crate::req::{Req, ReqForPlatform};
+use crate::resp::{Resp, RespForPlatform};
+use crate::{todo, time};
 
 /// The message parsing CoAP lifecycle step
 ///
@@ -30,8 +31,8 @@ impl<S> Ack<S> {
   }
 }
 
-type InnerPollReq<P> = Addrd<Req<P>>;
-type InnerPollResp<P> = Addrd<Resp<P>>;
+type InnerPollReq<P> = Addrd<ReqForPlatform<P>>;
+type InnerPollResp<P> = Addrd<RespForPlatform<P>>;
 
 /// Errors that can occur during this step
 #[derive(Clone, PartialEq)]
@@ -74,12 +75,37 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 
 impl<E: super::Error> super::Error for Error<E> {}
 
-impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: Platform> Step<P>
-  for Ack<Inner>
+impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Ack<Inner>
+  where E: super::Error,
+        Inner: Step<Effects,
+                    MessagePayload,
+                    MessageOptionValue,
+                    MessageOptions,
+                    NumberedOptions,
+                    Clock,
+                    PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    Error = E>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
+        Clock: time::Clock
 {
-  type PollReq = Addrd<Req<P>>;
-  type PollResp = Addrd<Resp<P>>;
-  type Error = Error<Inner::Error>;
+  type PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>;
+  type Error = E;
   type Inner = Inner;
 
   fn inner(&mut self) -> &mut Inner {
@@ -87,9 +113,9 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
   }
 
   fn poll_req(&mut self,
-              snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
-              -> StepOutput<Self::PollReq, Error<Inner::Error>> {
+              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              effects: &mut Effects)
+              -> StepOutput<Self::PollReq, Self::Error> {
     match exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
       | Some(req)
         if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
@@ -108,11 +134,11 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
   }
 
   fn poll_resp(&mut self,
-               snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
-               -> StepOutput<Self::PollResp, Error<Inner::Error>> {
+               -> StepOutput<Self::PollResp, Self::Error> {
     exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner).map(Ok)
   }
 }
@@ -125,15 +151,15 @@ mod test {
   use super::{Ack, Effect, Error, Step, TryIntoBytes};
   use crate::net::Addrd;
   use crate::platform;
-  use crate::req::Req;
-  use crate::resp::Resp;
+  use crate::req::{Req, ReqForPlatform};
+  use crate::resp::{Resp, RespForPlatform};
 
   type InnerPollReq = super::InnerPollReq<crate::test::Platform>;
   type InnerPollResp = super::InnerPollResp<crate::test::Platform>;
 
   fn test_msg(ty: Type,
               code: Code)
-              -> (Addrd<Req<crate::test::Platform>>, Addrd<Resp<crate::test::Platform>>) {
+              -> (Addrd<ReqForPlatform<crate::test::Platform>>, Addrd<RespForPlatform<crate::test::Platform>>) {
     use toad_msg::*;
 
     type Msg = platform::Message<crate::test::Platform>;

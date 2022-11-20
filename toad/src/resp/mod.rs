@@ -10,6 +10,11 @@ use crate::todo;
 /// Response codes
 pub mod code;
 
+pub type RespForPlatform<P> = Resp<<P as Platform>::MessagePayload,
+                                 <P as Platform>::MessageOptionBytes,
+                                 <P as Platform>::MessageOptions,
+                                 <P as Platform>::NumberedOptions>;
+
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
