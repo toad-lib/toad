@@ -2,7 +2,7 @@ use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{CodeKind, TryIntoBytes, Type};
 
-use super::{exec_inner_step, Step, StepOutput};
+use super::{exec_inner_step, Step, StepOutput, _try};
 use crate::net::Addrd;
 use crate::platform::{Effect, Platform, Snapshot};
 use crate::req::{Req, ReqForPlatform};
@@ -33,47 +33,6 @@ impl<S> Ack<S> {
 
 type InnerPollReq<P> = Addrd<ReqForPlatform<P>>;
 type InnerPollResp<P> = Addrd<RespForPlatform<P>>;
-
-/// Errors that can occur during this step
-#[derive(Clone, PartialEq)]
-pub enum Error<E> {
-  /// Error serializing outbound ACK
-  AckSerializingFailed(MessageToBytesError),
-  /// The inner step failed.
-  ///
-  /// This variant's Debug representation is completely
-  /// replaced by the inner type E's debug representation
-  ///
-  /// ```
-  /// use toad::step::ack::Error;
-  ///
-  /// #[derive(Debug)]
-  /// struct Foo;
-  ///
-  /// let foo = Foo;
-  /// let foo_error = Error::<Foo>::Inner(Foo);
-  ///
-  /// assert_eq!(format!("{foo:?}"), format!("{foo_error:?}"));
-  /// ```
-  Inner(E),
-}
-
-impl<E> From<E> for Error<E> {
-  fn from(e: E) -> Self {
-    Error::Inner(e)
-  }
-}
-
-impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    match self {
-      | Self::AckSerializingFailed(e) => f.debug_tuple("SerializingAck").field(e).finish(),
-      | Self::Inner(e) => e.fmt(f),
-    }
-  }
-}
-
-impl<E: super::Error> super::Error for Error<E> {}
 
 impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
   Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Ack<Inner>
@@ -116,17 +75,12 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
-    match exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
+    match _try!(Option<nb::Result>; self.0.poll_req(snap, effects)) {
       | Some(req)
         if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
       {
-        match Resp::ack(req.as_ref().data()).try_into_bytes() {
-          | Ok(bytes) => {
-            effects.push(Effect::SendDgram(Addrd(bytes, req.addr())));
-            Some(Ok(req))
-          },
-          | Err(e) => Some(Err(nb::Error::Other(Error::AckSerializingFailed(e)))),
-        }
+        effects.push(Effect::SendMessage(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
+        Some(Ok(req))
       },
       | Some(req) => Some(Ok(req)),
       | None => None,
@@ -139,7 +93,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {
-    exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner).map(Ok)
+    self.0.poll_resp(snap, effects, token, addr)
   }
 }
 
@@ -148,7 +102,7 @@ mod test {
   use toad_msg::{Code, Type};
 
   use super::super::test;
-  use super::{Ack, Effect, Error, Step, TryIntoBytes};
+  use super::{Ack, Effect, Step, TryIntoBytes};
   use crate::net::Addrd;
   use crate::platform;
   use crate::req::{Req, ReqForPlatform};
@@ -183,8 +137,8 @@ mod test {
         (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
       ]
       THEN this_should_error [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
-        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) })
       ]
   );
 
