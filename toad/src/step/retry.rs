@@ -2,7 +2,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
+use toad_msg::{CodeKind, Message, Token, TryIntoBytes, Type, EnumerateOptNumbersIter};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
@@ -11,17 +11,22 @@ use crate::platform::{self, Effect, Platform, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::{Attempts, RetryTimer, Strategy, YouShould};
-use crate::time::Clock;
+use crate::time::{self, Clock};
+use crate::todo::{MessageOptionValue, MessageOptions, MessagePayload, self};
 
 /// Buffer used to store messages queued for retry
-pub trait Buf<P>
-  where P: Platform,
-        Self: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>
+pub trait Buf<MP, MOV, MOs, Clock, Effects>
+  where Self: Array<Item = (State<Clock>, Addrd<Message<MP, MOs>>)>,
+        MP: MessagePayload,
+        MOV: MessageOptionValue,
+        MOs: MessageOptions<MOV>,
+        Clock: time::Clock,
+        Effects: Array<Item = Effect<MP, MOV, MOs>>
 {
   /// Do some black box magic to send all messages that need to be sent
   fn attempt_all<E>(&mut self,
-                    time: Instant<P::Clock>,
-                    effects: &mut <P as Platform>::Effects)
+                    time: Instant<Clock>,
+                    effects: &mut Effects)
                     -> Result<(), Error<E>> {
     self.iter_mut()
         .filter_map(|(state, msg)| match state.timer().what_should_i_do(time) {
@@ -56,7 +61,7 @@ pub trait Buf<P>
 
   /// We saw an ACK and should transition the retry state for matching outbound
   /// CONs to the "acked" state
-  fn mark_acked(&mut self, token: Token, time: Instant<P::Clock>) {
+  fn mark_acked(&mut self, token: Token, time: Instant<Clock>) {
     let found = self.iter()
                     .enumerate()
                     .find(|(_, (_, msg))| msg.data().token == token);
@@ -81,8 +86,8 @@ pub trait Buf<P>
   ///
   /// May invoke `mark_acked` & `forget`
   fn maybe_seen_response<E>(&mut self,
-                            time: Instant<P::Clock>,
-                            msg: Addrd<&platform::Message<P>>)
+                            time: Instant<Clock>,
+                            msg: Addrd<&Message<MP, MOs>>)
                             -> Result<(), Error<E>> {
     match (msg.data().ty, msg.data().code.kind()) {
       | (Type::Ack, CodeKind::Empty) => Ok(self.mark_acked(msg.data().token, time)),
@@ -94,8 +99,8 @@ pub trait Buf<P>
   /// Called when a message of any kind is sent,
   /// and may store it to be retried in the future
   fn store_retryables<E>(&mut self,
-                         msg: &Addrd<platform::Message<P>>,
-                         time: Instant<P::Clock>,
+                         msg: &Addrd<Message<MP, MOs>>,
+                         time: Instant<Clock>,
                          config: Config)
                          -> Result<(), Error<E>> {
     match msg.data().ty {
@@ -125,9 +130,13 @@ pub trait Buf<P>
   }
 }
 
-impl<T, P> Buf<P> for T
-  where T: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>,
-        P: Platform
+impl<T, MP, MOV, MOs, Clock, Effects> Buf<MP, MOV, MOs, Clock, Effects> for T
+  where T: Array<Item = (State<Clock>, Addrd<Message<MP, MOs>>)>,
+        MP: MessagePayload,
+        MOV: MessageOptionValue,
+        MOs: MessageOptions<MOV>,
+        Clock: time::Clock,
+        Effects: Array<Item = Effect<MP, MOV, MOs>>
 {
 }
 
@@ -284,14 +293,37 @@ impl<E> From<E> for Error<E> {
   }
 }
 
-impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
-  where Buffer: Buf<P>,
-        P: Platform,
+impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Retry<Inner, Buffer>
+  where Buffer: Buf<Effects, MessagePayload, MessageOptionValue, MessageOptions, Clock>,
         E: super::Error,
-        Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>
+        Inner: Step<Effects,
+                    MessagePayload,
+                    MessageOptionValue,
+                    MessageOptions,
+                    NumberedOptions,
+                    Clock,
+                    PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    Error = E>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
+        Clock: time::Clock
 {
-  type PollReq = Addrd<Req<P>>;
-  type PollResp = Addrd<Resp<P>>;
+  type PollReq = Addrd<Req<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload,
+                                        MessageOptionValue,
+                                        MessageOptions,
+                                        NumberedOptions>>;
   type Error = Error<E>;
   type Inner = Inner;
 
@@ -300,8 +332,8 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     // SERVER FLOW:
     //  * CON responses WILL     be retried
@@ -319,8 +351,8 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {
@@ -340,8 +372,8 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
   }
 
   fn on_message_sent(&mut self,
-                     snap: &platform::Snapshot<P>,
-                     msg: &Addrd<platform::Message<P>>)
+                     snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+                     msg: &Addrd<Message<MessagePayload, MessageOptions>>)
                      -> Result<(), Self::Error> {
     self.inner.on_message_sent(snap, msg)?;
     self.buf.store_retryables(msg, snap.time, snap.config)

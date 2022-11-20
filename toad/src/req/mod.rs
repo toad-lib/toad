@@ -1,4 +1,4 @@
-use core::fmt::Write;
+use core::fmt::{Debug, Write};
 
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
@@ -13,7 +13,7 @@ use toad_msg::{EnumerateOptNumbers,
                TryIntoBytes,
                Type};
 
-use crate::ToCoapValue;
+use crate::{todo, ToCoapValue};
 
 /// Request methods
 pub mod method;
@@ -28,6 +28,11 @@ pub mod builder;
 pub use builder::*;
 
 use crate::platform::{self, Platform};
+
+pub type ReqForPlatform<P> = Req<<P as Platform>::MessagePayload,
+                                 <P as Platform>::MessageOptionBytes,
+                                 <P as Platform>::MessageOptions,
+                                 <P as Platform>::NumberedOptions>;
 
 /// A CoAP request
 ///
@@ -67,15 +72,21 @@ use crate::platform::{self, Platform};
 ///   }
 /// }
 /// ```
-#[derive(Debug)]
-pub struct Req<P: Platform> {
-  pub(crate) msg: platform::Message<P>,
+#[derive(Debug, Clone)]
+pub struct Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> {
+  pub(crate) msg: Message<MessagePayload, MessageOptions>,
   pub(crate) id: Option<Id>,
   pub(crate) token: Option<Token>,
-  pub(crate) opts: Option<P::NumberedOptions>,
+  pub(crate) opts: Option<NumberedOptions>,
 }
 
-impl<P: Platform> PartialEq for Req<P> {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> PartialEq
+  for Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
   fn eq(&self, other: &Self) -> bool {
     self.msg == other.msg
     && self.id == other.id
@@ -84,16 +95,13 @@ impl<P: Platform> PartialEq for Req<P> {
   }
 }
 
-impl<P: Platform> Clone for Req<P> {
-  fn clone(&self) -> Self {
-    Self { msg: self.msg.clone(),
-           id: self.id,
-           token: self.token,
-           opts: self.opts.clone() }
-  }
-}
-
-impl<P: Platform> Req<P> {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
   /// Create a request
   pub fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
@@ -338,7 +346,7 @@ impl<P: Platform> Req<P> {
   /// req.set_payload("Hi!".bytes());
   /// ```
   pub fn set_payload<Bytes: ToCoapValue>(&mut self, payload: Bytes) {
-    self.msg.payload = Payload(payload.to_coap_value::<P::MessagePayload>());
+    self.msg.payload = Payload(payload.to_coap_value::<MessagePayload>());
   }
 
   /// Get the payload's raw bytes
@@ -366,7 +374,7 @@ impl<P: Platform> Req<P> {
   /// let uri_host = req.get_option(3).unwrap();
   /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
   /// ```
-  pub fn get_option(&self, n: u32) -> Option<&Opt<P::MessageOptionBytes>> {
+  pub fn get_option(&self, n: u32) -> Option<&Opt<MessageOptionValue>> {
     self.opts
         .as_ref()
         .and_then(|opts| opts.iter().find(|(num, _)| num.0 == n).map(|(_, o)| o))
@@ -395,13 +403,21 @@ impl<P: Platform> Req<P> {
   }
 
   /// Iterate over the options attached to this request
-  pub fn opts(&self) -> impl Iterator<Item = (&OptNumber, &Opt<P::MessageOptionBytes>)> {
+  pub fn opts(&self) -> impl Iterator<Item = (&OptNumber, &Opt<MessageOptionValue>)> {
     self.opts.iter().flat_map(|opts| opts.iter())
   }
 }
 
-impl<P: Platform> From<Req<P>> for platform::Message<P> {
-  fn from(mut req: Req<P>) -> Self {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  From<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>
+  for Message<MessagePayload, MessageOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  fn from(mut req: Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>)
+          -> Self {
     req.normalize_opts();
     req.msg.id = req.id.expect("Request ID was None");
     req.msg.token = req.token.expect("Request Token was None");
@@ -409,16 +425,29 @@ impl<P: Platform> From<Req<P>> for platform::Message<P> {
   }
 }
 
-impl<P: Platform> TryIntoBytes for Req<P> {
-  type Error = <platform::Message<P> as TryIntoBytes>::Error;
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> TryIntoBytes
+  for Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  type Error = <Message<MessagePayload, MessageOptions> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
-    platform::Message::<P>::from(self).try_into_bytes()
+    Message::from(self).try_into_bytes()
   }
 }
 
-impl<P: Platform> From<platform::Message<P>> for Req<P> {
-  fn from(mut msg: platform::Message<P>) -> Self {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  From<Message<MessagePayload, MessageOptions>>
+  for Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  fn from(mut msg: Message<MessagePayload, MessageOptions>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
     let (id, token) = (msg.id, msg.token);
@@ -434,6 +463,7 @@ impl<P: Platform> From<platform::Message<P>> for Req<P> {
 mod tests {
   use super::*;
   use crate::platform::Std;
+
   #[test]
   fn ip_serialization() {
     let req = Req::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");

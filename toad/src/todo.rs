@@ -1,10 +1,10 @@
 //! Future inherent methods on structs in other crates
-use core::fmt::Write;
+use core::fmt::{Debug, Write};
 use core::ops::{Div, Mul};
 
 use tinyvec::ArrayVec;
 use toad_common::*;
-use toad_msg::Opt;
+use toad_msg::{Opt, OptNumber};
 
 /// TODO
 pub trait MessagePayload: Array<Item = u8> {}
@@ -12,6 +12,12 @@ pub trait MessagePayload: Array<Item = u8> {}
 pub trait MessageOptionValue: Array<Item = u8> + AppendCopy<u8> {}
 /// TODO
 pub trait MessageOptions<V>: Array<Item = Opt<V>>
+  where V: MessageOptionValue
+{
+}
+
+pub trait NumberedOptions<V>:
+  Array<Item = (OptNumber, Opt<V>)> + Clone + Debug + PartialEq
   where V: MessageOptionValue
 {
 }

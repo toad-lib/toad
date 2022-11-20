@@ -5,6 +5,7 @@ use toad_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 
 use crate::platform::{self, Platform};
 use crate::req::Req;
+use crate::todo;
 
 /// Response codes
 pub mod code;
@@ -40,18 +41,30 @@ pub mod code;
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Resp<P: Platform> {
-  pub(crate) msg: platform::Message<P>,
-  opts: Option<P::NumberedOptions>,
+pub struct Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> {
+  pub(crate) msg: Message<MessagePayload, MessageOptions>,
+  opts: Option<NumberedOptions>,
 }
 
-impl<P: Platform> PartialEq for Resp<P> {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> PartialEq
+  for Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
   fn eq(&self, other: &Self) -> bool {
     self.msg == other.msg && self.opts == other.opts
   }
 }
 
-impl<P: Platform> Resp<P> {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
   /// Create a new response for a given request.
   ///
   /// If the request is CONfirmable, this will return Some(ACK).
@@ -82,7 +95,7 @@ impl<P: Platform> Resp<P> {
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
-  pub fn for_request(req: &Req<P>) -> Option<Self> {
+  pub fn for_request(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Option<Self> {
     match req.msg_type() {
       | Type::Con => Some(Self::ack(req)),
       | Type::Non => Some(Self::non(req)),
@@ -99,10 +112,10 @@ impl<P: Platform> Resp<P> {
   /// but keep in mind that you might receive duplicate
   /// If you do need to ensure they receive your response,
   /// you
-  pub fn ack(req: &Req<P>) -> Self {
+  pub fn ack(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
     let msg = Message { ty: Type::Ack,
                         id: req.msg_id(),
-                        opts: P::MessageOptions::default(),
+                        opts: MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
@@ -123,10 +136,10 @@ impl<P: Platform> Resp<P> {
   ///
   /// The `toad` runtime will continually retry sending this until
   /// an ACKnowledgement from the client is received.
-  pub fn con(req: &Req<P>) -> Self {
+  pub fn con(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
     let msg = Message { ty: Type::Con,
                         id: Id(Default::default()),
-                        opts: P::MessageOptions::default(),
+                        opts: MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
@@ -140,10 +153,10 @@ impl<P: Platform> Resp<P> {
   /// A non-confirmable response should be used when:
   /// - you receive a NON request and don't need to ensure the client received the response
   /// - you receive a CON request and don't need to ensure the client received the response (**you _must_ ACK this type of request separately**)
-  pub fn non(req: &Req<P>) -> Self {
+  pub fn non(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
     let msg = Message { ty: Type::Non,
                         id: Id(Default::default()),
-                        opts: P::MessageOptions::default(),
+                        opts: MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
@@ -300,15 +313,29 @@ impl<P: Platform> Resp<P> {
   }
 }
 
-impl<P: Platform> From<Resp<P>> for platform::Message<P> {
-  fn from(mut rep: Resp<P>) -> Self {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  From<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>
+  for Message<MessagePayload, MessageOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  fn from(mut rep: Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
     rep.normalize_opts();
     rep.msg
   }
 }
 
-impl<P: Platform> From<platform::Message<P>> for Resp<P> {
-  fn from(mut msg: platform::Message<P>) -> Self {
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  From<Message<MessagePayload, MessageOptions>>
+  for Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  fn from(mut msg: Message<MessagePayload, MessageOptions>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
 
@@ -317,10 +344,16 @@ impl<P: Platform> From<platform::Message<P>> for Resp<P> {
   }
 }
 
-impl<P: Platform> TryIntoBytes for Resp<P> {
-  type Error = <platform::Message<P> as TryIntoBytes>::Error;
+impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> TryIntoBytes
+  for Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
+  where MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
+{
+  type Error = <Message<MessagePayload, MessageOptions> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
-    platform::Message::<P>::from(self).try_into_bytes()
+    Message::from(self).try_into_bytes()
   }
 }

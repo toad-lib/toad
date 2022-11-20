@@ -192,6 +192,7 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
                MessagePayload: todo::MessagePayload,
                MessageOptionValue: todo::MessageOptionValue,
                MessageOptions: todo::MessageOptions<MessageOptionValue>,
+               NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
                Clock: time::Clock>: Default
 {
   /// Type that this step returns when polling for a request
@@ -206,10 +207,11 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
                               MessagePayload,
                               MessageOptionValue,
                               MessageOptions,
+                              NumberedOptions,
                               Clock>>::Error>;
 
   /// Inner step that will be performed before this one.
-  type Inner: Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, Clock>;
+  type Inner: Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>;
 
   /// Get reference to inner step
   ///
@@ -264,10 +266,12 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
 }
 
 impl<Effs: Array<Item = Effect<MP, MOV, MOs>>,
-               MP: todo::MessagePayload,
-               MOV: todo::MessageOptionValue,
-               MOs: todo::MessageOptions<MOV>,
-               Clock: time::Clock> Step<Effs, MP, MOV, MOs, Clock> for () {
+      MP: todo::MessagePayload,
+      MOV: todo::MessageOptionValue,
+      MOs: todo::MessageOptions<MOV>,
+      NOs: todo::NumberedOptions<MOV>,
+      Clock: time::Clock> Step<Effs, MP, MOV, MOs, NOs, Clock> for ()
+{
   type PollReq = ();
   type PollResp = ();
   type Error = ();
@@ -327,28 +331,29 @@ pub mod test {
   macro_rules! dummy_step {
     ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       use $crate::net::Addrd;
-      use $crate::{platform, platform::Platform, step, test};
+      use $crate::platform::Platform;
       use $crate::test::Platform as P;
+      use $crate::{platform, step, test};
 
       #[derive(Default)]
       struct Dummy(());
 
-      static mut POLL_REQ_MOCK:
-        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
-                          &mut <P as platform::Platform>::Effects)
-                          -> Option<::nb::Result<$poll_req_ty, $error_ty>>>> = None;
-      static mut POLL_RESP_MOCK:
-        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
-                          &mut <P as platform::Platform>::Effects,
-                          toad_msg::Token,
-                          no_std_net::SocketAddr)
-                          -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
+      static mut POLL_REQ_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
+                                                    &mut <P as platform::Platform>::Effects)
+                                                    -> Option<::nb::Result<$poll_req_ty,
+                                                                           $error_ty>>>> = None;
+      static mut POLL_RESP_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
+                                                     &mut <P as platform::Platform>::Effects,
+                                                     toad_msg::Token,
+                                                     no_std_net::SocketAddr)
+                                                     -> Option<::nb::Result<$poll_resp_ty,
+                                                                            $error_ty>>>> = None;
       static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
                                                            &Addrd<test::Message>)
                                                            -> Result<(), $error_ty>>> = None;
-      static mut BEFORE_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
-                          &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
+      static mut BEFORE_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
+                                                               &mut Addrd<test::Message>)
+                                                               -> Result<(), $error_ty>>> = None;
 
       unsafe {
         POLL_REQ_MOCK = Some(Box::new(|_, _| None));
@@ -357,13 +362,14 @@ pub mod test {
         BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
       }
 
-      impl Step<
-        <P as Platform>::Effects,
-        <P as Platform>::MessagePayload,
-        <P as Platform>::MessageOptionBytes,
-        <P as Platform>::MessageOptions,
-        <P as Platform>::Clock
-      > for Dummy {
+      impl
+        Step<<P as Platform>::Effects,
+             <P as Platform>::MessagePayload,
+             <P as Platform>::MessageOptionBytes,
+             <P as Platform>::MessageOptions,
+             <P as Platform>::NumberedOptions,
+             <P as Platform>::Clock> for Dummy
+      {
         type PollReq = $poll_req_ty;
         type PollResp = $poll_resp_ty;
         type Error = $error_ty;

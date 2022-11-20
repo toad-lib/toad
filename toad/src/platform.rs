@@ -50,16 +50,14 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   type Effects: Array<Item = EffectForPlatform<Self>>;
 }
 
-pub type EffectForPlatform<P> =
-  Effect<<P as Platform>::MessagePayload,
- <P as Platform>::MessageOptionBytes,
- <P as Platform>::MessageOptions>;
+pub type EffectForPlatform<P> = Effect<<P as Platform>::MessagePayload,
+                                       <P as Platform>::MessageOptionBytes,
+                                       <P as Platform>::MessageOptions>;
 
-pub type SnapshotForPlatform<P> =
-Snapshot<<P as Platform>::MessagePayload,
- <P as Platform>::MessageOptionBytes,
- <P as Platform>::MessageOptions,
- <P as Platform>::Clock> ;
+pub type SnapshotForPlatform<P> = Snapshot<<P as Platform>::MessagePayload,
+                                           <P as Platform>::MessageOptionBytes,
+                                           <P as Platform>::MessageOptions,
+                                           <P as Platform>::Clock>;
 
 /// A snapshot of the system's state at a given moment
 ///
