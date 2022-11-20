@@ -2,7 +2,7 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_msg::{CodeKind, Token};
 
-use super::{_try, Step};
+use super::{Step, _try};
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
@@ -57,7 +57,10 @@ impl<Inner> ProvisionTokens<Inner> {
     where Clock: crate::time::Clock
   {
     // TODO(orion): we may want to handle this
-    let now_since_epoch = Millis::try_from(now.duration_since_epoch()).map_err(|_| Error::MillisSinceEpochWouldOverflow)?;
+    let now_since_epoch =
+      Millis::try_from(now.duration_since_epoch()).map_err(|_| {
+                                                    Error::MillisSinceEpochWouldOverflow
+                                                  })?;
 
     #[allow(clippy::many_single_char_names)]
     let bytes = {
@@ -105,7 +108,9 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
               snap: &platform::Snapshot<P>,
               effects: &mut <P as Platform>::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
-    self.inner.poll_req(snap, effects).map(|r| r.map_err(|e| e.map(Error::Inner)))
+    self.inner
+        .poll_req(snap, effects)
+        .map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 
   fn poll_resp(&mut self,
@@ -114,7 +119,9 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
                token: Token,
                addr: SocketAddr)
                -> super::StepOutput<Self::PollResp, Self::Error> {
-    self.inner.poll_resp(snap, effects, token, addr).map(|r| r.map_err(|e| e.map(Error::Inner)))
+    self.inner
+        .poll_resp(snap, effects, token, addr)
+        .map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 }
 
