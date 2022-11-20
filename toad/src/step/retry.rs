@@ -2,7 +2,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, Token, TryIntoBytes, Type, Code};
+use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
@@ -61,9 +61,10 @@ pub trait Buf<P>
                     .enumerate()
                     .find(|(_, (_, msg))| msg.data().token == token);
 
-    let (ix, new_timer) = match found
-    {
-      | Some((ix, _)) if self[ix].1.data().code.kind() == CodeKind::Response => return self.forget(token),
+    let (ix, new_timer) = match found {
+      | Some((ix, _)) if self[ix].1.data().code.kind() == CodeKind::Response => {
+        return self.forget(token)
+      },
       | Some((ix,
               (State::ConPreAck { post_ack_strategy,
                                   post_ack_max_attempts,
@@ -80,16 +81,12 @@ pub trait Buf<P>
   ///
   /// May invoke `mark_acked` & `forget`
   fn maybe_seen_response<E>(&mut self,
-                      time: Instant<P::Clock>,
-                      msg: Addrd<&platform::Message<P>>)
-                      -> Result<(), Error<E>> {
+                            time: Instant<P::Clock>,
+                            msg: Addrd<&platform::Message<P>>)
+                            -> Result<(), Error<E>> {
     match (msg.data().ty, msg.data().code.kind()) {
-      | (Type::Ack, CodeKind::Empty) => {
-        Ok(self.mark_acked(msg.data().token, time))
-      },
-      | (_, CodeKind::Response) => {
-        Ok(self.forget(msg.data().token))
-      },
+      | (Type::Ack, CodeKind::Empty) => Ok(self.mark_acked(msg.data().token, time)),
+      | (_, CodeKind::Response) => Ok(self.forget(msg.data().token)),
       | _ => Ok(()),
     }
   }
