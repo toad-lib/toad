@@ -7,7 +7,7 @@ use crate::net::Addrd;
 use crate::platform::{Effect, Platform, Snapshot};
 use crate::req::{Req, ReqForPlatform};
 use crate::resp::{Resp, RespForPlatform};
-use crate::{todo, time};
+use crate::{time, todo};
 
 /// The message parsing CoAP lifecycle step
 ///
@@ -34,10 +34,21 @@ impl<S> Ack<S> {
 type InnerPollReq<P> = Addrd<ReqForPlatform<P>>;
 type InnerPollResp<P> = Addrd<RespForPlatform<P>>;
 
-impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Ack<Inner>
-  where E: super::Error,
-        Inner: Step<Effects,
+impl<Dgram,
+      Inner,
+      E,
+      Effects,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for Ack<Inner>
+  where Dgram: crate::net::Dgram,
+        E: super::Error,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -47,23 +58,20 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<Req<MessagePayload,
-                                        MessageOptionValue,
-                                        MessageOptions,
-                                        NumberedOptions>>;
-  type PollResp = Addrd<Resp<MessagePayload,
-                                        MessageOptionValue,
-                                        MessageOptions,
-                                        NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = E;
   type Inner = Inner;
 
@@ -72,23 +80,20 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
-    match _try!(Option<nb::Result>; self.0.poll_req(snap, effects)) {
-      | Some(req)
-        if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
-      {
-        effects.push(Effect::SendMessage(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
-        Some(Ok(req))
-      },
-      | Some(req) => Some(Ok(req)),
-      | None => None,
+    let req = _try!(Option<nb::Result>; self.0.poll_req(snap, effects));
+
+    if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request {
+      effects.push(Effect::SendMessage(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
     }
+
+    Some(Ok(req))
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               snap: &Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
@@ -111,9 +116,11 @@ mod test {
   type InnerPollReq = super::InnerPollReq<crate::test::Platform>;
   type InnerPollResp = super::InnerPollResp<crate::test::Platform>;
 
-  fn test_msg(ty: Type,
-              code: Code)
-              -> (Addrd<ReqForPlatform<crate::test::Platform>>, Addrd<RespForPlatform<crate::test::Platform>>) {
+  fn test_msg(
+    ty: Type,
+    code: Code)
+    -> (Addrd<ReqForPlatform<crate::test::Platform>>, Addrd<RespForPlatform<crate::test::Platform>>)
+  {
     use toad_msg::*;
 
     type Msg = platform::Message<crate::test::Platform>;

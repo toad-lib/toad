@@ -1,16 +1,15 @@
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_common::Array;
-use toad_msg::{CodeKind, Token, Message};
+use toad_msg::{CodeKind, Message, Token};
 
-use super::{Step, _try, StepOutput};
+use super::{Step, StepOutput, _try};
 use crate::config::Config;
 use crate::net::Addrd;
-use crate::platform::{self, Effect};
-use crate::platform::Platform;
+use crate::platform::{self, Effect, Platform};
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::time::{Millis, self};
+use crate::time::{self, Millis};
 use crate::todo;
 
 /// Errors that can be encountered when provisioning tokens
@@ -75,10 +74,21 @@ impl<Inner> ProvisionTokens<Inner> {
   }
 }
 
-impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for ProvisionTokens<Inner>
-  where E: super::Error,
-        Inner: Step<Effects,
+impl<Dgram,
+      Inner,
+      E,
+      Effects,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for ProvisionTokens<Inner>
+  where Dgram: crate::net::Dgram,
+        E: super::Error,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -88,16 +98,19 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = Error<E>;
   type Inner = Inner;
@@ -107,10 +120,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<MessagePayload,
-                                             MessageOptionValue,
-                                             MessageOptions,
-                                             Clock>,
+                         snap: &platform::Snapshot<Dgram, Clock>,
                          msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner.before_message_sent(snap, msg)?;
@@ -128,7 +138,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn poll_req(&mut self,
-              snap: &platform::Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &platform::Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     self.inner
@@ -137,10 +147,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn poll_resp(&mut self,
-               snap: &platform::Snapshot<MessagePayload,
-                                   MessageOptionValue,
-                                   MessageOptions,
-                                   Clock>,
+               snap: &platform::Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: Token,
                addr: SocketAddr)
@@ -155,11 +162,11 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
 mod test {
   use super::*;
   use crate::req::ReqForPlatform;
-use crate::resp::RespForPlatform;
-use crate::step::test::test_step;
+  use crate::resp::RespForPlatform;
+  use crate::step::test::test_step;
   use crate::test::{ClockMock, Snapshot};
 
-  type InnerPollReq = Addrd<  ReqForPlatform<crate::test::Platform>>;
+  type InnerPollReq = Addrd<ReqForPlatform<crate::test::Platform>>;
   type InnerPollResp = Addrd<RespForPlatform<crate::test::Platform>>;
 
   test_step!(

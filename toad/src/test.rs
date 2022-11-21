@@ -60,9 +60,9 @@ macro_rules! msg {
 pub use msg;
 
 pub type Message = crate::platform::Message<Platform>;
-pub type Snapshot = crate::platform::Snapshot<Platform>;
-pub type Req = crate::req::Req<Platform>;
-pub type Resp = crate::resp::Resp<Platform>;
+pub type Snapshot = crate::platform::SnapshotForPlatform<Platform>;
+pub type Req = crate::req::ReqForPlatform<Platform>;
+pub type Resp = crate::resp::RespForPlatform<Platform>;
 
 pub fn dummy_addr() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))

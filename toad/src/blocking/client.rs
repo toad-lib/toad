@@ -9,8 +9,8 @@ use crate::net::{Addrd, Socket};
 use crate::platform::Platform;
 #[cfg(feature = "std")]
 use crate::platform::{Std, StdSecure};
-use crate::req::{Req, ReqBuilder};
-use crate::resp::Resp;
+use crate::req::{ReqBuilder, ReqForPlatform as Req};
+use crate::resp::RespForPlatform as Resp;
 #[cfg(feature = "std")]
 use crate::std::{secure, SecureUdpSocket};
 use crate::time::{Millis, Timeout};

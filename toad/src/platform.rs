@@ -15,11 +15,13 @@ use crate::todo::{self, String1Kb};
 /// toad configuration trait
 pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
-  type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq + AppendCopy<u8>;
+  type MessagePayload: todo::MessagePayload;
   /// What type should we use to store the option values?
-  type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq + AppendCopy<u8>;
+  type MessageOptionBytes: todo::MessageOptionValue;
   /// What type should we use to store the options?
-  type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug + PartialEq;
+  type MessageOptions: todo::MessageOptions<Self::MessageOptionBytes>;
+  /// What type should we use to keep track of options before serializing?
+  type NumberedOptions: todo::NumberedOptions<Self::MessageOptionBytes>;
 
   /// What type should we use to keep track of message IDs we've seen with a remote socket?
   type MessageIdHistory: Array<Item = Stamped<Self::Clock, Id>> + Clone + Debug;
@@ -31,33 +33,22 @@ pub trait Platform: Sized + 'static + core::fmt::Debug {
   /// How do we track socket <> token histories?
   type MessageTokenHistoryBySocket: Map<SocketAddr, Self::MessageTokenHistory> + Clone + Debug;
 
-  /// What type should we use to keep track of options before serializing?
-  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)>
-    + Clone
-    + Debug
-    + PartialEq;
-
   /// What should we use to keep track of time?
   type Clock: Clock;
 
   /// How will network datagrams be stored?
-  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + Debug + PartialEq;
+  type Dgram: crate::net::Dgram;
 
   /// What should we use for networking?
   type Socket: Socket;
-
-  /// How will we store a sequence of effects to perform?
-  type Effects: Array<Item = EffectForPlatform<Self>>;
 }
 
-pub type EffectForPlatform<P> = Effect<<P as Platform>::MessagePayload,
-                                       <P as Platform>::MessageOptionBytes,
-                                       <P as Platform>::MessageOptions>;
+/// [`Effect`] with generics filled in for some [`Platform`] P.
+pub type EffectForPlatform<P> =
+  Effect<<P as Platform>::MessagePayload, <P as Platform>::MessageOptions>;
 
-pub type SnapshotForPlatform<P> = Snapshot<<P as Platform>::MessagePayload,
-                                           <P as Platform>::MessageOptionBytes,
-                                           <P as Platform>::MessageOptions,
-                                           <P as Platform>::Clock>;
+/// [`Snapshot`] with generics filled in for some [`Platform`] P.
+pub type SnapshotForPlatform<P> = Snapshot<<P as Platform>::Dgram, <P as Platform>::Clock>;
 
 /// A snapshot of the system's state at a given moment
 ///
@@ -66,65 +57,26 @@ pub type SnapshotForPlatform<P> = Snapshot<<P as Platform>::MessagePayload,
 /// ```
 #[allow(missing_debug_implementations)]
 #[non_exhaustive]
-pub struct Snapshot<MessagePayload: todo::MessagePayload,
- MessageOptionValue: todo::MessageOptionValue,
- MessageOptions: todo::MessageOptions<MessageOptionValue>,
- Clock: time::Clock> {
+#[derive(Clone)]
+pub struct Snapshot<Dgram, Clock: time::Clock> {
   /// The current system time at the start of the step pipe
   pub time: Instant<Clock>,
 
   /// A UDP datagram received from somewhere
-  pub recvd_dgram: Addrd<toad_msg::Message<MessagePayload, MessageOptions>>,
+  pub recvd_dgram: Addrd<Dgram>,
 
   /// Runtime config, includes many useful timings
   pub config: Config,
 }
 
-impl<P: Platform> Clone for SnapshotForPlatform<P> {
-  fn clone(&self) -> Self {
-    Self { time: self.time,
-           recvd_dgram: self.recvd_dgram.clone(),
-           config: self.config }
-  }
-}
-
 /// Side effects that platforms must support performing
-pub enum Effect<MessagePayload: todo::MessagePayload,
- MessageOptionValue: todo::MessageOptionValue,
- MessageOptions: todo::MessageOptions<MessageOptionValue>> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Effect<MessagePayload, MessageOptions> {
   /// Send a CoAP message to a remote address
   SendMessage(Addrd<toad_msg::Message<MessagePayload, MessageOptions>>),
 
   /// Log to some external log provider
   Log(log::Level, String1Kb),
-}
-
-impl<P: Platform> Clone for EffectForPlatform<P> {
-  fn clone(&self) -> Self {
-    match self {
-      | Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
-      | Effect::Log(l, m) => Effect::Log(*l, *m),
-    }
-  }
-}
-
-impl<P: Platform> core::fmt::Debug for EffectForPlatform<P> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    match self {
-      | Self::SendDgram(a) => f.debug_tuple("SendDgram").field(a).finish(),
-      | Self::Log(l, s) => f.debug_tuple("Log").field(l).field(s).finish(),
-    }
-  }
-}
-
-impl<P: Platform> PartialEq for EffectForPlatform<P> {
-  fn eq(&self, other: &Self) -> bool {
-    match (self, other) {
-      | (Self::SendDgram(a), Self::SendDgram(b)) => a == b,
-      | (Self::Log(al, am), Self::Log(bl, bm)) => al == bl && am == bm,
-      | _ => false,
-    }
-  }
 }
 
 /// Used to associate a value with a RetryTimer.
@@ -187,7 +139,6 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Cl
   type Dgram = Vec<u8>;
   type Clock = Clk;
   type Socket = Sock;
-  type Effects = Vec<EffectForPlatform<Self>>;
 }
 
 /// Configures `toad` to use `Vec` for collections,

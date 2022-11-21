@@ -168,12 +168,20 @@ impl Error for () {}
 /// A step in the message-handling CoAP runtime.
 ///
 /// See the [module documentation](crate::step) for more.
-pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
-               MessagePayload: todo::MessagePayload,
-               MessageOptionValue: todo::MessageOptionValue,
-               MessageOptions: todo::MessageOptions<MessageOptionValue>,
-               NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
-               Clock: time::Clock>: Default
+pub trait Step<Dgram,
+               Effects,
+               MessagePayload,
+               MessageOptionValue,
+               MessageOptions,
+               NumberedOptions,
+               Clock>: Default
+  where Dgram: Array<Item = u8>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
+        MessagePayload: todo::MessagePayload,
+        MessageOptionValue: todo::MessageOptionValue,
+        MessageOptions: todo::MessageOptions<MessageOptionValue>,
+        NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
+        Clock: time::Clock
 {
   /// Type that this step returns when polling for a request
   type PollReq;
@@ -183,7 +191,8 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
 
   /// Type of error that can be yielded by poll_req / poll_resp
   type Error: Error
-    + From<<Self::Inner as Step<Effects,
+    + From<<Self::Inner as Step<Dgram,
+                              Effects,
                               MessagePayload,
                               MessageOptionValue,
                               MessageOptions,
@@ -191,7 +200,13 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
                               Clock>>::Error>;
 
   /// Inner step that will be performed before this one.
-  type Inner: Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>;
+  type Inner: Step<Dgram,
+                   Effects,
+                   MessagePayload,
+                   MessageOptionValue,
+                   MessageOptions,
+                   NumberedOptions,
+                   Clock>;
 
   /// Get reference to inner step
   ///
@@ -202,17 +217,14 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
   /// # Poll for an inbound request
   /// This corresponds to the **server** flow.
   fn poll_req(&mut self,
-              snap: &platform::Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &platform::Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error>;
 
   /// # Poll for an inbound response
   /// This corresponds to the **client** flow.
   fn poll_resp(&mut self,
-               snap: &platform::Snapshot<MessagePayload,
-                                   MessageOptionValue,
-                                   MessageOptions,
-                                   Clock>,
+               snap: &platform::Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: Token,
                addr: SocketAddr)
@@ -220,10 +232,7 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
 
   /// Invoked before messages are sent, allowing for internal state change & modification.
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<MessagePayload,
-                                             MessageOptionValue,
-                                             MessageOptions,
-                                             Clock>,
+                         snap: &platform::Snapshot<Dgram, Clock>,
                          msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner()
@@ -233,10 +242,7 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
 
   /// Invoked after messages are sent, allowing for internal state change.
   fn on_message_sent(&mut self,
-                     snap: &platform::Snapshot<MessagePayload,
-                                         MessageOptionValue,
-                                         MessageOptions,
-                                         Clock>,
+                     snap: &platform::Snapshot<Dgram, Clock>,
                      msg: &Addrd<Message<MessagePayload, MessageOptions>>)
                      -> Result<(), Self::Error> {
     self.inner()
@@ -245,12 +251,12 @@ pub trait Step<Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, 
   }
 }
 
-impl<Effs: Array<Item = Effect<MP, MOV, MOs>>,
+impl<Effs: Array<Item = Effect<MP, MOs>>,
       MP: todo::MessagePayload,
       MOV: todo::MessageOptionValue,
       MOs: todo::MessageOptions<MOV>,
       NOs: todo::NumberedOptions<MOV>,
-      Clock: time::Clock> Step<Effs, MP, MOV, MOs, NOs, Clock> for ()
+      Clock: time::Clock> Step<Vec<u8>, Effs, MP, MOV, MOs, NOs, Clock> for ()
 {
   type PollReq = ();
   type PollResp = ();
@@ -262,14 +268,14 @@ impl<Effs: Array<Item = Effect<MP, MOV, MOs>>,
   }
 
   fn poll_req(&mut self,
-              _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+              _: &platform::Snapshot<Vec<u8>, Clock>,
               _: &mut Effs)
               -> StepOutput<(), ()> {
     None
   }
 
   fn poll_resp(&mut self,
-               _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+               _: &platform::Snapshot<Vec<u8>, Clock>,
                _: &mut Effs,
                _: Token,
                _: SocketAddr)
@@ -278,14 +284,14 @@ impl<Effs: Array<Item = Effect<MP, MOV, MOs>>,
   }
 
   fn before_message_sent(&mut self,
-                         _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+                         _: &platform::Snapshot<Vec<u8>, Clock>,
                          _: &mut Addrd<Message<MP, MOs>>)
                          -> Result<(), Self::Error> {
     Ok(())
   }
 
   fn on_message_sent(&mut self,
-                     _: &platform::Snapshot<MP, MOV, MOs, Clock>,
+                     _: &platform::Snapshot<Vec<u8>, Clock>,
                      _: &Addrd<Message<MP, MOs>>)
                      -> Result<(), Self::Error> {
     Ok(())
@@ -311,7 +317,7 @@ pub mod test {
   macro_rules! dummy_step {
     ({Step<PollReq = $poll_req_ty:ty, PollResp = $poll_resp_ty:ty, Error = $error_ty:ty>}) => {
       use $crate::net::Addrd;
-      use $crate::platform::Platform;
+      use $crate::platform::{EffectForPlatform, Platform};
       use $crate::test::Platform as P;
       use $crate::{platform, step, test};
 
@@ -319,11 +325,11 @@ pub mod test {
       struct Dummy(());
 
       static mut POLL_REQ_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
-                                                    &mut <P as platform::Platform>::Effects)
+                                                    &mut Vec<EffectForPlatform<P>>)
                                                     -> Option<::nb::Result<$poll_req_ty,
                                                                            $error_ty>>>> = None;
       static mut POLL_RESP_MOCK: Option<Box<dyn Fn(&platform::SnapshotForPlatform<P>,
-                                                     &mut <P as platform::Platform>::Effects,
+                                                     &mut Vec<EffectForPlatform<P>>,
                                                      toad_msg::Token,
                                                      no_std_net::SocketAddr)
                                                      -> Option<::nb::Result<$poll_resp_ty,
@@ -343,7 +349,8 @@ pub mod test {
       }
 
       impl
-        Step<<P as Platform>::Effects,
+        Step<Vec<u8>,
+             Vec<EffectForPlatform<P>>,
              <P as Platform>::MessagePayload,
              <P as Platform>::MessageOptionBytes,
              <P as Platform>::MessageOptions,
@@ -361,14 +368,14 @@ pub mod test {
 
         fn poll_req(&mut self,
                     a: &platform::SnapshotForPlatform<test::Platform>,
-                    b: &mut <test::Platform as platform::Platform>::Effects)
+                    b: &mut Vec<EffectForPlatform<P>>)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
           unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
         fn poll_resp(&mut self,
                      a: &platform::SnapshotForPlatform<test::Platform>,
-                     b: &mut <test::Platform as platform::Platform>::Effects,
+                     b: &mut Vec<EffectForPlatform<P>>,
                      c: toad_msg::Token,
                      d: no_std_net::SocketAddr)
                      -> step::StepOutput<Self::PollResp, ()> {
@@ -696,8 +703,8 @@ pub mod test {
 
           dummy_step!($inner_step);
 
-          let mut effects: <test::Platform as platform::Platform>::Effects = Default::default();
-          let mut snapshot: platform::Snapshot<test::Platform> = $crate::step::test::default_snapshot();
+          let mut effects: Vec<EffectForPlatform<P>> = Default::default();
+          let mut snapshot: platform::SnapshotForPlatform<test::Platform> = $crate::step::test::default_snapshot();
           let mut token = ::toad_msg::Token(Default::default());
           let mut addr = test::dummy_addr();
 

@@ -1,19 +1,22 @@
+use core::marker::PhantomData;
+
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 use toad_common::Array;
 use toad_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 
-use crate::platform::{self, Platform};
+use crate::platform::Platform;
 use crate::req::Req;
 use crate::todo;
 
 /// Response codes
 pub mod code;
 
+/// [`Resp`] with generics filled in for some [`Platform`] P.
 pub type RespForPlatform<P> = Resp<<P as Platform>::MessagePayload,
-                                 <P as Platform>::MessageOptionBytes,
-                                 <P as Platform>::MessageOptions,
-                                 <P as Platform>::NumberedOptions>;
+                                   <P as Platform>::MessageOptionBytes,
+                                   <P as Platform>::MessageOptions,
+                                   <P as Platform>::NumberedOptions>;
 
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
@@ -45,22 +48,11 @@ pub type RespForPlatform<P> = Resp<<P as Platform>::MessagePayload,
 /// # f(toad::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
 /// }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> {
   pub(crate) msg: Message<MessagePayload, MessageOptions>,
   opts: Option<NumberedOptions>,
-}
-
-impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> PartialEq
-  for Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
-  where MessagePayload: todo::MessagePayload,
-        MessageOptionValue: todo::MessageOptionValue,
-        MessageOptions: todo::MessageOptions<MessageOptionValue>,
-        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
-{
-  fn eq(&self, other: &Self) -> bool {
-    self.msg == other.msg && self.opts == other.opts
-  }
+  pub(crate) __v: PhantomData<MessageOptionValue>,
 }
 
 impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
@@ -100,7 +92,11 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   /// assert_eq!(req_msg.id, resp_msg.id);
   /// assert_eq!(req_msg.token, resp_msg.token);
   /// ```
-  pub fn for_request(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Option<Self> {
+  pub fn for_request(req: &Req<MessagePayload,
+                          MessageOptionValue,
+                          MessageOptions,
+                          NumberedOptions>)
+                     -> Option<Self> {
     match req.msg_type() {
       | Type::Con => Some(Self::ack(req)),
       | Type::Non => Some(Self::non(req)),
@@ -117,7 +113,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   /// but keep in mind that you might receive duplicate
   /// If you do need to ensure they receive your response,
   /// you
-  pub fn ack(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
+  pub fn ack(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>)
+             -> Self {
     let msg = Message { ty: Type::Ack,
                         id: req.msg_id(),
                         opts: MessageOptions::default(),
@@ -126,7 +123,9 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
                         payload: Payload(Default::default()),
                         token: req.msg_token() };
 
-    Self { msg, opts: None }
+    Self { msg,
+           opts: None,
+           __v: Default::default() }
   }
 
   /// Create a CONfirmable response for an incoming request.
@@ -141,7 +140,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// The `toad` runtime will continually retry sending this until
   /// an ACKnowledgement from the client is received.
-  pub fn con(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
+  pub fn con(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>)
+             -> Self {
     let msg = Message { ty: Type::Con,
                         id: Id(Default::default()),
                         opts: MessageOptions::default(),
@@ -150,7 +150,9 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
                         payload: Payload(Default::default()),
                         token: req.msg_token() };
 
-    Self { msg, opts: None }
+    Self { msg,
+           opts: None,
+           __v: Default::default() }
   }
 
   /// Create a NONconfirmable response for an incoming request.
@@ -158,7 +160,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   /// A non-confirmable response should be used when:
   /// - you receive a NON request and don't need to ensure the client received the response
   /// - you receive a CON request and don't need to ensure the client received the response (**you _must_ ACK this type of request separately**)
-  pub fn non(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
+  pub fn non(req: &Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>)
+             -> Self {
     let msg = Message { ty: Type::Non,
                         id: Id(Default::default()),
                         opts: MessageOptions::default(),
@@ -167,7 +170,9 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
                         payload: Payload(Default::default()),
                         token: req.msg_token() };
 
-    Self { msg, opts: None }
+    Self { msg,
+           opts: None,
+           __v: Default::default() }
   }
 
   /// Get the payload's raw bytes
@@ -326,7 +331,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>
 {
-  fn from(mut rep: Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>) -> Self {
+  fn from(mut rep: Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>)
+          -> Self {
     rep.normalize_opts();
     rep.msg
   }
@@ -345,7 +351,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
     msg.opts = Default::default();
 
     Self { msg,
-           opts: Some(opts) }
+           opts: Some(opts),
+           __v: Default::default() }
   }
 }
 

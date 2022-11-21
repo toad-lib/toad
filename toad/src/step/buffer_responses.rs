@@ -1,14 +1,14 @@
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_common::{Map, Array};
+use toad_common::{Array, Map};
 use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
-use crate::{exec_inner_step, todo, time};
 use crate::net::Addrd;
-use crate::platform::{Platform, Effect, Snapshot};
+use crate::platform::{Effect, Platform, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::{exec_inner_step, time, todo};
 
 /// `BufferResponses` that uses BTreeMap
 ///
@@ -17,9 +17,8 @@ use crate::resp::Resp;
 pub mod alloc {
   use ::std_alloc::collections::BTreeMap;
 
+  use super::*;
   use crate::resp::RespForPlatform;
-
-use super::*;
 
   /// `BufferResponses` that uses BTreeMap
   ///
@@ -34,9 +33,8 @@ use super::*;
 /// `BufferResponses` that does not use
 /// heap allocation and stores the buffer on the stack.
 pub mod no_alloc {
+  use super::*;
   use crate::resp::RespForPlatform;
-
-use super::*;
 
   /// `BufferResponses` that does not use
   /// heap allocation and stores the buffer on the stack.
@@ -44,7 +42,8 @@ use super::*;
   /// For more information see [`super::BufferResponses`]
   /// or the [module documentation](crate::step::buffer_responses).
   pub type BufferResponses<S, P> =
-    super::BufferResponses<S, ArrayVec<[((SocketAddr, Token, Type), Addrd<RespForPlatform<P>>); 16]>>;
+    super::BufferResponses<S,
+                           ArrayVec<[((SocketAddr, Token, Type), Addrd<RespForPlatform<P>>); 16]>>;
 }
 
 /// Struct responsible for buffering and yielding responses to the request
@@ -97,10 +96,25 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 
 impl<E: super::Error> super::Error for Error<E> {}
 
-impl<Inner, Buffer, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for BufferResponses<Inner, Buffer>
-  where E: super::Error, Buffer: Map<(SocketAddr, Token, Type), Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>>,
-        Inner: Step<Effects,
+impl<Dgram,
+      Inner,
+      Buffer,
+      E,
+      Effects,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for BufferResponses<Inner, Buffer>
+  where Dgram: crate::net::Dgram,
+        E: super::Error,
+        Buffer:
+          Map<(SocketAddr, Token, Type),
+              Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>>,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -110,16 +124,19 @@ impl<Inner, Buffer, E, Effects, MessagePayload, MessageOptionValue, MessageOptio
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<Req  <MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = Error<E>;
   type Inner = Inner;
@@ -129,7 +146,7 @@ impl<Inner, Buffer, E, Effects, MessagePayload, MessageOptionValue, MessageOptio
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     self.inner
@@ -138,7 +155,7 @@ impl<Inner, Buffer, E, Effects, MessagePayload, MessageOptionValue, MessageOptio
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               snap: &Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
@@ -178,9 +195,11 @@ mod test {
   use toad_msg::Id;
 
   use super::*;
-  use crate::{step::test::test_step, resp::RespForPlatform, req::ReqForPlatform};
+  use crate::req::ReqForPlatform;
+  use crate::resp::RespForPlatform;
+  use crate::step::test::test_step;
 
-  type InnerPollReq = Addrd<  ReqForPlatform<crate::test::Platform>>;
+  type InnerPollReq = Addrd<ReqForPlatform<crate::test::Platform>>;
   type InnerPollResp = Addrd<RespForPlatform<crate::test::Platform>>;
 
   test_step!(

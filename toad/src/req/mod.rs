@@ -1,4 +1,5 @@
 use core::fmt::{Debug, Write};
+use core::marker::PhantomData;
 
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
@@ -27,8 +28,9 @@ pub mod builder;
 #[doc(inline)]
 pub use builder::*;
 
-use crate::platform::{self, Platform};
+use crate::platform::Platform;
 
+/// [`Req`] with generics filled in for some [`Platform`] P.
 pub type ReqForPlatform<P> = Req<<P as Platform>::MessagePayload,
                                  <P as Platform>::MessageOptionBytes,
                                  <P as Platform>::MessageOptions,
@@ -72,27 +74,13 @@ pub type ReqForPlatform<P> = Req<<P as Platform>::MessagePayload,
 ///   }
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> {
   pub(crate) msg: Message<MessagePayload, MessageOptions>,
   pub(crate) id: Option<Id>,
   pub(crate) token: Option<Token>,
   pub(crate) opts: Option<NumberedOptions>,
-}
-
-impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions> PartialEq
-  for Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
-  where MessagePayload: todo::MessagePayload,
-        MessageOptionValue: todo::MessageOptionValue,
-        MessageOptions: todo::MessageOptions<MessageOptionValue>,
-        NumberedOptions: todo::NumberedOptions<MessageOptionValue>
-{
-  fn eq(&self, other: &Self) -> bool {
-    self.msg == other.msg
-    && self.id == other.id
-    && self.token == other.token
-    && self.opts == other.opts
-  }
+  pub(crate) __v: PhantomData<MessageOptionValue>,
 }
 
 impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
@@ -115,7 +103,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
     let mut me = Self { msg,
                         opts: Default::default(),
                         id: None,
-                        token: None };
+                        token: None,
+                        __v: Default::default() };
 
     fn strbytes<'a, S: AsRef<str> + 'a>(s: &'a S) -> impl Iterator<Item = u8> + 'a {
       s.as_ref().as_bytes().iter().copied()
@@ -455,7 +444,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
     Self { msg,
            opts: Some(opts),
            id: Some(id),
-           token: Some(token) }
+           token: Some(token),
+           __v: Default::default() }
   }
 }
 

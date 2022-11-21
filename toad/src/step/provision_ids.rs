@@ -7,14 +7,14 @@ use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, InsertError, Map};
 use toad_msg::{Id, Message};
 
-use super::{Step, _try, StepOutput};
+use super::{Step, StepOutput, _try};
 use crate::config::Config;
 use crate::net::Addrd;
-use crate::{platform, time, todo};
-use crate::platform::{Platform, Effect, Snapshot};
+use crate::platform::{Effect, Platform, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Stamped;
+use crate::{platform, time, todo};
 
 /// `ProvisionIds` that uses BTreeMap
 ///
@@ -69,20 +69,24 @@ pub mod no_alloc {
 /// type parameters to the step, although it does add a minorly annoying restriction
 /// that if you want to use something other than BTreeMap or ArrayVec,
 /// you would have to wrap your collection in a newtype.
-pub trait IdsBySocketAddr<C>: Map<SocketAddrWithDefault, Self::Ids> where C: time::Clock {
+pub trait IdsBySocketAddr<C>: Map<SocketAddrWithDefault, Self::Ids>
+  where C: time::Clock
+{
   /// the "given `A` which is an..." type above
   type Ids: Array<Item = Stamped<C, IdWithDefault>>;
 }
 
 #[cfg(feature = "alloc")]
-impl<P: platform::Platform, A: Array<Item = Stamped<P::Clock, IdWithDefault>>> IdsBySocketAddr<P>
-  for std_alloc::collections::BTreeMap<SocketAddrWithDefault, A>
+impl<C, A> IdsBySocketAddr<C> for std_alloc::collections::BTreeMap<SocketAddrWithDefault, A>
+  where C: time::Clock,
+        A: Array<Item = Stamped<C, IdWithDefault>>
 {
   type Ids = A;
 }
 
-impl<P: platform::Platform, A: Array<Item = Stamped<P::Clock, IdWithDefault>>, const N: usize>
-  IdsBySocketAddr<P> for ArrayVec<[(SocketAddrWithDefault, A); N]>
+impl<C, A, const N: usize> IdsBySocketAddr<C> for ArrayVec<[(SocketAddrWithDefault, A); N]>
+  where C: time::Clock,
+        A: Array<Item = Stamped<C, IdWithDefault>>
 {
   type Ids = A;
 }
@@ -130,11 +134,14 @@ pub struct ProvisionIds<Inner, SeenIds> {
   seen: SeenIds,
 }
 
-impl<Inner, Ids, C> ProvisionIds<Inner, Ids>
-  where Ids: IdsBySocketAddr<C>,
-        C: time::Clock
+impl<Inner, Ids> ProvisionIds<Inner, Ids>
+//where Ids: IdsBySocketAddr<C>,
+//      C: time::Clock
 {
-  fn prune(&mut self, now: Instant<C>, config: Config) {
+  fn prune<C>(&mut self, now: Instant<C>, config: Config)
+    where C: time::Clock,
+          Ids: IdsBySocketAddr<C>
+  {
     for (_, ids) in self.seen.iter_mut() {
       ids.sort_by_key(|t| t.time());
       let remove_before =
@@ -158,7 +165,10 @@ impl<Inner, Ids, C> ProvisionIds<Inner, Ids>
     }
   }
 
-  fn new_addr(&mut self, addr: SocketAddr) {
+  fn new_addr<C>(&mut self, addr: SocketAddr)
+    where C: time::Clock,
+          Ids: IdsBySocketAddr<C>
+  {
     match self.seen
               .insert(SocketAddrWithDefault(addr), Default::default())
     {
@@ -191,7 +201,10 @@ impl<Inner, Ids, C> ProvisionIds<Inner, Ids>
   /// Generate a Message ID that has not been used yet with the connection with this socket
   ///
   /// best case O(1), worst case O(n)
-  fn next(&mut self, config: Config, time: Instant<C>, addr: SocketAddr) -> Id {
+  fn next<C>(&mut self, config: Config, time: Instant<C>, addr: SocketAddr) -> Id
+    where C: time::Clock,
+          Ids: IdsBySocketAddr<C>
+  {
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
       | None => {
         self.new_addr(addr);
@@ -249,7 +262,10 @@ impl<Inner, Ids, C> ProvisionIds<Inner, Ids>
   }
 
   /// Mark an Id + Addr pair as being seen at `time`.
-  fn seen(&mut self, config: Config, now: Instant<C>, addr: SocketAddr, id: Id) {
+  fn seen<C>(&mut self, config: Config, now: Instant<C>, addr: SocketAddr, id: Id)
+    where C: time::Clock,
+          Ids: IdsBySocketAddr<C>
+  {
     self.prune(now, config);
 
     match self.seen.get_mut(&SocketAddrWithDefault(addr)) {
@@ -296,11 +312,23 @@ macro_rules! common {
   }};
 }
 
-impl<Inner, E, Effects, Ids, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for ProvisionIds<Inner, Ids>
-where Ids: IdsBySocketAddr<Clock>,
-E: super::Error,
-        Inner: Step<Effects,
+impl<Dgram,
+      Inner,
+      E,
+      Effects,
+      Ids,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for ProvisionIds<Inner, Ids>
+  where Dgram: crate::net::Dgram,
+        Ids: IdsBySocketAddr<Clock>,
+        E: super::Error,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -310,16 +338,19 @@ E: super::Error,
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = E;
   type Inner = Inner;
@@ -329,7 +360,7 @@ E: super::Error,
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     let req = self.inner.poll_req(snap, effects);
@@ -338,7 +369,7 @@ E: super::Error,
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               snap: &Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
@@ -349,10 +380,7 @@ E: super::Error,
   }
 
   fn before_message_sent(&mut self,
-                         snap: &platform::Snapshot<MessagePayload,
-                                             MessageOptionValue,
-                                             MessageOptions,
-                                             Clock>,
+                         snap: &platform::Snapshot<Dgram, Clock>,
                          msg: &mut Addrd<Message<MessagePayload, MessageOptions>>)
                          -> Result<(), Self::Error> {
     self.inner.before_message_sent(snap, msg)?;
@@ -373,11 +401,11 @@ mod test {
 
   use super::*;
   use crate::req::ReqForPlatform;
-use crate::resp::RespForPlatform;
-use crate::step::test::test_step;
+  use crate::resp::RespForPlatform;
+  use crate::step::test::test_step;
   use crate::test::{ClockMock, Platform as P};
 
-  type InnerPollReq = Addrd<  ReqForPlatform<crate::test::Platform>>;
+  type InnerPollReq = Addrd<ReqForPlatform<crate::test::Platform>>;
   type InnerPollResp = Addrd<RespForPlatform<crate::test::Platform>>;
 
   fn test_msg(id: Id) -> Addrd<crate::test::Message> {

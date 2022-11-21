@@ -1,7 +1,7 @@
 use no_std_net::SocketAddr;
 use toad_common::*;
 
-use super::{Method, Req};
+use super::{Method, ReqForPlatform as Req};
 use crate::option::common_options;
 use crate::platform::Platform;
 use crate::ToCoapValue;
@@ -49,7 +49,7 @@ pub struct ReqBuilder<P: Platform> {
 
 impl<P: Platform> ReqBuilder<P> {
   fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self { inner: Ok(Req::new(method, host, path)) }
+    Self { inner: Ok(Req::<P>::new(method, host, path)) }
   }
 
   /// Creates a GET request

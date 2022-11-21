@@ -19,7 +19,7 @@ pub const DISCOVERY_PORT: u16 = 1234;
 mod service {
   use std::time::{Duration, Instant};
 
-  use toad::req::Method;
+  use toad::req::{Method, ReqForPlatform};
   use Action::{Continue, Exit, Insecure, SendReq, SendResp};
 
   use super::*;
@@ -27,7 +27,7 @@ mod service {
   static mut LAST_BROADCAST: Option<Instant> = None;
 
   /// CON/NON POST /exit
-  pub fn exit(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
+  pub fn exit(req: &Addrd<ReqForPlatform<StdSecure>>) -> Actions<StdSecure> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::POST, Some("exit")) => {
         let mut resp = req.as_ref().map(Resp::for_request).map(Option::unwrap);
@@ -42,7 +42,7 @@ mod service {
   }
 
   /// CON/NON GET /hello
-  pub fn say_hello(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
+  pub fn say_hello(req: &Addrd<ReqForPlatform<StdSecure>>) -> Actions<StdSecure> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::GET, Some("hello")) => {
         log::info!("a client said hello");
@@ -62,7 +62,7 @@ mod service {
 
   /// If we get here, that means that all other services
   /// failed to process and we should respond 4.04
-  pub fn not_found(req: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
+  pub fn not_found(req: &Addrd<ReqForPlatform<StdSecure>>) -> Actions<StdSecure> {
     log::info!("not found");
     let resp = req.as_ref()
                   .map(Resp::for_request)
@@ -77,7 +77,7 @@ mod service {
 
   /// Stop sending messages to the multicast address once we receive a request
   /// because that means we've been discovered
-  pub fn close_multicast_broadcast(_: &Addrd<Req<StdSecure>>) -> Actions<StdSecure> {
+  pub fn close_multicast_broadcast(_: &Addrd<ReqForPlatform<StdSecure>>) -> Actions<StdSecure> {
     unsafe {
       BROADCAST_RECIEVED = true;
       log::trace!("No longer sending broadcasts");
@@ -102,7 +102,7 @@ mod service {
         }
         let addr = toad::multicast::all_coap_devices(DISCOVERY_PORT);
 
-        let mut req = Req::<StdSecure>::post(addr, "");
+        let mut req = ReqForPlatform::<StdSecure>::post(addr, "");
         req.non();
 
         Insecure(SendReq(Addrd(req, addr)).into()).then(Continue)

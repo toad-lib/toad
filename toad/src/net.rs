@@ -55,10 +55,14 @@ impl<T> AsMut<T> for Addrd<T> {
 }
 
 /// A packet recieved over a UDP socket.
-///
-/// Currently the capacity is hard-coded at 1152 bytes,
-/// but this will eventually be configurable at compile-time.
-pub type Dgram = ArrayVec<[u8; 1152]>;
+pub trait Dgram:
+  Sized + Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq
+{
+}
+impl<T> Dgram for T
+  where T: Sized + Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq
+{
+}
 
 /// A CoAP network socket
 ///
@@ -139,8 +143,8 @@ pub trait Socket: Sized {
   }
 
   /// Poll the socket for a datagram from the `connect`ed host
-  fn poll(&self) -> Result<Option<Addrd<Dgram>>, Self::Error> {
-    let mut buf = [0u8; 1152];
+  fn poll<const DGRAM_BUFFER_SIZE: usize>(&self) -> Result<Option<Addrd<ArrayVec<[u8; DGRAM_BUFFER_SIZE]>>>, Self::Error> {
+    let mut buf = [0u8; DGRAM_BUFFER_SIZE];
     let recvd = self.recv(&mut buf);
 
     match recvd {

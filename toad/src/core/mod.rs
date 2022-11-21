@@ -16,8 +16,8 @@ use crate::config::Config;
 use crate::logging;
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform, Retryable};
-use crate::req::Req;
-use crate::resp::Resp;
+use crate::req::ReqForPlatform as Req;
+use crate::resp::RespForPlatform as Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
 use crate::todo::Capacity;
@@ -198,7 +198,7 @@ impl<P: Platform> Core<P> {
     token
   }
 
-  fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
+  fn tick(&mut self) -> nb::Result<Option<Addrd<ArrayVec<[u8; 0]>>>, Error<P>> {
     let when = When::Polling;
 
     self.sock
@@ -297,7 +297,7 @@ impl<P: Platform> Core<P> {
                                                        .map_err(nb::Error::Other)
                                                        .map(|msg| Addrd(msg, addr))
         })
-        .map(|addrd| addrd.map(Req::from))
+        .map(|addrd| addrd.map(Req::<P>::from))
   }
 
   /// Poll for an empty message in response to a sent empty message (CoAP ping)
@@ -325,7 +325,7 @@ impl<P: Platform> Core<P> {
 
   pub(super) fn dgram_recvd(&mut self,
                             when: error::When,
-                            dgram: Addrd<crate::net::Dgram>)
+                            dgram: Addrd<ArrayVec<[u8; 0]>>)
                             -> Result<(), Error<P>> {
     log::trace!("recvd {}b <- {}", dgram.data().get_size(), dgram.addr());
     platform::Message::<P>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))

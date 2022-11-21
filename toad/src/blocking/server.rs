@@ -12,8 +12,8 @@ use crate::net::{Addrd, Socket};
 use crate::platform::{self, Platform};
 #[cfg(feature = "std")]
 use crate::platform::{Std, StdSecure};
-use crate::req::{Method, Req};
-use crate::resp::Resp;
+use crate::req::{Method, ReqForPlatform as Req};
+use crate::resp::RespForPlatform as Resp;
 #[cfg(feature = "std")]
 use crate::std::secure;
 

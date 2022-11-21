@@ -2,7 +2,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::Array;
 use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, Message, Token, TryIntoBytes, Type, EnumerateOptNumbersIter};
+use toad_msg::{CodeKind, EnumerateOptNumbersIter, Message, Token, TryIntoBytes, Type};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
@@ -12,7 +12,7 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::{Attempts, RetryTimer, Strategy, YouShould};
 use crate::time::{self, Clock};
-use crate::todo::{MessageOptionValue, MessageOptions, MessagePayload, self};
+use crate::todo::{self, MessageOptionValue, MessageOptions, MessagePayload};
 
 /// Buffer used to store messages queued for retry
 pub trait Buf<MP, MOV, MOs, Clock, Effects>
@@ -21,7 +21,7 @@ pub trait Buf<MP, MOV, MOs, Clock, Effects>
         MOV: MessageOptionValue,
         MOs: MessageOptions<MOV>,
         Clock: time::Clock,
-        Effects: Array<Item = Effect<MP, MOV, MOs>>
+        Effects: Array<Item = Effect<MP, MOs>>
 {
   /// Do some black box magic to send all messages that need to be sent
   fn attempt_all<E>(&mut self,
@@ -34,14 +34,7 @@ pub trait Buf<MP, MOV, MOs, Clock, Effects>
           | _ => None,
         })
         .try_for_each(|(_, msg)| -> Result<(), Error<E>> {
-          let bytes = msg.data()
-                         // TODO: remove this clone when
-                         // try_from_bytes is `&self -> Result<_, _>`,
-                         // instead of        ` self -> Result<_, _>`
-                         .clone()
-                         .try_into_bytes()
-                         .map_err(Error::RetrySerializingFailed)?;
-          effects.push(Effect::SendDgram(msg.as_ref().map(|_| bytes)));
+          effects.push(Effect::SendMessage(msg.clone()));
           Ok(())
         })
   }
@@ -136,7 +129,7 @@ impl<T, MP, MOV, MOs, Clock, Effects> Buf<MP, MOV, MOs, Clock, Effects> for T
         MOV: MessageOptionValue,
         MOs: MessageOptions<MOV>,
         Clock: time::Clock,
-        Effects: Array<Item = Effect<MP, MOV, MOs>>
+        Effects: Array<Item = Effect<MP, MOs>>
 {
 }
 
@@ -281,8 +274,6 @@ pub enum Error<E> {
   /// Only applicable to [`Retry`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   RetryBufferFull,
-  /// Error serializing a message we needed to retry
-  RetrySerializingFailed(MessageToBytesError),
 }
 
 impl<E> super::Error for Error<E> where E: super::Error {}
@@ -293,11 +284,23 @@ impl<E> From<E> for Error<E> {
   }
 }
 
-impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Retry<Inner, Buffer>
-  where Buffer: Buf<Effects, MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+impl<Dgram,
+      Inner,
+      E,
+      Buffer,
+      Effects,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for Retry<Inner, Buffer>
+  where Dgram: crate::net::Dgram,
+        Buffer: Buf<MessagePayload, MessageOptionValue, MessageOptions, Clock, Effects>,
         E: super::Error,
-        Inner: Step<Effects,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -307,23 +310,20 @@ impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptio
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<Req<MessagePayload,
-                                        MessageOptionValue,
-                                        MessageOptions,
-                                        NumberedOptions>>;
-  type PollResp = Addrd<Resp<MessagePayload,
-                                        MessageOptionValue,
-                                        MessageOptions,
-                                        NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = Error<E>;
   type Inner = Inner;
 
@@ -332,7 +332,7 @@ impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptio
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     // SERVER FLOW:
@@ -351,7 +351,7 @@ impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptio
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               snap: &Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
@@ -372,7 +372,7 @@ impl<Inner, E, Buffer, Effects, MessagePayload, MessageOptionValue, MessageOptio
   }
 
   fn on_message_sent(&mut self,
-                     snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+                     snap: &Snapshot<Dgram, Clock>,
                      msg: &Addrd<Message<MessagePayload, MessageOptions>>)
                      -> Result<(), Self::Error> {
     self.inner.on_message_sent(snap, msg)?;

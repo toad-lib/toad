@@ -3,10 +3,10 @@ use toad_msg::Message;
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{self, Platform, Effect, Snapshot};
+use crate::platform::{self, Effect, Platform, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::{todo, time};
+use crate::{time, todo};
 
 /// The message parsing CoAP lifecycle step
 ///
@@ -67,18 +67,28 @@ impl<E: super::Error> super::Error for Error<E> {}
 
 macro_rules! common {
   ($dgram:expr) => {{
-    $dgram.fold(|dgram, addr| {
-            Message::try_from_bytes(dgram).map(|dgram| Addrd(dgram, addr))
-          })
+    use toad_msg::TryFromBytes;
+    $dgram.fold(|dgram, addr| Message::try_from_bytes(dgram).map(|dgram| Addrd(dgram, addr)))
           .map_err(Error::Parsing)
           .map_err(nb::Error::Other)
   }};
 }
 
-impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
-  Step<Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock> for Parse<Inner>
-  where E: super::Error,
-        Inner: Step<Effects,
+impl<Dgram,
+      Inner,
+      E,
+      Effects,
+      MessagePayload,
+      MessageOptionValue,
+      MessageOptions,
+      NumberedOptions,
+      Clock>
+  Step<Dgram, Effects, MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions, Clock>
+  for Parse<Inner>
+  where Dgram: crate::net::Dgram,
+        E: super::Error,
+        Inner: Step<Dgram,
+                    Effects,
                     MessagePayload,
                     MessageOptionValue,
                     MessageOptions,
@@ -88,16 +98,19 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
                                         MessageOptionValue,
                                         MessageOptions,
                                         NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>,
+                    PollResp = Addrd<Resp<MessagePayload,
+                                          MessageOptionValue,
+                                          MessageOptions,
+                                          NumberedOptions>>,
                     Error = E>,
-        Effects: Array<Item = Effect<MessagePayload, MessageOptionValue, MessageOptions>>,
+        Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
         MessageOptionValue: todo::MessageOptionValue,
         MessageOptions: todo::MessageOptions<MessageOptionValue>,
         NumberedOptions: todo::NumberedOptions<MessageOptionValue>,
         Clock: time::Clock
 {
-  type PollReq = Addrd<  Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
+  type PollReq = Addrd<Req<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type PollResp = Addrd<Resp<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>>;
   type Error = Error<Inner::Error>;
   type Inner = Inner;
@@ -107,7 +120,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn poll_req(&mut self,
-              snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+              snap: &Snapshot<Dgram, Clock>,
               effects: &mut Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner);
@@ -115,7 +128,7 @@ impl<Inner, E, Effects, MessagePayload, MessageOptionValue, MessageOptions, Numb
   }
 
   fn poll_resp(&mut self,
-               snap: &Snapshot<MessagePayload, MessageOptionValue, MessageOptions, Clock>,
+               snap: &Snapshot<Dgram, Clock>,
                effects: &mut Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
@@ -140,7 +153,9 @@ mod test {
   fn test_msg(
     ty: Type,
     code: Code)
-    -> (Addrd<Vec<u8>>, Addrd<ReqForPlatform<crate::test::Platform>>, Addrd<RespForPlatform<crate::test::Platform>>) {
+    -> (Addrd<Vec<u8>>,
+        Addrd<ReqForPlatform<crate::test::Platform>>,
+        Addrd<RespForPlatform<crate::test::Platform>>) {
     use toad_msg::*;
 
     type Msg = platform::Message<crate::test::Platform>;
