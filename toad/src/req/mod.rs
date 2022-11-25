@@ -456,11 +456,11 @@ mod tests {
 
   #[test]
   fn ip_serialization() {
-    let req = Req::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");
+    let req = ReqForPlatform::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");
     assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
                "192.168.255.123");
 
-    let req = Req::<Std>::get("[::1]:8080".parse().unwrap(), "");
+    let req = ReqForPlatform::<Std>::get("[::1]:8080".parse().unwrap(), "");
     assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
                "::1");
   }

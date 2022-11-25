@@ -94,14 +94,6 @@ impl<Dgram,
                     MessageOptions,
                     NumberedOptions,
                     Clock,
-                    PollReq = Addrd<Req<MessagePayload,
-                                        MessageOptionValue,
-                                        MessageOptions,
-                                        NumberedOptions>>,
-                    PollResp = Addrd<Resp<MessagePayload,
-                                          MessageOptionValue,
-                                          MessageOptions,
-                                          NumberedOptions>>,
                     Error = E>,
         Effects: Array<Item = Effect<MessagePayload, MessageOptions>>,
         MessagePayload: todo::MessagePayload,
@@ -170,8 +162,8 @@ mod test {
     let addr = crate::test::dummy_addr();
 
     (Addrd(msg.clone().try_into_bytes().unwrap(), addr),
-     Addrd(Req::<_>::from(msg.clone()), addr),
-     Addrd(Resp::<_>::from(msg), addr))
+     Addrd(Req::<_, _, _, _>::from(msg.clone()), addr),
+     Addrd(Resp::<_, _, _, _>::from(msg), addr))
   }
 
   test::test_step!(

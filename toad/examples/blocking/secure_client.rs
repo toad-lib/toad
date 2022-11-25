@@ -6,11 +6,12 @@ use toad::blocking::Client;
 use toad::core::Error;
 use toad::net::Addrd;
 use toad::platform::{Std, StdSecure};
-use toad::req::Req;
-use toad::resp::Resp;
 use toad::std::secure::SecureUdpSocket;
 use toad::std::Clock;
 use toad::time::Timeout;
+
+type Req = toad::req::ReqForPlatform<Std>;
+type Resp = toad::resp::RespForPlatform<Std>;
 
 #[path = "./secure_server.rs"]
 mod server;
@@ -19,7 +20,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for Result<Resp<StdSecure>, toad::core::Error<StdSecure>> {
+impl Log for Result<Resp, toad::core::Error<StdSecure>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
@@ -34,7 +35,7 @@ impl Log for Result<Resp<StdSecure>, toad::core::Error<StdSecure>> {
   }
 }
 
-impl Log for Result<Option<Resp<StdSecure>>, Error<StdSecure>> {
+impl Log for Result<Option<Resp>, Error<StdSecure>> {
   fn log(self) {
     match self {
       | Ok(None) => {

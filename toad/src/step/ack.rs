@@ -107,35 +107,11 @@ mod test {
   use toad_msg::{Code, Type};
 
   use super::super::test;
-  use super::{Ack, Effect, Step, TryIntoBytes};
-  use crate::net::Addrd;
-  use crate::platform;
-  use crate::req::{Req, ReqForPlatform};
-  use crate::resp::{Resp, RespForPlatform};
+  use super::{Ack, Effect, Step};
+  use crate::test::{Req, Resp};
 
   type InnerPollReq = super::InnerPollReq<crate::test::Platform>;
   type InnerPollResp = super::InnerPollResp<crate::test::Platform>;
-
-  fn test_msg(
-    ty: Type,
-    code: Code)
-    -> (Addrd<ReqForPlatform<crate::test::Platform>>, Addrd<RespForPlatform<crate::test::Platform>>)
-  {
-    use toad_msg::*;
-
-    type Msg = platform::Message<crate::test::Platform>;
-    let msg = Msg { id: Id(1),
-                    ty,
-                    ver: Default::default(),
-                    token: Token(Default::default()),
-                    code,
-                    opts: Default::default(),
-                    payload: Payload(Default::default()) };
-
-    let addr = crate::test::dummy_addr();
-
-    (Addrd(Req::<_>::from(msg.clone()), addr), Addrd(Resp::<_>::from(msg), addr))
-  }
 
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
@@ -164,10 +140,10 @@ mod test {
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_non_request [
-        (inner.poll_req => { Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0)) })
+        (inner.poll_req => { Some(Ok(crate::test::msg!(NON GET x.x.x.x:80).map(Req::from))) })
       ]
       THEN poll_req_should_noop [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Non, Code::new(1, 01)).0))) }),
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(crate::test::msg!(NON GET x.x.x.x:80).map(Req::from)))) }),
         (effects == { vec![] })
       ]
   );
@@ -175,10 +151,10 @@ mod test {
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_response [
-        (inner.poll_req => { Some(Ok(test_msg(Type::Ack, Code::new(0, 00)).0)) })
+        (inner.poll_req => { Some(Ok(crate::test::msg!(ACK EMPTY x.x.x.x:80).map(Req::from))) })
       ]
       THEN poll_req_should_noop [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg( Type::Ack, Code::new(0, 00)).0))) }),
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(crate::test::msg!(ACK EMPTY x.x.x.x:80).map(Req::from)))) }),
         (effects == { vec![] })
       ]
   );
@@ -186,32 +162,30 @@ mod test {
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_con_request [
-        (inner.poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) })
+        (inner.poll_req => { Some(Ok(crate::test::msg!(CON GET x.x.x.x:80).map(Req::from))) })
       ]
       THEN poll_req_should_ack [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0))) }),
-        (effects == {
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(crate::test::msg!(CON {1 . 01} x.x.x.x:80).map(Req::from)))) }),
+        (effects == {{
+          let req = Req::from(crate::test::msg!(CON {1 . 01} x.x.x.x:80).unwrap());
+
           vec![
-            Effect::SendDgram(
-              Addrd(
-                Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0)
-                  .try_into_bytes()
-                  .unwrap(),
-                crate::test::dummy_addr()
-              )
+            Effect::SendMessage(
+                Addrd(Resp::ack(&req).into(),
+                crate::test::x.x.x.x(80))
             )
           ]
-        })
+        }})
       ]
   );
 
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_anything [
-        (inner.poll_resp => { Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1)) })
+        (inner.poll_resp => { Some(Ok(crate::test::msg!(ACK {2 . 04} x.x.x.x:80).map(Resp::from))) })
       ]
       THEN poll_resp_should_noop [
-        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Ack, Code::new(2, 04)).1))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Ok(crate::test::msg!(ACK {2 . 04} x.x.x.x:80).map(Resp::from)))) }),
         (effects == { vec![] })
       ]
   );

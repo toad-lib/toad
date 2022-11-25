@@ -198,11 +198,11 @@ impl<P: Platform> Core<P> {
     token
   }
 
-  fn tick(&mut self) -> nb::Result<Option<Addrd<ArrayVec<[u8; 0]>>>, Error<P>> {
+  fn tick(&mut self) -> nb::Result<Option<Addrd<ArrayVec<[u8; 1152]>>>, Error<P>> {
     let when = When::Polling;
 
     self.sock
-        .poll()
+        .poll::<1152>()
         .map_err(|e| when.what(What::SockError(e)))
         // TODO: This is a /bad/ copy.
         .try_perform(|polled| {
@@ -325,7 +325,7 @@ impl<P: Platform> Core<P> {
 
   pub(super) fn dgram_recvd(&mut self,
                             when: error::When,
-                            dgram: Addrd<ArrayVec<[u8; 0]>>)
+                            dgram: Addrd<ArrayVec<[u8; 1152]>>)
                             -> Result<(), Error<P>> {
     log::trace!("recvd {}b <- {}", dgram.data().get_size(), dgram.addr());
     platform::Message::<P>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
@@ -592,7 +592,7 @@ mod tests {
   use super::*;
   use crate::platform;
   use crate::platform::Alloc;
-  use crate::req::Req;
+  use crate::req::ReqForPlatform as Req;
   use crate::test::SockMock;
 
   type Config = Alloc<crate::std::Clock, SockMock>;

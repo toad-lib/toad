@@ -3,8 +3,10 @@ use std::thread::JoinHandle;
 use toad::blocking::server::{Action, Actions};
 use toad::net::Addrd;
 use toad::platform::Std;
-use toad::req::Req;
-use toad::resp::{code, Resp};
+use toad::resp::code;
+
+type Req = toad::req::ReqForPlatform<Std>;
+type Resp = toad::resp::RespForPlatform<Std>;
 
 const PORT: u16 = 5555;
 pub const DISCOVERY_PORT: u16 = 1234;
@@ -17,7 +19,7 @@ mod service {
   static mut BROADCAST_RECIEVED: bool = false;
 
   /// CON/NON POST /exit
-  pub fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn exit(req: &Addrd<Req>) -> Actions<Std> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::POST, Some("exit")) => {
         let mut resp = req.as_ref().map(Resp::for_request).map(Option::unwrap);
@@ -32,7 +34,7 @@ mod service {
   }
 
   /// CON/NON GET /hello
-  pub fn say_hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn say_hello(req: &Addrd<Req>) -> Actions<Std> {
     match (req.data().method(), req.data().path().unwrap()) {
       | (Method::GET, Some("hello")) => {
         log::info!("a client said hello");
@@ -52,7 +54,7 @@ mod service {
 
   /// If we get here, that means that all other services
   /// failed to process and we should respond 4.04
-  pub fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn not_found(req: &Addrd<Req>) -> Actions<Std> {
     log::info!("not found");
     let resp = req.as_ref()
                   .map(Resp::for_request)
@@ -67,7 +69,7 @@ mod service {
 
   /// Stop sending messages to the multicast address once we receive a request
   /// because that means we've been discovered
-  pub fn close_multicast_broadcast(_: &Addrd<Req<Std>>) -> Actions<Std> {
+  pub fn close_multicast_broadcast(_: &Addrd<Req>) -> Actions<Std> {
     unsafe {
       BROADCAST_RECIEVED = true;
       log::trace!("No longer sending broadcasts");
@@ -85,7 +87,7 @@ mod service {
       | false => {
         let addr = toad::multicast::all_coap_devices(DISCOVERY_PORT);
 
-        let mut req = Req::<Std>::post(addr, "");
+        let mut req = Req::post(addr, "");
         req.non();
 
         SendReq(Addrd(req, addr)).then(Continue)

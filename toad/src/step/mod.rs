@@ -562,7 +562,7 @@ pub mod test {
     ) => {{
       use $crate::step::Step;
 
-      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.on_message_sent($snap, &$msg))
     }};
     (
@@ -575,7 +575,7 @@ pub mod test {
     ) => {{
       use $crate::step::Step;
 
-      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.on_message_sent(&$snap, &$msg))
     }};
     (
@@ -588,8 +588,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
-                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_, _, _, _, _, _, _>>::PollReq,
+                                           <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_req($snap, $effects))
     }};
     (
@@ -602,8 +602,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollReq,
-                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_, _, _, _, _, _, _>>::PollReq,
+                                           <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_req(&$snap, $effects))
     }};
     (
@@ -616,8 +616,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
-                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_, _, _, _, _, _, _>>::PollResp,
+                                           <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp($snap, $effects, $token, $addr))
     }};
     (
@@ -630,8 +630,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
-                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_, _, _, _, _, _, _>>::PollResp,
+                                           <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp(&$snap, $effects, $token, $addr))
     }};
     (
@@ -644,8 +644,8 @@ pub mod test {
     ) => {{
       use $crate::step::{Step, StepOutput};
 
-      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_>>::PollResp,
-                                           <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
+      let assert_fn: Box<dyn Fn(StepOutput<<$step_ty as Step<_, _, _, _, _, _, _>>::PollResp,
+                                           <$step_ty as Step<_, _, _, _, _, _, _>>::Error>)> = Box::new($assert_fn);
       assert_fn($step.poll_resp($snap, $effects, $token, $addr))
     }};
     (
@@ -666,7 +666,7 @@ pub mod test {
       addr = $addr:expr,
       expect (effects should satisfy {$f:expr})
     ) => {{
-      let f: Box<dyn Fn(&Vec<$crate::platform::Effect<$crate::test::Platform>>)> = Box::new($f);
+      let f: Box<dyn Fn(&Vec<$crate::platform::EffectForPlatform<$crate::test::Platform>>)> = Box::new($f);
       f($effects)
     }};
     (

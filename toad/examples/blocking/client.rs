@@ -3,9 +3,10 @@ use toad::blocking::Client;
 use toad::core::Error;
 use toad::net::Addrd;
 use toad::platform::Std;
-use toad::req::Req;
-use toad::resp::Resp;
 use toad::time::Timeout;
+
+type Req = toad::req::ReqForPlatform<Std>;
+type Resp = toad::resp::RespForPlatform<Std>;
 
 #[path = "./server.rs"]
 mod server;
@@ -14,7 +15,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for Result<Resp<Std>, toad::core::Error<Std>> {
+impl Log for Result<Resp, toad::core::Error<Std>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
@@ -29,7 +30,7 @@ impl Log for Result<Resp<Std>, toad::core::Error<Std>> {
   }
 }
 
-impl Log for Result<Option<Resp<Std>>, Error<Std>> {
+impl Log for Result<Option<Resp>, Error<Std>> {
   fn log(self) {
     match self {
       | Ok(None) => {

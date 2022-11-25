@@ -480,11 +480,7 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::SendMessage(test::msg!(CON GET x.x.x.x:1111))])
         }
       }),
       (
@@ -500,21 +496,14 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 550), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::SendMessage(test::msg!(CON GET x.x.x.x:1111))])
         }
       }),
       (poll_resp(snap_time(config(200, 400), 750), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram.clone()), Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON GET x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg.clone()), Effect::SendMessage(msg)])
         }
       }),
       (
@@ -530,11 +519,8 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram.clone()), Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON GET x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg.clone()), Effect::SendMessage(msg)])
         }
       })
     ]
@@ -575,11 +561,8 @@ mod tests {
       (poll_req(snap_time(config(200, 400), 250), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON {2 . 04} x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       }),
       (
@@ -593,31 +576,22 @@ mod tests {
       (poll_req(snap_time(config(200, 400), 550), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON {2 . 04} x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       }),
       (poll_req(snap_time(config(200, 400), 750), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON {2 . 04} x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       }),
       (poll_req(snap_time(config(200, 400), 10_000), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          let msg = test::msg!(CON {2 . 04} x.x.x.x:1111);
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       })
     ]
@@ -657,11 +631,9 @@ mod tests {
       (poll_resp(snap_time(config(200, 200), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
+          let msg = test::msg!(NON GET x.x.x.x:1111);
 
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       }),
       (
@@ -676,21 +648,17 @@ mod tests {
       ),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
+          let msg = test::msg!(NON GET x.x.x.x:1111);
 
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       }),
       (poll_resp(snap_time(config(200, 200), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
+          let msg = test::msg!(NON GET x.x.x.x:1111);
 
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::SendMessage(msg)])
         }
       })
     ]
