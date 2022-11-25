@@ -16,10 +16,10 @@ use super::*;
 
 // lol `crate::test::x.x.x.x(80)`
 pub struct X1 {
-    pub x: X2,
+  pub x: X2,
 }
 pub struct X2 {
-    pub x: X3,
+  pub x: X3,
 }
 pub struct X3;
 impl X3 {
@@ -29,7 +29,7 @@ impl X3 {
 }
 
 #[allow(non_upper_case_globals)]
-pub const x: X1 = X1 {x: X2{x: X3}};
+pub const x: X1 = X1 { x: X2 { x: X3 } };
 
 pub fn addr(port: u16) -> SocketAddr {
   use no_std_net::*;

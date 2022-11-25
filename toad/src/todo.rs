@@ -7,25 +7,45 @@ use toad_common::*;
 use toad_msg::{Opt, OptNumber};
 
 /// TODO
-pub trait MessagePayload: PartialEq + core::fmt::Debug +Array<Item = u8> + AppendCopy<u8> + Clone {}
+pub trait MessagePayload:
+  PartialEq + core::fmt::Debug + Array<Item = u8> + AppendCopy<u8> + Clone
+{
+}
 /// TODO
-pub trait MessageOptionValue: PartialEq + core::fmt::Debug +Array<Item = u8> + AppendCopy<u8> + Clone {}
+pub trait MessageOptionValue:
+  PartialEq + core::fmt::Debug + Array<Item = u8> + AppendCopy<u8> + Clone
+{
+}
 /// TODO
-pub trait MessageOptions<V>: PartialEq + core::fmt::Debug +Clone + Array<Item = Opt<V>>
+pub trait MessageOptions<V>: PartialEq + core::fmt::Debug + Clone + Array<Item = Opt<V>>
   where V: MessageOptionValue
 {
 }
 
-pub trait NumberedOptions<V>: core::fmt::Debug +
-  Array<Item = (OptNumber, Opt<V>)> + Clone + Debug + PartialEq
+pub trait NumberedOptions<V>:
+  core::fmt::Debug + Array<Item = (OptNumber, Opt<V>)> + Clone + Debug + PartialEq
   where V: MessageOptionValue
 {
 }
 
-impl<T> MessagePayload for T where T: core::fmt::Debug+        PartialEq + Array<Item = u8> + AppendCopy<u8> + Clone {}
-impl<T> MessageOptionValue for T where T: core::fmt::Debug+    PartialEq + Array<Item = u8> + AppendCopy<u8> + Clone {}
-impl<T, V> MessageOptions<V> for T where T: core::fmt::Debug+  PartialEq + Clone + Array<Item = Opt<V>>, V: MessageOptionValue {}
-impl<T, V> NumberedOptions<V> for T where T: core::fmt::Debug+ PartialEq +  Clone + PartialEq + Array<Item = (OptNumber, Opt<V>)>, V: MessageOptionValue {}
+impl<T> MessagePayload for T
+  where T: core::fmt::Debug + PartialEq + Array<Item = u8> + AppendCopy<u8> + Clone
+{
+}
+impl<T> MessageOptionValue for T
+  where T: core::fmt::Debug + PartialEq + Array<Item = u8> + AppendCopy<u8> + Clone
+{
+}
+impl<T, V> MessageOptions<V> for T
+  where T: core::fmt::Debug + PartialEq + Clone + Array<Item = Opt<V>>,
+        V: MessageOptionValue
+{
+}
+impl<T, V> NumberedOptions<V> for T
+  where T: core::fmt::Debug + PartialEq + Clone + PartialEq + Array<Item = (OptNumber, Opt<V>)>,
+        V: MessageOptionValue
+{
+}
 
 /// A [`Map`](toad_common::Map) stored completely on the stack
 pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;

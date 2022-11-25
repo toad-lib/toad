@@ -40,8 +40,7 @@ pub type ReqForPlatform<P> = Req<<P as Platform>::MessagePayload,
 ///
 /// ```
 /// use toad::platform::Std;
-/// use toad::std::Req;
-/// use toad::std::Resp;
+/// use toad::std::{Req, Resp};
 ///
 /// # main();
 /// fn main() {

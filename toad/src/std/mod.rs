@@ -6,7 +6,9 @@ use embedded_time::rate::Fraction;
 pub mod net;
 pub use net::*;
 
-use crate::{req::ReqForPlatform, resp::RespForPlatform, platform::Std};
+use crate::platform::Std;
+use crate::req::ReqForPlatform;
+use crate::resp::RespForPlatform;
 
 /// TODO
 pub type Req = ReqForPlatform<Std>;

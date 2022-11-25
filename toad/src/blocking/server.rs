@@ -54,9 +54,8 @@ pub enum Action<P: Platform> {
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
   /// use toad::platform::{Message, Std};
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
   /// use toad::resp::code;
+  /// use toad::std::{Req, Resp};
   /// use toad::ContentFormat;
   ///
   /// fn hello(req: &Addrd<Req>) -> Actions<Std> {
@@ -151,8 +150,7 @@ impl<P: Platform> Action<P> {
   /// use toad::blocking::server::{Action, Actions};
   /// use toad::net::Addrd;
   /// use toad::platform::Std;
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// /// The server should respond OK to the request then exit
   /// fn exit(req: &Addrd<Req>) -> Actions<Std> {
@@ -250,9 +248,8 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
   /// use toad::platform::{Message, Std};
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
-  /// use toad::resp::{code};
+  /// use toad::resp::code;
+  /// use toad::std::{Req, Resp};
   /// use toad::ContentFormat;
   ///
   /// fn hello(req: &Addrd<Req>) -> Actions<Std> {

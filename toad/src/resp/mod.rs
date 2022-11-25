@@ -72,8 +72,7 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::{Message, Std};
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// // pretend this is an incoming request
   /// let mut req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -179,8 +178,7 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
@@ -218,8 +216,7 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
@@ -238,8 +235,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::Req;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -255,8 +252,8 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::Req;
   ///
   /// // pretend this is an incoming request
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -275,8 +272,7 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
@@ -298,8 +294,7 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::std::Req;
-  /// use toad::std::Resp;
+  /// use toad::std::{Req, Resp};
   ///
   /// // pretend this is an incoming request
   /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");

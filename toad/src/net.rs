@@ -143,7 +143,9 @@ pub trait Socket: Sized {
   }
 
   /// Poll the socket for a datagram from the `connect`ed host
-  fn poll<const DGRAM_BUFFER_SIZE: usize>(&self) -> Result<Option<Addrd<ArrayVec<[u8; DGRAM_BUFFER_SIZE]>>>, Self::Error> {
+  fn poll<const DGRAM_BUFFER_SIZE: usize>(
+    &self)
+    -> Result<Option<Addrd<ArrayVec<[u8; DGRAM_BUFFER_SIZE]>>>, Self::Error> {
     let mut buf = [0u8; DGRAM_BUFFER_SIZE];
     let recvd = self.recv(&mut buf);
 
