@@ -22,13 +22,13 @@ pub type RespForPlatform<P> = Resp<<P as Platform>::MessagePayload,
 ///
 /// ```
 /// use toad::platform::Std;
-/// use toad::resp::Resp;
+/// use toad::std::Resp;
 /// # use toad_msg::*;
 /// # main();
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::<Std>::for_request(&req).unwrap();
+///     let mut resp = Resp::for_request(&req).unwrap();
 ///
 ///     resp.set_code(toad::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
@@ -43,7 +43,7 @@ pub type RespForPlatform<P> = Resp<<P as Platform>::MessagePayload,
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(toad::req::Req<Std>) -> toad::resp::Resp<Std>) {
+/// fn start_server(f: impl FnOnce(toad::std::Req) -> toad::std::Resp) {
 ///   // servery things
 /// # f(toad::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
 /// }
@@ -72,15 +72,15 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::{Message, Std};
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_msg_id(toad_msg::Id(0));
   /// req.set_msg_token(toad_msg::Token(Default::default()));
   ///
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let resp = Resp::for_request(&req).unwrap();
   ///
   /// let req_msg = Message::<Std>::from(req);
   /// let resp_msg = Message::<Std>::from(resp);
@@ -179,13 +179,13 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let resp = Resp::for_request(&req).unwrap();
   ///
   /// let data: Vec<u8> = resp.payload().copied().collect();
   /// ```
@@ -218,13 +218,13 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let mut resp = Resp::for_request(&req).unwrap();
   /// resp.set_payload("hello!".bytes());
   ///
   /// let data: String = resp.payload_string().unwrap();
@@ -238,12 +238,12 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
+  /// use toad::std::Req;
   /// use toad::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let resp = Resp::for_request(&req).unwrap();
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
@@ -255,12 +255,12 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
+  /// use toad::std::Req;
   /// use toad::resp::{code, Resp};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::for_request(&req).unwrap();
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
@@ -275,12 +275,12 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::for_request(&req).unwrap();
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
@@ -298,12 +298,12 @@ impl<MessagePayload, MessageOptionValue, MessageOptions, NumberedOptions>
   ///
   /// ```
   /// use toad::platform::Std;
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::for_request(&req).unwrap();
   ///
   /// // Maybe you have some bytes:
   /// resp.set_payload(vec![1, 2, 3]);

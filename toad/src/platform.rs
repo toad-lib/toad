@@ -98,13 +98,6 @@ impl<P: Platform, T> Retryable<P, T> {
 
 /// Configures `toad` to use `Vec` for collections,
 /// `UdpSocket` for networking, and [`crate::std::Clock`] for timing
-///
-/// ```
-/// use toad::platform::Std;
-/// use toad::req::Req;
-///
-/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
-/// ```
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
@@ -144,13 +137,6 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> Platform for Alloc<Cl
 /// Configures `toad` to use `Vec` for collections,
 /// `UdpSocket` for networking,
 /// and [`crate::std::Clock`] for timing
-///
-/// ```
-/// use toad::platform::Std;
-/// use toad::req::Req;
-///
-/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
-/// ```
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;

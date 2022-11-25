@@ -65,12 +65,13 @@ impl Client<StdSecure> {
   /// Create a new Client secured by DTLS
   ///
   /// ```no_run
+  /// use toad::platform::Std;
   /// use toad::blocking::Client;
   /// use toad::req::ReqBuilder;
   /// use toad::ContentFormat;
   ///
   /// let mut client = Client::try_new_secure(1234).unwrap();
-  /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
+  /// let req = ReqBuilder::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
   ///                                                                      .build()
   ///                                                                      .unwrap();
   ///
@@ -101,12 +102,13 @@ impl Client<Std> {
   /// Create a new Client for a platform supporting Rust's standard library.
   ///
   /// ```no_run
+  /// use toad::platform::Std;
   /// use toad::blocking::Client;
   /// use toad::req::ReqBuilder;
   /// use toad::ContentFormat;
   ///
   /// let mut client = Client::new_std(1111);
-  /// let req = ReqBuilder::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
+  /// let req = ReqBuilder::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello").accept(ContentFormat::Text)
   ///                                                                      .build()
   ///                                                                      .unwrap();
   ///

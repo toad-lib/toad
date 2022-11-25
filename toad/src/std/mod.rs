@@ -6,6 +6,14 @@ use embedded_time::rate::Fraction;
 pub mod net;
 pub use net::*;
 
+use crate::{req::ReqForPlatform, resp::RespForPlatform, platform::Std};
+
+/// TODO
+pub type Req = ReqForPlatform<Std>;
+
+/// TODO
+pub type Resp = RespForPlatform<Std>;
+
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
 #[derive(Debug, Clone, Copy)]
 pub struct Clock(std::time::Instant);

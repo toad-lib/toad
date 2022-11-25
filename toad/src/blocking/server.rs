@@ -54,11 +54,12 @@ pub enum Action<P: Platform> {
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
   /// use toad::platform::{Message, Std};
-  /// use toad::req::Req;
-  /// use toad::resp::{code, Resp};
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
+  /// use toad::resp::code;
   /// use toad::ContentFormat;
   ///
-  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn hello(req: &Addrd<Req>) -> Actions<Std> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       // NOTE: the not_found middleware function will not be called
@@ -69,7 +70,7 @@ pub enum Action<P: Platform> {
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn not_found(req: &Addrd<Req>) -> Actions<Std> {
   ///   Action::SendResp(req.as_ref()
   ///                       .map(Resp::for_request)
   ///                       .map(Option::unwrap)
@@ -150,11 +151,11 @@ impl<P: Platform> Action<P> {
   /// use toad::blocking::server::{Action, Actions};
   /// use toad::net::Addrd;
   /// use toad::platform::Std;
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
   ///
   /// /// The server should respond OK to the request then exit
-  /// fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn exit(req: &Addrd<Req>) -> Actions<Std> {
   ///   Action::SendResp(req.as_ref().map(Resp::for_request).map(Option::unwrap)).then(Action::Exit)
   /// }
   /// ```
@@ -249,11 +250,12 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
   /// use toad::platform::{Message, Std};
-  /// use toad::req::Req;
-  /// use toad::resp::{code, Resp};
+  /// use toad::std::Req;
+  /// use toad::std::Resp;
+  /// use toad::resp::{code};
   /// use toad::ContentFormat;
   ///
-  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn hello(req: &Addrd<Req>) -> Actions<Std> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       let mut resp = Resp::for_request(req.data()).unwrap();
@@ -270,7 +272,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn not_found(req: &Addrd<Req>) -> Actions<Std> {
   ///   let mut resp = Resp::for_request(req.data()).unwrap();
   ///   resp.set_code(code::NOT_FOUND);
   ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
