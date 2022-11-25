@@ -7,11 +7,8 @@ use toad::core::Error;
 use toad::net::Addrd;
 use toad::platform::{Std, StdSecure};
 use toad::std::secure::SecureUdpSocket;
-use toad::std::Clock;
+use toad::std::{Clock, Req, Resp};
 use toad::time::Timeout;
-
-type Req = toad::req::ReqForPlatform<Std>;
-type Resp = toad::resp::RespForPlatform<Std>;
 
 #[path = "./secure_server.rs"]
 mod server;

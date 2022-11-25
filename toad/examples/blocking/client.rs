@@ -4,9 +4,7 @@ use toad::core::Error;
 use toad::net::Addrd;
 use toad::platform::Std;
 use toad::time::Timeout;
-
-type Req = toad::req::ReqForPlatform<Std>;
-type Resp = toad::resp::RespForPlatform<Std>;
+use toad::std::{Req, Resp};
 
 #[path = "./server.rs"]
 mod server;

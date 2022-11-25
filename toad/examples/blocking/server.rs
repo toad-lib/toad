@@ -4,9 +4,7 @@ use toad::blocking::server::{Action, Actions};
 use toad::net::Addrd;
 use toad::platform::Std;
 use toad::resp::code;
-
-type Req = toad::req::ReqForPlatform<Std>;
-type Resp = toad::resp::RespForPlatform<Std>;
+use toad::std::{Req, Resp};
 
 const PORT: u16 = 5555;
 pub const DISCOVERY_PORT: u16 = 1234;
