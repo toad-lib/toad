@@ -6,7 +6,7 @@ use super::{Step, _try};
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
-use crate::platform::Platform;
+use crate::platform::PlatformTypes;
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Millis;
@@ -74,7 +74,7 @@ impl<Inner> ProvisionTokens<Inner> {
 }
 
 impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
-  where P: Platform,
+  where P: PlatformTypes,
         Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>
 {
   type PollReq = Addrd<Req<P>>;
@@ -106,7 +106,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
   fn poll_req(&mut self,
               snap: &platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
     self.inner
         .poll_req(snap, effects)
@@ -115,7 +115,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
   fn poll_resp(&mut self,
                snap: &platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: Token,
                addr: SocketAddr)
                -> super::StepOutput<Self::PollResp, Self::Error> {

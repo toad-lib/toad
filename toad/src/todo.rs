@@ -5,6 +5,27 @@ use core::ops::{Div, Mul};
 use tinyvec::ArrayVec;
 use toad_common::*;
 
+pub mod hkt {
+  pub trait Array {
+    type Of<T: Default>: toad_common::Array<Item = T>;
+  }
+
+  #[cfg(feature = "alloc")]
+  #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+  pub struct Vec;
+
+  #[cfg(feature = "alloc")]
+  impl Array for Vec {
+    type Of<T: Default> = ::std_alloc::vec::Vec<T>;
+  }
+
+  #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+  pub struct ArrayVec<const N: usize>;
+  impl<const N: usize> Array for ArrayVec<N> {
+    type Of<T: Default> = tinyvec::ArrayVec<[T; N]>;
+  }
+}
+
 /// A [`Map`](toad_common::Map) stored completely on the stack
 pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;
 

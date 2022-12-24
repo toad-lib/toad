@@ -7,7 +7,7 @@ use toad_msg::{Code, Id, Payload, Token, TryIntoBytes, Type};
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{Effect, Platform};
+use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::todo::String1Kb;
@@ -55,7 +55,7 @@ pub struct Reset<S, B> {
 }
 
 impl<S, B> Reset<S, B> {
-  fn warn_ack_ignored<P: Platform>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
+  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
     let mut string = String1Kb::default();
     write!(string,
            "{} -> {}b ACK {:?} ignored",
@@ -138,7 +138,7 @@ macro_rules! common {
   }};
 }
 
-impl<P: Platform,
+impl<P: PlatformTypes,
       B: Map<Addrd<Token>, ()>,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
@@ -155,7 +155,7 @@ impl<P: Platform,
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     let req = exec_inner_step!(self.inner.poll_req(snap, effects), Error::Inner);
 
@@ -170,7 +170,7 @@ impl<P: Platform,
 
   fn poll_resp(&mut self,
                snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {

@@ -6,7 +6,7 @@ use toad_common::*;
 use crate::platform;
 use crate::todo::code_to_human;
 
-pub(crate) fn msg_summary<P: platform::Platform>(msg: &platform::Message<P>)
+pub(crate) fn msg_summary<P: platform::PlatformTypes>(msg: &platform::Message<P>)
                                                  -> Writable<ArrayVec<[u8; 64]>> {
   let mut buf: Writable<ArrayVec<[u8; 64]>> = Default::default();
   write!(buf,
