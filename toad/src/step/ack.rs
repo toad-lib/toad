@@ -4,7 +4,7 @@ use toad_msg::{CodeKind, TryIntoBytes, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{Effect, Platform};
+use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -74,7 +74,7 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 
 impl<E: super::Error> super::Error for Error<E> {}
 
-impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: Platform> Step<P>
+impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: PlatformTypes> Step<P>
   for Ack<Inner>
 {
   type PollReq = Addrd<Req<P>>;
@@ -88,7 +88,7 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Error<Inner::Error>> {
     match exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
       | Some(req)
@@ -109,7 +109,7 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
 
   fn poll_resp(&mut self,
                snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Error<Inner::Error>> {

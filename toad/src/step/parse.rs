@@ -2,7 +2,7 @@ use toad_msg::TryFromBytes;
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{self, Platform};
+use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -73,7 +73,7 @@ macro_rules! common {
   }};
 }
 
-impl<Inner: Step<P>, P: Platform> Step<P> for Parse<Inner> {
+impl<Inner: Step<P>, P: PlatformTypes> Step<P> for Parse<Inner> {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
   type Error = Error<Inner::Error>;
@@ -85,7 +85,7 @@ impl<Inner: Step<P>, P: Platform> Step<P> for Parse<Inner> {
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Error<Inner::Error>> {
     exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner);
     Some(common!(snap.recvd_dgram.as_ref()).map(|addrd| addrd.map(Req::from)))
@@ -93,7 +93,7 @@ impl<Inner: Step<P>, P: Platform> Step<P> for Parse<Inner> {
 
   fn poll_resp(&mut self,
                snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Error<Inner::Error>> {

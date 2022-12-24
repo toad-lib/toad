@@ -6,7 +6,7 @@ use toad_msg::{Token, Type};
 use super::{Step, StepOutput};
 use crate::exec_inner_step;
 use crate::net::Addrd;
-use crate::platform::Platform;
+use crate::platform::PlatformTypes;
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -93,7 +93,7 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 
 impl<E: super::Error> super::Error for Error<E> {}
 
-impl<P: Platform,
+impl<P: PlatformTypes,
       B: Map<(SocketAddr, Token, Type), Addrd<Resp<P>>>,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
@@ -110,7 +110,7 @@ impl<P: Platform,
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     self.inner
         .poll_req(snap, effects)
@@ -119,7 +119,7 @@ impl<P: Platform,
 
   fn poll_resp(&mut self,
                snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {

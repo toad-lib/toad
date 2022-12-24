@@ -156,14 +156,14 @@ impl SockMock {
            tx: Default::default() }
   }
 
-  pub fn send_msg<P: platform::Platform>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
+  pub fn send_msg<P: platform::PlatformTypes>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
                                          msg: Addrd<platform::Message<P>>) {
     rx.lock()
       .unwrap()
       .push(msg.map(|msg| msg.try_into_bytes().unwrap()));
   }
 
-  pub fn await_msg<P: platform::Platform>(addr: SocketAddr,
+  pub fn await_msg<P: platform::PlatformTypes>(addr: SocketAddr,
                                           tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
                                           -> platform::Message<P> {
     let attempt = || {

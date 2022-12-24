@@ -2,7 +2,7 @@ use no_std_net::SocketAddr;
 use toad_msg::Token;
 
 use crate::net::Addrd;
-use crate::platform::{self, Platform};
+use crate::platform::{self, PlatformTypes};
 
 /// # Buffer & resend messages until they get a sufficient response
 /// * Client Flow ✓
@@ -186,7 +186,7 @@ impl Error for () {}
 /// A step in the message-handling CoAP runtime.
 ///
 /// See the [module documentation](crate::step) for more.
-pub trait Step<P: Platform>: Default {
+pub trait Step<P: PlatformTypes>: Default {
   /// Type that this step returns when polling for a request
   type PollReq;
 
@@ -242,7 +242,7 @@ pub trait Step<P: Platform>: Default {
   }
 }
 
-impl<P: Platform> Step<P> for () {
+impl<P: PlatformTypes> Step<P> for () {
   type PollReq = ();
   type PollResp = ();
   type Error = ();
@@ -254,14 +254,14 @@ impl<P: Platform> Step<P> for () {
 
   fn poll_req(&mut self,
               _: &platform::Snapshot<P>,
-              _: &mut <P as Platform>::Effects)
+              _: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<(), ()> {
     None
   }
 
   fn poll_resp(&mut self,
                _: &platform::Snapshot<P>,
-               _: &mut <P as Platform>::Effects,
+               _: &mut P::Effects,
                _: Token,
                _: SocketAddr)
                -> StepOutput<(), ()> {
@@ -309,11 +309,11 @@ pub mod test {
 
       static mut POLL_REQ_MOCK:
         Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
-                          &mut <test::Platform as platform::Platform>::Effects)
+                          &mut <test::Platform as platform::PlatformTypes>::Effects)
                           -> Option<::nb::Result<$poll_req_ty, $error_ty>>>> = None;
       static mut POLL_RESP_MOCK:
         Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
-                          &mut <test::Platform as platform::Platform>::Effects,
+                          &mut <test::Platform as platform::PlatformTypes>::Effects,
                           toad_msg::Token,
                           no_std_net::SocketAddr)
                           -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
@@ -343,14 +343,14 @@ pub mod test {
 
         fn poll_req(&mut self,
                     a: &platform::Snapshot<test::Platform>,
-                    b: &mut <test::Platform as platform::Platform>::Effects)
+                    b: &mut <test::Platform as platform::PlatformTypes>::Effects)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
           unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
         fn poll_resp(&mut self,
                      a: &platform::Snapshot<test::Platform>,
-                     b: &mut <test::Platform as platform::Platform>::Effects,
+                     b: &mut <test::Platform as platform::PlatformTypes>::Effects,
                      c: toad_msg::Token,
                      d: no_std_net::SocketAddr)
                      -> step::StepOutput<Self::PollResp, ()> {
@@ -678,7 +678,7 @@ pub mod test {
 
           dummy_step!($inner_step);
 
-          let mut effects: <test::Platform as platform::Platform>::Effects = Default::default();
+          let mut effects: <test::Platform as platform::PlatformTypes>::Effects = Default::default();
           let mut snapshot: platform::Snapshot<test::Platform> = $crate::step::test::default_snapshot();
           let mut token = ::toad_msg::Token(Default::default());
           let mut addr = test::dummy_addr();
