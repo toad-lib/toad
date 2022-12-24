@@ -1,8 +1,9 @@
 use core::mem;
+use core::ops::{Deref, DerefMut};
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use no_std_net::{IpAddr, SocketAddr};
+use no_std_net::{SocketAddr, IpAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
 use toad_common::*;
@@ -15,12 +16,57 @@ pub use error::*;
 use crate::config::Config;
 use crate::logging;
 use crate::net::{Addrd, Socket};
-use crate::platform::{self, Platform, Retryable};
+use crate::platform::{self, PlatformTypes, Retryable};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::RetryTimer;
 use crate::time::Stamped;
 use crate::todo::Capacity;
+
+macro_rules! or_empty {
+(#[derive($($der:ident),+)] $t:ident where Empty = {$empty:expr}) => {paste::paste!{
+#[derive($($der),+)]
+struct [<$t OrEmpty>]($t);
+
+impl From<$t> for [<$t OrEmpty>] {
+  fn from(t: $t) -> Self {
+    Self(t)
+  }
+}
+
+impl Into<$t> for [<$t OrEmpty>] {
+  fn into(self) -> $t {
+    self.0
+  }
+}
+
+impl Default for [<$t OrEmpty>] {
+    fn default() -> Self {
+      Self($empty)
+    }
+}
+
+impl Deref for [<$t OrEmpty>] {
+    type Target = $t;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for [<$t OrEmpty>] {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}}};
+}
+
+or_empty!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)] SocketAddr where Empty = {{
+  use no_std_net::*;
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0))
+}});
+or_empty!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)] Id where Empty = {Id(0)});
+or_empty!(#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)] Token where Empty = {Token(Default::default())});
 
 /// DTLS mode
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -40,11 +86,11 @@ type Buffer<T, const N: usize> = ArrayVec<[Option<T>; N]>;
 
 /// A CoAP request/response runtime that drives client- and server-side behavior.
 #[allow(missing_debug_implementations)]
-pub struct Core<P: Platform> {
+pub struct Core<P: PlatformTypes> {
   /// Map<SocketAddr, Array<Stamped<Id>>>
-  msg_ids: P::MessageIdHistoryBySocket,
+  msg_ids: ArrayVec<[(SocketAddrOrEmpty, ArrayVec<[Stamped<P::Clock, IdOrEmpty>; 16]>); 16]>,
   /// Map<SocketAddr, Array<Stamped<Token>>>
-  msg_tokens: P::MessageTokenHistoryBySocket,
+  msg_tokens: ArrayVec<[(SocketAddrOrEmpty, ArrayVec<[Stamped<P::Clock, TokenOrEmpty>; 16]>); 16]>,
 
   /// Received responses
   resps: Buffer<Addrd<Resp<P>>, 16>,
@@ -63,7 +109,7 @@ pub struct Core<P: Platform> {
   config: Config,
 }
 
-impl<P: Platform> Core<P> {
+impl<P: PlatformTypes> Core<P> {
   /// Creates a new Core with the default runtime behavior
   pub fn new(clock: P::Clock, sock: P::Socket) -> Self {
     Self::new_config(Config::default(), clock, sock)
@@ -92,29 +138,31 @@ impl<P: Platform> Core<P> {
          .0
     };
 
-    if !self.msg_ids.has(&id.addr()) {
-      self.msg_ids.insert(id.addr(), Default::default()).unwrap();
+    if !self.msg_ids.has(&id.addr().into()) {
+      Map::insert(&mut self.msg_ids, id.addr().into(), Default::default()).unwrap();
     }
 
-    let ids_in_map = self.msg_ids.get_mut(&id.addr()).unwrap();
+    let ids_in_map = self.msg_ids.get_mut(&id.addr().into()).unwrap();
 
-    let mut ids = P::MessageIdHistory::default();
+    let mut ids = ArrayVec::<[Stamped<P::Clock, IdOrEmpty>; 16]>::default();
     mem::swap(ids_in_map, &mut ids);
+
+    let id_int = id.as_ref().data().0;
 
     let (mut ids, largest) =
       ids.into_iter()
          .filter(|id| millis_since(&id.time()) < self.config.exchange_lifetime_millis() as u64)
-         .fold((P::MessageIdHistory::default(), None),
+         .fold((ArrayVec::<[Stamped<P::Clock, IdOrEmpty>; 16]>::default(), None),
                |(mut ids, largest), id| {
                  ids.push(id);
                  (ids,
-                  Some(largest.filter(|large| *large > id.data().0)
-                              .unwrap_or(id.data().0)))
+                  Some(largest.filter(|large| *large > id_int)
+                              .unwrap_or(id_int)))
                });
 
     self.largest_msg_id_seen = largest.or_else(|| Some(id.data().0));
 
-    ids.push(Stamped::new(&self.clock, *id.data()).unwrap());
+    ids.push(Stamped::new(&self.clock, IdOrEmpty(*id.data())).unwrap());
     let ids_cap = ids.capacity_pct();
 
     mem::swap(ids_in_map, &mut ids);
@@ -133,15 +181,14 @@ impl<P: Platform> Core<P> {
          .0
     };
 
-    if !self.msg_tokens.has(&token.addr()) {
-      self.msg_tokens
-          .insert(token.addr(), Default::default())
+    if !self.msg_tokens.has(&token.addr().into()) {
+      Map::insert(&mut self.msg_tokens, token.addr().into(), Default::default())
           .unwrap();
     }
 
-    let tokens_in_map = self.msg_tokens.get_mut(&token.addr()).unwrap();
+    let tokens_in_map = self.msg_tokens.get_mut(&token.addr().into()).unwrap();
 
-    let mut tokens = P::MessageTokenHistory::default();
+    let mut tokens = ArrayVec::<[Stamped<P::Clock, TokenOrEmpty>; 16]>::default();
     mem::swap(tokens_in_map, &mut tokens);
 
     tokens = tokens.into_iter()
@@ -149,7 +196,7 @@ impl<P: Platform> Core<P> {
                      // if we've seen this token before, assume it's a retransmission
                      // in which case the old timestamp should be tossed out in favor
                      // of right now
-                     token_b.data() != token.data()
+                     token_b.data().deref() != token.data()
                      && millis_since(&token_b.time())
                         < self.config.exchange_lifetime_millis() as u64
                    })
@@ -157,7 +204,7 @@ impl<P: Platform> Core<P> {
 
     let tokens_cap = tokens.capacity_pct();
 
-    tokens.push(Stamped::new(&self.clock, *token.data()).unwrap());
+    tokens.push(Stamped::new(&self.clock, TokenOrEmpty(*token.data())).unwrap());
 
     mem::swap(tokens_in_map, &mut tokens);
 
@@ -355,7 +402,7 @@ impl<P: Platform> Core<P> {
   fn try_get_resp(&mut self,
                   token: toad_msg::Token,
                   sock: SocketAddr)
-                  -> nb::Result<Resp<P>, <<P as Platform>::Socket as Socket>::Error> {
+                  -> nb::Result<Resp<P>, <<P as PlatformTypes>::Socket as Socket>::Error> {
     let resp_matches = |o: &Option<Addrd<Resp<P>>>| {
       o.as_ref()
        .map(|rep| {
@@ -379,7 +426,7 @@ impl<P: Platform> Core<P> {
   fn check_ping(&mut self,
                 req_id: toad_msg::Id,
                 addr: SocketAddr)
-                -> nb::Result<(), <<P as Platform>::Socket as Socket>::Error> {
+                -> nb::Result<(), <<P as PlatformTypes>::Socket as Socket>::Error> {
     let still_qd =
       self.retry_q
           .iter()

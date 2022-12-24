@@ -3,7 +3,7 @@ use std_alloc::string::{FromUtf8Error, String};
 use toad_common::Array;
 use toad_msg::{EnumerateOptNumbers, Id, Message, Payload, TryIntoBytes, Type};
 
-use crate::platform::{self, Platform};
+use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
 
 /// Response codes
@@ -40,18 +40,18 @@ pub mod code;
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Resp<P: Platform> {
+pub struct Resp<P: PlatformTypes> {
   pub(crate) msg: platform::Message<P>,
   opts: Option<P::NumberedOptions>,
 }
 
-impl<P: Platform> PartialEq for Resp<P> {
+impl<P: PlatformTypes> PartialEq for Resp<P> {
   fn eq(&self, other: &Self) -> bool {
     self.msg == other.msg && self.opts == other.opts
   }
 }
 
-impl<P: Platform> Resp<P> {
+impl<P: PlatformTypes> Resp<P> {
   /// Create a new response for a given request.
   ///
   /// If the request is CONfirmable, this will return Some(ACK).
@@ -300,14 +300,14 @@ impl<P: Platform> Resp<P> {
   }
 }
 
-impl<P: Platform> From<Resp<P>> for platform::Message<P> {
+impl<P: PlatformTypes> From<Resp<P>> for platform::Message<P> {
   fn from(mut rep: Resp<P>) -> Self {
     rep.normalize_opts();
     rep.msg
   }
 }
 
-impl<P: Platform> From<platform::Message<P>> for Resp<P> {
+impl<P: PlatformTypes> From<platform::Message<P>> for Resp<P> {
   fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();
@@ -317,7 +317,7 @@ impl<P: Platform> From<platform::Message<P>> for Resp<P> {
   }
 }
 
-impl<P: Platform> TryIntoBytes for Resp<P> {
+impl<P: PlatformTypes> TryIntoBytes for Resp<P> {
   type Error = <platform::Message<P> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {

@@ -7,7 +7,7 @@ use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
 use crate::net::Addrd;
-use crate::platform::{self, Effect, Platform, Snapshot};
+use crate::platform::{self, Effect, PlatformTypes, Snapshot};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::retry::{Attempts, RetryTimer, Strategy, YouShould};
@@ -15,13 +15,13 @@ use crate::time::Clock;
 
 /// Buffer used to store messages queued for retry
 pub trait Buf<P>
-  where P: Platform,
+  where P: PlatformTypes,
         Self: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>
 {
   /// Do some black box magic to send all messages that need to be sent
   fn attempt_all<E>(&mut self,
                     time: Instant<P::Clock>,
-                    effects: &mut <P as Platform>::Effects)
+                    effects: &mut <P as PlatformTypes>::Effects)
                     -> Result<(), Error<E>> {
     self.iter_mut()
         .filter_map(|(state, msg)| match state.timer().what_should_i_do(time) {
@@ -127,7 +127,7 @@ pub trait Buf<P>
 
 impl<T, P> Buf<P> for T
   where T: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>,
-        P: Platform
+        P: PlatformTypes
 {
 }
 
@@ -149,7 +149,7 @@ pub mod alloc {
   /// For more information see [`super::Retry`]
   /// or the [module documentation](crate::step::retry).
   pub type Retry<P, Inner> = super::Retry<Inner,
-                                          Vec<(super::State<<P as platform::Platform>::Clock>,
+                                          Vec<(super::State<<P as platform::PlatformTypes>::Clock>,
                                                Addrd<platform::Message<P>>)>>;
 }
 
@@ -169,7 +169,7 @@ pub mod no_alloc {
   /// or the [module documentation](crate::step::buffer_responses).
   pub type Retry<P, Inner, const N: usize = 16> =
     super::Retry<Inner,
-                 ArrayVec<[(super::State<<P as platform::Platform>::Clock>,
+                 ArrayVec<[(super::State<<P as platform::PlatformTypes>::Clock>,
                            Addrd<platform::Message<P>>); N]>>;
 }
 
@@ -286,7 +286,7 @@ impl<E> From<E> for Error<E> {
 
 impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
   where Buffer: Buf<P>,
-        P: Platform,
+        P: PlatformTypes,
         E: super::Error,
         Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>
 {
@@ -301,7 +301,7 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
 
   fn poll_req(&mut self,
               snap: &Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
     // SERVER FLOW:
     //  * CON responses WILL     be retried
@@ -320,7 +320,7 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
 
   fn poll_resp(&mut self,
                snap: &Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error> {

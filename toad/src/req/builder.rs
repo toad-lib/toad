@@ -3,7 +3,7 @@ use toad_common::*;
 
 use super::{Method, Req};
 use crate::option::common_options;
-use crate::platform::Platform;
+use crate::platform::PlatformTypes;
 use crate::ToCoapValue;
 
 /// Errors encounterable while using ReqBuilder
@@ -43,11 +43,11 @@ pub enum Error {
 /// # }
 /// ```
 #[derive(Clone, Debug)]
-pub struct ReqBuilder<P: Platform> {
+pub struct ReqBuilder<P: PlatformTypes> {
   inner: Result<Req<P>, Error>,
 }
 
-impl<P: Platform> ReqBuilder<P> {
+impl<P: PlatformTypes> ReqBuilder<P> {
   fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
     Self { inner: Ok(Req::new(method, host, path)) }
   }
