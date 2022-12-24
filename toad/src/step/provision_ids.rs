@@ -11,7 +11,7 @@ use super::{Step, _try};
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
-use crate::platform::Platform;
+use crate::platform::PlatformTypes;
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Stamped;
@@ -26,7 +26,7 @@ pub mod alloc {
 
   use super::*;
 
-  type AllIds<P> = Vec<Stamped<<P as Platform>::Clock, IdWithDefault>>;
+  type AllIds<P> = Vec<Stamped<<P as PlatformTypes>::Clock, IdWithDefault>>;
 
   type Map<P> = BTreeMap<SocketAddrWithDefault, AllIds<P>>;
 
@@ -46,7 +46,7 @@ pub mod no_alloc {
   use crate::todo::StackMap;
 
   type AllIds<P, const ID_BUFFER_SIZE: usize> =
-    ArrayVec<[Stamped<<P as Platform>::Clock, IdWithDefault>; ID_BUFFER_SIZE]>;
+    ArrayVec<[Stamped<<P as PlatformTypes>::Clock, IdWithDefault>; ID_BUFFER_SIZE]>;
 
   type Map<P, const ID_BUFFER_SIZE: usize, const MAX_ADDRS: usize> =
     StackMap<SocketAddrWithDefault, AllIds<P, ID_BUFFER_SIZE>, MAX_ADDRS>;
@@ -69,19 +69,19 @@ pub mod no_alloc {
 /// type parameters to the step, although it does add a minorly annoying restriction
 /// that if you want to use something other than BTreeMap or ArrayVec,
 /// you would have to wrap your collection in a newtype.
-pub trait IdsBySocketAddr<P: Platform>: Map<SocketAddrWithDefault, Self::Ids> {
+pub trait IdsBySocketAddr<P: PlatformTypes>: Map<SocketAddrWithDefault, Self::Ids> {
   /// the "given `A` which is an..." type above
   type Ids: Array<Item = Stamped<P::Clock, IdWithDefault>>;
 }
 
 #[cfg(feature = "alloc")]
-impl<P: platform::Platform, A: Array<Item = Stamped<P::Clock, IdWithDefault>>> IdsBySocketAddr<P>
+impl<P: platform::PlatformTypes, A: Array<Item = Stamped<P::Clock, IdWithDefault>>> IdsBySocketAddr<P>
   for std_alloc::collections::BTreeMap<SocketAddrWithDefault, A>
 {
   type Ids = A;
 }
 
-impl<P: platform::Platform, A: Array<Item = Stamped<P::Clock, IdWithDefault>>, const N: usize>
+impl<P: platform::PlatformTypes, A: Array<Item = Stamped<P::Clock, IdWithDefault>>, const N: usize>
   IdsBySocketAddr<P> for ArrayVec<[(SocketAddrWithDefault, A); N]>
 {
   type Ids = A;
@@ -144,7 +144,7 @@ impl<P, Inner, SeenIds> Default for ProvisionIds<P, Inner, SeenIds>
 
 impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   where Ids: IdsBySocketAddr<P>,
-        P: Platform
+        P: PlatformTypes
 {
   fn prune(&mut self, now: Instant<P::Clock>, config: Config) {
     for (_, ids) in self.seen.iter_mut() {
@@ -309,7 +309,7 @@ macro_rules! common {
 }
 
 impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
-  where P: Platform,
+  where P: PlatformTypes,
         Inner: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>,
         Ids: IdsBySocketAddr<P>
 {
@@ -324,7 +324,7 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 
   fn poll_req(&mut self,
               snap: &crate::platform::Snapshot<P>,
-              effects: &mut <P as Platform>::Effects)
+              effects: &mut <P as PlatformTypes>::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
     let req = self.inner.poll_req(snap, effects);
     let req = _try!(Option<nb::Result>; req);
@@ -333,7 +333,7 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 
   fn poll_resp(&mut self,
                snap: &crate::platform::Snapshot<P>,
-               effects: &mut <P as Platform>::Effects,
+               effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: SocketAddr)
                -> super::StepOutput<Self::PollResp, Self::Error> {

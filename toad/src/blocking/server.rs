@@ -9,7 +9,7 @@ use toad_msg::Type;
 use crate::config::Config;
 use crate::core::{Core, Error, Secure};
 use crate::net::{Addrd, Socket};
-use crate::platform::{self, Platform};
+use crate::platform::{self, PlatformTypes};
 #[cfg(feature = "std")]
 use crate::platform::{Std, StdSecure};
 use crate::req::{Method, Req};
@@ -20,14 +20,14 @@ use crate::std::secure;
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
 #[derive(Debug)]
-enum Status<Cfg: Platform> {
+enum Status<Cfg: PlatformTypes> {
   Err(Error<Cfg>),
   Continue,
   Done,
   Exit,
 }
 
-impl<Cfg: Platform> Status<Cfg> {
+impl<Cfg: PlatformTypes> Status<Cfg> {
   fn bind_result(self, result: Result<(), Error<Cfg>>) -> Self {
     match &self {
       | Self::Err(_) => self,
@@ -44,7 +44,7 @@ pub type Middleware<Cfg> = dyn Fn(&Addrd<Req<Cfg>>) -> Actions<Cfg>;
 /// Action to perform as a result of middleware
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum Action<P: Platform> {
+pub enum Action<P: PlatformTypes> {
   /// Send a response
   ///
   /// No middleware functions will be called after this
@@ -123,7 +123,7 @@ pub enum Action<P: Platform> {
   Continue,
 }
 
-impl<P: Platform> PartialEq for Action<P> {
+impl<P: PlatformTypes> PartialEq for Action<P> {
   fn eq(&self, other: &Self) -> bool {
     use Action::*;
 
@@ -142,7 +142,7 @@ impl<P: Platform> PartialEq for Action<P> {
   }
 }
 
-impl<P: Platform> Action<P> {
+impl<P: PlatformTypes> Action<P> {
   /// After this action has successfully been performed,
   /// do this one next
   ///
@@ -165,9 +165,9 @@ impl<P: Platform> Action<P> {
 
 /// Between 1 and 16 Actions that should be performed serially
 #[derive(Clone, Debug)]
-pub struct Actions<P: Platform>(tinyvec::ArrayVec<[Option<Action<P>>; 16]>);
+pub struct Actions<P: PlatformTypes>(tinyvec::ArrayVec<[Option<Action<P>>; 16]>);
 
-impl<P: Platform> Actions<P> {
+impl<P: PlatformTypes> Actions<P> {
   /// Create a list of Actions from a single Action
   ///
   /// (You can also use the provided `Into` impl)
@@ -183,13 +183,13 @@ impl<P: Platform> Actions<P> {
   }
 }
 
-impl<P: Platform> Default for Actions<P> {
+impl<P: PlatformTypes> Default for Actions<P> {
   fn default() -> Self {
     Self(Default::default())
   }
 }
 
-impl<P: Platform> From<Action<P>> for Actions<P> {
+impl<P: PlatformTypes> From<Action<P>> for Actions<P> {
   fn from(me: Action<P>) -> Actions<P> {
     let mut actions = Actions::default();
     actions.0.push(Some(me));
@@ -202,7 +202,7 @@ impl<P: Platform> From<Action<P>> for Actions<P> {
 /// See the documentation for [`Server.try_new`] for example usage.
 // TODO(#85): allow opt-out of always piggybacked ack responses
 #[allow(missing_debug_implementations)]
-pub struct Server<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>> {
+pub struct Server<'a, P: PlatformTypes, Middlewares: 'static + Array<Item = &'a Middleware<P>>> {
   core: Core<P>,
   fns: Middlewares,
 }
@@ -296,7 +296,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   }
 }
 
-impl<'a, P: Platform, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
+impl<'a, P: PlatformTypes, Middlewares: 'static + Array<Item = &'a Middleware<P>>>
   Server<'a, P, Middlewares>
 {
   /// Construct a new Server for the current platform.
