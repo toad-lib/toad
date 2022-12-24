@@ -6,7 +6,7 @@ use toad_common::*;
 use crate::config::Config;
 use crate::core::{Core, Error, Secure, What, When};
 use crate::net::{Addrd, Socket};
-use crate::platform::Platform;
+use crate::platform::PlatformTypes;
 #[cfg(feature = "std")]
 use crate::platform::{Std, StdSecure};
 use crate::req::{Req, ReqBuilder};
@@ -36,12 +36,12 @@ pub struct ClientConfig<Clock, Socket> {
 // (Send + methods ask for &self and not &mut self)
 /// A blocking CoAP request client
 #[allow(missing_debug_implementations)]
-pub struct Client<P: Platform> {
+pub struct Client<P: PlatformTypes> {
   core: Core<P>,
 }
 
 /// Helper methods on Client Results
-pub trait ClientResultExt<T, P: Platform> {
+pub trait ClientResultExt<T, P: PlatformTypes> {
   /// If we timed out waiting for a response, consider that Ok(None).
   ///
   /// Usually used to handle sending non-confirmable requests that
@@ -49,7 +49,7 @@ pub trait ClientResultExt<T, P: Platform> {
   fn timeout_ok(self) -> Result<Option<T>, Error<P>>;
 }
 
-impl<T, Cfg: Platform> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
+impl<T, Cfg: PlatformTypes> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
   fn timeout_ok(self) -> Result<Option<T>, Error<Cfg>> {
     match self {
       | Ok(t) => Ok(Some(t)),
@@ -127,7 +127,7 @@ impl Client<Std> {
   }
 }
 
-impl<P: Platform> Client<P> {
+impl<P: PlatformTypes> Client<P> {
   /// Create a new request client
   pub fn new(ClientConfig { clock, sock }: ClientConfig<P::Clock, P::Socket>) -> Self {
     Self { core: Core::new(clock, sock) }

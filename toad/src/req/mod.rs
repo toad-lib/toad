@@ -27,7 +27,7 @@ pub mod builder;
 #[doc(inline)]
 pub use builder::*;
 
-use crate::platform::{self, Platform};
+use crate::platform::{self, PlatformTypes};
 
 /// A CoAP request
 ///
@@ -68,14 +68,14 @@ use crate::platform::{self, Platform};
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Req<P: Platform> {
+pub struct Req<P: PlatformTypes> {
   pub(crate) msg: platform::Message<P>,
   pub(crate) id: Option<Id>,
   pub(crate) token: Option<Token>,
   pub(crate) opts: Option<P::NumberedOptions>,
 }
 
-impl<P: Platform> PartialEq for Req<P> {
+impl<P: PlatformTypes> PartialEq for Req<P> {
   fn eq(&self, other: &Self) -> bool {
     self.msg == other.msg
     && self.id == other.id
@@ -84,7 +84,7 @@ impl<P: Platform> PartialEq for Req<P> {
   }
 }
 
-impl<P: Platform> Clone for Req<P> {
+impl<P: PlatformTypes> Clone for Req<P> {
   fn clone(&self) -> Self {
     Self { msg: self.msg.clone(),
            id: self.id,
@@ -93,7 +93,7 @@ impl<P: Platform> Clone for Req<P> {
   }
 }
 
-impl<P: Platform> Req<P> {
+impl<P: PlatformTypes> Req<P> {
   /// Create a request
   pub fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
     let msg = Message { ty: Type::Con,
@@ -400,7 +400,7 @@ impl<P: Platform> Req<P> {
   }
 }
 
-impl<P: Platform> From<Req<P>> for platform::Message<P> {
+impl<P: PlatformTypes> From<Req<P>> for platform::Message<P> {
   fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
     req.msg.id = req.id.expect("Request ID was None");
@@ -409,7 +409,7 @@ impl<P: Platform> From<Req<P>> for platform::Message<P> {
   }
 }
 
-impl<P: Platform> TryIntoBytes for Req<P> {
+impl<P: PlatformTypes> TryIntoBytes for Req<P> {
   type Error = <platform::Message<P> as TryIntoBytes>::Error;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
@@ -417,7 +417,7 @@ impl<P: Platform> TryIntoBytes for Req<P> {
   }
 }
 
-impl<P: Platform> From<platform::Message<P>> for Req<P> {
+impl<P: PlatformTypes> From<platform::Message<P>> for Req<P> {
   fn from(mut msg: platform::Message<P>) -> Self {
     let opts = msg.opts.into_iter().enumerate_option_numbers().collect();
     msg.opts = Default::default();

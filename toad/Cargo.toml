@@ -49,6 +49,7 @@ nb = "1"
 rand = { version = "0.8", default_features = false }
 rand_chacha = { version = "0.3", default_features = false }
 openssl = { version = "0.10", optional = true }
+paste = "1.0.9"
 
 [dev-dependencies]
 simple_logger = "2"
