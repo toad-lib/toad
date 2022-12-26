@@ -3,7 +3,7 @@ use core::ops::{Deref, DerefMut};
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::{Clock, Instant};
-use no_std_net::{SocketAddr, IpAddr};
+use no_std_net::{IpAddr, SocketAddr};
 use rand::{Rng, SeedableRng};
 use tinyvec::ArrayVec;
 use toad_common::*;
@@ -155,9 +155,7 @@ impl<P: PlatformTypes> Core<P> {
          .fold((ArrayVec::<[Stamped<P::Clock, IdOrEmpty>; 16]>::default(), None),
                |(mut ids, largest), id| {
                  ids.push(id);
-                 (ids,
-                  Some(largest.filter(|large| *large > id_int)
-                              .unwrap_or(id_int)))
+                 (ids, Some(largest.filter(|large| *large > id_int).unwrap_or(id_int)))
                });
 
     self.largest_msg_id_seen = largest.or_else(|| Some(id.data().0));
@@ -182,8 +180,9 @@ impl<P: PlatformTypes> Core<P> {
     };
 
     if !self.msg_tokens.has(&token.addr().into()) {
-      Map::insert(&mut self.msg_tokens, token.addr().into(), Default::default())
-          .unwrap();
+      Map::insert(&mut self.msg_tokens,
+                  token.addr().into(),
+                  Default::default()).unwrap();
     }
 
     let tokens_in_map = self.msg_tokens.get_mut(&token.addr().into()).unwrap();
@@ -245,7 +244,7 @@ impl<P: PlatformTypes> Core<P> {
     token
   }
 
-  fn tick(&mut self) -> nb::Result<Option<Addrd<crate::net::Dgram>>, Error<P>> {
+  fn tick(&mut self) -> nb::Result<Option<Addrd<<P::Socket as Socket>::Dgram>>, Error<P>> {
     let when = When::Polling;
 
     self.sock
@@ -253,7 +252,8 @@ impl<P: PlatformTypes> Core<P> {
         .map_err(|e| when.what(What::SockError(e)))
         // TODO: This is a /bad/ copy.
         .try_perform(|polled| {
-          polled.map(|ref dgram| self.dgram_recvd(when, *dgram))
+          polled.clone()
+                .map(|dgram| self.dgram_recvd(when, dgram))
                 .unwrap_or(Ok(()))
         })
         .try_perform(|_| self.send_flings())
@@ -372,7 +372,7 @@ impl<P: PlatformTypes> Core<P> {
 
   pub(super) fn dgram_recvd(&mut self,
                             when: error::When,
-                            dgram: Addrd<crate::net::Dgram>)
+                            dgram: Addrd<<P::Socket as Socket>::Dgram>)
                             -> Result<(), Error<P>> {
     log::trace!("recvd {}b <- {}", dgram.data().get_size(), dgram.addr());
     platform::Message::<P>::try_from_bytes(dgram.data()).map(|msg| dgram.map(|_| msg))
