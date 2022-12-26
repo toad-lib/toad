@@ -10,6 +10,7 @@ use embedded_time::Instant;
 use net::*;
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std_alloc::sync::Arc;
+use tinyvec::ArrayVec;
 use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
@@ -186,6 +187,7 @@ impl SockMock {
 
 impl Socket for SockMock {
   type Error = Option<()>;
+  type Dgram = ArrayVec<[u8; 1024]>;
 
   fn recv(&self, buf: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
     let mut rx = self.rx.lock().unwrap();
