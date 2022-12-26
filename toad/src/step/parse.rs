@@ -109,7 +109,7 @@ mod test {
 
   use super::super::test;
   use super::{Error, Parse, Step};
-  use crate::net::Addrd;
+  use crate::net::{Addrd, Socket};
   use crate::platform;
   use crate::req::Req;
   use crate::resp::Resp;
@@ -117,7 +117,9 @@ mod test {
   fn test_msg(
     ty: Type,
     code: Code)
-    -> (Addrd<Vec<u8>>, Addrd<Req<crate::test::Platform>>, Addrd<Resp<crate::test::Platform>>) {
+    -> (Addrd<<crate::test::SockMock as Socket>::Dgram>,
+        Addrd<Req<crate::test::Platform>>,
+        Addrd<Resp<crate::test::Platform>>) {
     use toad_msg::*;
 
     type Msg = platform::Message<crate::test::Platform>;
