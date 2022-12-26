@@ -148,9 +148,10 @@ pub mod alloc {
   ///
   /// For more information see [`super::Retry`]
   /// or the [module documentation](crate::step::retry).
-  pub type Retry<P, Inner> = super::Retry<Inner,
-                                          Vec<(super::State<<P as platform::PlatformTypes>::Clock>,
-                                               Addrd<platform::Message<P>>)>>;
+  pub type Retry<P, Inner> =
+    super::Retry<Inner,
+                 Vec<(super::State<<P as platform::PlatformTypes>::Clock>,
+                      Addrd<platform::Message<P>>)>>;
 }
 
 /// `Retry` that does not use

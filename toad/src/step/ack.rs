@@ -74,8 +74,8 @@ impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
 
 impl<E: super::Error> super::Error for Error<E> {}
 
-impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: PlatformTypes> Step<P>
-  for Ack<Inner>
+impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: PlatformTypes>
+  Step<P> for Ack<Inner>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;

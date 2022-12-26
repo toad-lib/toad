@@ -1,22 +1,201 @@
 use core::fmt::Debug;
+use core::ops::{DerefMut, Deref};
 
 use embedded_time::Instant;
+use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_common::*;
-use toad_msg::{Opt, OptNumber};
+use toad_msg::{Opt, OptNumber, Token, TryIntoBytes};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
+use crate::step::Step;
 use crate::time::Clock;
 use crate::todo::String1Kb;
+
+/// Default [`PlatformError`] implementation
+#[derive(Debug)]
+#[allow(missing_docs)]
+pub enum Error<Step, Socket> {
+  MessageToBytes(toad_msg::to_bytes::MessageToBytesError),
+  Step(Step),
+  Socket(Socket),
+  Clock(embedded_time::clock::Error),
+}
+
+impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket> {
+    fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
+        Self::MessageToBytes(e)
+    }
+
+    fn step(e: Step) -> Self {
+        Self::Step(e)
+    }
+
+    fn socket(e: Socket) -> Self {
+        Self::Socket(e)
+    }
+
+    fn clock(e: embedded_time::clock::Error) -> Self {
+        Self::Clock(e)
+    }
+}
+
+/// Errors that may be encountered during the CoAP lifecycle
+pub trait PlatformError<StepError, SocketError>: Sized {
+  /// Convert a [`toad_msg::to_bytes::MessageToBytesError`] to PlatformError
+  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self;
+
+  /// Convert a step error to PlatformError
+  fn step(e: StepError) -> Self;
+
+  /// Convert a socket error to PlatformError
+  fn socket(e: SocketError) -> Self;
+
+  /// Convert a clock error to PlatformError
+  fn clock(e: embedded_time::clock::Error) -> Self;
+}
+
+/// The runtime component of the `Platform` abstraction
+///
+/// Uses [`PlatformTypes`], [`Steps`](Step), and [`PlatformError`] to create
+/// an interface that covers the CoAP protocol.
+///
+/// # Type Arguments
+/// * `Steps`
+///   * The CoAP runtime, plus user code and potential extensions. The [`Step`] trait represents a type-level linked list of steps that, when all executed, add up to the CoAP runtime. For more information see the [`Step`] trait.
+/// * [`Platform::Types`]
+/// * [`Platform::Error`]
+pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Default {
+  /// See [`PlatformTypes`]
+  type Types: PlatformTypes;
+
+  /// Slot for any error type that impls [`PlatformError`].
+  ///
+  /// If no custom behavior is needed, [`self::Error`] is a sensible default.
+  type Error: PlatformError<<Steps as Step<Self::Types>>::Error, <<Self::Types as PlatformTypes>::Socket as Socket>::Error>;
+
+  /// Take a snapshot of the platform's state right now,
+  /// including the system time and datagrams currently
+  /// in the network socket
+  fn snapshot(&self) -> nb::Result<Snapshot<Self::Types>, Self::Error> {
+    use embedded_time::Clock;
+
+    self.socket()
+        .poll()
+        .map_err(Self::Error::socket)
+        .map_err(nb::Error::Other)
+        .and_then(|dgram: Option<_>| dgram.map(Ok).unwrap_or(Err(nb::Error::WouldBlock)))
+        .and_then(|recvd_dgram| {
+          self.clock()
+              .try_now()
+              .map_err(Self::Error::clock)
+              .map_err(nb::Error::Other)
+              .map(|time| Snapshot { recvd_dgram,
+                                     config: self.config(),
+                                     time })
+        })
+  }
+
+  /// Poll for an incoming request, and pass it through `Steps`
+  /// for processing.
+  fn poll_req(&self) -> nb::Result<(), Self::Error> {
+    let mut effects = <Self::Types as PlatformTypes>::Effects::default();
+    self.snapshot().and_then(|snapshot| {
+                     self.steps()
+                         .poll_req(&snapshot, &mut effects)
+                         .unwrap_or(Err(nb::Error::WouldBlock))
+                         .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                   })
+  }
+
+  /// Poll for a response to a sent request, and pass it through `Steps`
+  /// for processing.
+  fn poll_resp(&self, token: Token, addr: SocketAddr) -> nb::Result<(), Self::Error> {
+    let mut effects = <Self::Types as PlatformTypes>::Effects::default();
+    self.snapshot().and_then(|snapshot| {
+                     self.steps()
+                         .poll_resp(&snapshot, &mut effects, token, addr)
+                         .unwrap_or(Err(nb::Error::WouldBlock))
+                         .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                   })
+  }
+
+  /// `toad` may occasionally emit tracing and logs by invoking this method.
+  ///
+  /// It's completely up to the Platform to handle them meaningfully (e.g. `println!`)
+  fn log(&self, level: log::Level, msg: String1Kb) -> Result<(), Self::Error>;
+
+  /// Send a [`toad_msg::Message`]
+  fn send_msg(&self, mut addrd_msg: Addrd<Message<Self::Types>>) -> nb::Result<(), Self::Error> {
+    type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
+
+    self.snapshot()
+        .try_perform(|snapshot| {
+          self.steps()
+              .before_message_sent(&snapshot, &mut addrd_msg)
+              .map_err(Self::Error::step)
+              .map_err(nb::Error::Other)
+        })
+        .and_then(|snapshot| {
+          addrd_msg.clone().fold(|msg, addr| {
+                             msg.try_into_bytes::<Dgram<Self::Types>>()
+                                .map_err(Self::Error::msg_to_bytes)
+                                .map_err(nb::Error::Other)
+                                .map(|bytes| (snapshot, Addrd(bytes, addr)))
+                           })
+        })
+        .try_perform(|(_, addrd_bytes)| {
+          self.socket()
+              .send(addrd_bytes.as_ref().map(|s| s.as_ref()))
+              .map_err(|e: nb::Error<_>| e.map(Self::Error::socket))
+        })
+        .try_perform(|(snapshot, _)| {
+          self.steps()
+              .on_message_sent(&snapshot, &addrd_msg)
+              .map_err(Self::Error::step)
+              .map_err(nb::Error::Other)
+        }).map(|_| ())
+  }
+
+  /// Execute an [`Effect`]
+  fn exec_1(&self, effect: Effect<Self::Types>) -> nb::Result<(), Self::Error> {
+    match effect {
+      Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
+      Effect::SendDgram(_) => todo!(),
+    }
+  }
+
+  /// Copy of runtime behavior [`Config`] to be used
+  ///
+  /// Typically this will be a field access (`self.config`)
+  fn config(&self) -> Config;
+
+  /// Obtain a reference to [`Steps`](#type-arguments)
+  ///
+  /// Typically this will be a field access (`&self.steps`)
+  fn steps(&self) -> &mut Steps;
+
+  /// Obtain an immutable reference
+  ///
+  /// Typically this will be a field access (`&self.socket`)
+  fn socket(&self) -> &<Self::Types as PlatformTypes>::Socket;
+
+  /// Get a reference to the system clock
+  ///
+  /// Typically this will be a field access (`&self.clock`)
+  fn clock(&self) -> &<Self::Types as PlatformTypes>::Clock;
+}
 
 /// toad configuration trait
 pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the message payloads?
   type MessagePayload: Array<Item = u8> + Clone + Debug + PartialEq + AppendCopy<u8>;
+
   /// What type should we use to store the option values?
   type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq + AppendCopy<u8>;
+
   /// What type should we use to store the options?
   type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug + PartialEq;
 
@@ -28,9 +207,6 @@ pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
 
   /// What should we use to keep track of time?
   type Clock: Clock;
-
-  /// How will network datagrams be stored?
-  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + Debug + PartialEq;
 
   /// What should we use for networking?
   type Socket: Socket;
@@ -51,7 +227,7 @@ pub struct Snapshot<P: PlatformTypes> {
   pub time: Instant<P::Clock>,
 
   /// A UDP datagram received from somewhere
-  pub recvd_dgram: Addrd<P::Dgram>,
+  pub recvd_dgram: Addrd<<P::Socket as Socket>::Dgram>,
 
   /// Runtime config, includes many useful timings
   pub config: Config,
@@ -65,12 +241,12 @@ impl<P: PlatformTypes> Clone for Snapshot<P> {
   }
 }
 
-/// Side effects that platforms must support performing
+/// Used by [`Step`]s to deterministically communicate
+/// to [`Platform`]s side-effects that they would like
+/// to perform.
+#[allow(missing_docs)]
 pub enum Effect<P: PlatformTypes> {
-  /// Send a UDP message to a remote address
-  SendDgram(Addrd<P::Dgram>),
-
-  /// Log to some external log provider
+  SendDgram(Addrd<<P::Socket as Socket>::Dgram>),
   Log(log::Level, String1Kb),
 }
 
@@ -155,7 +331,6 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> PlatformTypes for All
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = Vec<Opt<Vec<u8>>>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
-  type Dgram = Vec<u8>;
   type Clock = Clk;
   type Socket = Sock;
   type Effects = Vec<Effect<Self>>;

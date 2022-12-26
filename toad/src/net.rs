@@ -54,12 +54,6 @@ impl<T> AsMut<T> for Addrd<T> {
   }
 }
 
-/// A packet recieved over a UDP socket.
-///
-/// Currently the capacity is hard-coded at 1152 bytes,
-/// but this will eventually be configurable at compile-time.
-pub type Dgram = ArrayVec<[u8; 1152]>;
-
 /// A CoAP network socket
 ///
 /// This mirrors the Udp socket traits in embedded-nal, but allows us to implement them for foreign types (like `std::net::UdpSocket`).
@@ -69,6 +63,12 @@ pub type Dgram = ArrayVec<[u8; 1152]>;
 pub trait Socket: Sized {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
+
+  /// Buffer type used for receiving and sending datagrams.
+  ///
+  /// GOTCHA: heap-allocated buffers must have a set zeroed length (ex. `Vec::resize(_, 1024usize, 0u8)`)
+  /// if you try to use an empty vec as a dgram buffer (ex. `vec![]`), 0 bytes will be read.
+  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq;
 
   /// Bind the socket to an address, without doing any spooky magic things like switching to non-blocking mode
   /// or auto-detecting and joining multicast groups.
@@ -139,8 +139,8 @@ pub trait Socket: Sized {
   }
 
   /// Poll the socket for a datagram from the `connect`ed host
-  fn poll(&self) -> Result<Option<Addrd<Dgram>>, Self::Error> {
-    let mut buf = [0u8; 1152];
+  fn poll(&self) -> Result<Option<Addrd<Self::Dgram>>, Self::Error> {
+    let mut buf = Self::Dgram::default();
     let recvd = self.recv(&mut buf);
 
     match recvd {
