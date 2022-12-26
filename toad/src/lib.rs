@@ -68,40 +68,12 @@ pub mod req;
 /// low-level coap behavior
 pub mod core;
 
-/// # CoAP core runtime
+/// # The [`Step`](crate::step::Step) trait
+/// The Step trait defines a powerful but simple API that allows
+/// the CoAP runtime to be a composition of "steps," stored as a
+/// type-level linked list.
 ///
-/// The toad runtime is defined as a sequence of single-responsibility steps
-/// that are (mostly) deterministic and highly testable.
-///
-/// Steps are types that impl the [`Step`](crate::step::Step) trait which allows:
-///  * internal state
-///  * performing side effects via [`Effect`](crate::platform::Effect)
-///  * reading system state via [`Snapshot`](crate::platform::Snapshot)
-///  * being notified any time a message is sent ([`message_sent`](crate::step::Step.message_sent))
-///  * defining behavior for client flows ([`poll_resp`](crate::step::Step.poll_resp))
-///  * defining behavior for server flows ([`poll_req`](crate::step::Step.poll_req))
-///
-/// Steps almost always include a type parameter of a step to perform first,
-/// allowing for the runtime to be defined as a sequence of `Step`s.
-///
-/// The benefit to users is that if runtime behavior needs to be customized,
-/// Steps can be swapped or added at the end without forking the entire crate.
-///
-/// # Step philosophy
-/// **NOTE**: For steps defined in `toad`, this philosophy will **always** be respected
-/// but isn't necessary for Steps defined in your application.
-///
-/// Steps must:
-///  * perform no IO with some exceptions:
-///     * managing internal state
-///     * appending to the list of `effects`
-///  * **always** issue logs when messages are willfully ignored
-///
-/// When these rules are followed, steps can be thought of as state machines.
-/// (If you send the same sequence of inputs you will **always** receive the same output)
-///
-/// # Example
-/// flow
+/// e.g.
 /// ```text
 /// Gather Ingredients
 ///   -> Mix Wet Ingredients
@@ -110,10 +82,40 @@ pub mod core;
 ///   -> Pour into cake tin
 ///   -> Bake
 /// ```
-/// as types:
+/// as Steps:
 /// ```text
 /// Bake<PourIntoCakeTin<MixEverything<MixDry<MixWet<GatherIngredients<Empty>>>>>>
 /// ```
+///
+/// ## Capabilities
+///  * May read system state (time, dgram on the socket, platform configuration)
+///     * [`platform::Snapshot`]
+///  * May maintain internal state
+///     * Must be managed with interior mutability (e.g. [`RwLock`](::std::sync::RwLock))
+///  * May perform side effects
+///     * [`platform::Effect`] provides deterministic API for logging and sending bytes over the wire
+///  * May participate in client role, server role, or both roles in the CoAP runtime
+///     * [`step::Step::poll_req`] (server)
+///     * [`step::Step::poll_resp`] (client)
+///  * May modify messages before they are sent
+///     * [`step::Step::before_message_sent`]
+///  * May be notified whenever a message is sent
+///     * [`step::Step::on_message_sent`]
+///  * May yield data to the outer step
+///     * [`step::Step::PollReq`]
+///     * [`step::Step::PollResp`]
+///
+/// ## Determinism
+/// Steps provided by this crate will never perform any observable IO,
+/// aside from managing their own internal state and appending to the list of
+/// effects provided in the `poll_req`/`poll_resp` fns.
+///
+/// ## Logging
+/// Steps provided by this crate will never log to any streams directly,
+/// and will provide them via [`platform::Effect::Log`].
+///
+/// It is **strongly** recommended that [`log::Level::Warning`] and
+/// [`log::Level::Error`] messages are not ignored.
 pub mod step;
 
 /// platform configuration

@@ -75,14 +75,15 @@ pub trait IdsBySocketAddr<P: PlatformTypes>: Map<SocketAddrWithDefault, Self::Id
 }
 
 #[cfg(feature = "alloc")]
-impl<P: platform::PlatformTypes, A: Array<Item = Stamped<P::Clock, IdWithDefault>>> IdsBySocketAddr<P>
-  for std_alloc::collections::BTreeMap<SocketAddrWithDefault, A>
+impl<P: platform::PlatformTypes, A: Array<Item = Stamped<P::Clock, IdWithDefault>>>
+  IdsBySocketAddr<P> for std_alloc::collections::BTreeMap<SocketAddrWithDefault, A>
 {
   type Ids = A;
 }
 
-impl<P: platform::PlatformTypes, A: Array<Item = Stamped<P::Clock, IdWithDefault>>, const N: usize>
-  IdsBySocketAddr<P> for ArrayVec<[(SocketAddrWithDefault, A); N]>
+impl<P: platform::PlatformTypes,
+      A: Array<Item = Stamped<P::Clock, IdWithDefault>>,
+      const N: usize> IdsBySocketAddr<P> for ArrayVec<[(SocketAddrWithDefault, A); N]>
 {
   type Ids = A;
 }
