@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use core::ops::{DerefMut, Deref};
+use core::ops::{Deref, DerefMut};
 
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
@@ -25,21 +25,21 @@ pub enum Error<Step, Socket> {
 }
 
 impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket> {
-    fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
-        Self::MessageToBytes(e)
-    }
+  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
+    Self::MessageToBytes(e)
+  }
 
-    fn step(e: Step) -> Self {
-        Self::Step(e)
-    }
+  fn step(e: Step) -> Self {
+    Self::Step(e)
+  }
 
-    fn socket(e: Socket) -> Self {
-        Self::Socket(e)
-    }
+  fn socket(e: Socket) -> Self {
+    Self::Socket(e)
+  }
 
-    fn clock(e: embedded_time::clock::Error) -> Self {
-        Self::Clock(e)
-    }
+  fn clock(e: embedded_time::clock::Error) -> Self {
+    Self::Clock(e)
+  }
 }
 
 /// Errors that may be encountered during the CoAP lifecycle
@@ -74,7 +74,8 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
   /// Slot for any error type that impls [`PlatformError`].
   ///
   /// If no custom behavior is needed, [`self::Error`] is a sensible default.
-  type Error: PlatformError<<Steps as Step<Self::Types>>::Error, <<Self::Types as PlatformTypes>::Socket as Socket>::Error>;
+  type Error: PlatformError<<Steps as Step<Self::Types>>::Error,
+                            <<Self::Types as PlatformTypes>::Socket as Socket>::Error>;
 
   /// Take a snapshot of the platform's state right now,
   /// including the system time and datagrams currently
@@ -156,14 +157,15 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
               .on_message_sent(&snapshot, &addrd_msg)
               .map_err(Self::Error::step)
               .map_err(nb::Error::Other)
-        }).map(|_| ())
+        })
+        .map(|_| ())
   }
 
   /// Execute an [`Effect`]
   fn exec_1(&self, effect: Effect<Self::Types>) -> nb::Result<(), Self::Error> {
     match effect {
-      Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
-      Effect::SendDgram(_) => todo!(),
+      | Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
+      | Effect::SendDgram(_) => todo!(),
     }
   }
 
