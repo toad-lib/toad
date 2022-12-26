@@ -363,7 +363,7 @@ mod tests {
 
   fn snap_time(config: Config, time: u64) -> test::Snapshot {
     test::Snapshot { config,
-                     recvd_dgram: Addrd(vec![], test::dummy_addr()),
+                     recvd_dgram: Addrd(tinyvec::array_vec!(1), test::dummy_addr()),
                      time: ClockMock::instant(time * 1000) }
   }
 
