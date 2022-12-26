@@ -536,6 +536,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(ignore)]
   fn exit() {
     simple_logger::init_with_level(log::Level::Trace).unwrap();
     let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
@@ -562,6 +563,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(ignore)]
   fn not_found_fallback() {
     let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
@@ -602,6 +604,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(ignore)]
   fn ping() {
     let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
@@ -639,6 +642,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(ignore)]
   fn hello() {
     let (clock, timeout, sock, addr) = setup(Duration::from_secs(1));
     let (inbound_bytes, outbound_bytes) = (sock.rx.clone(), sock.tx.clone());
