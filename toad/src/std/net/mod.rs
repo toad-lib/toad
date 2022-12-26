@@ -1,6 +1,7 @@
 use std::io;
 use std::net::UdpSocket;
 
+use tinyvec::ArrayVec;
 use toad_common::*;
 
 use crate::net::{Addrd, Socket};
@@ -13,6 +14,7 @@ pub use secure::{Error as SecureSocketError, SecureUdpSocket};
 
 impl Socket for UdpSocket {
   type Error = io::Error;
+  type Dgram = ArrayVec<[u8; 1152]>;
 
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     self.set_nonblocking(true)
