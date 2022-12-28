@@ -49,7 +49,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
   }
 
   fn take_until_end_<'a, 'b>(cursor: &'a mut usize, len: usize, t: &'b T) -> &'b [u8] {
-    let out = Self::peek_until_end_(*cursor, len, &t);
+    let out = Self::peek_until_end_(*cursor, len, t);
     Self::seek_to_end_(cursor, len);
 
     out
@@ -70,6 +70,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
   /// if the cursor is exhausted.
   ///
   /// Runs in O(1) time.
+  #[allow(clippy::should_implement_trait)]
   pub fn next(&mut self) -> Option<u8> {
     self.take_exact(1).and_then(|a| match a {
                         | &[a] => Some(a),
@@ -110,7 +111,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
   ///
   /// Runs in O(1) time.
   pub fn peek(&self, n: usize) -> &[u8] {
-    Self::peek_(self.len, self.cursor, &self.t, n).unwrap_or(self.peek_until_end())
+    Self::peek_(self.len, self.cursor, &self.t, n).unwrap_or_else(|| self.peek_until_end())
   }
 
   /// Without advancing the position, look at the next

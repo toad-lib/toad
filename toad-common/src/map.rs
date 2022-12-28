@@ -1,8 +1,13 @@
 use core::borrow::Borrow;
-use std::collections::{btree_map, hash_map, BTreeMap, HashMap};
-use std::hash::Hash;
-use std::{iter, slice};
+use core::hash::Hash;
+use core::{iter, slice};
+#[cfg(feature = "std")]
+use std::collections::{hash_map, HashMap};
 
+#[cfg(feature = "alloc")]
+use std_alloc::collections::{btree_map, BTreeMap};
+
+#[allow(unused_imports)]
 use crate::result::ResultExt;
 use crate::{GetSize, Reserve};
 
@@ -61,6 +66,7 @@ pub trait Map<K: Ord + Eq + Hash, V>:
   fn iter_mut(&mut self) -> IterMut<'_, K, V>;
 }
 
+#[cfg(feature = "alloc")]
 impl<K: Eq + Hash + Ord, V> Map<K, V> for BTreeMap<K, V> {
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
     self.insert(key, val)
@@ -89,17 +95,20 @@ impl<K: Eq + Hash + Ord, V> Map<K, V> for BTreeMap<K, V> {
 
   fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: None,
+           #[cfg(feature = "std")]
            hashmap_iter: None,
            btreemap_iter: Some(self.iter()) }
   }
 
   fn iter_mut(&mut self) -> IterMut<'_, K, V> {
     IterMut { array_iter: None,
+              #[cfg(feature = "std")]
               hashmap_iter: None,
               btreemap_iter: Some(self.iter_mut()) }
   }
 }
 
+#[cfg(feature = "std")]
 impl<K: Eq + Hash + Ord, V> Map<K, V> for HashMap<K, V> {
   fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: None,
@@ -143,7 +152,7 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for T {
   fn insert(&mut self, key: K, mut val: V) -> Result<(), InsertError<V>> {
     match self.iter_mut().find(|(k, _)| k == &&key) {
       | Some((_, exist)) => {
-        std::mem::swap(exist, &mut val);
+        core::mem::swap(exist, &mut val);
         Err(InsertError::Exists(val))
       },
       | None => match self.is_full() {
@@ -190,17 +199,22 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for T {
 
   fn iter(&self) -> Iter<'_, K, V> {
     Iter { array_iter: Some(self.deref().iter().map(Iter::coerce_array_iter)),
+           #[cfg(feature = "alloc")]
            btreemap_iter: None,
+           #[cfg(feature = "std")]
            hashmap_iter: None }
   }
 
   fn iter_mut(&mut self) -> IterMut<'_, K, V> {
     IterMut { array_iter: Some(self.deref_mut().iter_mut().map(IterMut::coerce_array_iter)),
+              #[cfg(feature = "alloc")]
               btreemap_iter: None,
+              #[cfg(feature = "std")]
               hashmap_iter: None }
   }
 }
 
+#[cfg(feature = "std")]
 impl<K: Eq + Hash, V> GetSize for HashMap<K, V> {
   fn get_size(&self) -> usize {
     self.len()
@@ -215,7 +229,10 @@ impl<K: Eq + Hash, V> GetSize for HashMap<K, V> {
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<K, V> Reserve for BTreeMap<K, V> {}
+
+#[cfg(feature = "alloc")]
 impl<K, V> GetSize for BTreeMap<K, V> {
   fn get_size(&self) -> usize {
     self.len()
@@ -230,6 +247,7 @@ impl<K, V> GetSize for BTreeMap<K, V> {
   }
 }
 
+#[cfg(feature = "std")]
 impl<K: Eq + Hash, V> Reserve for HashMap<K, V> {
   fn reserve(n: usize) -> Self {
     Self::with_capacity(n)
@@ -265,9 +283,9 @@ type ArrayIterMutMapped<'a, K, V> =
 /// ```
 #[derive(Debug)]
 pub struct Iter<'a, K: Eq + Hash, V> {
-  // TODO: #[cfg(not(no_std))]?
+  #[cfg(feature = "std")]
   hashmap_iter: Option<hash_map::Iter<'a, K, V>>,
-  // TODO: #[cfg(alloc)]?
+  #[cfg(feature = "alloc")]
   btreemap_iter: Option<btree_map::Iter<'a, K, V>>,
   array_iter: Option<ArrayIterMapped<'a, K, V>>,
 }
@@ -278,11 +296,25 @@ impl<'a, K: Eq + Hash, V> Iter<'a, K, V> {
     (k, v)
   }
 
+  #[allow(unreachable_code)]
   fn get_iter(&mut self) -> &mut dyn Iterator<Item = (&'a K, &'a V)> {
-    let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
-                     self.array_iter.as_mut().map(|a| a as &mut _),
-                     self.btreemap_iter.as_mut().map(|a| a as &mut _));
-    a.or(b).or(c).unwrap()
+    #[cfg(feature = "std")]
+    {
+      let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
+                       self.array_iter.as_mut().map(|a| a as &mut _),
+                       self.btreemap_iter.as_mut().map(|a| a as &mut _));
+      return a.or(b).or(c).unwrap();
+    };
+
+    #[cfg(feature = "alloc")]
+    {
+      let (a, b) = (self.array_iter.as_mut().map(|a| a as &mut _),
+                    self.btreemap_iter.as_mut().map(|a| a as &mut _));
+      return a.or(b).unwrap();
+    }
+
+    // no_std and no alloc; must be array
+    self.array_iter.as_mut().map(|a| a as &mut _).unwrap()
   }
 }
 
@@ -316,9 +348,9 @@ impl<'a, K: Eq + Hash, V> Iterator for Iter<'a, K, V> {
 /// ```
 #[derive(Debug)]
 pub struct IterMut<'a, K: Eq + Hash, V> {
-  // TODO: #[cfg(not(no_std))]?
+  #[cfg(feature = "std")]
   hashmap_iter: Option<hash_map::IterMut<'a, K, V>>,
-  // TODO: #[cfg(alloc)]?
+  #[cfg(feature = "alloc")]
   btreemap_iter: Option<btree_map::IterMut<'a, K, V>>,
   array_iter: Option<ArrayIterMutMapped<'a, K, V>>,
 }
@@ -329,11 +361,25 @@ impl<'a, K: Eq + Hash, V> IterMut<'a, K, V> {
     (k, v)
   }
 
+  #[allow(unreachable_code)]
   fn get_iter(&mut self) -> &mut dyn Iterator<Item = (&'a K, &'a mut V)> {
-    let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
-                     self.array_iter.as_mut().map(|a| a as &mut _),
-                     self.btreemap_iter.as_mut().map(|a| a as &mut _));
-    a.or(b).or(c).unwrap()
+    #[cfg(feature = "std")]
+    {
+      let (a, b, c) = (self.hashmap_iter.as_mut().map(|a| a as &mut _),
+                       self.array_iter.as_mut().map(|a| a as &mut _),
+                       self.btreemap_iter.as_mut().map(|a| a as &mut _));
+      return a.or(b).or(c).unwrap();
+    };
+
+    #[cfg(feature = "alloc")]
+    {
+      let (a, b) = (self.array_iter.as_mut().map(|a| a as &mut _),
+                    self.btreemap_iter.as_mut().map(|a| a as &mut _));
+      return a.or(b).unwrap();
+    }
+
+    // no_std and no alloc; must be array
+    self.array_iter.as_mut().map(|a| a as &mut _).unwrap()
   }
 }
 

@@ -6,8 +6,10 @@
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
 #![allow(clippy::unused_unit)]
 #![deny(missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+#[cfg(feature = "alloc")]
+extern crate alloc as std_alloc;
 
 /// Extensions to Result
 pub mod result;
