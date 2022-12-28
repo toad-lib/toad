@@ -431,7 +431,7 @@ mod test {
   #[test]
   fn seen_should_remove_oldest_addr_when_new_addr_would_exceed_capacity() {
     type Step = no_alloc::ProvisionIds<P, (), 16, 2>;
-    let mut step = Step::default();
+    let step = Step::default();
     let cfg = Config::default();
 
     step.seen.map_mut(|s| {
@@ -467,7 +467,7 @@ mod test {
   #[test]
   fn seen_should_remove_empty_addr_when_new_addr_would_exceed_capacity() {
     type Step = no_alloc::ProvisionIds<P, (), 16, 2>;
-    let mut step = Step::default();
+    let step = Step::default();
     let cfg = Config::default();
 
     step.seen.map_mut(|seen| {
@@ -559,7 +559,7 @@ mod test {
     let ids: Vec<_> = step.seen.map_ref(|s| {
                                  s.get(&SocketAddrWithDefault(crate::test::dummy_addr()))
                                   .unwrap()
-                                  .into_iter()
+                                  .iter()
                                   .map(|Stamped(IdWithDefault(id), _)| *id)
                                   .collect()
                                });
