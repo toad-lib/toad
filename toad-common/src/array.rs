@@ -1,5 +1,8 @@
 use core::ops::{Deref, DerefMut};
 
+#[cfg(feature = "alloc")]
+use std_alloc::vec::Vec;
+
 /// Get the runtime size of some data structure
 ///
 /// # Deprecated
@@ -64,6 +67,7 @@ pub trait GetSize {
   fn is_full(&self) -> bool;
 }
 
+#[cfg(feature = "alloc")]
 impl<T> GetSize for Vec<T> {
   fn get_size(&self) -> usize {
     self.len()
@@ -108,6 +112,7 @@ pub trait Reserve: Default {
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Reserve for Vec<T> {
   fn reserve(n: usize) -> Self {
     Self::with_capacity(n)
@@ -173,21 +178,23 @@ pub trait AppendCopy<T: Copy> {
   /// Best-case implementations copy as much of the origin slice
   /// at once as possible (system word size), e.g. [`Vec::append`].
   /// (still linear time, but on 64-bit systems this is 64 times faster than a 1-by-1 copy.)
-  fn append_copy<'a>(&mut self, i: &[T]);
+  fn append_copy(&mut self, i: &[T]);
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Copy> AppendCopy<T> for Vec<T> {
-  fn append_copy<'a>(&mut self, i: &[T]) {
+  fn append_copy(&mut self, i: &[T]) {
     self.extend(i);
   }
 }
 
 impl<T: Copy, A: tinyvec::Array<Item = T>> AppendCopy<T> for tinyvec::ArrayVec<A> {
-  fn append_copy<'a>(&mut self, i: &[T]) {
+  fn append_copy(&mut self, i: &[T]) {
     self.extend_from_slice(i);
   }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Array for Vec<T> {
   type Item = T;
 

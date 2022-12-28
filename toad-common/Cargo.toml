@@ -14,5 +14,12 @@ categories = ["network-programming"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+test = []
+docs = []
+
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
