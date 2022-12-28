@@ -1,6 +1,6 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
-use toad_common::Array;
+use toad_common::{Array, Stem};
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
 
@@ -246,7 +246,7 @@ impl<C> State<C> where C: Clock
 #[derive(Debug)]
 pub struct Retry<Inner, Buffer> {
   inner: Inner,
-  buf: Buffer,
+  buf: Stem<Buffer>,
 }
 
 impl<Inner, Buffer> Default for Retry<Inner, Buffer>
@@ -255,7 +255,7 @@ impl<Inner, Buffer> Default for Retry<Inner, Buffer>
 {
   fn default() -> Self {
     Self { inner: Inner::default(),
-           buf: Buffer::default() }
+           buf: Stem::<Buffer>::default() }
   }
 }
 
@@ -296,11 +296,11 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
   type Error = Error<E>;
   type Inner = Inner;
 
-  fn inner(&mut self) -> &mut Self::Inner {
-    &mut self.inner
+  fn inner(&self) -> &Inner {
+    &self.inner
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
@@ -309,17 +309,17 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
     //  * NON responses WILL NOT be retried
     //  * ACKs          WILL NOT be retried
     //  * RESET         WILL NOT be retried
-    _try!(Result; self.buf.attempt_all::<Inner::Error>(snap.time, effects));
+    _try!(Result; self.buf.map_mut(|b| b.attempt_all::<Inner::Error>(snap.time, effects)));
 
     let req = self.inner
                   .poll_req(snap, effects)
                   .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let req = _try!(Option<nb::Result>; req);
-    _try!(Result; self.buf.maybe_seen_response::<Inner::Error>(snap.time, req.as_ref().map(|r| &r.msg)));
+    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, req.as_ref().map(|r| &r.msg))));
     Some(Ok(req))
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &Snapshot<P>,
                effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
@@ -329,23 +329,24 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
     //  * CON requests WILL     be retried
     //  * NON requests WILL     be retried
     //  * RESET        WILL NOT be retried
-    _try!(Result; self.buf.attempt_all::<Inner::Error>(snap.time, effects));
+    _try!(Result; self.buf.map_mut(|b| b.attempt_all::<Inner::Error>(snap.time, effects)));
 
     let resp =
       self.inner
           .poll_resp(snap, effects, token, addr)
           .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let resp = _try!(Option<nb::Result>; resp);
-    _try!(Result; self.buf.maybe_seen_response::<Inner::Error>(snap.time, resp.as_ref().map(|r| &r.msg)));
+    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, resp.as_ref().map(|r| &r.msg))));
     Some(Ok(resp))
   }
 
-  fn on_message_sent(&mut self,
+  fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
                      msg: &Addrd<platform::Message<P>>)
                      -> Result<(), Self::Error> {
     self.inner.on_message_sent(snap, msg)?;
-    self.buf.store_retryables(msg, snap.time, snap.config)
+    self.buf
+        .map_mut(|b| b.store_retryables(msg, snap.time, snap.config))
   }
 }
 
