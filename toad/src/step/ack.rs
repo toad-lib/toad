@@ -1,5 +1,4 @@
 use toad_common::Array;
-
 use toad_msg::{CodeKind, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
@@ -67,7 +66,8 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
                -> StepOutput<Self::PollResp, Inner::Error> {
-    exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), core::convert::identity).map(Ok)
+    exec_inner_step!(self.0.poll_resp(snap, effects, token, addr),
+                     core::convert::identity).map(Ok)
   }
 }
 
