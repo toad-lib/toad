@@ -162,11 +162,35 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
   }
 
   /// Execute an [`Effect`]
-  fn exec_1(&self, effect: Effect<Self::Types>) -> nb::Result<(), Self::Error> {
+  fn exec_1(&self, effect: &Effect<Self::Types>) -> nb::Result<(), Self::Error> {
     match effect {
-      | Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
-      | Effect::SendDgram(_) => todo!(),
+      | &Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
+      | &Effect::SendDgram(_) => todo!(),
     }
+  }
+
+  /// Execute many [`Effect`]s
+  ///
+  /// Blocks on effects that yield `nb::WouldBlock`.
+  ///
+  /// If executing an effect errors, the erroring effect and all remaining effects are
+  /// returned along with the error.
+  fn exec_many(&self,
+               effects: <Self::Types as PlatformTypes>::Effects)
+               -> Result<(), (<Self::Types as PlatformTypes>::Effects, Self::Error)> {
+    effects.into_iter()
+           .fold(Ok(()), |so_far, eff| match so_far {
+             | Ok(()) => nb::block!(self.exec_1(&eff)).map_err(|e| {
+                           let mut effs: <Self::Types as PlatformTypes>::Effects =
+                             Default::default();
+                           effs.push(eff);
+                           (effs, e)
+                         }),
+             | Err((mut effs, e)) => {
+               effs.push(eff);
+               Err((effs, e))
+             },
+           })
   }
 
   /// Copy of runtime behavior [`Config`] to be used
@@ -177,7 +201,7 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
   /// Obtain a reference to [`Steps`](#type-arguments)
   ///
   /// Typically this will be a field access (`&self.steps`)
-  fn steps(&self) -> &mut Steps;
+  fn steps(&self) -> &Steps;
 
   /// Obtain an immutable reference
   ///
