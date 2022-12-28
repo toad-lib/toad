@@ -1,6 +1,6 @@
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_common::Map;
+use toad_common::{GetSize, Map, Stem};
 use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
@@ -47,9 +47,9 @@ pub mod no_alloc {
 /// we're polling for.
 ///
 /// For more information, see the [module documentation](crate::step::buffer_responses).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct BufferResponses<S, B> {
-  buffer: B,
+  buffer: Stem<B>,
   inner: S,
 }
 
@@ -57,6 +57,21 @@ impl<S: Default, B: Default> Default for BufferResponses<S, B> {
   fn default() -> Self {
     Self { buffer: Default::default(),
            inner: S::default() }
+  }
+}
+
+impl<S, B> BufferResponses<S, B> {
+  fn store<P>(&self, resp: Addrd<Resp<P>>)
+    where P: PlatformTypes,
+          B: Map<(SocketAddr, Token, Type), Addrd<Resp<P>>>
+  {
+    let mut resp_removable = Some(resp);
+    self.buffer.map_mut(|buf| {
+                 let resp = Option::take(&mut resp_removable).unwrap();
+                 buf.insert((resp.addr(), resp.data().msg.token, resp.data().msg.ty),
+                            resp)
+                    .ok()
+               });
   }
 }
 
@@ -104,11 +119,11 @@ impl<P: PlatformTypes,
   type Error = Error<E>;
   type Inner = S;
 
-  fn inner(&mut self) -> &mut Self::Inner {
-    &mut self.inner
+  fn inner(&self) -> &Self::Inner {
+    &self.inner
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &crate::platform::Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
@@ -117,7 +132,7 @@ impl<P: PlatformTypes,
         .map(|o| o.map_err(|e| e.map(Error::Inner)))
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &crate::platform::Snapshot<P>,
                effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
@@ -126,22 +141,24 @@ impl<P: PlatformTypes,
     let resp = exec_inner_step!(self.inner.poll_resp(snap, effects, token, addr),
                                 Error::Inner);
 
-    if self.buffer.is_full() {
+    if self.buffer.map_ref(GetSize::is_full) {
       return Some(Err(nb::Error::Other(Error::BufferResponsesFull)));
     }
 
-    match resp {
-      | Some(resp) => {
-        self.buffer
-            .insert((resp.addr(), resp.data().msg.token, resp.data().msg.ty),
-                    resp)
-            .ok();
+    let try_remove_from_buffer =
+      |ty: Type| self.buffer.map_mut(|buf| buf.remove(&(addr, token, ty)));
 
-        match self.buffer
-                  .remove(&(addr, token, Type::Ack))
-                  .or_else(|| self.buffer.remove(&(addr, token, Type::Con)))
-                  .or_else(|| self.buffer.remove(&(addr, token, Type::Non)))
-                  .or_else(|| self.buffer.remove(&(addr, token, Type::Reset)))
+    let is_what_we_polled_for =
+      |resp: &Addrd<Resp<_>>| resp.addr() == addr && resp.data().msg.token == token;
+
+    match resp {
+      | Some(resp) if is_what_we_polled_for(&resp) => Some(Ok(resp)),
+      | Some(resp) => {
+        self.store(resp);
+
+        match try_remove_from_buffer(Type::Ack).or_else(|| try_remove_from_buffer(Type::Con))
+                                               .or_else(|| try_remove_from_buffer(Type::Non))
+                                               .or_else(|| try_remove_from_buffer(Type::Reset))
         {
           | Some(resp) => Some(Ok(resp)),
           | None => Some(Err(nb::Error::WouldBlock)),
