@@ -1,6 +1,5 @@
 use core::fmt::Debug;
 
-
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
