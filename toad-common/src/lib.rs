@@ -23,6 +23,10 @@ pub use fns::*;
 pub mod cursor;
 pub use cursor::*;
 
+/// Stem Cell
+pub mod stem;
+pub use stem::*;
+
 /// Map
 pub mod map;
 pub use map::*;
