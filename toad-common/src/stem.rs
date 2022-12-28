@@ -9,15 +9,8 @@ type Inner<T> = core::cell::RefCell<T>;
 /// A thread-safe mutable memory location that allows
 /// for many concurrent readers or a single writer.
 ///
-/// This is a wrapper of [`std::sync::RwLock`] that
-/// switches to [`core::cell::Cell`] when feature `std`
-/// is disabled.
-///
-/// # Naming
-/// "Stem cell" is a pun, since stem cells in biology are
-/// defined as cells which can mutate into any other kind
-/// of cell, and this data structure will change its shape
-/// based on the runtime.
+/// When feature `std` enabled, this uses [`std::sync::RwLock`].
+/// When `std` disabled, uses [`core::cell::Cell`].
 #[derive(Debug, Default)]
 pub struct Stem<T>(Inner<T>);
 
@@ -27,39 +20,21 @@ impl<T> Stem<T> {
     Self(Inner::new(t))
   }
 
-  /// Get a reference to T (`&'a T`)
+  /// Map a reference to `T` to a new type
   ///
-  /// # Drop
-  /// It is important that you drop the return value of
-  /// this function as soon as possible, as usage of it
-  /// will block calls to [`Stem::modify`]. (or cause it to panic)
+  /// This will block if called concurrently with `map_mut`.
   ///
-  /// # Blocks
-  /// When feature `std` enabled, this
-  /// will block if a call to [`Stem::modify`]
-  /// is running.
-  ///
-  /// # Panics
-  /// When feature `std` disabled, this
-  /// will panic if invoked while a call
-  /// to [`Stem::modify`] is running.
+  /// There can be any number of concurrent `map_ref`
+  /// sections running at a given time.
   pub fn map_ref<F, R>(&self, f: F) -> R
     where F: for<'a> FnMut(&'a T) -> R
   {
     self.0.map_ref(f)
   }
 
-  /// Modify `T`
+  /// Map a mutable reference to `T` to a new type
   ///
-  /// # Blocks
-  /// When feature `std` enabled, this
-  /// will block until all issued references
-  /// from [`Stem::get_ref`] are dropped.
-  ///
-  /// # Panics
-  /// When feature `std` disabled, this
-  /// will panic if invoked when an issued
-  /// reference from [`Stem::get_ref`] exists.
+  /// This will block if called concurrently with `map_ref` or `map_mut`.
   pub fn map_mut<F, R>(&self, f: F) -> R
     where F: for<'a> FnMut(&'a mut T) -> R
   {
@@ -80,21 +55,17 @@ pub trait StemCellBehavior<T> {
   fn new(t: T) -> Self
     where Self: Sized;
 
-  /// Get a reference to `T` contained in `Self`
+  /// Map a reference to `T` to a new type
   ///
-  /// # Panics
-  /// Implementors may choose to panic (or block)
-  /// if `get_ref` invoked while a [`StemCellBehavior::modify`]
-  /// is running.
+  /// Implementors may choose to panic or block
+  /// if `map_mut` called concurrently.
   fn map_ref<F, R>(&self, f: F) -> R
     where F: for<'a> FnMut(&'a T) -> R;
 
-  /// Mutate the `T` contained in `Self`
+  /// Map a mutable reference to `T` to a new type
   ///
-  /// # Panics
-  /// Implementors may choose to panic (or block)
-  /// if `modify` invoked when [`StemCellBehavior::ReadLock`]s
-  /// have been issued.
+  /// Implementors may choose to panic or block
+  /// if `map_ref` or `map_mut` called concurrently.
   fn map_mut<F, R>(&self, f: F) -> R
     where F: for<'a> FnMut(&'a mut T) -> R;
 }
@@ -138,9 +109,7 @@ impl<T> StemCellBehavior<T> for core::cell::RefCell<T> {
 
 #[cfg(test)]
 mod test {
-
   use core::cell::RefCell;
-  use core::ptr::NonNull;
   use std::sync::{Arc, Barrier, RwLock};
 
   use super::*;
@@ -153,6 +122,12 @@ mod test {
   }
 
   #[test]
+  fn refcell_concurrent_read_does_not_panic() {
+    let s = RefCell::new(Vec::<usize>::new());
+    s.map_ref(|_| s.map_ref(|_| ()));
+  }
+
+  #[test]
   fn rwlock_modify() {
     let s = RwLock::new(Vec::<usize>::new());
     s.map_mut(|v| v.push(12));
@@ -160,10 +135,16 @@ mod test {
   }
 
   #[test]
+  fn rwlock_concurrent_read_does_not_panic() {
+    let s = RwLock::new(Vec::<usize>::new());
+    s.map_ref(|_| s.map_ref(|_| ()));
+  }
+
+  #[test]
   fn stem_modify_blocks_until_refs_dropped() {
-    // NOTE: this test would panic on no_std!!
     unsafe {
       static VEC: Stem<Vec<usize>> = Stem::new(Vec::new());
+
       static mut START: Option<Arc<Barrier>> = None;
       static mut READING: Option<Arc<Barrier>> = None;
       static mut READING_DONE: Option<Arc<Barrier>> = None;
