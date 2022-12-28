@@ -1,6 +1,5 @@
 use toad_common::Array;
-use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, TryIntoBytes, Type};
+use toad_msg::{CodeKind, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
 use crate::net::Addrd;
@@ -33,53 +32,12 @@ impl<S> Ack<S> {
 type InnerPollReq<P> = Addrd<Req<P>>;
 type InnerPollResp<P> = Addrd<Resp<P>>;
 
-/// Errors that can occur during this step
-#[derive(Clone, PartialEq)]
-pub enum Error<E> {
-  /// Error serializing outbound ACK
-  AckSerializingFailed(MessageToBytesError),
-  /// The inner step failed.
-  ///
-  /// This variant's Debug representation is completely
-  /// replaced by the inner type E's debug representation
-  ///
-  /// ```
-  /// use toad::step::ack::Error;
-  ///
-  /// #[derive(Debug)]
-  /// struct Foo;
-  ///
-  /// let foo = Foo;
-  /// let foo_error = Error::<Foo>::Inner(Foo);
-  ///
-  /// assert_eq!(format!("{foo:?}"), format!("{foo_error:?}"));
-  /// ```
-  Inner(E),
-}
-
-impl<E> From<E> for Error<E> {
-  fn from(e: E) -> Self {
-    Error::Inner(e)
-  }
-}
-
-impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    match self {
-      | Self::AckSerializingFailed(e) => f.debug_tuple("SerializingAck").field(e).finish(),
-      | Self::Inner(e) => e.fmt(f),
-    }
-  }
-}
-
-impl<E: super::Error> super::Error for Error<E> {}
-
 impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: PlatformTypes>
   Step<P> for Ack<Inner>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
-  type Error = Error<Inner::Error>;
+  type Error = Inner::Error;
   type Inner = Inner;
 
   fn inner(&self) -> &Inner {
@@ -89,18 +47,13 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
   fn poll_req(&self,
               snap: &crate::platform::Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
-              -> StepOutput<Self::PollReq, Error<Inner::Error>> {
-    match exec_inner_step!(self.0.poll_req(snap, effects), Error::Inner) {
+              -> StepOutput<Self::PollReq, Inner::Error> {
+    match exec_inner_step!(self.0.poll_req(snap, effects), core::convert::identity) {
       | Some(req)
         if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
       {
-        match Resp::ack(req.as_ref().data()).try_into_bytes() {
-          | Ok(bytes) => {
-            effects.push(Effect::SendDgram(Addrd(bytes, req.addr())));
-            Some(Ok(req))
-          },
-          | Err(e) => Some(Err(nb::Error::Other(Error::AckSerializingFailed(e)))),
-        }
+        effects.push(Effect::Send(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
+        Some(Ok(req))
       },
       | Some(req) => Some(Ok(req)),
       | None => None,
@@ -112,8 +65,9 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
                effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
                addr: no_std_net::SocketAddr)
-               -> StepOutput<Self::PollResp, Error<Inner::Error>> {
-    exec_inner_step!(self.0.poll_resp(snap, effects, token, addr), Error::Inner).map(Ok)
+               -> StepOutput<Self::PollResp, Inner::Error> {
+    exec_inner_step!(self.0.poll_resp(snap, effects, token, addr),
+                     core::convert::identity).map(Ok)
   }
 }
 
@@ -122,7 +76,7 @@ mod test {
   use toad_msg::{Code, Type};
 
   use super::super::test;
-  use super::{Ack, Effect, Error, Step, TryIntoBytes};
+  use super::{Ack, Effect, Step};
   use crate::net::Addrd;
   use crate::platform;
   use crate::req::Req;
@@ -157,8 +111,8 @@ mod test {
         (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
       ]
       THEN this_should_error [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
-        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) })
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) }),
+        (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(())))) })
       ]
   );
 
@@ -205,11 +159,10 @@ mod test {
         (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0))) }),
         (effects == {
           vec![
-            Effect::SendDgram(
+            Effect::Send(
               Addrd(
                 Resp::ack(&test_msg(Type::Con, Code::new(1, 01)).0.0)
-                  .try_into_bytes()
-                  .unwrap(),
+                  .into(),
                 crate::test::dummy_addr()
               )
             )

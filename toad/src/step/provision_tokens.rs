@@ -2,7 +2,7 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_msg::{CodeKind, Token};
 
-use super::{Step, _try};
+use super::Step;
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
@@ -12,7 +12,7 @@ use crate::resp::Resp;
 use crate::time::Millis;
 
 /// Errors that can be encountered when provisioning tokens
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Error<E> {
   /// The inner step failed.
   ///

@@ -1,5 +1,4 @@
 use core::fmt::Debug;
-use core::ops::{Deref, DerefMut};
 
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
@@ -135,7 +134,7 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
     self.snapshot()
         .try_perform(|snapshot| {
           self.steps()
-              .before_message_sent(&snapshot, &mut addrd_msg)
+              .before_message_sent(snapshot, &mut addrd_msg)
               .map_err(Self::Error::step)
               .map_err(nb::Error::Other)
         })
@@ -154,7 +153,7 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
         })
         .try_perform(|(snapshot, _)| {
           self.steps()
-              .on_message_sent(&snapshot, &addrd_msg)
+              .on_message_sent(snapshot, &addrd_msg)
               .map_err(Self::Error::step)
               .map_err(nb::Error::Other)
         })
@@ -165,7 +164,9 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
   fn exec_1(&self, effect: &Effect<Self::Types>) -> nb::Result<(), Self::Error> {
     match effect {
       | &Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
-      | &Effect::SendDgram(_) => todo!(),
+      // TODO(orion): remove this clone as soon as `TryIntoBytes`
+      // requires &msg not owned msg
+      | &Effect::Send(ref msg) => self.send_msg(msg.clone()),
     }
   }
 
@@ -272,14 +273,14 @@ impl<P: PlatformTypes> Clone for Snapshot<P> {
 /// to perform.
 #[allow(missing_docs)]
 pub enum Effect<P: PlatformTypes> {
-  SendDgram(Addrd<<P::Socket as Socket>::Dgram>),
+  Send(Addrd<Message<P>>),
   Log(log::Level, String1Kb),
 }
 
 impl<P: PlatformTypes> Clone for Effect<P> {
   fn clone(&self) -> Self {
     match self {
-      | Effect::SendDgram(a) => Effect::SendDgram(a.clone()),
+      | Effect::Send(m) => Effect::Send(m.clone()),
       | Effect::Log(l, m) => Effect::Log(*l, *m),
     }
   }
@@ -288,7 +289,7 @@ impl<P: PlatformTypes> Clone for Effect<P> {
 impl<P: PlatformTypes> core::fmt::Debug for Effect<P> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::SendDgram(a) => f.debug_tuple("SendDgram").field(a).finish(),
+      | Self::Send(m) => f.debug_tuple("Send").field(m).finish(),
       | Self::Log(l, s) => f.debug_tuple("Log").field(l).field(s).finish(),
     }
   }
@@ -297,7 +298,7 @@ impl<P: PlatformTypes> core::fmt::Debug for Effect<P> {
 impl<P: PlatformTypes> PartialEq for Effect<P> {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
-      | (Self::SendDgram(a), Self::SendDgram(b)) => a == b,
+      | (Self::Send(a), Self::Send(b)) => a == b,
       | (Self::Log(al, am), Self::Log(bl, bm)) => al == bl && am == bm,
       | _ => false,
     }
