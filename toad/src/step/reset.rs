@@ -2,7 +2,6 @@ use core::fmt::Write;
 
 use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, Map, Stem};
-
 use toad_msg::{Code, Id, Payload, Token, Type};
 
 use super::{Step, StepOutput};

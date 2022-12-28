@@ -2,7 +2,7 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_msg::{CodeKind, Token};
 
-use super::{Step};
+use super::Step;
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;

@@ -1,7 +1,6 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::{Array, Stem};
-
 use toad_msg::{CodeKind, Token, Type};
 
 use super::{Step, StepOutput, _try};
@@ -82,12 +81,12 @@ pub trait Buf<P>
                             -> Result<(), Error<E>> {
     match (msg.data().ty, msg.data().code.kind()) {
       | (Type::Ack, CodeKind::Empty) => {
-          self.mark_acked(msg.data().token, time);
-          Ok(())
+        self.mark_acked(msg.data().token, time);
+        Ok(())
       },
       | (_, CodeKind::Response) => {
-          self.forget(msg.data().token);
-          Ok(())
+        self.forget(msg.data().token);
+        Ok(())
       },
       | _ => Ok(()),
     }
