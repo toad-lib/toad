@@ -79,11 +79,11 @@ impl<Inner: Step<P>, P: PlatformTypes> Step<P> for Parse<Inner> {
   type Error = Error<Inner::Error>;
   type Inner = Inner;
 
-  fn inner(&mut self) -> &mut Self::Inner {
-    &mut self.0
+  fn inner(&self) -> &Self::Inner {
+    &self.0
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &crate::platform::Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Error<Inner::Error>> {
@@ -91,7 +91,7 @@ impl<Inner: Step<P>, P: PlatformTypes> Step<P> for Parse<Inner> {
     Some(common!(snap.recvd_dgram.as_ref()).map(|addrd| addrd.map(Req::from)))
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &crate::platform::Snapshot<P>,
                effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
