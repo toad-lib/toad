@@ -164,7 +164,9 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Defau
   fn exec_1(&self, effect: &Effect<Self::Types>) -> nb::Result<(), Self::Error> {
     match effect {
       | &Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
-      | &Effect::Send(_) => todo!(),
+      // TODO(orion): remove this clone as soon as `TryIntoBytes`
+      // requires &msg not owned msg
+      | &Effect::Send(ref msg) => self.send_msg(msg.clone()),
     }
   }
 
