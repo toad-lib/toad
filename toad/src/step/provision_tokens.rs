@@ -53,7 +53,7 @@ impl<Inner> Default for ProvisionTokens<Inner> where Inner: Default
 }
 
 impl<Inner> ProvisionTokens<Inner> {
-  fn next<E, Clock>(&mut self, now: Instant<Clock>, cfg: Config) -> Result<Token, Error<E>>
+  fn next<E, Clock>(&self, now: Instant<Clock>, cfg: Config) -> Result<Token, Error<E>>
     where Clock: crate::time::Clock
   {
     // TODO(orion): we may want to handle this
@@ -82,11 +82,11 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
   type Error = Error<E>;
   type Inner = Inner;
 
-  fn inner(&mut self) -> &mut Self::Inner {
-    &mut self.inner
+  fn inner(&self) -> &Inner {
+    &self.inner
   }
 
-  fn before_message_sent(&mut self,
+  fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
@@ -104,7 +104,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
     Ok(())
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &platform::Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
@@ -113,7 +113,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
         .map(|r| r.map_err(|e| e.map(Error::Inner)))
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &platform::Snapshot<P>,
                effects: &mut <P as PlatformTypes>::Effects,
                token: Token,
