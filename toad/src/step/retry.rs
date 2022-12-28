@@ -28,9 +28,6 @@ pub trait Buf<P>
           | _ => None,
         })
         .try_for_each(|(_, msg)| -> Result<(), Error<E>> {
-          // TODO: remove this clone when
-          // try_from_bytes is `&self -> Result<_, _>`,
-          // instead of        ` self -> Result<_, _>`
           effects.push(Effect::Send(msg.clone()));
           Ok(())
         })
