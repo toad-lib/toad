@@ -1,8 +1,8 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use toad_common::{Array, Stem};
-use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{CodeKind, Token, TryIntoBytes, Type};
+
+use toad_msg::{CodeKind, Token, Type};
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;
@@ -29,14 +29,10 @@ pub trait Buf<P>
           | _ => None,
         })
         .try_for_each(|(_, msg)| -> Result<(), Error<E>> {
-          let bytes = msg.data()
-                         // TODO: remove this clone when
-                         // try_from_bytes is `&self -> Result<_, _>`,
-                         // instead of        ` self -> Result<_, _>`
-                         .clone()
-                         .try_into_bytes()
-                         .map_err(Error::RetrySerializingFailed)?;
-          effects.push(Effect::SendDgram(msg.as_ref().map(|_| bytes)));
+          // TODO: remove this clone when
+          // try_from_bytes is `&self -> Result<_, _>`,
+          // instead of        ` self -> Result<_, _>`
+          effects.push(Effect::Send(msg.clone()));
           Ok(())
         })
   }
@@ -85,8 +81,14 @@ pub trait Buf<P>
                             msg: Addrd<&platform::Message<P>>)
                             -> Result<(), Error<E>> {
     match (msg.data().ty, msg.data().code.kind()) {
-      | (Type::Ack, CodeKind::Empty) => Ok(self.mark_acked(msg.data().token, time)),
-      | (_, CodeKind::Response) => Ok(self.forget(msg.data().token)),
+      | (Type::Ack, CodeKind::Empty) => {
+          self.mark_acked(msg.data().token, time);
+          Ok(())
+      },
+      | (_, CodeKind::Response) => {
+          self.forget(msg.data().token);
+          Ok(())
+      },
       | _ => Ok(()),
     }
   }
@@ -260,7 +262,7 @@ impl<Inner, Buffer> Default for Retry<Inner, Buffer>
 }
 
 /// Errors that can be encountered when retrying messages
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Error<E> {
   /// The inner step failed.
   ///
@@ -273,8 +275,6 @@ pub enum Error<E> {
   /// Only applicable to [`Retry`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   RetryBufferFull,
-  /// Error serializing a message we needed to retry
-  RetrySerializingFailed(MessageToBytesError),
 }
 
 impl<E> super::Error for Error<E> where E: super::Error {}
@@ -450,11 +450,7 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON GET x.x.x.x:1111))])
         }
       }),
       (
@@ -470,21 +466,13 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 550), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON GET x.x.x.x:1111))])
         }
       }),
       (poll_resp(snap_time(config(200, 400), 750), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram.clone()), Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON GET x.x.x.x:1111)), Effect::Send(test::msg!(CON GET x.x.x.x:1111))])
         }
       }),
       (
@@ -500,11 +488,7 @@ mod tests {
       (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram.clone()), Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON GET x.x.x.x:1111)), Effect::Send(test::msg!(CON GET x.x.x.x:1111))])
         }
       })
     ]
@@ -545,11 +529,7 @@ mod tests {
       (poll_req(snap_time(config(200, 400), 250), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON {2 . 04} x.x.x.x:1111))])
         }
       }),
       (
@@ -563,31 +543,19 @@ mod tests {
       (poll_req(snap_time(config(200, 400), 550), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON {2 . 04} x.x.x.x:1111))])
         }
       }),
       (poll_req(snap_time(config(200, 400), 750), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON {2 . 04} x.x.x.x:1111))])
         }
       }),
       (poll_req(snap_time(config(200, 400), 10_000), _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(CON {2 . 04} x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(CON {2 . 04} x.x.x.x:1111))])
         }
       })
     ]
@@ -627,11 +595,7 @@ mod tests {
       (poll_resp(snap_time(config(200, 200), 250), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(NON GET x.x.x.x:1111))])
         }
       }),
       (
@@ -646,21 +610,13 @@ mod tests {
       ),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(NON GET x.x.x.x:1111))])
         }
       }),
       (poll_resp(snap_time(config(200, 200), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
       (effects should satisfy {
         |e| {
-          let dgram = test::msg!(NON GET x.x.x.x:1111)
-                           .map(toad_msg::TryIntoBytes::try_into_bytes)
-                           .map(Result::unwrap);
-
-          assert_eq!(e, &vec![Effect::SendDgram(dgram)])
+          assert_eq!(e, &vec![Effect::Send(test::msg!(NON GET x.x.x.x:1111))])
         }
       })
     ]
