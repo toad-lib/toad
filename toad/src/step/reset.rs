@@ -2,8 +2,8 @@ use core::fmt::Write;
 
 use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, Map, Stem};
-use toad_msg::to_bytes::MessageToBytesError;
-use toad_msg::{Code, Id, Payload, Token, TryIntoBytes, Type};
+
+use toad_msg::{Code, Id, Payload, Token, Type};
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
@@ -74,7 +74,7 @@ impl<S: Default, B: Default> Default for Reset<S, B> {
 }
 
 /// Errors that can be encountered when buffering responses
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Error<E> {
   /// The inner step failed.
   ///
@@ -87,8 +87,6 @@ pub enum Error<E> {
   /// Only applicable to [`Reset`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   ResetBufferCapacityExhausted,
-  /// Failed to serialize outbound Reset message
-  ResetSerializingFailed(MessageToBytesError),
 }
 
 impl<E> From<E> for Error<E> {
@@ -100,9 +98,6 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::ResetSerializingFailed(e) => {
-        f.debug_tuple("SerializingResetFailed").field(e).finish()
-      },
       | Self::ResetBufferCapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
@@ -124,14 +119,9 @@ macro_rules! common {
                                            payload: Payload(Default::default()),
                                            opts: Default::default() };
 
-      match reset.try_into_bytes() {
-        | Ok(dgram) => {
-          $effects.push(Effect::SendDgram(Addrd(dgram, msg.addr())));
-          $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
-          None
-        },
-        | Err(e) => Some(Err(nb::Error::Other(Error::ResetSerializingFailed(e)))),
-      }
+      $effects.push(Effect::Send(Addrd(reset, msg.addr())));
+      $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
+      None
     } else {
       Some(Ok($in))
     }
@@ -283,9 +273,9 @@ mod test {
             msg
           });
 
-          assert_eq!(effects[0], Effect::SendDgram(msg.clone().map(TryIntoBytes::try_into_bytes).map(Result::unwrap)));
+          assert_eq!(effects[0], Effect::Send(msg.clone()));
           assert!(matches!(effects[1], Effect::Log(log::Level::Warn, _)));
-          assert_eq!(effects[2], Effect::SendDgram(msg.map(TryIntoBytes::try_into_bytes).map(Result::unwrap)));
+          assert_eq!(effects[2], Effect::Send(msg));
           assert!(matches!(effects[3], Effect::Log(log::Level::Warn, _)));
         }}
       )
