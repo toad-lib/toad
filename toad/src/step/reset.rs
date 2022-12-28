@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use tinyvec::ArrayVec;
-use toad_common::{Array, GetSize, Map};
+use toad_common::{Array, GetSize, Map, Stem};
 use toad_msg::to_bytes::MessageToBytesError;
 use toad_msg::{Code, Id, Payload, Token, TryIntoBytes, Type};
 
@@ -13,7 +13,7 @@ use crate::resp::Resp;
 use crate::todo::String1Kb;
 use crate::{exec_inner_step, platform};
 
-/// `BufferResponses` that uses BTreeMap
+/// `Reset` that uses BTreeMap
 ///
 /// Only enabled when feature "alloc" enabled.
 #[cfg(feature = "alloc")]
@@ -48,9 +48,9 @@ pub mod no_alloc {
 /// we're polling for.
 ///
 /// For more information, see the [module documentation](crate::step::buffer_responses).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug)]
 pub struct Reset<S, B> {
-  buffer: B,
+  buffer: Stem<B>,
   inner: S,
 }
 
@@ -84,7 +84,7 @@ pub enum Error<E> {
   /// Storing this response would exceed a hard capacity for the
   /// response buffer.
   ///
-  /// Only applicable to [`BufferResponses`] that uses `ArrayVec` or
+  /// Only applicable to [`Reset`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   ResetBufferCapacityExhausted,
   /// Failed to serialize outbound Reset message
@@ -115,7 +115,7 @@ macro_rules! common {
   ($in:expr, $msg:expr, $effects:expr, $buffer:expr) => {{
     let msg = $msg;
 
-    if msg.data().ty == Type::Ack && !$buffer.has(&msg.map(|m| m.token)) {
+    if msg.data().ty == Type::Ack && !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token))) {
       let reset = platform::Message::<P> { ver: Default::default(),
                                            ty: Type::Reset,
                                            id: Id(0),
@@ -149,11 +149,11 @@ impl<P: PlatformTypes,
   type Error = Error<E>;
   type Inner = S;
 
-  fn inner(&mut self) -> &mut Self::Inner {
-    &mut self.inner
+  fn inner(&self) -> &S {
+    &self.inner
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &crate::platform::Snapshot<P>,
               effects: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<Self::PollReq, Self::Error> {
@@ -168,7 +168,7 @@ impl<P: PlatformTypes,
     }
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &crate::platform::Snapshot<P>,
                effects: &mut <P as PlatformTypes>::Effects,
                token: toad_msg::Token,
@@ -186,7 +186,7 @@ impl<P: PlatformTypes,
     }
   }
 
-  fn on_message_sent(&mut self,
+  fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
                      msg: &Addrd<crate::platform::Message<P>>)
                      -> Result<(), Self::Error> {
@@ -196,7 +196,7 @@ impl<P: PlatformTypes,
 
     match msg.data().ty {
       | Type::Con => self.buffer
-                         .insert(msg.as_ref().map(|m| m.token), ())
+                         .map_mut(|buf| buf.insert(msg.as_ref().map(|m| m.token), ()))
                          .map_err(|_| Error::ResetBufferCapacityExhausted),
       | _ => Ok(()),
     }

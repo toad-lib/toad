@@ -203,18 +203,18 @@ pub trait Step<P: PlatformTypes>: Default {
   ///
   /// This is used by default event handler implementations
   /// to invoke the handler for the inner step.
-  fn inner(&mut self) -> &mut Self::Inner;
+  fn inner(&self) -> &Self::Inner;
 
   /// # Poll for an inbound request
   /// This corresponds to the **server** flow.
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               snap: &platform::Snapshot<P>,
               effects: &mut P::Effects)
               -> StepOutput<Self::PollReq, Self::Error>;
 
   /// # Poll for an inbound response
   /// This corresponds to the **client** flow.
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                snap: &platform::Snapshot<P>,
                effects: &mut P::Effects,
                token: Token,
@@ -222,7 +222,13 @@ pub trait Step<P: PlatformTypes>: Default {
                -> StepOutput<Self::PollResp, Self::Error>;
 
   /// Invoked before messages are sent, allowing for internal state change & modification.
-  fn before_message_sent(&mut self,
+  ///
+  /// # Gotchas
+  /// Make sure you invoke `self.inner().before_message_sent`!
+  ///
+  /// # Default Implementation
+  /// The default implementation will invoke `self.inner().before_message_sent`
+  fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
@@ -232,7 +238,13 @@ pub trait Step<P: PlatformTypes>: Default {
   }
 
   /// Invoked after messages are sent, allowing for internal state change.
-  fn on_message_sent(&mut self,
+  ///
+  /// # Gotchas
+  /// Make sure you invoke `self.inner().on_message_sent`!
+  ///
+  /// # Default Implementation
+  /// The default implementation will just invoke `self.inner().on_message_sent`
+  fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
                      msg: &Addrd<platform::Message<P>>)
                      -> Result<(), Self::Error> {
@@ -248,18 +260,18 @@ impl<P: PlatformTypes> Step<P> for () {
   type Error = ();
   type Inner = ();
 
-  fn inner(&mut self) -> &mut Self::Inner {
+  fn inner(&self) -> &Self::Inner {
     panic!("Step.inner invoked for unit (). This is incorrect and would likely cause recursion without return")
   }
 
-  fn poll_req(&mut self,
+  fn poll_req(&self,
               _: &platform::Snapshot<P>,
               _: &mut <P as PlatformTypes>::Effects)
               -> StepOutput<(), ()> {
     None
   }
 
-  fn poll_resp(&mut self,
+  fn poll_resp(&self,
                _: &platform::Snapshot<P>,
                _: &mut P::Effects,
                _: Token,
@@ -268,14 +280,14 @@ impl<P: PlatformTypes> Step<P> for () {
     None
   }
 
-  fn before_message_sent(&mut self,
+  fn before_message_sent(&self,
                          _: &platform::Snapshot<P>,
                          _: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     Ok(())
   }
 
-  fn on_message_sent(&mut self,
+  fn on_message_sent(&self,
                      _: &platform::Snapshot<P>,
                      _: &Addrd<platform::Message<P>>)
                      -> Result<(), Self::Error> {
@@ -337,18 +349,18 @@ pub mod test {
         type Error = $error_ty;
         type Inner = ();
 
-        fn inner(&mut self) -> &mut () {
-          &mut self.0
+        fn inner(&self) -> &() {
+          &self.0
         }
 
-        fn poll_req(&mut self,
+        fn poll_req(&self,
                     a: &platform::Snapshot<test::Platform>,
                     b: &mut <test::Platform as platform::PlatformTypes>::Effects)
                     -> step::StepOutput<Self::PollReq, Self::Error> {
           unsafe { POLL_REQ_MOCK.as_ref().unwrap()(a, b) }
         }
 
-        fn poll_resp(&mut self,
+        fn poll_resp(&self,
                      a: &platform::Snapshot<test::Platform>,
                      b: &mut <test::Platform as platform::PlatformTypes>::Effects,
                      c: toad_msg::Token,
@@ -357,14 +369,14 @@ pub mod test {
           unsafe { POLL_RESP_MOCK.as_ref().unwrap()(a, b, c, d) }
         }
 
-        fn before_message_sent(&mut self,
+        fn before_message_sent(&self,
                                snap: &platform::Snapshot<test::Platform>,
                                msg: &mut Addrd<test::Message>)
                                -> Result<(), Self::Error> {
           unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
         }
 
-        fn on_message_sent(&mut self,
+        fn on_message_sent(&self,
                            snap: &platform::Snapshot<test::Platform>,
                            msg: &Addrd<test::Message>)
                            -> Result<(), Self::Error> {
