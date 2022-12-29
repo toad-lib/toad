@@ -7,12 +7,10 @@ use crate::config::Config;
 use crate::core::{Core, Error, Secure, What, When};
 use crate::net::{Addrd, Socket};
 use crate::platform::PlatformTypes;
-#[cfg(feature = "std")]
-use crate::platform::{Std, StdSecure};
 use crate::req::{Req, ReqBuilder};
 use crate::resp::Resp;
 #[cfg(feature = "std")]
-use crate::std::{secure, SecureUdpSocket};
+use crate::std::{dtls, secure, PlatformTypes as Std, SecureUdpSocket};
 use crate::time::{Millis, Timeout};
 
 /// Platform struct containing things needed to make a new Client.
@@ -61,7 +59,7 @@ impl<T, Cfg: PlatformTypes> ClientResultExt<T, Cfg> for Result<T, Error<Cfg>> {
 }
 
 #[cfg(feature = "std")]
-impl Client<StdSecure> {
+impl Client<Std<dtls::Y>> {
   /// Create a new Client secured by DTLS
   ///
   /// ```no_run
@@ -79,7 +77,7 @@ impl Client<StdSecure> {
   /// println!("Hello, {}!", rep.payload_string().unwrap());
   /// ```
   pub fn try_new_secure(port: u16) -> secure::Result<Self> {
-    Client::<StdSecure>::try_new_secure_config(port, Config::default())
+    Client::<Std<dtls::Y>>::try_new_secure_config(port, Config::default())
   }
 
   /// Create a new std client with a specific runtime config
@@ -91,13 +89,13 @@ impl Client<StdSecure> {
                                    .bind(SecureUdpSocket::try_new_client)
                                    .map(|sock| {
                                      let client = ClientConfig { clock, sock };
-                                     Client::<StdSecure>::new_config(config, client)
+                                     Client::<Std<dtls::Y>>::new_config(config, client)
                                    })
   }
 }
 
 #[cfg(feature = "std")]
-impl Client<Std> {
+impl Client<Std<dtls::N>> {
   /// Create a new Client for a platform supporting Rust's standard library.
   ///
   /// ```no_run
@@ -115,7 +113,7 @@ impl Client<Std> {
   /// println!("Hello, {}!", rep.payload_string().unwrap());
   /// ```
   pub fn new_std(port: u16) -> Self {
-    Client::<Std>::new_std_config(port, Config::default())
+    Client::<Std<dtls::N>>::new_std_config(port, Config::default())
   }
 
   /// Create a new std client with a specific runtime config
@@ -123,7 +121,7 @@ impl Client<Std> {
     let clock = crate::std::Clock::new();
     let addr = format!("0.0.0.0:{}", port);
     let sock = std::net::UdpSocket::bind(addr).unwrap();
-    Client::<Std>::new_config(config, ClientConfig { clock, sock })
+    Client::<Std<dtls::N>>::new_config(config, ClientConfig { clock, sock })
   }
 }
 

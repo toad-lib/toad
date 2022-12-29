@@ -8,10 +8,11 @@ use openssl::rsa::Rsa;
 use openssl::x509::X509;
 use toad::blocking::server::{Action, Actions};
 use toad::net::Addrd;
-use toad::platform::StdSecure;
 use toad::req::Req;
 use toad::resp::{code, Resp};
 use toad::std::{Clock, SecureUdpSocket};
+
+type StdSecure = toad::std::PlatformTypes<toad::std::dtls::Y>;
 
 const PORT: u16 = 1111;
 pub const DISCOVERY_PORT: u16 = 1234;

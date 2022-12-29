@@ -6,7 +6,7 @@ use toad_common::*;
 
 use crate::net::{Addrd, Socket};
 
-mod convert;
+pub(super) mod convert;
 
 /// [`UdpSocket`] secured by DTLS
 pub mod secure;

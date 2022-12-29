@@ -2,9 +2,10 @@ use std::thread::JoinHandle;
 
 use toad::blocking::server::{Action, Actions};
 use toad::net::Addrd;
-use toad::platform::Std;
 use toad::req::Req;
 use toad::resp::{code, Resp};
+
+type Std = toad::std::PlatformTypes<toad::std::dtls::N>;
 
 const PORT: u16 = 5555;
 pub const DISCOVERY_PORT: u16 = 1234;
