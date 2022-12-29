@@ -590,19 +590,6 @@ impl<P: PlatformTypes> Core<P> {
   ///
   /// Returns a message id that can be used to poll for the response
   /// via [`poll_ping`](#method.poll_ping)
-  ///
-  /// ```
-  /// use std::net::UdpSocket;
-  ///
-  /// use toad::core::Core;
-  /// use toad::platform::Std;
-  /// use toad::req::Req;
-  ///
-  /// let sock = UdpSocket::bind(("0.0.0.0", 8004)).unwrap();
-  /// let mut core = Core::<Std>::new(Default::default(), sock);
-  /// let id = core.ping("1.1.1.1", 5683);
-  /// // core.poll_ping(id);
-  /// ```
   pub fn ping(&mut self,
               host: impl AsRef<str>,
               port: u16)

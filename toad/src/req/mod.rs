@@ -32,14 +32,14 @@ use crate::platform::{self, PlatformTypes};
 /// A CoAP request
 ///
 /// ```
-/// use toad::platform::Std;
 /// use toad::req::Req;
 /// use toad::resp::Resp;
+/// use toad::std::{dtls, PlatformTypes as Std};
 ///
 /// # main();
 /// fn main() {
 ///   let client = Client::new();
-///   let mut req = Req::<Std>::post("192.168.0.1:5632".parse().unwrap(), "hello");
+///   let mut req = Req::<Std<dtls::Y>>::post("192.168.0.1:5632".parse().unwrap(), "hello");
 ///   req.set_payload("john".bytes());
 ///
 ///   let resp = client.send(&req);
@@ -58,7 +58,7 @@ use crate::platform::{self, PlatformTypes};
 ///     # Self {__field: ()}
 ///   }
 ///
-///   fn send(&self, req: &Req<Std>) -> Resp<Std> {
+///   fn send(&self, req: &Req<Std<dtls::Y>>) -> Resp<Std<dtls::Y>> {
 ///     // send the request
 ///     # let body = req.payload_str().unwrap().to_string();
 ///     # let mut resp = Resp::for_request(&req).unwrap();
@@ -138,26 +138,26 @@ impl<P: PlatformTypes> Req<P> {
   ///
   /// ```should_panic
   /// use toad::platform;
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
+  /// let req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
-  /// let msg: platform::Message<Std> = req.into();
+  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   ///
   /// ```
   /// use toad::platform;
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   /// use toad_msg::{Id, Token};
   ///
-  /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
+  /// let mut req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
   /// // Works B)
-  /// let msg: platform::Message<Std> = req.into();
+  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   pub fn set_msg_id(&mut self, id: Id) {
     self.id = Some(id);
@@ -173,26 +173,26 @@ impl<P: PlatformTypes> Req<P> {
   ///
   /// ```should_panic
   /// use toad::platform;
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
+  /// let req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// // Panics!!
-  /// let msg: platform::Message<Std> = req.into();
+  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   ///
   /// ```
   /// use toad::platform;
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   /// use toad_msg::{Id, Token};
   ///
-  /// let mut req = Req::<Std>::get("127.0.0.1:5683".parse().unwrap(), "hello");
+  /// let mut req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
   /// // Works B)
-  /// let msg: platform::Message<Std> = req.into();
+  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   pub fn set_msg_token(&mut self, token: Token) {
     self.token = Some(token);
@@ -228,10 +228,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Get a copy of the message id for this request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let _msg_id = req.msg_id();
   /// ```
   pub fn msg_id(&self) -> toad_msg::Id {
@@ -249,10 +249,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_option(17, Some(50)); // Accept: application/json
   /// ```
   pub fn set_option<V: IntoIterator<Item = u8>>(&mut self,
@@ -281,10 +281,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Creates a new GET request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let _req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let _req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// ```
   pub fn get(host: SocketAddr, path: impl AsRef<str>) -> Self {
     Self::new(Method::GET, host, path)
@@ -293,10 +293,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Creates a new POST request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
   pub fn post(host: SocketAddr, path: impl AsRef<str>) -> Self {
@@ -306,10 +306,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Creates a new PUT request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
   pub fn put(host: SocketAddr, path: impl AsRef<str>) -> Self {
@@ -319,10 +319,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Creates a new DELETE request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let _req = Req::<Std>::delete("1.1.1.1:5683".parse().unwrap(), "/users/john");
+  /// let _req = Req::<Std<dtls::Y>>::delete("1.1.1.1:5683".parse().unwrap(), "/users/john");
   /// ```
   pub fn delete(host: SocketAddr, path: impl AsRef<str>) -> Self {
     Self::new(Method::DELETE, host, path)
@@ -331,10 +331,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Add a payload to this request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::put("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   /// ```
   pub fn set_payload<Bytes: ToCoapValue>(&mut self, payload: Bytes) {
@@ -344,10 +344,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
   /// assert!(req.payload().iter().copied().eq("Hi!".bytes()))
@@ -359,10 +359,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Read an option by its number from the request
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::<Std<dtls::Y>>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// let uri_host = req.get_option(3).unwrap();
   /// assert_eq!(uri_host.value.0, "1.1.1.1".bytes().collect::<Vec<_>>());
   /// ```
@@ -375,10 +375,10 @@ impl<P: PlatformTypes> Req<P> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let mut req = Req::<Std>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::post("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_payload("Hi!".bytes());
   ///
   /// assert_eq!(req.payload_str().unwrap(), "Hi!")
@@ -432,15 +432,15 @@ impl<P: PlatformTypes> From<platform::Message<P>> for Req<P> {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-  use crate::platform::Std;
+  type Req = super::Req<crate::std::PlatformTypes<crate::std::dtls::Y>>;
+
   #[test]
   fn ip_serialization() {
-    let req = Req::<Std>::get("192.168.255.123:4313".parse().unwrap(), "");
+    let req = Req::get("192.168.255.123:4313".parse().unwrap(), "");
     assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
                "192.168.255.123");
 
-    let req = Req::<Std>::get("[::1]:8080".parse().unwrap(), "");
+    let req = Req::get("[::1]:8080".parse().unwrap(), "");
     assert_eq!(core::str::from_utf8(&req.get_option(3).unwrap().value.0).unwrap(),
                "::1");
   }
