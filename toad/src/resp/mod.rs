@@ -12,14 +12,14 @@ pub mod code;
 /// [`Resp`] that uses [`Vec`] as the backing collection type
 ///
 /// ```
-/// use toad::platform::Std;
 /// use toad::resp::Resp;
+/// use toad::std::{dtls, PlatformTypes as Std};
 /// # use toad_msg::*;
 /// # main();
 ///
 /// fn main() {
 ///   start_server(|req| {
-///     let mut resp = Resp::<Std>::for_request(&req).unwrap();
+///     let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
 ///
 ///     resp.set_code(toad::resp::code::CONTENT);
 ///     resp.set_option(12, Some(50)); // Content-Format: application/json
@@ -34,7 +34,7 @@ pub mod code;
 ///   });
 /// }
 ///
-/// fn start_server(f: impl FnOnce(toad::req::Req<Std>) -> toad::resp::Resp<Std>) {
+/// fn start_server(f: impl FnOnce(toad::req::Req<Std<dtls::Y>>) -> toad::resp::Resp<Std<dtls::Y>>) {
 ///   // servery things
 /// # f(toad::req::Req::get("0.0.0.0:1234".parse().unwrap(), ""));
 /// }
@@ -61,19 +61,20 @@ impl<P: PlatformTypes> Resp<P> {
   /// If the request is EMPTY or RESET, this will return None.
   ///
   /// ```
-  /// use toad::platform::{Message, Std};
+  /// use toad::platform::Message;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// // pretend this is an incoming request
-  /// let mut req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   /// req.set_msg_id(toad_msg::Id(0));
   /// req.set_msg_token(toad_msg::Token(Default::default()));
   ///
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
-  /// let req_msg = Message::<Std>::from(req);
-  /// let resp_msg = Message::<Std>::from(resp);
+  /// let req_msg = Message::<Std<dtls::Y>>::from(req);
+  /// let resp_msg = Message::<Std<dtls::Y>>::from(resp);
   ///
   /// // note that Req's default type is CON, so the response will be an ACK.
   /// // this means that the token and id of the response will be the same
@@ -155,14 +156,14 @@ impl<P: PlatformTypes> Resp<P> {
   /// Get the payload's raw bytes
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
   /// let data: Vec<u8> = resp.payload().copied().collect();
   /// ```
@@ -194,14 +195,14 @@ impl<P: PlatformTypes> Resp<P> {
   /// Get the payload and attempt to interpret it as an ASCII string
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
   ///
   /// // pretend this is an incoming response
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   /// resp.set_payload("hello!".bytes());
   ///
   /// let data: String = resp.payload_string().unwrap();
@@ -214,13 +215,13 @@ impl<P: PlatformTypes> Resp<P> {
   /// Get the response code
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
   /// assert_eq!(resp.code(), code::CONTENT);
   /// ```
@@ -231,13 +232,13 @@ impl<P: PlatformTypes> Resp<P> {
   /// Change the response code
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
   /// resp.set_code(code::INTERNAL_SERVER_ERROR);
   /// ```
@@ -251,13 +252,13 @@ impl<P: PlatformTypes> Resp<P> {
   /// Otherwise, returns `None`.
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
   /// resp.set_option(17, Some(50)); // Accept: application/json
   /// ```
@@ -274,13 +275,13 @@ impl<P: PlatformTypes> Resp<P> {
   /// Add a payload to this response
   ///
   /// ```
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// // pretend this is an incoming request
-  /// let req = Req::<Std>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
-  /// let mut resp = Resp::<Std>::for_request(&req).unwrap();
+  /// let req = Req::<Std<dtls::Y>>::get("1.1.1.1:5683".parse().unwrap(), "/hello");
+  /// let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
   /// // Maybe you have some bytes:
   /// resp.set_payload(vec![1, 2, 3]);

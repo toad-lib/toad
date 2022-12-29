@@ -2,10 +2,11 @@ use toad::blocking::client::ClientResultExt;
 use toad::blocking::Client;
 use toad::core::Error;
 use toad::net::Addrd;
-use toad::platform::Std;
 use toad::req::Req;
 use toad::resp::Resp;
 use toad::time::Timeout;
+
+type Std = toad::std::PlatformTypes<toad::std::dtls::N>;
 
 #[path = "./server.rs"]
 mod server;

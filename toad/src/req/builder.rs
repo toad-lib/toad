@@ -18,7 +18,8 @@ pub enum Error {
 /// note: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
-/// use toad::platform::Std;
+/// use toad::std::PlatformTypes as Std;
+/// use toad::std::dtls;
 /// use toad::req::ReqBuilder;
 /// use toad::ContentFormat;
 ///
@@ -28,7 +29,7 @@ pub enum Error {
 ///            }"""#;
 ///
 /// let request =
-///   ReqBuilder::<Std>::get("127.0.0.1:1234".parse().unwrap(), "say_stuff").accept(ContentFormat::Json)
+///   ReqBuilder::<Std<dtls::Y>>::get("127.0.0.1:1234".parse().unwrap(), "say_stuff").accept(ContentFormat::Json)
 ///                                                         .content_format(ContentFormat::Json)
 ///                                                         .payload(payload)
 ///                                                         .build()
@@ -36,7 +37,7 @@ pub enum Error {
 ///
 /// let rep = send(&request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
-/// # fn send(req: &toad::req::Req<Std>) -> toad::resp::Resp<Std> {
+/// # fn send(req: &toad::req::Req<Std<dtls::Y>>) -> toad::resp::Resp<Std<dtls::Y>> {
 /// #   let mut rep = toad::resp::Resp::for_request(req).unwrap();
 /// #   rep.set_payload("Hello, Jameson!".bytes());
 /// #   rep

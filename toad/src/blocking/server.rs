@@ -10,12 +10,10 @@ use crate::config::Config;
 use crate::core::{Core, Error, Secure};
 use crate::net::{Addrd, Socket};
 use crate::platform::{self, PlatformTypes};
-#[cfg(feature = "std")]
-use crate::platform::{Std, StdSecure};
 use crate::req::{Method, Req};
 use crate::resp::Resp;
 #[cfg(feature = "std")]
-use crate::std::secure;
+use crate::std::{dtls, secure, PlatformTypes as Std};
 
 /// Data structure used by server for bookkeeping of
 /// "the result of the last middleware run and what to do next"
@@ -53,12 +51,13 @@ pub enum Action<P: PlatformTypes> {
   /// ```no_run
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
-  /// use toad::platform::{Message, Std};
+  /// use toad::platform::Message;
   /// use toad::req::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::{dtls, PlatformTypes as Std};
   /// use toad::ContentFormat;
   ///
-  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn hello(req: &Addrd<Req<Std<dtls::N>>>) -> Actions<Std<dtls::N>> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       // NOTE: the not_found middleware function will not be called
@@ -69,7 +68,7 @@ pub enum Action<P: PlatformTypes> {
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn not_found(req: &Addrd<Req<Std<dtls::N>>>) -> Actions<Std<dtls::N>> {
   ///   Action::SendResp(req.as_ref()
   ///                       .map(Resp::for_request)
   ///                       .map(Option::unwrap)
@@ -79,7 +78,7 @@ pub enum Action<P: PlatformTypes> {
   ///                       })).into()
   /// }
   ///
-  /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
+  /// let mut server = Server::<Std<dtls::N>, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
   /// server.middleware(&hello);
   /// server.middleware(&not_found);
   /// ```
@@ -149,12 +148,12 @@ impl<P: PlatformTypes> Action<P> {
   /// ```
   /// use toad::blocking::server::{Action, Actions};
   /// use toad::net::Addrd;
-  /// use toad::platform::Std;
   /// use toad::req::Req;
   /// use toad::resp::Resp;
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// /// The server should respond OK to the request then exit
-  /// fn exit(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn exit(req: &Addrd<Req<Std<dtls::N>>>) -> Actions<Std<dtls::N>> {
   ///   Action::SendResp(req.as_ref().map(Resp::for_request).map(Option::unwrap)).then(Action::Exit)
   /// }
   /// ```
@@ -208,7 +207,7 @@ pub struct Server<'a, P: PlatformTypes, Middlewares: 'static + Array<Item = &'a 
 }
 
 #[cfg(feature = "std")]
-impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
+impl<'a> Server<'a, Std<dtls::Y>, Vec<&'a Middleware<Std<dtls::Y>>>> {
   /// Create a new server that is secured by DTLS
   /// using a private key and certificate.
   pub fn try_new_secure<A>(addr: A,
@@ -242,18 +241,19 @@ impl<'a> Server<'a, StdSecure, Vec<&'a Middleware<StdSecure>>> {
 }
 
 #[cfg(feature = "std")]
-impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
+impl<'a> Server<'a, Std<dtls::N>, Vec<&'a Middleware<Std<dtls::N>>>> {
   /// Create a new Server
   ///
   /// ```no_run
   /// use toad::blocking::server::{Action, Actions, Server};
   /// use toad::net::Addrd;
-  /// use toad::platform::{Message, Std};
+  /// use toad::platform::Message;
   /// use toad::req::Req;
   /// use toad::resp::{code, Resp};
+  /// use toad::std::{dtls, PlatformTypes as Std};
   /// use toad::ContentFormat;
   ///
-  /// fn hello(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn hello(req: &Addrd<Req<Std<dtls::N>>>) -> Actions<Std<dtls::N>> {
   ///   match req.data().path() {
   ///     | Ok(Some("hello")) => {
   ///       let mut resp = Resp::for_request(req.data()).unwrap();
@@ -262,7 +262,7 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///       resp.set_option(12, ContentFormat::Json.bytes());
   ///       resp.set_payload(r#"{ "hello": "world" }"#.bytes());
   ///
-  ///       let msg = req.as_ref().map(|_| Message::<Std>::from(resp));
+  ///       let msg = req.as_ref().map(|_| Message::<Std<dtls::N>>::from(resp));
   ///
   ///       Action::Send(msg).into()
   ///     },
@@ -270,14 +270,14 @@ impl<'a> Server<'a, Std, Vec<&'a Middleware<Std>>> {
   ///   }
   /// }
   ///
-  /// fn not_found(req: &Addrd<Req<Std>>) -> Actions<Std> {
+  /// fn not_found(req: &Addrd<Req<Std<dtls::N>>>) -> Actions<Std<dtls::N>> {
   ///   let mut resp = Resp::for_request(req.data()).unwrap();
   ///   resp.set_code(code::NOT_FOUND);
-  ///   let msg: Addrd<Message<Std>> = req.as_ref().map(|_| resp.into());
+  ///   let msg: Addrd<Message<Std<dtls::N>>> = req.as_ref().map(|_| resp.into());
   ///   Action::Send(msg).into()
   /// }
   ///
-  /// let mut server = Server::<Std, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
+  /// let mut server = Server::<Std<dtls::N>, Vec<_>>::try_new([127, 0, 0, 1], 3030).unwrap();
   /// server.middleware(&hello);
   /// server.middleware(&not_found);
   /// ```
