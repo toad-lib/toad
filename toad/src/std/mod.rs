@@ -4,32 +4,70 @@ use embedded_time::rate::Fraction;
 
 /// Networking! woohoo!
 pub mod net;
+use core::marker::PhantomData;
 use std::fmt::Debug;
 use std::io;
-use std::net::UdpSocket;
 
+use dtls::sealed::Security;
 pub use net::*;
 use toad_msg::{Opt, OptNumber};
 
-use crate::platform::Effect;
+use crate::platform::{Effect, PlatformError};
 use crate::step::Step;
+
+/// Enable / Disable DTLS with types
+pub mod dtls {
+  use std::net::UdpSocket;
+
+  use sealed::Security;
+
+  use super::SecureUdpSocket;
+
+  pub(super) mod sealed {
+    use core::fmt::Debug;
+
+    /// Whether or not DTLS enabled
+    ///
+    /// # Implementors
+    pub trait Security: 'static + Debug {
+      type Socket: crate::net::Socket;
+    }
+  }
+
+  /// ZST marker for enabling DTLS
+  #[derive(Debug, Clone, Copy)]
+  pub struct Y;
+
+  /// ZST marker for disabling DTLS
+  #[derive(Debug, Clone, Copy)]
+  pub struct N;
+
+  impl Security for Y {
+    type Socket = SecureUdpSocket;
+  }
+
+  impl Security for N {
+    type Socket = UdpSocket;
+  }
+}
 
 /// implementor of [`crate::platform::PlatformTypes`] for
 /// platforms that support `std`.
 #[derive(Clone, Copy, Debug)]
-pub struct PlatformTypes;
+pub struct PlatformTypes<Sec>(PhantomData<Sec>) where Sec: Security;
 
-impl crate::platform::PlatformTypes for PlatformTypes {
+impl<Sec> crate::platform::PlatformTypes for PlatformTypes<Sec> where Sec: Security
+{
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = Vec<Opt<Vec<u8>>>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clock;
-  type Socket = UdpSocket;
+  type Socket = Sec::Socket;
   type Effects = Vec<Effect<Self>>;
 }
 
-impl<StepError, SocketError> crate::platform::PlatformError<StepError, SocketError> for io::Error
+impl<StepError, SocketError> PlatformError<StepError, SocketError> for io::Error
   where StepError: Debug,
         SocketError: Debug
 {
@@ -52,31 +90,43 @@ impl<StepError, SocketError> crate::platform::PlatformError<StepError, SocketErr
 
 /// implementor of [`crate::platform::Platform`] for `std`
 #[derive(Debug)]
-pub struct Platform<Steps> {
+pub struct Platform<Sec, Steps>
+  where Sec: Security
+{
   steps: Steps,
   config: crate::config::Config,
-  socket: UdpSocket,
+  socket: Sec::Socket,
   clock: Clock,
 }
 
-impl<Steps> Platform<Steps> {
+impl<Sec, Steps> Platform<Sec, Steps>
+  where Sec: Security,
+        Steps: Step<PlatformTypes<Sec>, PollReq = (), PollResp = ()>
+{
   /// Create a new std runtime
   pub fn try_new<A: std::net::ToSocketAddrs>(bind_to_addr: A,
                                              cfg: crate::config::Config)
                                              -> io::Result<Self>
     where Steps: Default
   {
-    UdpSocket::bind(bind_to_addr).map(|socket| Self { steps: Steps::default(),
+    use crate::net::Socket;
+    bind_to_addr.to_socket_addrs().and_then(|mut a| a.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "socket addr yielded 0 addresses"))).map(|a| {
+      use net::convert::{no_std, std};
+      no_std::SockAddr::from(std::SockAddr(a)).0
+    }).and_then(|a|
+        Sec::Socket::bind(a).map(|socket| Self { steps: Steps::default(),
                                                       config: cfg,
                                                       socket,
                                                       clock: Clock::new() })
+                            .map_err(|e| <io::Error as PlatformError<Steps::Error, <Sec::Socket as Socket>::Error>>::socket(e)))
   }
 }
 
-impl<Steps> crate::platform::Platform<Steps> for Platform<Steps>
-  where Steps: Step<PlatformTypes, PollReq = (), PollResp = ()>
+impl<Sec, Steps> crate::platform::Platform<Steps> for Platform<Sec, Steps>
+  where Sec: Security,
+        Steps: Step<PlatformTypes<Sec>, PollReq = (), PollResp = ()>
 {
-  type Types = PlatformTypes;
+  type Types = PlatformTypes<Sec>;
   type Error = io::Error;
 
   fn log(&self, level: log::Level, msg: crate::todo::String1Kb) -> Result<(), Self::Error> {
@@ -92,7 +142,7 @@ impl<Steps> crate::platform::Platform<Steps> for Platform<Steps>
     &self.steps
   }
 
-  fn socket(&self) -> &UdpSocket {
+  fn socket(&self) -> &Sec::Socket {
     &self.socket
   }
 
