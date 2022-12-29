@@ -1,5 +1,4 @@
 use no_std_net::{SocketAddr, ToSocketAddrs};
-use tinyvec::ArrayVec;
 use toad_common::*;
 
 /// Data that came from a network socket
