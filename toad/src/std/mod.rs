@@ -4,13 +4,15 @@ use embedded_time::rate::Fraction;
 
 /// Networking! woohoo!
 pub mod net;
-pub use net::*;
-use toad_msg::{Opt, OptNumber};
-
-use crate::{platform::Effect, step::Step};
 use std::fmt::Debug;
 use std::io;
 use std::net::UdpSocket;
+
+pub use net::*;
+use toad_msg::{Opt, OptNumber};
+
+use crate::platform::Effect;
+use crate::step::Step;
 
 /// implementor of [`crate::platform::PlatformTypes`] for
 /// platforms that support `std`.
@@ -27,22 +29,25 @@ impl crate::platform::PlatformTypes for PlatformTypes {
   type Effects = Vec<Effect<Self>>;
 }
 
-impl<StepError, SocketError> crate::platform::PlatformError<StepError, SocketError> for io::Error where StepError: Debug, SocketError: Debug {
-    fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
-      io::Error::new(io::ErrorKind::InvalidData, format!("{:?}", e))
-    }
+impl<StepError, SocketError> crate::platform::PlatformError<StepError, SocketError> for io::Error
+  where StepError: Debug,
+        SocketError: Debug
+{
+  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
+    io::Error::new(io::ErrorKind::InvalidData, format!("{:?}", e))
+  }
 
-    fn step(e: StepError) -> Self {
-      io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
-    }
+  fn step(e: StepError) -> Self {
+    io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
+  }
 
-    fn socket(e: SocketError) -> Self {
-     io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
-    }
+  fn socket(e: SocketError) -> Self {
+    io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
+  }
 
-    fn clock(e: embedded_time::clock::Error) -> Self {
-      io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
-    }
+  fn clock(e: embedded_time::clock::Error) -> Self {
+    io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
+  }
 }
 
 /// implementor of [`crate::platform::Platform`] for `std`
@@ -56,41 +61,44 @@ pub struct Platform<Steps> {
 
 impl<Steps> Platform<Steps> {
   /// Create a new std runtime
-  pub fn try_new<A: std::net::ToSocketAddrs>(bind_to_addr: A, cfg: crate::config::Config) -> io::Result<Self> where Steps: Default {
-    UdpSocket::bind(bind_to_addr).map(|socket|
-    Self {
-      steps: Steps::default(),
-      config: cfg,
-      socket,
-      clock: Clock::new(),
-    })
+  pub fn try_new<A: std::net::ToSocketAddrs>(bind_to_addr: A,
+                                             cfg: crate::config::Config)
+                                             -> io::Result<Self>
+    where Steps: Default
+  {
+    UdpSocket::bind(bind_to_addr).map(|socket| Self { steps: Steps::default(),
+                                                      config: cfg,
+                                                      socket,
+                                                      clock: Clock::new() })
   }
 }
 
-impl<Steps> crate::platform::Platform<Steps> for Platform<Steps> where Steps: Step<PlatformTypes, PollReq = (), PollResp = ()> {
-    type Types = PlatformTypes;
-    type Error = io::Error;
+impl<Steps> crate::platform::Platform<Steps> for Platform<Steps>
+  where Steps: Step<PlatformTypes, PollReq = (), PollResp = ()>
+{
+  type Types = PlatformTypes;
+  type Error = io::Error;
 
-    fn log(&self, level: log::Level, msg: crate::todo::String1Kb) -> Result<(), Self::Error> {
-      log::log!(target: "toad", level, "{}", msg.as_ref());
-      Ok(())
-    }
+  fn log(&self, level: log::Level, msg: crate::todo::String1Kb) -> Result<(), Self::Error> {
+    log::log!(target: "toad", level, "{}", msg.as_ref());
+    Ok(())
+  }
 
-    fn config(&self) -> crate::config::Config {
-      self.config
-    }
+  fn config(&self) -> crate::config::Config {
+    self.config
+  }
 
-    fn steps(&self) -> &Steps {
-      &self.steps
-    }
+  fn steps(&self) -> &Steps {
+    &self.steps
+  }
 
-    fn socket(&self) -> &UdpSocket {
-      &self.socket
-    }
+  fn socket(&self) -> &UdpSocket {
+    &self.socket
+  }
 
-    fn clock(&self) -> &Clock {
-      &self.clock
-    }
+  fn clock(&self) -> &Clock {
+    &self.clock
+  }
 }
 
 /// Implement [`embedded_time::Clock`] using [`std::time`] primitives
