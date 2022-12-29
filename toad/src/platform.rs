@@ -323,14 +323,8 @@ impl<P: PlatformTypes, T> Retryable<P, T> {
 }
 
 /// Configures `toad` to use `Vec` for collections,
-/// `UdpSocket` for networking, and [`crate::std::Clock`] for timing
-///
-/// ```
-/// use toad::platform::Std;
-/// use toad::req::Req;
-///
-/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
-/// ```
+/// but you need to provide [`Clock`] and [`Socket`]
+/// implementations.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 #[derive(Copy)]
@@ -341,7 +335,7 @@ pub struct Alloc<Clk, Sock>(core::marker::PhantomData<(Clk, Sock)>)
 #[cfg(feature = "alloc")]
 impl<Clk: Clock + 'static, Sock: Socket + 'static> core::fmt::Debug for Alloc<Clk, Sock> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    write!(f, "Alloc::<_, _>(_)")
+    write!(f, "Alloc::<_, _>")
   }
 }
 
@@ -362,25 +356,6 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> PlatformTypes for All
   type Socket = Sock;
   type Effects = Vec<Effect<Self>>;
 }
-
-/// Configures `toad` to use `Vec` for collections,
-/// `UdpSocket` for networking,
-/// and [`crate::std::Clock`] for timing
-///
-/// ```
-/// use toad::platform::Std;
-/// use toad::req::Req;
-///
-/// Req::<Std>::get("192.168.0.1:5683".parse().unwrap(), "/hello");
-/// ```
-#[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-pub type Std = Alloc<crate::std::Clock, std::net::UdpSocket>;
-
-/// [`Std`] secured with DTLS
-#[cfg(feature = "std")]
-#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-pub type StdSecure = Alloc<crate::std::Clock, crate::std::net::SecureUdpSocket>;
 
 /// [`toad_msg::Message`] shorthand using Platform types
 pub type Message<P> =

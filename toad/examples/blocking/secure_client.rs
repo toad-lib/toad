@@ -5,11 +5,10 @@ use toad::blocking::client::{ClientConfig, ClientResultExt};
 use toad::blocking::Client;
 use toad::core::Error;
 use toad::net::Addrd;
-use toad::platform::{Std, StdSecure};
 use toad::req::Req;
 use toad::resp::Resp;
 use toad::std::secure::SecureUdpSocket;
-use toad::std::Clock;
+use toad::std::{dtls, Clock, PlatformTypes as Std};
 use toad::time::Timeout;
 
 #[path = "./secure_server.rs"]
@@ -19,7 +18,7 @@ trait Log {
   fn log(self);
 }
 
-impl Log for Result<Resp<StdSecure>, toad::core::Error<StdSecure>> {
+impl Log for Result<Resp<Std<dtls::Y>>, toad::core::Error<Std<dtls::Y>>> {
   fn log(self) {
     match self {
       | Ok(rep) => {
@@ -34,7 +33,7 @@ impl Log for Result<Resp<StdSecure>, toad::core::Error<StdSecure>> {
   }
 }
 
-impl Log for Result<Option<Resp<StdSecure>>, Error<StdSecure>> {
+impl Log for Result<Option<Resp<Std<dtls::Y>>>, Error<Std<dtls::Y>>> {
   fn log(self) {
     match self {
       | Ok(None) => {
@@ -65,11 +64,12 @@ fn main() {
   let conn = conn.build();
 
   let sock = UdpSocket::bind("0.0.0.0:2222").unwrap();
-  let mut client = Client::<StdSecure>::new(ClientConfig { clock: Clock::new(),
-                                                           sock:
-                                                             SecureUdpSocket::new_client(conn, sock) });
-  let Addrd(_, addr) =
-    Client::<Std>::listen_multicast(Clock::new(), server::DISCOVERY_PORT, Timeout::Never).unwrap();
+  let mut client =
+    Client::<Std<dtls::Y>>::new(ClientConfig { clock: Clock::new(),
+                                               sock: SecureUdpSocket::new_client(conn, sock) });
+  let Addrd(_, addr) = Client::<Std<dtls::N>>::listen_multicast(Clock::new(),
+                                                                server::DISCOVERY_PORT,
+                                                                Timeout::Never).unwrap();
 
   log::info!("Got multicast message from {:?}", addr);
   log::info!("Server's location is {:?}", addr);
