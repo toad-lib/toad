@@ -12,6 +12,7 @@ use dtls::sealed::Security;
 pub use net::*;
 use toad_msg::{Opt, OptNumber};
 
+use crate::net::Socket;
 use crate::platform::{Effect, PlatformError};
 use crate::step::Step;
 
@@ -104,21 +105,33 @@ impl<Sec, Steps> Platform<Sec, Steps>
         Steps: Step<PlatformTypes<Sec>, PollReq = (), PollResp = ()>
 {
   /// Create a new std runtime
-  pub fn try_new<A: std::net::ToSocketAddrs>(bind_to_addr: A,
+  pub fn try_new<A: std::net::ToSocketAddrs>(addr: A,
                                              cfg: crate::config::Config)
                                              -> io::Result<Self>
     where Steps: Default
   {
-    use crate::net::Socket;
-    bind_to_addr.to_socket_addrs().and_then(|mut a| a.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "socket addr yielded 0 addresses"))).map(|a| {
-      use net::convert::{no_std, std};
-      no_std::SockAddr::from(std::SockAddr(a)).0
-    }).and_then(|a|
-        Sec::Socket::bind(a).map(|socket| Self { steps: Steps::default(),
-                                                      config: cfg,
-                                                      socket,
-                                                      clock: Clock::new() })
-                            .map_err(|e| <io::Error as PlatformError<Steps::Error, <Sec::Socket as Socket>::Error>>::socket(e)))
+    fn first_addr<A_: std::net::ToSocketAddrs>(a: A_) -> io::Result<std::net::SocketAddr> {
+      let yielded_no_addrs = || {
+        io::Error::new(io::ErrorKind::InvalidInput,
+                       "socket addr yielded 0 addresses")
+      };
+
+      a.to_socket_addrs()
+       .and_then(|mut a| a.next().ok_or_else(yielded_no_addrs))
+    }
+
+    let socket_error =
+      <io::Error as PlatformError<Steps::Error, <Sec::Socket as Socket>::Error>>::socket;
+
+    first_addr(addr).map(|a| {
+                      use net::convert::{no_std, std};
+                      no_std::SockAddr::from(std::SockAddr(a)).0
+                    })
+                    .and_then(|a| Sec::Socket::bind(a).map_err(socket_error))
+                    .map(|socket| Self { steps: Steps::default(),
+                                         config: cfg,
+                                         socket,
+                                         clock: Clock::new() })
   }
 }
 
