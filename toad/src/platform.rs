@@ -66,7 +66,7 @@ pub trait PlatformError<StepError, SocketError>: Sized {
 ///   * The CoAP runtime, plus user code and potential extensions. The [`Step`] trait represents a type-level linked list of steps that, when all executed, add up to the CoAP runtime. For more information see the [`Step`] trait.
 /// * [`Platform::Types`]
 /// * [`Platform::Error`]
-pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>>: Default {
+pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>> {
   /// See [`PlatformTypes`]
   type Types: PlatformTypes;
 
