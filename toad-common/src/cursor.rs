@@ -275,10 +275,13 @@ mod tests {
   #[test]
   pub fn take_while() {
     let mut cur = Cursor::new("abc/def");
-    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "abc");
+
+    let til_slash = |c: &mut Cursor<&str>| core::str::from_utf8(c.take_while(|b| (b as char) != '/')).unwrap().to_string();
+
+    assert_eq!(til_slash(&mut cur), "abc".to_string());
     cur.skip(1);
-    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "def");
-    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "");
+    assert_eq!(til_slash(&mut cur), "def".to_string());
+    assert_eq!(til_slash(&mut cur), "".to_string());
   }
 
   #[test]
