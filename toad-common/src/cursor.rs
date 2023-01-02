@@ -135,7 +135,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
     Self::skip_(&mut self.cursor, self.len, n)
   }
 
-  /// Consume bytes until a predicate returns `false`.
+  /// Consume bytes until a predicate returns `false` or the end is reached.
   ///
   /// Runs in O(n) time.
   pub fn take_while(&mut self, mut f: impl FnMut(u8) -> bool) -> &[u8] {
@@ -143,18 +143,18 @@ impl<T: AsRef<[u8]>> Cursor<T> {
       return &[];
     }
 
-    let mut i = 0;
+    let mut i = self.cursor;
 
     loop {
-      if i + 1 >= self.len {
-        break &self.t.as_ref()[self.cursor..];
-      }
-
       i += 1;
 
-      if !f(self.t.as_ref()[i]) {
+      if i >= self.len {
+        let out = &self.t.as_ref()[self.cursor..];
+        self.cursor = self.len;
+        break out;
+      } else if !f(self.t.as_ref()[i]) {
         let out = &self.t.as_ref()[self.cursor..i];
-        self.cursor += i;
+        self.cursor = i;
         break out;
       }
     }
@@ -274,10 +274,11 @@ mod tests {
 
   #[test]
   pub fn take_while() {
-    let mut cur = Cursor::new(vec![2, 4, 6, 7]);
-    assert_eq!(cur.take_while(|n| n % 2 == 0), &[2, 4, 6]);
-    assert_eq!(cur.next(), Some(7));
-    assert_eq!(cur.take_while(|_| true), &[]);
+    let mut cur = Cursor::new("abc/def");
+    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "abc");
+    cur.skip(1);
+    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "def");
+    assert_eq!(core::str::from_utf8(cur.take_while(|b| (b as char) != '/')).unwrap(), "");
   }
 
   #[test]
