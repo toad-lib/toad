@@ -143,7 +143,7 @@ impl<Sec, Steps> crate::platform::Platform<Steps> for Platform<Sec, Steps>
   type Error = io::Error;
 
   fn log(&self, level: log::Level, msg: crate::todo::String1Kb) -> Result<(), Self::Error> {
-    log::log!(target: "toad", level, "{}", msg.as_ref());
+    log::log!(target: "toad", level, "{}", msg.as_str());
     Ok(())
   }
 
