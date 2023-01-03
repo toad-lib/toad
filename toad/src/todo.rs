@@ -33,6 +33,18 @@ pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;
 #[derive(Debug, Copy, Clone, Default)]
 pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
 
+impl String1Kb {
+  /// Alias for [`AsRef`]
+  pub fn as_str(&self) -> &str {
+    self.as_ref()
+  }
+
+  /// Alias for [`AsRef`]
+  pub fn as_bytes(&self) -> &[u8] {
+    self.as_ref()
+  }
+}
+
 impl PartialEq for String1Kb {
   fn eq(&self, other: &Self) -> bool {
     self.0.as_str() == other.0.as_str()
@@ -59,6 +71,12 @@ impl<'a> From<&'a str> for String1Kb {
 impl AsRef<str> for String1Kb {
   fn as_ref(&self) -> &str {
     self.0.as_str()
+  }
+}
+
+impl AsRef<[u8]> for String1Kb {
+  fn as_ref(&self) -> &[u8] {
+    self.0.as_str().as_bytes()
   }
 }
 
