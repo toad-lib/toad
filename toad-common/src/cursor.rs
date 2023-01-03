@@ -135,7 +135,7 @@ impl<T: AsRef<[u8]>> Cursor<T> {
     Self::skip_(&mut self.cursor, self.len, n)
   }
 
-  /// Consume bytes until a predicate returns `false`.
+  /// Consume bytes until a predicate returns `false` or the end is reached.
   ///
   /// Runs in O(n) time.
   pub fn take_while(&mut self, mut f: impl FnMut(u8) -> bool) -> &[u8] {
@@ -143,21 +143,15 @@ impl<T: AsRef<[u8]>> Cursor<T> {
       return &[];
     }
 
-    let mut i = 0;
-
-    loop {
-      if i + 1 >= self.len {
-        break &self.t.as_ref()[self.cursor..];
-      }
-
-      i += 1;
-
-      if !f(self.t.as_ref()[i]) {
-        let out = &self.t.as_ref()[self.cursor..i];
-        self.cursor += i;
-        break out;
-      }
-    }
+    (self.cursor..self.len).into_iter()
+                           .take_while(|ix| f(self.t.as_ref()[*ix]))
+                           .last()
+                           .map(|end_ix| {
+                             let out = &self.t.as_ref()[self.cursor..=end_ix];
+                             self.cursor = end_ix + 1;
+                             out
+                           })
+                           .unwrap_or(&[])
   }
 
   /// Whether the cursor has reached the end
@@ -274,10 +268,28 @@ mod tests {
 
   #[test]
   pub fn take_while() {
-    let mut cur = Cursor::new(vec![2, 4, 6, 7]);
-    assert_eq!(cur.take_while(|n| n % 2 == 0), &[2, 4, 6]);
-    assert_eq!(cur.next(), Some(7));
-    assert_eq!(cur.take_while(|_| true), &[]);
+    let til_slash = |c: &mut Cursor<&str>| {
+      core::str::from_utf8(c.take_while(|b| (b as char) != '/')).unwrap()
+                                                                .to_string()
+    };
+
+    let mut cur = Cursor::new("abc/def");
+    assert_eq!(til_slash(&mut cur), "abc".to_string());
+    cur.skip(1);
+    assert_eq!(til_slash(&mut cur), "def".to_string());
+    assert_eq!(til_slash(&mut cur), "".to_string());
+
+    let mut cur = Cursor::new("a");
+    assert_eq!(til_slash(&mut cur), "a");
+
+    let mut cur = Cursor::new("");
+    assert_eq!(til_slash(&mut cur), "");
+
+    let mut cur = Cursor::new("ab");
+    assert_eq!(til_slash(&mut cur), "ab");
+
+    let mut cur = Cursor::new("/abcd");
+    assert_eq!(til_slash(&mut cur), "");
   }
 
   #[test]
