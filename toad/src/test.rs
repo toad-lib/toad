@@ -15,6 +15,28 @@ use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
 
+// lol `crate::test::x.x.x.x(80)`
+pub struct X1 {
+  pub x: X2,
+}
+pub struct X2 {
+  pub x: X3,
+}
+pub struct X3;
+impl X3 {
+  pub fn x(&self, port: u16) -> SocketAddr {
+    addr(port)
+  }
+}
+
+#[allow(non_upper_case_globals)]
+pub const x: X1 = X1 { x: X2 { x: X3 } };
+
+pub fn addr(port: u16) -> SocketAddr {
+  use no_std_net::*;
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), port))
+}
+
 #[macro_export]
 macro_rules! msg {
   (CON GET x.x.x.x:$port:literal) => { $crate::test::msg!(CON {1 . 1} x.x.x.x:$port) };
@@ -41,12 +63,11 @@ macro_rules! msg {
 
   ({$ty:expr} {$code:expr} x.x.x.x:$port:literal) => {{
     use $crate::net::Addrd;
-    use no_std_net::*;
     use toad_msg::*;
 
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), $port));
+    let addr = $crate::test::x.x.x.x($port);
 
-    Addrd(test::Message {
+    Addrd($crate::test::Message {
       ver: Default::default(),
       ty: $ty,
       token: Token(Default::default()),

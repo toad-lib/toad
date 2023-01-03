@@ -14,22 +14,6 @@ categories = ["network-programming"]
 [badges]
 maintenance = { status = "actively-developed" }
 
-[[example]]
-name = "blocking_server"
-path = "examples/blocking/server.rs"
-
-[[example]]
-name = "blocking_client"
-path = "examples/blocking/client.rs"
-
-[[example]]
-name = "blocking_secure_server"
-path = "examples/blocking/secure_server.rs"
-
-[[example]]
-name = "blocking_secure_client"
-path = "examples/blocking/secure_client.rs"
-
 [features]
 default = ["std"]
 std = ["alloc", "openssl", "toad-common/std"]
@@ -38,7 +22,7 @@ test = []
 docs = []
 
 [dependencies]
-toad-common = {version = "0.11.0", default_features = false}
+toad-common = {version = "0.11.3", default_features = false}
 toad-msg = "0.8.3"
 toad-macros = "0.2.0"
 log = "0.4"
