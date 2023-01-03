@@ -138,6 +138,9 @@ pub mod std;
 
 mod option;
 
+/// TODO
+pub mod server;
+
 pub use option::{ContentFormat, ToCoapValue};
 
 /// Helper constants and functions for creating multicast addresses
