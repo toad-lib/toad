@@ -6,13 +6,41 @@ use crate::server::ap::{Ap, Hydrate};
 
 macro_rules! was_not_ok_hy {
     ($other:expr) => {
-        unreachable!("State type argument was `Hydrated`, so I expected the runtime value to be Ap(ApInner::OkHydrated {{ .. }}), but got {:?}", $other.map(|_| ()).0)
+        unreachable!(
+          "State type argument was {} so I expected the runtime value to be {}, but got {:?}",
+          "`Hydrated`",
+          "Ap(ApInner::OkHydrated { .. })",
+          $other.map(|_| ()).0
+        )
     };
   }
 
+/// Manipulate & match against path segments
 pub mod segment {
   use super::*;
 
+  /// Get the next path segment
+  ///
+  /// ```
+  /// use toad::net::Addrd;
+  /// use toad::req::Req;
+  /// use toad::server::ap::{state, Ap, Hydrate};
+  /// use toad::server::path;
+  /// use toad::std::{dtls, PlatformTypes as Std};
+  ///
+  /// # let addr = || {
+  /// #   use no_std_net::*;
+  /// #   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+  /// # };
+  /// let addr = addr(); // 192.168.0.1:8080
+  /// let req = Req::<Std<dtls::Y>>::get(addr, "a/b/c");
+  /// let ap: Ap<_, Std<dtls::Y>, (), ()> =
+  ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(req, addr)));
+  ///
+  /// ap.pipe(path::segment::next(|_, a| Ap::ok(assert_eq!(a.unwrap(), "a"))))
+  ///   .pipe(path::segment::next(|_, b| Ap::ok(assert_eq!(b.unwrap(), "b"))))
+  ///   .pipe(path::segment::next(|_, c| Ap::ok(assert_eq!(c.unwrap(), "c"))));
+  /// ```
   pub fn next<T, SOut, R, F, P, E>(
     f: F)
     -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<SOut as Combine<Hydrated>>::Out, P, R, E>
@@ -44,8 +72,41 @@ pub mod segment {
     }
   }
 
+  /// Helper functions for adding filters against path segments
   pub mod check {
     use super::*;
+
+    /// Reject the request if the next path segment does not match a predicate `F: FnOnce(&str) -> bool`
+    ///
+    /// ```
+    /// use toad::net::Addrd;
+    /// use toad::req::Req;
+    /// use toad::server::ap::{state, Ap, Hydrate};
+    /// use toad::server::path;
+    /// use toad::std::{dtls, PlatformTypes as Std};
+    ///
+    /// # let addr = || {
+    /// #   use no_std_net::*;
+    /// #   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+    /// # };
+    /// let addr = addr(); // 192.168.0.1:8080
+    ///
+    /// let fruit_request = Req::<Std<dtls::Y>>::get(addr, "fruit/banana");
+    /// let fruit_ap: Ap<_, Std<dtls::Y>, (), ()> =
+    ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(fruit_request, addr)));
+    /// let fruit_filtered = fruit_ap.pipe(path::segment::check::next_is(|s| s == "fruit"));
+    /// assert!(fruit_filtered.is_ok());
+    /// assert!(fruit_filtered.pipe(path::segment::check::next_is(|s| s == "meat"))
+    ///                       .is_rejected());
+    ///
+    /// let meat_request = Req::<Std<dtls::Y>>::get(addr, "meat/steak");
+    /// let meat_ap: Ap<_, Std<dtls::Y>, (), ()> =
+    ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(meat_request, addr)));
+    /// let meat_filtered = meat_ap.pipe(path::segment::check::next_is(|s| s == "meat"));
+    /// assert!(meat_filtered.is_ok());
+    /// assert!(meat_filtered.pipe(path::segment::check::next_is(|s| s == "fruit"))
+    ///                      .is_rejected());
+    /// ```
     pub fn next_is<F, P, T, E>(f: F) -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, T, E>
       where P: PlatformTypes,
             E: core::fmt::Debug,
@@ -57,6 +118,7 @@ pub mod segment {
       })
     }
 
+    /// Reject the request if the next path segment does not equal `path`
     pub fn next_equals<A, P, T, E>(path: A)
                                    -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, T, E>
       where P: PlatformTypes,
@@ -67,8 +129,42 @@ pub mod segment {
     }
   }
 
+  /// Route parameter extraction
   pub mod param {
     use super::*;
+
+    /// Consume the next path segment as an integer
+    ///
+    /// If the segment fails to be parsed with [`u32::from_str_radix`],
+    /// the request will be rejected.
+    ///
+    /// ```
+    /// use toad::net::Addrd;
+    /// use toad::req::Req;
+    /// use toad::server::ap::{state, Ap, Hydrate};
+    /// use toad::server::path;
+    /// use toad::std::{dtls, PlatformTypes as Std};
+    ///
+    /// # let addr = || {
+    /// #   use no_std_net::*;
+    /// #   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+    /// # };
+    /// let addr = addr(); // 192.168.0.1:8080
+    ///
+    /// let num_request = Req::<Std<dtls::Y>>::get(addr, "1234");
+    /// let num_ap: Ap<_, Std<dtls::Y>, (), ()> =
+    ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(num_request, addr)));
+    ///
+    /// assert_eq!(num_ap.pipe(path::segment::param::u32)
+    ///                  .try_unwrap_ok()
+    ///                  .unwrap(),
+    ///            ((), 1234));
+    ///
+    /// let other_request = Req::<Std<dtls::Y>>::get(addr, "foobar");
+    /// let other_ap: Ap<_, Std<dtls::Y>, (), ()> =
+    ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(other_request, addr)));
+    /// assert!(other_ap.pipe(path::segment::param::u32).is_rejected());
+    /// ```
     pub fn u32<P, T, E>(ap: Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, (T, u32), E>
       where P: PlatformTypes,
             E: core::fmt::Debug
@@ -87,6 +183,8 @@ pub mod segment {
   }
 }
 
+/// Get the rest of the request path, skipping any
+/// consumed [`segment`]s.
 pub fn rest<T, SOut, R, F, P, E>(
   f: F)
   -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<SOut as Combine<Hydrated>>::Out, P, R, E>
@@ -106,9 +204,11 @@ pub fn rest<T, SOut, R, F, P, E>(
   }
 }
 
+/// Helper functions for adding filters against whole paths
 pub mod check {
   use super::*;
 
+  /// Reject the request if the rest of the path does not match a predicate `F: FnOnce(&str) -> bool`
   pub fn rest_is<F, P, T, E>(f: F) -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, T, E>
     where P: PlatformTypes,
           E: core::fmt::Debug,
@@ -120,6 +220,7 @@ pub mod check {
     })
   }
 
+  /// Reject the request if the rest of the path does not equal `path`
   pub fn rest_equals<A, P, T, E>(path: A)
                                  -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, T, E>
     where P: PlatformTypes,
@@ -129,6 +230,7 @@ pub mod check {
     rest_is(move |a| a == path.as_ref())
   }
 
+  /// Reject the request if the rest of the path does not end with `path`
   pub fn ends_with<A, T, P, E>(path: A)
                                -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<Hydrated, P, T, E>
     where P: PlatformTypes,
