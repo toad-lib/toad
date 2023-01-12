@@ -61,7 +61,6 @@ pub mod segment {
             let ap_r = f(t, Some(seg_str));
 
             // skip the slash
-            drop(seg_str);
             Cursor::skip(&mut path, 1);
 
             ap_r.bind(|r| Ap::ok_hydrated(r, Hydrate { req, path }))
