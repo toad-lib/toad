@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use toad_common::Cursor;
 
 use self::ap::state::{Complete, Hydrated};
@@ -10,23 +8,69 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::todo::String1Kb;
 
+/// Server flow applicative
 pub mod ap;
+
+/// Path manipulation
+///
+/// * [`segment`](path::segment)
+///    * [`next()`](path::segment::next) - consume the next segment of the route & combine it with data in the `Ap`
+///    * [`check`](path::segment::check)
+///       * [`next_is()`](path::segment::check::next_is) - assert that the next route segment matches a predicate
+///       * [`next_equals()`](path::segment::check::next_is) - assert that the next route segment equals a string
+///    * [`param`](path::segment::param)
+///       * [`u32()`](path::segment::param::u32) - consume the next route segment and parse as u32, rejecting the request if parsing fails.
+/// * [`rest()`](path::rest) - extract the full route, skipping consumed segments & combine it with data in the `Ap`
+/// * [`check`](path::check)
+///    * [`rest_is()`](path::check::rest_is) - assert that the rest of the route matches a predicate
+///    * [`rest_equals()`](path::check::rest_equals) - assert that the rest of the route matches a string
+///    * [`ends_with()`](path::check::ends_with) - assert that the rest of the route ends with a string
 pub mod path;
+
+/// Respond to requests
 pub mod respond;
 
+/// [`Run`] errors
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum Error<E> {
+  /// Path was not valid UTF8
   PathDecodeError(core::str::Utf8Error),
+  /// Request was ACK / EMPTY (these should be handled & swallowed by the toad runtime)
   RequestInvalidType(toad_msg::Type),
+  /// Error of input type `E`
   User(E),
 }
 
+/// A request was received and needs to be handled by `Run`ning your code.
+///
+/// This data structure allows you to declare a re-runnable block
+/// of code that will be invoked with every incoming request.
+///
+/// ```
+/// use toad::server::ap::Hydrate;
+/// use toad::server::{respond, Error, Run};
+/// use toad::std::{dtls, PlatformTypes as Std};
+///
+/// let run: Run<Std<dtls::Y>, ()> = Run::Error(Error::User(()));
+/// run.maybe(|ap| {
+///      let (_, Hydrate { req, .. }) = ap.try_unwrap_ok_hydrated().unwrap();
+///      if req.data().path() == Ok(Some("hello")) {
+///        let name = req.data().payload_str().unwrap_or("you nameless scoundrel");
+///        respond::ok(format!("hi there, {}!", name).into()).hydrate(req)
+///      } else {
+///        respond::respond(toad::resp::code::NOT_FOUND, [].into()).hydrate(req)
+///      }
+///    });
+/// ```
 #[derive(Debug)]
 pub enum Run<P, E>
   where P: PlatformTypes
 {
+  /// Request has not been matched yet
   Unmatched(Addrd<Req<P>>),
+  /// Request has a response
   Matched(Addrd<Message<P>>),
+  /// An Error occurred
   Error(Error<E>),
 }
 
@@ -48,6 +92,7 @@ impl<P, E> Run<P, E>
   where P: PlatformTypes,
         E: core::fmt::Debug
 {
+  /// Lift an [`Ap`] to [`Run`]
   pub fn handle(ap: Ap<Complete, P, (), E>) -> Self {
     match ap.0 {
       | ApInner::Err(e) => Self::Error(Error::User(e)),
@@ -79,6 +124,9 @@ impl<P, E> Run<P, E>
     }
   }
 
+  /// Use a function to potentially respond to a request
+  ///
+  /// Each "maybe" branch corresponds roughly to a route / RESTful CoAP resource.
   pub fn maybe<F>(self, mut f: F) -> Self
     where F: FnMut(Ap<Hydrated, P, (), E>) -> Ap<Complete, P, (), E>
   {
@@ -98,10 +146,6 @@ impl<P, E> Run<P, E>
            .unwrap_or_else(|e| e)
       },
     }
-  }
-
-  pub fn otherwise(self) -> Result<Addrd<Message<P>>, E> {
-    todo!()
   }
 }
 
