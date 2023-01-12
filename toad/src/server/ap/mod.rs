@@ -155,7 +155,8 @@ impl<P> core::fmt::Debug for Hydrate<P> where P: PlatformTypes
 ///
 /// let my_ap: Ap<_, Std<dtls::Y>, (), String> =
 ///   Ap::err(Error::UhOh("failed to do the thing!".to_string())).map_err(|e| format!("{e:?}"));
-/// assert_eq!(my_ap, Ap::err("UhOh(\"failed to do the thing!\")".to_string()));
+/// assert_eq!(my_ap,
+///            Ap::err("UhOh(\"failed to do the thing!\")".to_string()));
 /// ```
 ///
 /// ### Combining multiple Aps
@@ -169,8 +170,8 @@ impl<P> core::fmt::Debug for Hydrate<P> where P: PlatformTypes
 /// continuing.
 /// (e.g. self is `ok_hydrated`, closure returned `reject`, output will be `reject_hydrated`)
 /// ```
-/// use toad::req::Req;
 /// use toad::net::Addrd;
+/// use toad::req::Req;
 /// use toad::server::ap::*;
 /// use toad::std::{dtls, PlatformTypes as Std};
 ///
@@ -303,8 +304,10 @@ impl<P, T, E> Ap<Complete, P, T, E>
         E: core::fmt::Debug
 {
   /// Coerce the state type to any other (this only applies to `Ap`s which are known to be [`Complete`].)
-  pub fn pretend<S>(self) -> Ap<S, P, T, E> where S: ApState {
-      self.coerce_state()
+  pub fn pretend<S>(self) -> Ap<S, P, T, E>
+    where S: ApState
+  {
+    self.coerce_state()
   }
 
   /// [`Ap::reject`] with a request context
@@ -425,7 +428,7 @@ impl<S, P, T, E> Ap<S, P, T, E>
   ///
   /// ```
   /// use toad::server::ap::*;
-  /// use toad::std::{PlatformTypes as Std, dtls};
+  /// use toad::std::{dtls, PlatformTypes as Std};
   ///
   /// fn ok_to_err<S: state::ApState>(ap: Ap<S, Std<dtls::Y>, (), ()>) -> Ap<S, Std<dtls::Y>, (), ()> {
   ///   if ap.is_ok() {
