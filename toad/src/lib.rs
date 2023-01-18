@@ -54,9 +54,6 @@ pub(crate) mod test;
 
 pub(crate) mod logging;
 
-/// Blocking rust CoAP client & server
-pub mod blocking;
-
 /// customizable retrying of fallible operations
 pub mod retry;
 
@@ -65,9 +62,6 @@ pub mod resp;
 
 /// requests
 pub mod req;
-
-/// low-level coap behavior
-pub mod core;
 
 /// # The [`Step`](crate::step::Step) trait
 /// The Step trait defines a powerful but simple API that allows
