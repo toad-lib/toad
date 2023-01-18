@@ -482,6 +482,10 @@ impl Socket for SecureUdpSocket {
   type Error = Error;
   type Dgram = ArrayVec<[u8; 1152]>;
 
+  fn empty_dgram() -> Self::Dgram {
+    ArrayVec::from([0u8; 1152])
+  }
+
   fn bind_raw<A: no_std_net::ToSocketAddrs>(_: A) -> Result<Self> {
     todo!()
   }

@@ -130,22 +130,6 @@ impl<P: PlatformTypes> Req<P> {
 
   /// Updates the Message ID for this request
   ///
-  /// NOTE:
-  /// attempting to convert a request into a [`toad_msg::Message`] without
-  /// first calling `set_msg_id` and `set_msg_token` will panic.
-  ///
-  /// These 2 methods will always be invoked for you by the toad runtime.
-  ///
-  /// ```should_panic
-  /// use toad::platform;
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  ///
-  /// let req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
-  /// // Panics!!
-  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
-  /// ```
-  ///
   /// ```
   /// use toad::platform;
   /// use toad::req::Req;
@@ -156,7 +140,6 @@ impl<P: PlatformTypes> Req<P> {
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
-  /// // Works B)
   /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   pub fn set_msg_id(&mut self, id: Id) {
@@ -165,22 +148,6 @@ impl<P: PlatformTypes> Req<P> {
 
   /// Updates the Message Token for this request
   ///
-  /// NOTE:
-  /// attempting to convert a request into a [`toad_msg::Message`] without
-  /// first calling `set_msg_id` and `set_msg_token` will panic.
-  ///
-  /// These 2 methods will always be invoked for you by the toad runtime.
-  ///
-  /// ```should_panic
-  /// use toad::platform;
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  ///
-  /// let req = Req::<Std<dtls::Y>>::get("127.0.0.1:5683".parse().unwrap(), "hello");
-  /// // Panics!!
-  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
-  /// ```
-  ///
   /// ```
   /// use toad::platform;
   /// use toad::req::Req;
@@ -191,7 +158,6 @@ impl<P: PlatformTypes> Req<P> {
   /// req.set_msg_id(Id(0));
   /// req.set_msg_token(Token(Default::default()));
   ///
-  /// // Works B)
   /// let msg: platform::Message<Std<dtls::Y>> = req.into();
   /// ```
   pub fn set_msg_token(&mut self, token: Token) {
@@ -403,8 +369,8 @@ impl<P: PlatformTypes> Req<P> {
 impl<P: PlatformTypes> From<Req<P>> for platform::Message<P> {
   fn from(mut req: Req<P>) -> Self {
     req.normalize_opts();
-    req.msg.id = req.id.expect("Request ID was None");
-    req.msg.token = req.token.expect("Request Token was None");
+    req.msg.id = req.id.unwrap_or(Id(0));
+    req.msg.token = req.token.unwrap_or(Token(Default::default()));
     req.msg
   }
 }
