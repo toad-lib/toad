@@ -92,16 +92,16 @@ impl Code {
   /// let empty: Code = Code::new(0, 0);
   /// assert_eq!(empty.kind(), CodeKind::Empty);
   ///
-  /// let req = Code::new(1, 1); // GET
+  /// let req = Code::new(0, 1); // GET
   /// assert_eq!(req.kind(), CodeKind::Request);
   ///
   /// let resp = Code::new(2, 5); // OK CONTENT
   /// assert_eq!(resp.kind(), CodeKind::Response);
   /// ```
   pub fn kind(&self) -> CodeKind {
-    match self.class {
-      | 0 => CodeKind::Empty,
-      | 1 => CodeKind::Request,
+    match (self.class, self.detail) {
+      | (0, 0) => CodeKind::Empty,
+      | (0, _) => CodeKind::Request,
       | _ => CodeKind::Response,
     }
   }
