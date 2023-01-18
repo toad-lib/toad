@@ -12,8 +12,10 @@ use dtls::sealed::Security;
 pub use net::*;
 use toad_msg::{Opt, OptNumber};
 
-use crate::net::Socket;
+use crate::net::{Addrd, Socket};
 use crate::platform::{Effect, PlatformError};
+use crate::req::Req;
+use crate::resp::Resp;
 use crate::step::Step;
 
 /// Enable / Disable DTLS with types
@@ -102,7 +104,9 @@ pub struct Platform<Sec, Steps>
 
 impl<Sec, Steps> Platform<Sec, Steps>
   where Sec: Security,
-        Steps: Step<PlatformTypes<Sec>, PollReq = (), PollResp = ()>
+        Steps: Step<PlatformTypes<Sec>,
+                    PollReq = Addrd<Req<PlatformTypes<Sec>>>,
+                    PollResp = Addrd<Resp<PlatformTypes<Sec>>>>
 {
   /// Create a new std runtime
   pub fn try_new<A: std::net::ToSocketAddrs>(addr: A,
@@ -137,7 +141,9 @@ impl<Sec, Steps> Platform<Sec, Steps>
 
 impl<Sec, Steps> crate::platform::Platform<Steps> for Platform<Sec, Steps>
   where Sec: Security,
-        Steps: Step<PlatformTypes<Sec>, PollReq = (), PollResp = ()>
+        Steps: Step<PlatformTypes<Sec>,
+                    PollReq = Addrd<Req<PlatformTypes<Sec>>>,
+                    PollResp = Addrd<Resp<PlatformTypes<Sec>>>>
 {
   type Types = PlatformTypes<Sec>;
   type Error = io::Error;
