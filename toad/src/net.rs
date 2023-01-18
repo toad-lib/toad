@@ -65,9 +65,15 @@ pub trait Socket: Sized {
 
   /// Buffer type used for receiving and sending datagrams.
   ///
-  /// GOTCHA: heap-allocated buffers must have a set zeroed length (ex. `Vec::resize(_, 1024usize, 0u8)`)
-  /// if you try to use an empty vec as a dgram buffer (ex. `vec![]`), 0 bytes will be read.
+  /// GOTCHA: if the length of the buffer is zero (even if the capacity is greater in the case
+  /// of ArrayVec or Vec), no bytes will be read. Make sure you set the length
+  /// manually with zero `0u8` filled in each position. (ex. `Vec::resize(_, 1024usize, 0u8)`)
   type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq;
+
+  /// Create an empty [`Socket::Dgram`] buffer
+  ///
+  /// (this has a major GOTCHA, see [`Socket::Dgram`].)
+  fn empty_dgram() -> Self::Dgram;
 
   /// Bind the socket to an address, without doing any spooky magic things like switching to non-blocking mode
   /// or auto-detecting and joining multicast groups.
@@ -139,7 +145,7 @@ pub trait Socket: Sized {
 
   /// Poll the socket for a datagram from the `connect`ed host
   fn poll(&self) -> Result<Option<Addrd<Self::Dgram>>, Self::Error> {
-    let mut buf = Self::Dgram::default();
+    let mut buf = Self::empty_dgram();
     let recvd = self.recv(&mut buf);
 
     match recvd {

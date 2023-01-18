@@ -59,4 +59,8 @@ impl Socket for UdpSocket {
                                                 })
                                                 .map_err(convert::io_to_nb)
   }
+
+  fn empty_dgram() -> Self::Dgram {
+    ArrayVec::from([0u8; 1152])
+  }
 }

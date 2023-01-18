@@ -4,6 +4,57 @@ use toad_msg::Token;
 use crate::net::Addrd;
 use crate::platform::{self, PlatformTypes};
 
+/// Standard set of Steps
+pub mod runtime {
+  use naan::prelude::{HKT1, HKT2};
+  use no_std_net::SocketAddr;
+  use toad_msg::Token;
+
+  use super::ack::Ack;
+  use super::parse::Parse;
+  use super::provision_ids::{self, IdWithDefault, SocketAddrWithDefault};
+  use super::provision_tokens::ProvisionTokens;
+  use super::{buffer_responses, reset, retry};
+  use crate::net::Addrd;
+  use crate::platform::{Message, PlatformTypes};
+  use crate::resp::Resp;
+  use crate::time::Stamped;
+
+  /// `Map<naan::hkt::HashMap, u32, String> == Vec<(u32, String)>`
+  type Map<M, K, V> = <M as HKT2>::T<K, V>;
+  /// `Array<naan::hkt::Vec, u32> == Vec<u32>`
+  type Array<A, T> = <A as HKT1>::T<T>;
+
+  type Clock<P> = <P as PlatformTypes>::Clock;
+
+  type Reset<M, S> = reset::Reset<S, Map<M, Addrd<Token>, ()>>;
+  type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
+  type BufferResponses<P, M, S> =
+    buffer_responses::BufferResponses<S,
+                                      Map<M, (SocketAddr, Token, toad_msg::Type), Addrd<Resp<P>>>>;
+  type ProvisionIds<P, M, A, S> =
+    provision_ids::ProvisionIds<P,
+                                S,
+                                Map<M,
+                                    SocketAddrWithDefault,
+                                    Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
+
+  /// Ack -> Retry -> Reset -> BufferResponses -> ProvisionIds -> ProvisionTokens
+  pub type Runtime<P, Array, Map> =
+    ProvisionTokens<ProvisionIds<P,
+                                 Map,
+                                 Array,
+                                 BufferResponses<P,
+                                                 Map,
+                                                 Reset<Map, Retry<P, Array, Ack<Parse<()>>>>>>>;
+
+  /// TODO
+  pub mod std {
+    /// TODO
+    pub type Runtime<P> = super::Runtime<P, naan::hkt::Vec, naan::hkt::BTreeMap>;
+  }
+}
+
 /// # Buffer & resend messages until they get a sufficient response
 /// * Client Flow ✓
 /// * Server Flow ✓

@@ -153,10 +153,10 @@ mod test {
   test::test_step!(
       GIVEN Ack::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
       WHEN inner_yields_con_request [
-        (inner.poll_req => { Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0)) })
+        (inner.poll_req => { Some(Ok(test_msg(Type::Con, Code::new(0, 01)).0)) })
       ]
       THEN poll_req_should_ack [
-        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(1, 01)).0))) }),
+        (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Ok(test_msg(Type::Con, Code::new(0, 01)).0))) }),
         (effects == {
           vec![
             Effect::Send(

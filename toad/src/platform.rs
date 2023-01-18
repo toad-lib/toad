@@ -9,6 +9,8 @@ use toad_msg::{Opt, OptNumber, Token, TryIntoBytes};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
+use crate::req::Req;
+use crate::resp::Resp;
 use crate::step::Step;
 use crate::time::Clock;
 use crate::todo::String1Kb;
@@ -66,7 +68,10 @@ pub trait PlatformError<StepError, SocketError>: Sized {
 ///   * The CoAP runtime, plus user code and potential extensions. The [`Step`] trait represents a type-level linked list of steps that, when all executed, add up to the CoAP runtime. For more information see the [`Step`] trait.
 /// * [`Platform::Types`]
 /// * [`Platform::Error`]
-pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>> {
+pub trait Platform<Steps>
+  where Steps:
+          Step<Self::Types, PollReq = Addrd<Req<Self::Types>>, PollResp = Addrd<Resp<Self::Types>>>
+{
   /// See [`PlatformTypes`]
   type Types: PlatformTypes;
 
@@ -79,28 +84,41 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>> {
   /// Take a snapshot of the platform's state right now,
   /// including the system time and datagrams currently
   /// in the network socket
-  fn snapshot(&self) -> nb::Result<Snapshot<Self::Types>, Self::Error> {
+  fn snapshot_maybe_dgram(&self) -> Result<Snapshot<Self::Types>, Self::Error> {
     use embedded_time::Clock;
 
     self.socket()
         .poll()
         .map_err(Self::Error::socket)
-        .map_err(nb::Error::Other)
-        .and_then(|dgram: Option<_>| dgram.map(Ok).unwrap_or(Err(nb::Error::WouldBlock)))
         .and_then(|recvd_dgram| {
           self.clock()
               .try_now()
               .map_err(Self::Error::clock)
-              .map_err(nb::Error::Other)
-              .map(|time| Snapshot { recvd_dgram,
+              .map(|time| Snapshot { recvd_dgram: recvd_dgram.unwrap_or_else(|| {
+                                                               Addrd(Default::default(),
+                                                                     "0.0.0.0:0".parse().unwrap())
+                                                             }),
                                      config: self.config(),
                                      time })
         })
   }
 
+  /// [`snapshot_maybe_dgram`] converting "no dgram" to [`nb::Error::WouldBlock`]
+  fn snapshot(&self) -> nb::Result<Snapshot<Self::Types>, Self::Error> {
+    self.snapshot_maybe_dgram()
+        .map_err(nb::Error::Other)
+        .and_then(|snap| {
+          if snap.recvd_dgram.data().is_empty() {
+            Err(nb::Error::WouldBlock)
+          } else {
+            Ok(snap)
+          }
+        })
+  }
+
   /// Poll for an incoming request, and pass it through `Steps`
   /// for processing.
-  fn poll_req(&self) -> nb::Result<(), Self::Error> {
+  fn poll_req(&self) -> nb::Result<Addrd<Req<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
     self.snapshot().and_then(|snapshot| {
                      self.steps()
@@ -112,7 +130,10 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>> {
 
   /// Poll for a response to a sent request, and pass it through `Steps`
   /// for processing.
-  fn poll_resp(&self, token: Token, addr: SocketAddr) -> nb::Result<(), Self::Error> {
+  fn poll_resp(&self,
+               token: Token,
+               addr: SocketAddr)
+               -> nb::Result<Addrd<Resp<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
     self.snapshot().and_then(|snapshot| {
                      self.steps()
@@ -131,21 +152,20 @@ pub trait Platform<Steps: Step<Self::Types, PollReq = (), PollResp = ()>> {
   fn send_msg(&self, mut addrd_msg: Addrd<Message<Self::Types>>) -> nb::Result<(), Self::Error> {
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
-    self.snapshot()
+    self.snapshot_maybe_dgram()
         .try_perform(|snapshot| {
           self.steps()
               .before_message_sent(snapshot, &mut addrd_msg)
               .map_err(Self::Error::step)
-              .map_err(nb::Error::Other)
         })
         .and_then(|snapshot| {
           addrd_msg.clone().fold(|msg, addr| {
                              msg.try_into_bytes::<Dgram<Self::Types>>()
                                 .map_err(Self::Error::msg_to_bytes)
-                                .map_err(nb::Error::Other)
                                 .map(|bytes| (snapshot, Addrd(bytes, addr)))
                            })
         })
+        .map_err(nb::Error::Other)
         .try_perform(|(_, addrd_bytes)| {
           self.socket()
               .send(addrd_bytes.as_ref().map(|s| s.as_ref()))
