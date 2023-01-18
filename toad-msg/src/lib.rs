@@ -69,7 +69,7 @@
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/to_bytes.svg)
 //! </details>
 
-#![doc(html_root_url = "https://docs.rs/toad-msg/0.8.3")]
+#![doc(html_root_url = "https://docs.rs/toad-msg/0.8.4")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
