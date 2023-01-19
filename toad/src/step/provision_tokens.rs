@@ -37,9 +37,12 @@ impl<E> From<E> for Error<E> {
   }
 }
 
-/// Step responsible for replacing all message ids of zero `Id(0)` (assumed to be meaningless)
-/// with a new meaningful Id that is guaranteed to be unique to the conversation with
+/// Step responsible for setting the token of all outbound messages with
+/// empty tokens (`Token(Default::default())`, assumed to be meaningless)
+/// with a new token that is guaranteed to be unique to the conversation with
 /// the message's origin/destination address.
+///
+/// For more information, see the [module documentation](crate::step::provision_tokens).
 #[derive(Debug, Clone)]
 pub struct ProvisionTokens<Inner> {
   inner: Inner,

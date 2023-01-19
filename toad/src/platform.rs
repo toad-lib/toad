@@ -103,7 +103,7 @@ pub trait Platform<Steps>
         })
   }
 
-  /// [`snapshot_maybe_dgram`] converting "no dgram" to [`nb::Error::WouldBlock`]
+  /// [`Platform::snapshot_maybe_dgram`] converting "no dgram" to [`nb::Error::WouldBlock`]
   fn snapshot(&self) -> nb::Result<Snapshot<Self::Types>, Self::Error> {
     self.snapshot_maybe_dgram()
         .map_err(nb::Error::Other)

@@ -10,39 +10,6 @@ use crate::platform::PlatformTypes;
 use crate::req::Req;
 use crate::resp::Resp;
 
-/// `BufferResponses` that uses BTreeMap
-///
-/// Only enabled when feature "alloc" enabled.
-#[cfg(feature = "alloc")]
-pub mod alloc {
-  use ::std_alloc::collections::BTreeMap;
-
-  use super::*;
-
-  /// `BufferResponses` that uses BTreeMap
-  ///
-  /// Only enabled when feature "alloc" enabled.
-  ///
-  /// For more information see [`super::BufferResponses`]
-  /// or the [module documentation](crate::step::buffer_responses).
-  pub type BufferResponses<S, P> =
-    super::BufferResponses<S, BTreeMap<(SocketAddr, Token, Type), Addrd<Resp<P>>>>;
-}
-
-/// `BufferResponses` that does not use
-/// heap allocation and stores the buffer on the stack.
-pub mod no_alloc {
-  use super::*;
-
-  /// `BufferResponses` that does not use
-  /// heap allocation and stores the buffer on the stack.
-  ///
-  /// For more information see [`super::BufferResponses`]
-  /// or the [module documentation](crate::step::buffer_responses).
-  pub type BufferResponses<S, P> =
-    super::BufferResponses<S, ArrayVec<[((SocketAddr, Token, Type), Addrd<Resp<P>>); 16]>>;
-}
-
 /// Struct responsible for buffering and yielding responses to the request
 /// we're polling for.
 ///

@@ -109,7 +109,7 @@ pub mod req;
 /// Steps provided by this crate will never log to any streams directly,
 /// and will provide them via [`platform::Effect::Log`].
 ///
-/// It is **strongly** recommended that [`log::Level::Warning`] and
+/// It is **strongly** recommended that [`log::Level::Warn`] and
 /// [`log::Level::Error`] messages are not ignored.
 pub mod step;
 

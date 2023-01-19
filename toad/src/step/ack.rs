@@ -7,12 +7,9 @@ use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 
-/// The message parsing CoAP lifecycle step
+/// ACK incoming Confirmable messages
 ///
-/// Parameterized by the step that came before it,
-/// most likely this is the [`Empty`](crate::step::Empty) step.
-///
-/// See the [module documentation](crate::step::parse) for more.
+/// See the [module documentation](crate::step::ack) for more
 #[derive(Debug, Clone, Copy)]
 pub struct Ack<S>(S);
 

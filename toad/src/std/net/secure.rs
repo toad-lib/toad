@@ -1,6 +1,7 @@
 use core::time::Duration;
 use std::collections::HashMap;
-use std::io::{self, Write};
+#[allow(unused_imports)]
+use std::io::{self, Read, Write};
 use std::net::UdpSocket;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
