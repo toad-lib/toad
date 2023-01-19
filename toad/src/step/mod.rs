@@ -50,8 +50,10 @@ pub mod runtime {
 
   /// TODO
   pub mod std {
+    use crate::std::PlatformTypes;
+
     /// TODO
-    pub type Runtime<P> = super::Runtime<P, naan::hkt::Vec, naan::hkt::BTreeMap>;
+    pub type Runtime<Dtls> = super::Runtime<PlatformTypes<Dtls>, naan::hkt::Vec, naan::hkt::BTreeMap>;
   }
 }
 
