@@ -12,7 +12,7 @@ pub fn main() {
 
   let (server_addr, client_addr) = ("0.0.0.0:1111", "0.0.0.0:2222");
 
-  type P = Platform<dtls::N, runtime::std::Runtime<T<dtls::N>>>;
+  type P = Platform<dtls::N, runtime::std::Runtime<dtls::N>>;
 
   let server = P::try_new(server_addr, Config::default()).unwrap();
 

@@ -2,7 +2,7 @@
 name = "toad"
 version = "0.12.2"
 edition = "2021"
-description = "Reliable cross-platform CoAP server runtime"
+description = "Universal implementation of the CoAP networking protocol"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/clov-coffee/toad/toad"
@@ -12,8 +12,8 @@ keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]
 
 [[example]]
-name = "low_level_server"
-path = "examples/low_level/server.rs"
+name = "low_level_minimal"
+path = "examples/low_level/minimal.rs"
 
 [badges]
 maintenance = { status = "actively-developed" }
