@@ -14,7 +14,7 @@ pub mod runtime {
   use super::parse::Parse;
   use super::provision_ids::{self, IdWithDefault, SocketAddrWithDefault};
   use super::provision_tokens::ProvisionTokens;
-  use super::{buffer_responses, reset, retry};
+  use super::{buffer_responses, handle_unexpected_acks, retry};
   use crate::net::Addrd;
   use crate::platform::{Message, PlatformTypes};
   use crate::resp::Resp;
@@ -27,7 +27,7 @@ pub mod runtime {
 
   type Clock<P> = <P as PlatformTypes>::Clock;
 
-  type Reset<M, S> = reset::Reset<S, Map<M, Addrd<Token>, ()>>;
+  type HandleUnexpectedAcks<M, S> = handle_unexpected_acks::HandleUnexpectedAcks<S, Map<M, Addrd<Token>, ()>>;
   type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
   type BufferResponses<P, M, S> =
     buffer_responses::BufferResponses<S,
@@ -39,14 +39,14 @@ pub mod runtime {
                                     SocketAddrWithDefault,
                                     Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
 
-  /// Ack -> Retry -> Reset -> BufferResponses -> ProvisionIds -> ProvisionTokens
+  /// Ack -> Retry -> HandleUnexpectedAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens
   pub type Runtime<P, Array, Map> =
     ProvisionTokens<ProvisionIds<P,
                                  Map,
                                  Array,
                                  BufferResponses<P,
                                                  Map,
-                                                 Reset<Map, Retry<P, Array, Ack<Parse<()>>>>>>>;
+                                                 HandleUnexpectedAcks<Map, Retry<P, Array, Ack<Parse<()>>>>>>>;
 
   /// TODO
   pub mod std {
@@ -109,7 +109,7 @@ pub mod provision_tokens;
 /// None
 pub mod provision_ids;
 
-/// # Send Reset to ACKs we don't recognize
+/// # Ignore ACKs we don't recognize
 /// * Client Flow ✓
 /// * Server Flow ✓
 ///
@@ -120,14 +120,13 @@ pub mod provision_ids;
 /// ## Behavior
 /// If an ACK is received by a client or server that does not match any
 /// pending CONfirmable messages, this step will:
-///  * Reply to the ACK with a Reset message
 ///  * Log that the ACK was ignored
 ///
 /// ## Transformation
 /// If an ACK is received by a client or server that does not match any
 /// pending CONfirmable messages, this step will cause further steps
 /// to ignore it by yielding None.
-pub mod reset;
+pub mod handle_unexpected_acks;
 
 /// # ACK incoming messages
 /// * Client Flow ✓

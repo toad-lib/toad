@@ -16,50 +16,6 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::time::Stamped;
 
-/// `ProvisionIds` that uses BTreeMap
-///
-/// Only enabled when feature "alloc" enabled.
-#[cfg(feature = "alloc")]
-pub mod alloc {
-  use ::std_alloc::collections::BTreeMap;
-  use ::std_alloc::vec::Vec;
-
-  use super::*;
-
-  type AllIds<P> = Vec<Stamped<<P as PlatformTypes>::Clock, IdWithDefault>>;
-
-  type Map<P> = BTreeMap<SocketAddrWithDefault, AllIds<P>>;
-
-  /// `ProvisionIds` that uses BTreeMap
-  ///
-  /// Only enabled when feature "alloc" enabled.
-  ///
-  /// For more information see [`super::ProvisionIds`]
-  /// or the [module documentation](crate::step::provision_ids).
-  pub type ProvisionIds<P, S> = super::ProvisionIds<P, S, Map<P>>;
-}
-
-/// `ProvisionIds` that uses ArrayVec, storing Ids on
-/// the stack.
-pub mod no_alloc {
-  use super::*;
-  use crate::todo::StackMap;
-
-  type AllIds<P, const ID_BUFFER_SIZE: usize> =
-    ArrayVec<[Stamped<<P as PlatformTypes>::Clock, IdWithDefault>; ID_BUFFER_SIZE]>;
-
-  type Map<P, const ID_BUFFER_SIZE: usize, const MAX_ADDRS: usize> =
-    StackMap<SocketAddrWithDefault, AllIds<P, ID_BUFFER_SIZE>, MAX_ADDRS>;
-
-  /// `ProvisionIds` that uses ArrayVec, storing Ids on
-  /// the stack.
-  ///
-  /// For more information see [`super::ProvisionIds`]
-  /// or the [module documentation](crate::step::provision_ids).
-  pub type ProvisionIds<P, S, const ID_BUFFER_SIZE: usize, const MAX_ADDRS: usize> =
-    super::ProvisionIds<P, S, Map<P, ID_BUFFER_SIZE, MAX_ADDRS>>;
-}
-
 /// Supertrait type shenanigans
 ///
 /// What we want: "given `A` which is an [`Array`] of `Item = `[`Id`],
@@ -122,9 +78,12 @@ impl Default for IdWithDefault {
   }
 }
 
-/// Step responsible for replacing all message ids of zero `Id(0)` (assumed to be meaningless)
-/// with a new meaningful Id that is guaranteed to be unique to the conversation with
+/// Step responsible for setting the token of all outbound messages with
+/// empty ids (`Id(0)`, assumed to be meaningless)
+/// with a new id that is guaranteed to be unique to the conversation with
 /// the message's origin/destination address.
+///
+/// For more information, see the [module documentation](crate::step::provision_ids).
 #[derive(Debug)]
 pub struct ProvisionIds<P, Inner, SeenIds> {
   inner: Inner,

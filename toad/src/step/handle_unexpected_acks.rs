@@ -1,6 +1,5 @@
 use core::fmt::Write;
 
-use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, Map, Stem};
 use toad_msg::{Code, Id, Payload, Token, Type};
 
@@ -12,48 +11,17 @@ use crate::resp::Resp;
 use crate::todo::String1Kb;
 use crate::{exec_inner_step, platform};
 
-/// `Reset` that uses BTreeMap
-///
-/// Only enabled when feature "alloc" enabled.
-#[cfg(feature = "alloc")]
-pub mod alloc {
-  use ::std_alloc::collections::BTreeMap;
-
-  use super::*;
-
-  /// [`Reset`](super::Reset) that uses BTreeMap
-  ///
-  /// Only enabled when feature "alloc" enabled.
-  ///
-  /// For more information see [`super::Reset`]
-  /// or the [module documentation](crate::step::reset).
-  pub type Reset<S> = super::Reset<S, BTreeMap<Addrd<Token>, ()>>;
-}
-
-/// [`Reset`] that does not use
-/// heap allocation and stores the buffer on the stack.
-pub mod no_alloc {
-  use super::*;
-
-  /// [`Reset`](super::Reset) that does not use
-  /// heap allocation and stores the buffer on the stack.
-  ///
-  /// For more information see [`super::Reset`]
-  /// or the [module documentation](crate::step::reset).
-  pub type Reset<S> = super::Reset<S, ArrayVec<[(Addrd<Token>, ()); 16]>>;
-}
-
 /// Struct responsible for buffering and yielding responses to the request
 /// we're polling for.
 ///
 /// For more information, see the [module documentation](crate::step::buffer_responses).
 #[derive(Debug)]
-pub struct Reset<S, B> {
+pub struct HandleUnexpectedAcks<S, B> {
   buffer: Stem<B>,
   inner: S,
 }
 
-impl<S, B> Reset<S, B> {
+impl<S, B> HandleUnexpectedAcks<S, B> {
   fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
     let mut string = String1Kb::default();
     write!(string,
@@ -65,7 +33,7 @@ impl<S, B> Reset<S, B> {
   }
 }
 
-impl<S: Default, B: Default> Default for Reset<S, B> {
+impl<S: Default, B: Default> Default for HandleUnexpectedAcks<S, B> {
   fn default() -> Self {
     Self { buffer: Default::default(),
            inner: S::default() }
@@ -83,9 +51,9 @@ pub enum Error<E> {
   /// Storing this response would exceed a hard capacity for the
   /// response buffer.
   ///
-  /// Only applicable to [`Reset`] that uses `ArrayVec` or
+  /// Only applicable to [`HandleUnexpectedAcks`] that uses `ArrayVec` or
   /// similar heapless backing structure.
-  ResetBufferCapacityExhausted,
+  ConBufferCapacityExhausted,
 }
 
 impl<E> From<E> for Error<E> {
@@ -97,7 +65,7 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::ResetBufferCapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
+      | Self::ConBufferCapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }
@@ -110,15 +78,6 @@ macro_rules! common {
     let msg = $msg;
 
     if msg.data().ty == Type::Ack && !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token))) {
-      let reset = platform::Message::<P> { ver: Default::default(),
-                                           ty: Type::Reset,
-                                           id: Id(0),
-                                           token: msg.data().token,
-                                           code: Code::new(0, 0),
-                                           payload: Payload(Default::default()),
-                                           opts: Default::default() };
-
-      $effects.push(Effect::Send(Addrd(reset, msg.addr())));
       $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
       None
     } else {
@@ -131,7 +90,7 @@ impl<P: PlatformTypes,
       B: Map<Addrd<Token>, ()>,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
-  for Reset<S, B>
+  for HandleUnexpectedAcks<S, B>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
@@ -186,7 +145,7 @@ impl<P: PlatformTypes,
     match msg.data().ty {
       | Type::Con => self.buffer
                          .map_mut(|buf| buf.insert(msg.as_ref().map(|m| m.token), ()))
-                         .map_err(|_| Error::ResetBufferCapacityExhausted),
+                         .map_err(|_| Error::ConBufferCapacityExhausted),
       | _ => Ok(()),
     }
   }
@@ -194,7 +153,8 @@ impl<P: PlatformTypes,
 
 #[cfg(test)]
 mod test {
-  use tinyvec::array_vec;
+  use std::collections::BTreeMap;
+use tinyvec::array_vec;
 
   use super::*;
   use crate::platform::Effect;
@@ -202,6 +162,7 @@ mod test {
 
   type InnerPollReq = Addrd<Req<crate::test::Platform>>;
   type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type HandleUnexpectedAcks<S> = super::HandleUnexpectedAcks<S, BTreeMap<Addrd<Token>, ()>>;
 
   fn test_message(ty: Type) -> Addrd<crate::test::Message> {
     use toad_msg::*;
@@ -217,7 +178,7 @@ mod test {
   }
 
   test_step!(
-    GIVEN alloc::Reset::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) }),
@@ -231,7 +192,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::Reset::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_blocks [
       (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
       (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
@@ -243,7 +204,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::Reset::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN unexpected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
@@ -263,26 +224,15 @@ mod test {
       (poll_req(_, _) should satisfy { |out| assert_eq!(out, None) }),
       (
         effects should satisfy {|effects| {
-          use toad_msg::{Id, TryIntoBytes};
-
-          let msg = test_message(Type::Reset);
-          let msg = msg.map(|mut msg| {
-            msg.id = Id(0);
-            msg.code = Code::new(0, 0);
-            msg
-          });
-
-          assert_eq!(effects[0], Effect::Send(msg.clone()));
+          assert!(matches!(effects[0], Effect::Log(log::Level::Warn, _)));
           assert!(matches!(effects[1], Effect::Log(log::Level::Warn, _)));
-          assert_eq!(effects[2], Effect::Send(msg));
-          assert!(matches!(effects[3], Effect::Log(log::Level::Warn, _)));
         }}
       )
     ]
   );
 
   test_step!(
-    GIVEN alloc::Reset::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN expected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),

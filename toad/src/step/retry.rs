@@ -129,49 +129,6 @@ impl<T, P> Buf<P> for T
 {
 }
 
-/// `Retry` that uses `Vec`
-///
-/// Only enabled when feature "alloc" enabled.
-#[cfg(feature = "alloc")]
-pub mod alloc {
-  use std_alloc::vec::Vec;
-
-  use crate::net::Addrd;
-  use crate::platform;
-
-  /// `Retry` that uses heap allocation to store the buffer of messages
-  /// to be retried.
-  ///
-  /// Only enabled when feature "alloc" enabled.
-  ///
-  /// For more information see [`super::Retry`]
-  /// or the [module documentation](crate::step::retry).
-  pub type Retry<P, Inner> =
-    super::Retry<Inner,
-                 Vec<(super::State<<P as platform::PlatformTypes>::Clock>,
-                      Addrd<platform::Message<P>>)>>;
-}
-
-/// `Retry` that does not use
-/// heap allocation and stores messages to be
-/// retried on the stack.
-pub mod no_alloc {
-  use tinyvec::ArrayVec;
-
-  use crate::net::Addrd;
-  use crate::platform;
-
-  /// `Retry` that does not use heap allocation
-  /// and stores messages to be retried on the stack.
-  ///
-  /// For more information see [`super::BufferResponses`]
-  /// or the [module documentation](crate::step::buffer_responses).
-  pub type Retry<P, Inner, const N: usize = 16> =
-    super::Retry<Inner,
-                 ArrayVec<[(super::State<<P as platform::PlatformTypes>::Clock>,
-                           Addrd<platform::Message<P>>); N]>>;
-}
-
 /// The state of a message stored in the retry [buffer](Buf)
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum State<C>

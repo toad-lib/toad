@@ -6,12 +6,9 @@ use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 
-/// The message parsing CoAP lifecycle step
+/// Parse messages from dgrams on the socket
 ///
-/// Parameterized by the step that came before it,
-/// most likely this is the [`Empty`](crate::step::Empty) step.
-///
-/// See the [module documentation](crate::step::parse) for more.
+/// See the [module documentation](crate::step::ack) for more
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Parse<S>(S);
 
