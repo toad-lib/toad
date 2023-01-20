@@ -14,7 +14,7 @@ pub mod runtime {
   use super::parse::Parse;
   use super::provision_ids::{self, IdWithDefault, SocketAddrWithDefault};
   use super::provision_tokens::ProvisionTokens;
-  use super::{buffer_responses, handle_unexpected_acks, retry};
+  use super::{buffer_responses, handle_acks, retry};
   use crate::net::Addrd;
   use crate::platform::{Message, PlatformTypes};
   use crate::resp::Resp;
@@ -27,8 +27,7 @@ pub mod runtime {
 
   type Clock<P> = <P as PlatformTypes>::Clock;
 
-  type HandleUnexpectedAcks<M, S> =
-    handle_unexpected_acks::HandleUnexpectedAcks<S, Map<M, Addrd<Token>, ()>>;
+  type HandleAcks<M, S> = handle_acks::HandleAcks<S, Map<M, Addrd<Token>, ()>>;
   type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
   type BufferResponses<P, M, S> =
     buffer_responses::BufferResponses<S,
@@ -40,19 +39,18 @@ pub mod runtime {
                                     SocketAddrWithDefault,
                                     Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
 
-  /// Ack -> Retry -> HandleUnexpectedAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens
+  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens
   pub type Runtime<P, Array, Map> =
     ProvisionTokens<ProvisionIds<P,
                                  Map,
                                  Array,
                                  BufferResponses<P,
                                                  Map,
-                                                 HandleUnexpectedAcks<Map,
-                                                                      Retry<P,
-                                                                            Array,
-                                                                            Ack<Parse<()>>>>>>>;
+                                                 HandleAcks<Map,
+                                                            Retry<P, Array, Ack<Parse<()>>>>>>>;
 
   /// TODO
+  #[cfg(feature = "std")]
   pub mod std {
     use crate::std::PlatformTypes;
 
@@ -133,7 +131,7 @@ pub mod provision_ids;
 /// If an ACK is received by a client or server that does not match any
 /// pending CONfirmable messages, this step will cause further steps
 /// to ignore it by yielding None.
-pub mod handle_unexpected_acks;
+pub mod handle_acks;
 
 /// # ACK incoming messages
 /// * Client Flow ✓
@@ -362,8 +360,8 @@ pub mod test {
 
   pub fn default_snapshot() -> platform::Snapshot<test::Platform> {
     platform::Snapshot { time: ClockMock::new().try_now().unwrap(),
-                         recvd_dgram: crate::net::Addrd(Default::default(),
-                                                        crate::test::dummy_addr()),
+                         recvd_dgram: Some(crate::net::Addrd(Default::default(),
+                                                             crate::test::dummy_addr())),
                          config: crate::config::Config::default() }
   }
 

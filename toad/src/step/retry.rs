@@ -215,7 +215,7 @@ impl<Inner, Buffer> Default for Retry<Inner, Buffer>
 }
 
 /// Errors that can be encountered when retrying messages
-#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Error<E> {
   /// The inner step failed.
   ///
@@ -228,6 +228,15 @@ pub enum Error<E> {
   /// Only applicable to [`Retry`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   RetryBufferFull,
+}
+
+impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      | Self::RetryBufferFull => f.debug_struct("RetryBufferFull").finish(),
+      | Self::Inner(e) => e.fmt(f),
+    }
+  }
 }
 
 impl<E> super::Error for Error<E> where E: super::Error {}
@@ -319,7 +328,7 @@ mod tests {
 
   fn snap_time(config: Config, time: u64) -> test::Snapshot {
     test::Snapshot { config,
-                     recvd_dgram: Addrd(tinyvec::array_vec!(1), test::dummy_addr()),
+                     recvd_dgram: Some(Addrd(tinyvec::array_vec!(1), test::dummy_addr())),
                      time: ClockMock::instant(time * 1000) }
   }
 

@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use toad_common::{Array, GetSize, Map, Stem};
+use toad_common::{Array, GetSize, InsertError, Map, ResultExt, Stem};
 use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
@@ -16,12 +16,12 @@ use crate::{exec_inner_step, platform};
 ///
 /// For more information, see the [module documentation](crate::step::buffer_responses).
 #[derive(Debug)]
-pub struct HandleUnexpectedAcks<S, B> {
+pub struct HandleAcks<S, B> {
   buffer: Stem<B>,
   inner: S,
 }
 
-impl<S, B> HandleUnexpectedAcks<S, B> {
+impl<S, B> HandleAcks<S, B> {
   fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
     let mut string = String1Kb::default();
     write!(string,
@@ -43,7 +43,7 @@ impl<S, B> HandleUnexpectedAcks<S, B> {
   }
 }
 
-impl<S: Default, B: Default> Default for HandleUnexpectedAcks<S, B> {
+impl<S: Default, B: Default> Default for HandleAcks<S, B> {
   fn default() -> Self {
     Self { buffer: Default::default(),
            inner: S::default() }
@@ -61,7 +61,7 @@ pub enum Error<E> {
   /// Storing this response would exceed a hard capacity for the
   /// response buffer.
   ///
-  /// Only applicable to [`HandleUnexpectedAcks`] that uses `ArrayVec` or
+  /// Only applicable to [`HandleAcks`] that uses `ArrayVec` or
   /// similar heapless backing structure.
   ConBufferCapacityExhausted,
 }
@@ -75,7 +75,7 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::ConBufferCapacityExhausted => f.debug_struct("CapacityExhausted").finish(),
+      | Self::ConBufferCapacityExhausted => f.debug_struct("ConBufferCapacityExhausted").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }
@@ -91,7 +91,7 @@ macro_rules! common {
       $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
       None
     } else if msg.data().ty == Type::Ack {
-      $effects.push(Effect::Log(log::Level::Info, Self::info_acked::<P>(msg)));
+      $effects.push(Effect::Log(log::Level::Trace, Self::info_acked::<P>(msg)));
       $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
       None
     } else {
@@ -104,7 +104,7 @@ impl<P: PlatformTypes,
       B: Map<Addrd<Token>, ()> + core::fmt::Debug,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
-  for HandleUnexpectedAcks<S, B>
+  for HandleAcks<S, B>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
@@ -159,6 +159,13 @@ impl<P: PlatformTypes,
     match msg.data().ty {
       | Type::Con => self.buffer
                          .map_mut(|buf| buf.insert(msg.as_ref().map(|m| m.token), ()))
+                         .recover(|e| {
+                           if matches!(e, InsertError::Exists(_)) {
+                             Ok(())
+                           } else {
+                             Err(e)
+                           }
+                         })
                          .map_err(|_| Error::ConBufferCapacityExhausted),
       | _ => Ok(()),
     }
@@ -177,7 +184,7 @@ mod test {
 
   type InnerPollReq = Addrd<Req<crate::test::Platform>>;
   type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
-  type HandleUnexpectedAcks<S> = super::HandleUnexpectedAcks<S, BTreeMap<Addrd<Token>, ()>>;
+  type HandleAcks<S> = super::HandleAcks<S, BTreeMap<Addrd<Token>, ()>>;
 
   fn test_message(ty: Type) -> Addrd<crate::test::Message> {
     use toad_msg::*;
@@ -193,7 +200,7 @@ mod test {
   }
 
   test_step!(
-    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) }),
@@ -207,7 +214,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_blocks [
       (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
       (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
@@ -219,7 +226,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN unexpected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
@@ -247,7 +254,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN HandleUnexpectedAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN expected_ack_received [
       (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),

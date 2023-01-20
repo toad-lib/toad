@@ -12,7 +12,7 @@ use crate::resp::Resp;
 use crate::time::Millis;
 
 /// Errors that can be encountered when provisioning tokens
-#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Clone, Copy)]
 pub enum Error<E> {
   /// The inner step failed.
   ///
@@ -27,6 +27,17 @@ pub enum Error<E> {
   /// milli ticks, as seconds are too granular to be reliable
   /// for timings used in `toad`.
   MillisSinceEpochWouldOverflow,
+}
+
+impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    match self {
+      | Self::MillisSinceEpochWouldOverflow => {
+        f.debug_tuple("MillisSinceEpochWouldOverflow").finish()
+      },
+      | Self::Inner(e) => e.fmt(f),
+    }
+  }
 }
 
 impl<E> super::Error for Error<E> where E: super::Error {}
@@ -169,7 +180,7 @@ mod test {
     THEN this_should_make_sure_it_has_a_token [
       (before_message_sent(
           Snapshot { time: ClockMock::instant(0),
-                     recvd_dgram: Addrd(Default::default(), crate::test::dummy_addr()),
+                     recvd_dgram: Some(Addrd(Default::default(), crate::test::dummy_addr())),
                      config: Config::default() },
           crate::test::msg!(CON GET x.x.x.x:80)
       ) should satisfy { |m| assert_ne!(m.data().token, Token(Default::default())) })
@@ -184,7 +195,7 @@ mod test {
     THEN this_should_make_sure_it_has_a_token [
       (before_message_sent(
           Snapshot { time: ClockMock::instant(0),
-                     recvd_dgram: Addrd(Default::default(), crate::test::dummy_addr()),
+                     recvd_dgram: Some(Addrd(Default::default(), crate::test::dummy_addr())),
                      config: Config::default() },
           crate::test::msg!(CON {2 . 04} x.x.x.x:80)
       ) should satisfy { |m| assert_eq!(m.data().token, Token(Default::default())) })

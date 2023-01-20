@@ -1,5 +1,5 @@
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Barrier, Mutex};
 
 use toad::config::Config;
 use toad::net::Addrd;
@@ -82,17 +82,20 @@ mod test {
     log::info!("[5] got 'resource foobar not found'");
   }
 
-  pub fn hello(client: &P, addr: &str) {
-    let (_, token) = client.send_msg(Addrd(Req::<T<dtls::N>>::get(addr.parse().unwrap(),
-                                                                  "hello/ethan").into(),
-                                           addr.parse().unwrap()))
-                           .unwrap();
-    log::info!("[2] GET /hello/ethan sent");
+  pub fn hello(client: &P, name: &str, addr: &str) {
+    let (_, token) =
+      client.send_msg(Addrd(Req::<T<dtls::N>>::get(addr.parse().unwrap(),
+                                                   format!("hello/{}", name)).into(),
+                            addr.parse().unwrap()))
+            .unwrap();
+    log::info!("{} -> GET /hello/{}",
+               client.socket().local_addr().unwrap(),
+               name);
 
     let resp = nb::block!(client.poll_resp(token, addr.parse().unwrap())).unwrap();
     assert_eq!(resp.data().payload_string().unwrap(),
-               "Hello, ethan!".to_string());
-    log::info!("[3] got 'Hello, ethan!'");
+               format!("Hello, {}!", name));
+    log::info!("<- 'Hello, {}!'", name);
   }
 }
 
@@ -102,15 +105,34 @@ pub fn main() {
   std::env::set_var("RUST_LOG", "trace,toad=trace");
   simple_logger::init_with_env().unwrap();
 
-  let (server_addr, client_addr) = ("127.0.0.1:1111", "127.0.0.1:2222");
+  let server_addr = "127.0.0.1:1111";
   start_server(&server_addr);
 
-  let client = P::try_new(client_addr, Config::default()).unwrap();
-  test::hello(&client, server_addr);
-  test::not_found(&client, server_addr);
+  const N_THREADS: usize = 5;
+  let done = Arc::new(Barrier::new(N_THREADS + 1));
+  let done_ref = unsafe { std::mem::transmute::<_, &'static Arc<Barrier>>(&done) };
 
-  client.send_msg(Addrd(Req::<T<dtls::N>>::get(client_addr.parse().unwrap(), "done").into(),
+  let names = include_str!("./names.txt").split("\n")
+                                         .filter(|s| !s.is_empty())
+                                         .collect::<Vec<_>>();
+  let n_names = names.len();
+  let mut names = names.into_iter();
+  let names_mut = &mut names;
+
+  (0..N_THREADS).for_each(|n| {
+                  let names = names_mut.take(n_names / N_THREADS).collect::<Vec<_>>();
+                  std::thread::spawn(move || {
+                    let addr = format!("127.0.0.1:222{n}");
+                    let client = P::try_new(addr, Config::default()).unwrap();
+                    names.into_iter()
+                         .for_each(|name| test::hello(&client, name.trim(), server_addr));
+                    Arc::clone(done_ref).wait();
+                  });
+                });
+
+  done.wait();
+
+  P::try_new("127.0.0.1:8888", Config::default()).unwrap().send_msg(Addrd(Req::<T<dtls::N>>::get("0.0.0.0:1".parse().unwrap(), "done").into(),
                         server_addr.parse().unwrap()))
         .unwrap();
-  log::info!("[6] done");
 }
