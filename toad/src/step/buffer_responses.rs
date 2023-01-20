@@ -146,7 +146,8 @@ impl<P: PlatformTypes,
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
+  use std::collections::BTreeMap;
+
   use tinyvec::array_vec;
   use toad_msg::Id;
 
@@ -156,7 +157,8 @@ mod test {
 
   type InnerPollReq = Addrd<Req<P>>;
   type InnerPollResp = Addrd<Resp<P>>;
-  type BufferResponses<S> = super::BufferResponses<S, BTreeMap<(SocketAddr, Token, Type), Addrd<Resp<P>>>>;
+  type BufferResponses<S> =
+    super::BufferResponses<S, BTreeMap<(SocketAddr, Token, Type), Addrd<Resp<P>>>>;
 
   test_step!(
     GIVEN BufferResponses::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};

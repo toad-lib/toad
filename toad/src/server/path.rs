@@ -56,7 +56,7 @@ pub mod segment {
             Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
           }
         },
-        | Err(other) => other.bind(|_| unreachable!()).coerce_state()
+        | Err(other) => other.bind(|_| unreachable!()).coerce_state(),
       }
     }
   }
@@ -191,7 +191,7 @@ pub fn rest<T, SOut, R, F, P, E>(
       let ap_r = f(t, seg_str);
       Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
     },
-        | Err(other) => other.bind(|_| unreachable!()).coerce_state()
+    | Err(other) => other.bind(|_| unreachable!()).coerce_state(),
   }
 }
 
