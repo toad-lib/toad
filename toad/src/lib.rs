@@ -52,8 +52,6 @@ pub mod todo;
 #[cfg(test)]
 pub(crate) mod test;
 
-pub(crate) mod logging;
-
 /// customizable retrying of fallible operations
 pub mod retry;
 

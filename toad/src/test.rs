@@ -248,6 +248,10 @@ impl Socket for SockMock {
   fn peek(&self, _: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
     todo!()
   }
+
+  fn local_addr(&self) -> SocketAddr {
+    todo!()
+  }
 }
 
 #[test]

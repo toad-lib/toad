@@ -16,6 +16,10 @@ impl Socket for UdpSocket {
   type Error = io::Error;
   type Dgram = ArrayVec<[u8; 1152]>;
 
+  fn local_addr(&self) -> no_std_net::SocketAddr {
+    convert::std::SockAddr(self.local_addr().unwrap()).into()
+  }
+
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     self.set_nonblocking(true)
         .bind(|_| {

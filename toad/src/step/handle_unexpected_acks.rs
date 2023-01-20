@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use toad_common::{Array, GetSize, Map, Stem};
-use toad_msg::{Code, Id, Payload, Token, Type};
+use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
@@ -25,10 +25,20 @@ impl<S, B> HandleUnexpectedAcks<S, B> {
   fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
     let mut string = String1Kb::default();
     write!(string,
-           "{} -> {}b ACK {:?} ignored",
-           msg.addr(),
+           "IGNORING {}b ACK from {} {:?}",
            msg.data().get_size(),
+           msg.addr(),
            msg.data().token).ok();
+    string
+  }
+
+  fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
+    let mut string = String1Kb::default();
+    write!(string,
+           "Got {}b ACK from {} for {:?}",
+           msg.data().get_size(),
+           msg.addr(),
+           (msg.data().id, msg.data().token)).ok();
     string
   }
 }
@@ -80,6 +90,10 @@ macro_rules! common {
     if msg.data().ty == Type::Ack && !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token))) {
       $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
       None
+    } else if msg.data().ty == Type::Ack {
+      $effects.push(Effect::Log(log::Level::Info, Self::info_acked::<P>(msg)));
+      $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
+      None
     } else {
       Some(Ok($in))
     }
@@ -87,7 +101,7 @@ macro_rules! common {
 }
 
 impl<P: PlatformTypes,
-      B: Map<Addrd<Token>, ()>,
+      B: Map<Addrd<Token>, ()> + core::fmt::Debug,
       E: super::Error,
       S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>, Error = E>> Step<P>
   for HandleUnexpectedAcks<S, B>
@@ -154,7 +168,8 @@ impl<P: PlatformTypes,
 #[cfg(test)]
 mod test {
   use std::collections::BTreeMap;
-use tinyvec::array_vec;
+
+  use tinyvec::array_vec;
 
   use super::*;
   use crate::platform::Effect;
@@ -257,10 +272,10 @@ use tinyvec::array_vec;
           test_message(Type::Con).data().token,
           crate::test::dummy_addr()
         ) should satisfy {
-          |out| assert!(out.unwrap().is_ok())
+          |out| assert!(out.is_none())
         }
       ),
-      (effects == {vec![]})
+      (effects should satisfy {|eff| assert!(matches!(eff.as_slice(), &[Effect::Log(_, _)]))})
     ]
   );
 }

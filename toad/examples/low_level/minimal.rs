@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use toad::config::Config;
 use toad::net::Addrd;
 use toad::platform::Platform as _;

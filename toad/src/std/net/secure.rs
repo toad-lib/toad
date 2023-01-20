@@ -483,6 +483,10 @@ impl Socket for SecureUdpSocket {
   type Error = Error;
   type Dgram = ArrayVec<[u8; 1152]>;
 
+  fn local_addr(&self) -> no_std_net::SocketAddr {
+    convert::std::SockAddr(self.sock.local_addr().unwrap()).into()
+  }
+
   fn empty_dgram() -> Self::Dgram {
     ArrayVec::from([0u8; 1152])
   }
