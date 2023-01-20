@@ -321,7 +321,8 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 #[cfg(test)]
 mod test {
   use std::collections::BTreeMap;
-use embedded_time::duration::Microseconds;
+
+  use embedded_time::duration::Microseconds;
   use toad_common::Map;
 
   use super::*;
@@ -330,7 +331,10 @@ use embedded_time::duration::Microseconds;
 
   type InnerPollReq = Addrd<Req<crate::test::Platform>>;
   type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
-  type ProvisionIds<S> = super::ProvisionIds::<P, S, BTreeMap<SocketAddrWithDefault, Vec<Stamped<ClockMock, IdWithDefault>>>>;
+  type ProvisionIds<S> = super::ProvisionIds<P,
+                                             S,
+                                             BTreeMap<SocketAddrWithDefault,
+                                                      Vec<Stamped<ClockMock, IdWithDefault>>>>;
 
   fn test_msg(id: Id) -> Addrd<crate::test::Message> {
     use toad_msg::*;
