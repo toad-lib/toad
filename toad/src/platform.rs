@@ -5,7 +5,7 @@ use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_common::*;
-use toad_msg::{Opt, OptNumber, Token, TryIntoBytes};
+use toad_msg::{Id, Opt, OptNumber, Token, TryIntoBytes};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
@@ -25,7 +25,10 @@ pub enum Error<Step, Socket> {
   Clock(embedded_time::clock::Error),
 }
 
-impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket> {
+impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket>
+  where Step: core::fmt::Debug,
+        Socket: core::fmt::Debug
+{
   fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
     Self::MessageToBytes(e)
   }
@@ -44,7 +47,7 @@ impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket> {
 }
 
 /// Errors that may be encountered during the CoAP lifecycle
-pub trait PlatformError<StepError, SocketError>: Sized {
+pub trait PlatformError<StepError, SocketError>: Sized + core::fmt::Debug {
   /// Convert a [`toad_msg::to_bytes::MessageToBytesError`] to PlatformError
   fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self;
 
@@ -120,12 +123,19 @@ pub trait Platform<Steps>
   /// for processing.
   fn poll_req(&self) -> nb::Result<Addrd<Req<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
-    self.snapshot().and_then(|snapshot| {
-                     self.steps()
-                         .poll_req(&snapshot, &mut effects)
-                         .unwrap_or(Err(nb::Error::WouldBlock))
-                         .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
-                   })
+    let res = self.snapshot().and_then(|snapshot| {
+                               self.steps()
+                                   .poll_req(&snapshot, &mut effects)
+                                   .unwrap_or(Err(nb::Error::WouldBlock))
+                                   .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                             });
+
+    // NOTE: exec effects even if the above blocks
+    self.exec_many(effects)
+        .map_err(|(_, e)| e)
+        .map_err(nb::Error::Other)?;
+
+    res
   }
 
   /// Poll for a response to a sent request, and pass it through `Steps`
@@ -135,12 +145,19 @@ pub trait Platform<Steps>
                addr: SocketAddr)
                -> nb::Result<Addrd<Resp<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
-    self.snapshot().and_then(|snapshot| {
-                     self.steps()
-                         .poll_resp(&snapshot, &mut effects, token, addr)
-                         .unwrap_or(Err(nb::Error::WouldBlock))
-                         .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
-                   })
+    let res = self.snapshot().and_then(|snapshot| {
+                               self.steps()
+                                   .poll_resp(&snapshot, &mut effects, token, addr)
+                                   .unwrap_or(Err(nb::Error::WouldBlock))
+                                   .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                             });
+
+    // NOTE: exec effects even if the above blocks
+    self.exec_many(effects)
+        .map_err(|(_, e)| e)
+        .map_err(nb::Error::Other)?;
+
+    res
   }
 
   /// `toad` may occasionally emit tracing and logs by invoking this method.
@@ -149,7 +166,9 @@ pub trait Platform<Steps>
   fn log(&self, level: log::Level, msg: String1Kb) -> Result<(), Self::Error>;
 
   /// Send a [`toad_msg::Message`]
-  fn send_msg(&self, mut addrd_msg: Addrd<Message<Self::Types>>) -> nb::Result<(), Self::Error> {
+  fn send_msg(&self,
+              mut addrd_msg: Addrd<Message<Self::Types>>)
+              -> nb::Result<(Id, Token), Self::Error> {
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
     self.snapshot_maybe_dgram()
@@ -160,24 +179,25 @@ pub trait Platform<Steps>
         })
         .and_then(|snapshot| {
           addrd_msg.clone().fold(|msg, addr| {
+                             let (id, token) = (msg.id, msg.token);
                              msg.try_into_bytes::<Dgram<Self::Types>>()
                                 .map_err(Self::Error::msg_to_bytes)
-                                .map(|bytes| (snapshot, Addrd(bytes, addr)))
+                                .map(|bytes| (id, token, snapshot, Addrd(bytes, addr)))
                            })
         })
         .map_err(nb::Error::Other)
-        .try_perform(|(_, addrd_bytes)| {
+        .try_perform(|(_, _, _, addrd_bytes)| {
           self.socket()
               .send(addrd_bytes.as_ref().map(|s| s.as_ref()))
               .map_err(|e: nb::Error<_>| e.map(Self::Error::socket))
         })
-        .try_perform(|(snapshot, _)| {
+        .try_perform(|(_, _, snapshot, _)| {
           self.steps()
               .on_message_sent(snapshot, &addrd_msg)
               .map_err(Self::Error::step)
               .map_err(nb::Error::Other)
         })
-        .map(|_| ())
+        .map(|(id, token, _, _)| (id, token))
   }
 
   /// Execute an [`Effect`]
@@ -186,7 +206,7 @@ pub trait Platform<Steps>
       | &Effect::Log(level, msg) => self.log(level, msg).map_err(nb::Error::Other),
       // TODO(orion): remove this clone as soon as `TryIntoBytes`
       // requires &msg not owned msg
-      | &Effect::Send(ref msg) => self.send_msg(msg.clone()),
+      | &Effect::Send(ref msg) => self.send_msg(msg.clone()).map(|_| ()),
     }
   }
 
@@ -259,7 +279,7 @@ pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
   type Socket: Socket;
 
   /// How will we store a sequence of effects to perform?
-  type Effects: Array<Item = Effect<Self>>;
+  type Effects: Array<Item = Effect<Self>> + core::fmt::Debug;
 }
 
 /// A snapshot of the system's state at a given moment

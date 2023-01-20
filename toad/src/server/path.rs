@@ -4,17 +4,6 @@ use crate::platform::PlatformTypes;
 use crate::server::ap::state::{ApState, Combine, Hydrated};
 use crate::server::ap::{Ap, Hydrate};
 
-macro_rules! was_not_ok_hy {
-    ($other:expr) => {
-        unreachable!(
-          "State type argument was {} so I expected the runtime value to be {}, but got {:?}",
-          "`Hydrated`",
-          "Ap(ApInner::OkHydrated { .. })",
-          $other.map(|_| ()).0
-        )
-    };
-  }
-
 /// Manipulate & match against path segments
 pub mod segment {
   use super::*;
@@ -43,17 +32,18 @@ pub mod segment {
   /// ```
   pub fn next<T, SOut, R, F, P, E>(
     f: F)
-    -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<SOut as Combine<Hydrated>>::Out, P, R, E>
+    -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<Hydrated as Combine<SOut>>::Out, P, R, E>
     where P: PlatformTypes,
           F: for<'a> FnOnce(T, Option<&'a str>) -> Ap<SOut, P, R, E>,
           E: core::fmt::Debug,
-          SOut: ApState
+          SOut: ApState,
+          Hydrated: Combine<SOut>
   {
     |ap| {
       match ap.try_unwrap_ok_hydrated() {
         | Ok((t, Hydrate { mut path, req })) => {
           if path.is_exhausted() {
-            f(t, None).bind(|r| Ap::ok_hydrated(r, Hydrate { req, path }))
+            Ap::ok_hydrated(t, Hydrate { req, path }).bind(|t| f(t, None))
           } else {
             let seg = Cursor::take_while(&mut path, |b: u8| (b as char) != '/');
             let seg_str = core::str::from_utf8(seg).unwrap();
@@ -63,10 +53,10 @@ pub mod segment {
             // skip the slash
             Cursor::skip(&mut path, 1);
 
-            ap_r.bind(|r| Ap::ok_hydrated(r, Hydrate { req, path }))
+            Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
           }
         },
-        | Err(other) => was_not_ok_hy!(other),
+        | Err(other) => other.bind(|_| unreachable!()).coerce_state()
       }
     }
   }
@@ -186,20 +176,22 @@ pub mod segment {
 /// consumed [`segment`]s.
 pub fn rest<T, SOut, R, F, P, E>(
   f: F)
-  -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<SOut as Combine<Hydrated>>::Out, P, R, E>
+  -> impl FnOnce(Ap<Hydrated, P, T, E>) -> Ap<<Hydrated as Combine<SOut>>::Out, P, R, E>
   where P: PlatformTypes,
         F: for<'a> FnOnce(T, &'a str) -> Ap<SOut, P, R, E>,
         E: core::fmt::Debug,
-        SOut: ApState
+        SOut: ApState,
+        Hydrated: Combine<SOut>
 {
   |ap| match ap.try_unwrap_ok_hydrated() {
     | Ok((t, Hydrate { mut path, req })) => {
       let seg = Cursor::take_until_end(&mut path);
       let seg_str = core::str::from_utf8(seg).unwrap();
 
-      f(t, seg_str).bind(|r| Ap::ok_hydrated(r, Hydrate { req, path }))
+      let ap_r = f(t, seg_str);
+      Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
     },
-    | Err(other) => was_not_ok_hy!(other),
+        | Err(other) => other.bind(|_| unreachable!()).coerce_state()
   }
 }
 

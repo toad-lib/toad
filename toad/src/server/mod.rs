@@ -1,11 +1,15 @@
+use core::fmt::Write;
+
+pub use ap::Ap;
 use toad_common::Cursor;
 
 use self::ap::state::{Complete, Hydrated};
-use self::ap::{Ap, ApInner, Hydrate, Respond};
-use crate::net::Addrd;
-use crate::platform::{Message, PlatformTypes};
+use self::ap::{ApInner, Hydrate, Respond};
+use crate::net::{Addrd, Socket};
+use crate::platform::{Message, Platform, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::step::Step;
 use crate::todo::String1Kb;
 
 /// Server flow applicative
@@ -38,7 +42,7 @@ pub enum Error<E> {
   /// Request was ACK / EMPTY (these should be handled & swallowed by the toad runtime)
   RequestInvalidType(toad_msg::Type),
   /// Error of input type `E`
-  User(E),
+  Other(E),
 }
 
 /// A request was received and needs to be handled by `Run`ning your code.
@@ -51,7 +55,7 @@ pub enum Error<E> {
 /// use toad::server::{respond, Error, Run};
 /// use toad::std::{dtls, PlatformTypes as Std};
 ///
-/// let run: Run<Std<dtls::Y>, ()> = Run::Error(Error::User(()));
+/// let run: Run<Std<dtls::Y>, ()> = Run::Error(Error::Other(()));
 /// run.maybe(|ap| {
 ///      let (_, Hydrate { req, .. }) = ap.try_unwrap_ok_hydrated().unwrap();
 ///      if req.data().path() == Ok(Some("hello")) {
@@ -95,32 +99,27 @@ impl<P, E> Run<P, E>
   /// Lift an [`Ap`] to [`Run`]
   pub fn handle(ap: Ap<Complete, P, (), E>) -> Self {
     match ap.0 {
-      | ApInner::Err(e) => Self::Error(Error::User(e)),
+      | ApInner::Err(e) => Self::Error(Error::Other(e)),
       | ApInner::RespondHydrated(Respond { code,
                                            payload,
                                            etag, },
                                  Addrd(req, addr)) => {
-        Resp::for_request(&req).map(|mut resp| {
-                                 resp.set_code(code);
-                                 resp.set_payload(payload);
+        let mut resp = Resp::non(&req);
+        resp.set_code(code);
+        resp.set_payload(payload);
 
-                                 if let Some(etag) = etag {
-                                   resp.set_option(4, etag);
-                                 }
+        if let Some(etag) = etag {
+          resp.set_option(4, etag);
+        }
 
-                                 resp
-                               })
-                               .map(|resp| Self::Matched(Addrd(resp.into(), addr)))
-                               .unwrap_or_else(|| {
-                                 Self::Error(Error::RequestInvalidType(req.msg_type()))
-                               })
+        Self::Matched(Addrd(resp.into(), addr))
       },
       | ApInner::RejectHydrated(req) => Self::Unmatched(req),
-      | ApInner::Respond { .. }
-      | ApInner::Reject
-      | ApInner::Phantom(_)
-      | ApInner::Ok(_)
-      | ApInner::OkHydrated { .. } => unreachable!(),
+      | a @ ApInner::Respond { .. }
+      | a @ ApInner::Reject
+      | a @ ApInner::Phantom(_)
+      | a @ ApInner::Ok(_)
+      | a @ ApInner::OkHydrated { .. } => unreachable!("{a:?}"),
     }
   }
 
@@ -149,6 +148,82 @@ impl<P, E> Run<P, E>
   }
 }
 
+/// Newtype wrapper of an initialization function
+#[derive(Debug, Clone, Copy)]
+pub struct Init<T>(pub Option<T>);
+
+/// TODO
+pub trait BlockingServer<S>: Sized + Platform<S>
+  where S: Step<Self::Types, PollReq = Addrd<Req<Self::Types>>, PollResp = Addrd<Resp<Self::Types>>>
+{
+  /// TODO
+  fn run<I, R>(self, init: Init<I>, mut handle_request: R) -> Result<(), Error<Self::Error>>
+    where I: FnMut(),
+          R: FnMut(Run<Self::Types, Self::Error>) -> Run<Self::Types, Self::Error>
+  {
+    let mut startup_msg = String1Kb::default();
+    write!(
+           &mut startup_msg,
+           r#"
+=====================================
+
+                       _
+           __   ___.--'_`.
+          ( _`.'. -   'o` )
+          _\.'_'      _.-'
+         ( \`. )    //\`
+          \_`-'`---'\\__,
+           \`        `-\
+            `
+
+  toad server up and running! 🐸
+  listening on `{}`.
+
+====================================="#,
+           self.socket().local_addr()
+    ).ok();
+
+    self.log(log::Level::Info, startup_msg)
+        .map_err(Error::Other)?;
+
+    init.0.map(|mut f| f());
+
+    loop {
+      let req = nb::block!(self.poll_req()).map_err(Error::Other)?;
+      match handle_request(Run::Unmatched(req)) {
+        | Run::Unmatched(req) => {
+          let mut msg = String1Kb::default();
+          write!(&mut msg,
+                 "IGNORING Request, not handled by any routes! {:?}",
+                 req).ok();
+          self.log(log::Level::Error, msg).map_err(Error::Other)?;
+
+          let mut msg = String1Kb::default();
+          write!(
+                 &mut msg,
+                 r#"
+Do you need a fallback?
+  server.run(|run| run.maybe(..)
+                      .maybe(..)
+                      .maybe(..)
+                      .maybe(|ap| ap.bind(|_| respond::not_found(\"Not found!\"))))
+)"#
+          ).ok();
+        },
+        | Run::Matched(rep) => nb::block!(self.send_msg(rep.clone())).map_err(Error::Other)
+                                                                     .map(|_| ())?,
+        | Run::Error(e) => break Err(e),
+      }
+    }
+  }
+}
+
+impl<S, T> BlockingServer<S> for T
+  where S: Step<Self::Types, PollReq = Addrd<Req<Self::Types>>, PollResp = Addrd<Resp<Self::Types>>>,
+        T: Sized + Platform<S>
+{
+}
+
 #[cfg(test)]
 mod tests {
   mod compiles {
@@ -157,7 +232,7 @@ mod tests {
 
     #[allow(dead_code)]
     fn foo() {
-      let _ = Run::<Std<dtls::Y>, _>::Error(Error::User(())).maybe(|a| {
+      let _ = Run::<Std<dtls::Y>, _>::Error(Error::Other(())).maybe(|a| {
                 a.pipe(path::segment::check::next_equals("user"))
                  .pipe(path::segment::param::u32)
                  .bind(|(_, user_id)| respond::ok(format!("hello, user ID {}!", user_id).into()))

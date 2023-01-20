@@ -70,6 +70,9 @@ pub trait Socket: Sized {
   /// manually with zero `0u8` filled in each position. (ex. `Vec::resize(_, 1024usize, 0u8)`)
   type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq;
 
+  /// Get the local address this socket was created from
+  fn local_addr(&self) -> SocketAddr;
+
   /// Create an empty [`Socket::Dgram`] buffer
   ///
   /// (this has a major GOTCHA, see [`Socket::Dgram`].)

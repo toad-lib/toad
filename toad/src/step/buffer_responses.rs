@@ -1,14 +1,16 @@
+use core::fmt::Write;
+
 use no_std_net::SocketAddr;
-use tinyvec::ArrayVec;
-use toad_common::{GetSize, Map, Stem};
+use toad_common::{Array, GetSize, Map, Stem};
 use toad_msg::{Token, Type};
 
 use super::{Step, StepOutput};
 use crate::exec_inner_step;
 use crate::net::Addrd;
-use crate::platform::PlatformTypes;
+use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::todo::String1Kb;
 
 /// Struct responsible for buffering and yielding responses to the request
 /// we're polling for.
@@ -121,6 +123,12 @@ impl<P: PlatformTypes,
     match resp {
       | Some(resp) if is_what_we_polled_for(&resp) => Some(Ok(resp)),
       | Some(resp) => {
+        let mut msg = String1Kb::default();
+        write!(&mut msg,
+               "polled for response to {:?}, got response with token {:?}",
+               token,
+               resp.data().token()).ok();
+        effects.push(Effect::Log(log::Level::Info, msg));
         self.store(resp);
 
         match try_remove_from_buffer(Type::Ack).or_else(|| try_remove_from_buffer(Type::Con))
@@ -138,17 +146,20 @@ impl<P: PlatformTypes,
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeMap;
   use tinyvec::array_vec;
   use toad_msg::Id;
 
   use super::*;
   use crate::step::test::test_step;
+  use crate::test::Platform as P;
 
-  type InnerPollReq = Addrd<Req<crate::test::Platform>>;
-  type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type InnerPollReq = Addrd<Req<P>>;
+  type InnerPollResp = Addrd<Resp<P>>;
+  type BufferResponses<S> = super::BufferResponses<S, BTreeMap<(SocketAddr, Token, Type), Addrd<Resp<P>>>>;
 
   test_step!(
-    GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN BufferResponses::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
@@ -160,7 +171,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN BufferResponses::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_blocks [
       (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
       (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
@@ -172,12 +183,12 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN BufferResponses::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_yields_request [
       (inner.poll_req => {{
         use toad_msg::*;
 
-        let msg = platform::Message::<crate::test::Platform> {
+        let msg = platform::Message::<P> {
           ver: Default::default(),
           token: Token(Default::default()),
           ty: Type::Con,
@@ -196,7 +207,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::BufferResponses::<Dummy, crate::test::Platform> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN BufferResponses::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_yields_response [
       (inner.poll_resp = {
         |_, _, _, _| {
@@ -231,7 +242,7 @@ mod test {
 
           CALL += 1;
 
-          let msg = platform::Message::<crate::test::Platform> {
+          let msg = platform::Message::<P> {
             ver: Default::default(),
             token: Token(Some(token).into_iter().collect()),
             ty,

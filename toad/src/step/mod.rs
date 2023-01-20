@@ -27,7 +27,8 @@ pub mod runtime {
 
   type Clock<P> = <P as PlatformTypes>::Clock;
 
-  type HandleUnexpectedAcks<M, S> = handle_unexpected_acks::HandleUnexpectedAcks<S, Map<M, Addrd<Token>, ()>>;
+  type HandleUnexpectedAcks<M, S> =
+    handle_unexpected_acks::HandleUnexpectedAcks<S, Map<M, Addrd<Token>, ()>>;
   type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
   type BufferResponses<P, M, S> =
     buffer_responses::BufferResponses<S,
@@ -46,14 +47,18 @@ pub mod runtime {
                                  Array,
                                  BufferResponses<P,
                                                  Map,
-                                                 HandleUnexpectedAcks<Map, Retry<P, Array, Ack<Parse<()>>>>>>>;
+                                                 HandleUnexpectedAcks<Map,
+                                                                      Retry<P,
+                                                                            Array,
+                                                                            Ack<Parse<()>>>>>>>;
 
   /// TODO
   pub mod std {
     use crate::std::PlatformTypes;
 
     /// TODO
-    pub type Runtime<Dtls> = super::Runtime<PlatformTypes<Dtls>, naan::hkt::Vec, naan::hkt::BTreeMap>;
+    pub type Runtime<Dtls> =
+      super::Runtime<PlatformTypes<Dtls>, naan::hkt::Vec, naan::hkt::BTreeMap>;
   }
 }
 

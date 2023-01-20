@@ -15,6 +15,10 @@ categories = ["network-programming"]
 name = "low_level_minimal"
 path = "examples/low_level/minimal.rs"
 
+[[example]]
+name = "server"
+path = "examples/server.rs"
+
 [badges]
 maintenance = { status = "actively-developed" }
 

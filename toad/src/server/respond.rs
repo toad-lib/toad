@@ -21,3 +21,11 @@ pub fn ok<P, E>(payload: P::MessagePayload) -> Ap<CompleteWhenHydrated, P, (), E
 {
   respond(crate::resp::code::CONTENT, payload)
 }
+
+/// [`respond`] with 4.04 NOT FOUND
+pub fn not_found<P, E>(payload: P::MessagePayload) -> Ap<CompleteWhenHydrated, P, (), E>
+  where P: PlatformTypes,
+        E: core::fmt::Debug
+{
+  respond(crate::resp::code::NOT_FOUND, payload)
+}

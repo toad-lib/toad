@@ -320,7 +320,8 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 
 #[cfg(test)]
 mod test {
-  use embedded_time::duration::Microseconds;
+  use std::collections::BTreeMap;
+use embedded_time::duration::Microseconds;
   use toad_common::Map;
 
   use super::*;
@@ -329,6 +330,7 @@ mod test {
 
   type InnerPollReq = Addrd<Req<crate::test::Platform>>;
   type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type ProvisionIds<S> = super::ProvisionIds::<P, S, BTreeMap<SocketAddrWithDefault, Vec<Stamped<ClockMock, IdWithDefault>>>>;
 
   fn test_msg(id: Id) -> Addrd<crate::test::Message> {
     use toad_msg::*;
@@ -344,7 +346,7 @@ mod test {
   }
 
   test_step!(
-    GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN ProvisionIds::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
@@ -356,7 +358,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN ProvisionIds::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_blocks [
       (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
       (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
@@ -368,7 +370,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN ProvisionIds::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN message_sent_with_id_zero []
     THEN this_should_assign_nonzero_id [
       (before_message_sent(_, test_msg(Id(0))) should be ok with { |msg| assert!(matches!(msg.data().id, Id(n) if n > 0)) })
@@ -376,7 +378,7 @@ mod test {
   );
 
   test_step!(
-    GIVEN alloc::ProvisionIds::<P, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN ProvisionIds::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN req_or_resp_recvd_with_id_zero [
       (inner.poll_req => { Some(Ok(test_msg(Id(0)).map(Req::from))) }),
       (inner.poll_resp => { Some(Ok(test_msg(Id(0)).map(Resp::from))) })
@@ -389,7 +391,10 @@ mod test {
 
   #[test]
   fn seen_should_remove_oldest_addr_when_new_addr_would_exceed_capacity() {
-    type Step = no_alloc::ProvisionIds<P, (), 16, 2>;
+    type Ids = ArrayVec<[Stamped<ClockMock, IdWithDefault>; 16]>;
+    type IdsByAddr = ArrayVec<[(SocketAddrWithDefault, Ids); 2]>;
+    type Step = super::ProvisionIds<P, (), IdsByAddr>;
+
     let step = Step::default();
     let cfg = Config::default();
 
@@ -425,7 +430,10 @@ mod test {
 
   #[test]
   fn seen_should_remove_empty_addr_when_new_addr_would_exceed_capacity() {
-    type Step = no_alloc::ProvisionIds<P, (), 16, 2>;
+    type Ids = ArrayVec<[Stamped<ClockMock, IdWithDefault>; 16]>;
+    type IdsByAddr = ArrayVec<[(SocketAddrWithDefault, Ids); 2]>;
+    type Step = super::ProvisionIds<P, (), IdsByAddr>;
+
     let step = Step::default();
     let cfg = Config::default();
 
@@ -454,7 +462,10 @@ mod test {
 
   #[test]
   fn seen_should_remove_oldest_id_when_about_to_exceed_capacity() {
-    type Step = no_alloc::ProvisionIds<P, (), 2, 1>;
+    type Ids = ArrayVec<[Stamped<ClockMock, IdWithDefault>; 2]>;
+    type IdsByAddr = ArrayVec<[(SocketAddrWithDefault, Ids); 1]>;
+    type Step = super::ProvisionIds<P, (), IdsByAddr>;
+
     let step = Step::default();
     let cfg = Config::default();
 
@@ -488,7 +499,7 @@ mod test {
 
   #[test]
   fn seen_should_prune_ids_older_than_exchange_lifetime() {
-    type Step = alloc::ProvisionIds<P, ()>;
+    type Step = ProvisionIds<()>;
     let step = Step::default();
     let cfg = Config::default();
     let exchange_lifetime_micros = cfg.exchange_lifetime_millis() * 1_000;
@@ -527,7 +538,7 @@ mod test {
 
   #[test]
   fn next_should_generate_largest_plus_one_when_largest_lt_max() {
-    type Step = alloc::ProvisionIds<P, ()>;
+    type Step = ProvisionIds<()>;
     let step = Step::default();
     let time = ClockMock::instant(0);
 
@@ -556,7 +567,7 @@ mod test {
 
   #[test]
   fn next_should_generate_smallest_minus_one_when_largest_is_max() {
-    type Step = alloc::ProvisionIds<P, ()>;
+    type Step = ProvisionIds<()>;
     let step = Step::default();
     let time = ClockMock::instant(0);
 
@@ -580,7 +591,7 @@ mod test {
 
   #[test]
   fn next_should_generate_in_gap_when_smallest_1_and_largest_max() {
-    type Step = alloc::ProvisionIds<P, ()>;
+    type Step = ProvisionIds<()>;
     let step = Step::default();
     let time = ClockMock::instant(0);
 
@@ -619,7 +630,7 @@ mod test {
 
   #[test]
   fn next_should_generate_initial_id() {
-    type Step = alloc::ProvisionIds<P, ()>;
+    type Step = ProvisionIds<()>;
     let step = Step::default();
     let id = step.seen.map_mut(|s| {
                         Step::next(s,

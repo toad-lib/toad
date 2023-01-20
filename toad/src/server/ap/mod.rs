@@ -471,7 +471,7 @@ impl<S, P, T, E> Ap<S, P, T, E>
     }
   }
 
-  fn coerce_state<S2>(self) -> Ap<S2, P, T, E>
+  pub(crate) fn coerce_state<S2>(self) -> Ap<S2, P, T, E>
     where S2: ApState
   {
     let inner = match self.0 {

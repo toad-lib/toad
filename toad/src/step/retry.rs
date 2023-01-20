@@ -313,7 +313,9 @@ mod tests {
   use crate::platform::Effect;
   use crate::retry::Strategy;
   use crate::step::test::test_step;
-  use crate::test::{self, ClockMock};
+  use crate::test::{self, ClockMock, Platform as P};
+
+  type Retry<S> = super::Retry<S, Vec<(State<ClockMock>, Addrd<platform::Message<P>>)>>;
 
   fn snap_time(config: Config, time: u64) -> test::Snapshot {
     test::Snapshot { config,
@@ -343,7 +345,7 @@ mod tests {
   type InnerPollResp = Addrd<test::Resp>;
 
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_errors [
       (inner.poll_req => { Some(Err(nb::Error::Other(()))) }),
       (inner.poll_resp => { Some(Err(nb::Error::Other(()))) })
@@ -355,7 +357,7 @@ mod tests {
   );
 
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN inner_blocks [
       (inner.poll_req => { Some(Err(nb::Error::WouldBlock)) }),
       (inner.poll_resp => { Some(Err(nb::Error::WouldBlock)) })
@@ -377,7 +379,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN con_request_sent [
       (inner.poll_resp = {
         |Snapshot {time, ..}, _, _, _| {
@@ -457,7 +459,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN con_response_sent [
       (inner.poll_req = {
         |Snapshot {time, ..}, _| {
@@ -523,7 +525,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN non_request_sent [
       (inner.poll_resp = {
         |Snapshot {time, ..}, _, _, _| {
@@ -584,7 +586,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN we_send_ack [
       (inner.poll_req => {None})
     ]
@@ -613,7 +615,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN we_send_non_response [
       (inner.poll_req => {None})
     ]
@@ -642,7 +644,7 @@ mod tests {
    * | 10_000 | should not have retried                           |
    */
   test_step!(
-    GIVEN alloc::Retry::<crate::test::Platform, Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
+    GIVEN Retry::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN we_send_reset_request_or_response [
       (inner.poll_req => {None}),
       (inner.poll_resp => {None})
