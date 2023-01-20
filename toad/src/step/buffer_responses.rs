@@ -69,7 +69,7 @@ impl<E> From<E> for Error<E> {
 impl<E: core::fmt::Debug> core::fmt::Debug for Error<E> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     match self {
-      | Self::BufferResponsesFull => f.debug_struct("CapacityExhausted").finish(),
+      | Self::BufferResponsesFull => f.debug_struct("BufferResponsesFull").finish(),
       | Self::Inner(e) => e.fmt(f),
     }
   }

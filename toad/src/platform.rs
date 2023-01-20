@@ -87,7 +87,7 @@ pub trait Platform<Steps>
   /// Take a snapshot of the platform's state right now,
   /// including the system time and datagrams currently
   /// in the network socket
-  fn snapshot_maybe_dgram(&self) -> Result<Snapshot<Self::Types>, Self::Error> {
+  fn snapshot(&self) -> Result<Snapshot<Self::Types>, Self::Error> {
     use embedded_time::Clock;
 
     self.socket()
@@ -97,25 +97,9 @@ pub trait Platform<Steps>
           self.clock()
               .try_now()
               .map_err(Self::Error::clock)
-              .map(|time| Snapshot { recvd_dgram: recvd_dgram.unwrap_or_else(|| {
-                                                               Addrd(Default::default(),
-                                                                     "0.0.0.0:0".parse().unwrap())
-                                                             }),
+              .map(|time| Snapshot { recvd_dgram,
                                      config: self.config(),
                                      time })
-        })
-  }
-
-  /// [`Platform::snapshot_maybe_dgram`] converting "no dgram" to [`nb::Error::WouldBlock`]
-  fn snapshot(&self) -> nb::Result<Snapshot<Self::Types>, Self::Error> {
-    self.snapshot_maybe_dgram()
-        .map_err(nb::Error::Other)
-        .and_then(|snap| {
-          if snap.recvd_dgram.data().is_empty() {
-            Err(nb::Error::WouldBlock)
-          } else {
-            Ok(snap)
-          }
         })
   }
 
@@ -123,12 +107,14 @@ pub trait Platform<Steps>
   /// for processing.
   fn poll_req(&self) -> nb::Result<Addrd<Req<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
-    let res = self.snapshot().and_then(|snapshot| {
-                               self.steps()
-                                   .poll_req(&snapshot, &mut effects)
-                                   .unwrap_or(Err(nb::Error::WouldBlock))
-                                   .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
-                             });
+    let res = self.snapshot()
+                  .map_err(nb::Error::Other)
+                  .and_then(|snapshot| {
+                    self.steps()
+                        .poll_req(&snapshot, &mut effects)
+                        .unwrap_or(Err(nb::Error::WouldBlock))
+                        .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                  });
 
     // NOTE: exec effects even if the above blocks
     self.exec_many(effects)
@@ -145,12 +131,14 @@ pub trait Platform<Steps>
                addr: SocketAddr)
                -> nb::Result<Addrd<Resp<Self::Types>>, Self::Error> {
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
-    let res = self.snapshot().and_then(|snapshot| {
-                               self.steps()
-                                   .poll_resp(&snapshot, &mut effects, token, addr)
-                                   .unwrap_or(Err(nb::Error::WouldBlock))
-                                   .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
-                             });
+    let res = self.snapshot()
+                  .map_err(nb::Error::Other)
+                  .and_then(|snapshot| {
+                    self.steps()
+                        .poll_resp(&snapshot, &mut effects, token, addr)
+                        .unwrap_or(Err(nb::Error::WouldBlock))
+                        .map_err(|e: nb::Error<_>| e.map(Self::Error::step))
+                  });
 
     // NOTE: exec effects even if the above blocks
     self.exec_many(effects)
@@ -171,7 +159,7 @@ pub trait Platform<Steps>
               -> nb::Result<(Id, Token), Self::Error> {
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
-    self.snapshot_maybe_dgram()
+    self.snapshot()
         .try_perform(|snapshot| {
           self.steps()
               .before_message_sent(snapshot, &mut addrd_msg)
@@ -294,7 +282,7 @@ pub struct Snapshot<P: PlatformTypes> {
   pub time: Instant<P::Clock>,
 
   /// A UDP datagram received from somewhere
-  pub recvd_dgram: Addrd<<P::Socket as Socket>::Dgram>,
+  pub recvd_dgram: Option<Addrd<<P::Socket as Socket>::Dgram>>,
 
   /// Runtime config, includes many useful timings
   pub config: Config,

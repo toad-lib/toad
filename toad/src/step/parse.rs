@@ -62,11 +62,15 @@ impl<E: super::Error> super::Error for Error<E> {}
 
 macro_rules! common {
   ($dgram:expr) => {{
-    $dgram.fold(|dgram, addr| {
-            platform::Message::<P>::try_from_bytes(dgram).map(|dgram| Addrd(dgram, addr))
+    $dgram.map(|d| {
+            d.as_ref()
+             .fold(|dgram, addr| {
+               platform::Message::<P>::try_from_bytes(dgram).map(|dgram| Addrd(dgram, addr))
+             })
+             .map_err(Error::Parsing)
+             .map_err(nb::Error::Other)
           })
-          .map_err(Error::Parsing)
-          .map_err(nb::Error::Other)
+          .unwrap_or(Err(nb::Error::WouldBlock))
   }};
 }
 
@@ -167,7 +171,7 @@ mod test {
         (snapshot = {
           platform::Snapshot {
             time: crate::test::ClockMock::new().try_now().unwrap(),
-            recvd_dgram: test_msg(Type::Con, Code::new(1, 01)).0,
+            recvd_dgram: Some(test_msg(Type::Con, Code::new(1, 01)).0),
             config: Default::default(),
           }
         })
@@ -184,7 +188,7 @@ mod test {
         (snapshot = {
           platform::Snapshot {
             time: crate::test::ClockMock::new().try_now().unwrap(),
-            recvd_dgram: test_msg(Type::Ack, Code::new(0, 0)).0,
+            recvd_dgram: Some(test_msg(Type::Ack, Code::new(0, 0)).0),
             config: Default::default(),
           }
         })
@@ -201,7 +205,7 @@ mod test {
         (snapshot = {
           platform::Snapshot {
             time: crate::test::ClockMock::new().try_now().unwrap(),
-            recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0,
+            recvd_dgram: Some(test_msg(Type::Ack, Code::new(2, 04)).0),
             config: Default::default(),
           }
         })
@@ -218,7 +222,7 @@ mod test {
           (snapshot = {
             platform::Snapshot {
               time: crate::test::ClockMock::new().try_now().unwrap(),
-              recvd_dgram: test_msg(Type::Ack, Code::new(2, 04)).0,
+              recvd_dgram: Some(test_msg(Type::Ack, Code::new(2, 04)).0),
               config: Default::default(),
             }
           })
@@ -235,7 +239,7 @@ mod test {
         (snapshot = {
           platform::Snapshot {
            time: crate::test::ClockMock::new().try_now().unwrap(),
-           recvd_dgram: test_msg(Type::Con, Code::new(1, 1)).0,
+           recvd_dgram: Some(test_msg(Type::Con, Code::new(1, 1)).0),
            config: Default::default(),
           }
         })

@@ -10,7 +10,6 @@ use crate::time::Millis;
 pub struct BytesPerSecond(pub u16);
 
 /// Configuration options related to parsing & handling outbound CON requests
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Con {
   /// Retry strategy for CON requests that
@@ -47,7 +46,7 @@ pub struct Con {
   pub acked_retry_strategy: Strategy,
   /// Number of times we are allowed to resend a CON request
   /// before erroring.
-  ///
+  //
   /// Defaults to 4 attempts.
   /// ```
   /// use toad::config::Con;
@@ -59,7 +58,6 @@ pub struct Con {
 }
 
 /// Configuration options related to parsing & handling outbound NON requests
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Non {
   /// Strategy to use when we sent a NON request and haven't yet
@@ -93,7 +91,6 @@ pub struct Non {
 }
 
 /// Configuration options related to parsing & handling messages
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Msg {
   /// Seed used to generate message [`Token`](toad_msg::Token)s,
@@ -187,7 +184,6 @@ impl Default for Msg {
 }
 
 /// Runtime config
-#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Config {
   /// See [`Msg`]

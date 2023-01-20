@@ -19,6 +19,10 @@ path = "examples/low_level/minimal.rs"
 name = "server"
 path = "examples/server.rs"
 
+[[example]]
+name = "server_traffic"
+path = "examples/server_traffic.rs"
+
 [badges]
 maintenance = { status = "actively-developed" }
 
