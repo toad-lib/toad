@@ -1,4 +1,4 @@
-use toad_common::{AppendCopy, Array, Cursor, GetSize};
+use toad_common::{AppendCopy, Array, Cursor, GetSize, InsertError, Map};
 use toad_macros::rfc_7252_doc;
 
 /// Message Code
@@ -70,16 +70,15 @@ impl TryFrom<u8> for Byte1 {
   }
 }
 
-impl<PayloadBytes: Array<Item = u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8>,
-      Options: Array<Item = Opt<OptionValue>>> GetSize for Message<PayloadBytes, Options>
+impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
+  for Message<PayloadBytes, Options>
 {
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
     let payload_size = self.payload.0.get_size();
     let token_size = self.token.0.len();
-    let opts_size: usize = self.opts.iter().map(|o| o.get_size()).sum();
+    let opts_size: usize = self.opts.iter().opt_refs().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
   }
@@ -113,8 +112,11 @@ impl<PayloadBytes: Array<Item = u8>,
 /// </details>
 ///
 /// ```
+/// use std::collections::BTreeMap;
+///
 /// use toad_msg::TryFromBytes;
 /// use toad_msg::*;
+///
 /// # //                       version  token len  code (2.05 Content)
 /// # //                       |        |          /
 /// # //                       |  type  |         /  message ID
@@ -130,13 +132,7 @@ impl<PayloadBytes: Array<Item = u8>,
 ///
 /// // `VecMessage` uses `Vec` as the backing structure for byte buffers
 /// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
-/// # let opt = Opt {
-/// #   delta: OptDelta(12),
-/// #   value: OptValue(content_format.iter().map(|u| *u).collect()),
-/// # };
-/// let mut opts_expected = /* create expected options */
-/// # Vec::new();
-/// # opts_expected.push(opt);
+/// let mut opts_expected = BTreeMap::from([(OptNumber(12), OptValue(content_format.iter().map(|u| *u).collect()))]);
 ///
 /// let expected = VecMessage {
 ///   id: Id(1),
@@ -168,9 +164,8 @@ pub struct Message<PayloadBytes, Options> {
   pub payload: Payload<PayloadBytes>,
 }
 
-impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8> + 'static,
-      Options: Array<Item = Opt<OptionValue>>> Message<PayloadBytes, Options>
+impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
+  Message<PayloadBytes, Options>
 {
   /// Create a new message that ACKs this one.
   ///
@@ -194,7 +189,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
   ///   #                     ty: Type::Con,
   ///   #                     ver: Version(1),
   ///   #                     token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-  ///   #                     opts: vec![],
+  ///   #                     opts: Default::default(),
   ///   #                     payload: Payload(vec![]) };
   ///   # Some((addr, msg))
   /// }
@@ -219,13 +214,21 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
            payload: Payload(Default::default()),
            opts: Default::default() }
   }
+
+  pub fn set(&mut self,
+             n: OptNumber,
+             v: OptValue<Options::OptValue>)
+             -> Result<(), InsertError<OptValue<Options::OptValue>>> {
+    self.opts.insert(n, v)
+  }
+
+  pub fn get(&self, n: OptNumber) -> Option<&OptValue<Options::OptValue>> {
+    self.opts.get(&n)
+  }
 }
 
-impl<Bytes: AsRef<[u8]>,
-      PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8>,
-      Options: Array<Item = Opt<OptionValue>>> TryFromBytes<Bytes>
-  for Message<PayloadBytes, Options>
+impl<Bytes: AsRef<[u8]>, PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
+  TryFromBytes<Bytes> for Message<PayloadBytes, Options>
 {
   type Error = MessageParseError;
 

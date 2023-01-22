@@ -91,7 +91,7 @@ pub use from_bytes::TryFromBytes;
 #[doc(inline)]
 pub use msg::*;
 #[cfg(feature = "alloc")]
-use std_alloc::vec::Vec;
+use std_alloc::{collections::BTreeMap, vec::Vec};
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
@@ -100,11 +100,12 @@ use toad_common::{Array, GetSize};
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-pub type VecMessage = Message<Vec<u8>, Vec<Opt<Vec<u8>>>>;
+pub type VecMessage = Message<Vec<u8>, BTreeMap<OptNumber, OptValue<Vec<u8>>>>;
 
 /// Message that uses static fixed-capacity stack-allocating byte buffers
 pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
-  Message<ArrayVec<[u8; PAYLOAD_CAP]>, ArrayVec<[Opt<ArrayVec<[u8; OPT_CAP]>>; N_OPTS]>>;
+  Message<ArrayVec<[u8; PAYLOAD_CAP]>,
+          ArrayVec<[(OptNumber, OptValue<ArrayVec<[u8; OPT_CAP]>>); N_OPTS]>>;
 
 #[cfg(test)]
 pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
@@ -118,10 +119,8 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                options.concat().as_ref(),
                payload.concat().as_ref()].concat();
 
-  let mut opts = Vec::new();
-  let opt = Opt { delta: OptDelta(12),
-                  value: OptValue(content_format.to_vec()) };
-  opts.push(opt);
+  let mut opts = BTreeMap::new();
+  opts.insert(OptNumber(12), OptValue(content_format.to_vec()));
 
   let msg = VecMessage { id: Id(1),
                          ty: Type::Con,
