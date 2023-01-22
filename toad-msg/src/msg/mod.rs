@@ -1,4 +1,4 @@
-use toad_common::{AppendCopy, Array, Cursor, GetSize, InsertError, Map};
+use toad_common::{AppendCopy, Array, Cursor, GetSize, InsertError};
 use toad_macros::rfc_7252_doc;
 
 /// Message Code
@@ -34,7 +34,7 @@ use crate::from_bytes::TryConsumeBytes;
 use crate::TryFromBytes;
 
 #[doc = rfc_7252_doc!("5.5")]
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Payload<C>(pub C);
 
 /// Struct representing the first byte of a message.
@@ -49,7 +49,7 @@ pub struct Payload<C>(pub C);
 /// vv vv vvvv
 /// 01 00 0000
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub(crate) struct Byte1 {
   pub(crate) ver: Version,
   pub(crate) ty: Type,
@@ -146,7 +146,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
 ///
 /// assert_eq!(msg, expected);
 /// ```
-#[derive(Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
 pub struct Message<PayloadBytes, Options> {
   /// see [`Id`] for details
   pub id: Id,
@@ -215,6 +215,9 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
            opts: Default::default() }
   }
 
+  /// Set an option by number
+  ///
+  /// This just invokes [`Map::insert`] on [`Message.opts`].
   pub fn set(&mut self,
              n: OptNumber,
              v: OptValue<Options::OptValue>)
@@ -222,6 +225,9 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
     self.opts.insert(n, v)
   }
 
+  /// Get the value of an option by number
+  ///
+  /// This just invokes [`Map::get`] on [`Message.opts`].
   pub fn get(&self, n: OptNumber) -> Option<&OptValue<Options::OptValue>> {
     self.opts.get(&n)
   }
@@ -236,18 +242,18 @@ impl<Bytes: AsRef<[u8]>, PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Option
     let mut bytes = Cursor::new(bytes);
 
     let Byte1 { tkl, ty, ver } = bytes.next()
-                                      .ok_or_else(|| MessageParseError::eof())?
+                                      .ok_or_else(MessageParseError::eof)?
                                       .try_into()?;
 
     if tkl > 8 {
       return Err(Self::Error::InvalidTokenLength(tkl));
     }
 
-    let code: Code = bytes.next().ok_or_else(|| MessageParseError::eof())?.into();
+    let code: Code = bytes.next().ok_or_else(MessageParseError::eof)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
 
     let token = bytes.take_exact(tkl as usize)
-                     .ok_or_else(|| MessageParseError::eof())?;
+                     .ok_or_else(MessageParseError::eof)?;
     let token = tinyvec::ArrayVec::<[u8; 8]>::try_from(token).expect("tkl was checked to be <= 8");
     let token = Token(token);
 

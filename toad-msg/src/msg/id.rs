@@ -1,9 +1,7 @@
-use tinyvec::ArrayVec;
 use toad_common::Cursor;
 
 use super::MessageParseError;
 use crate::from_bytes::TryConsumeBytes;
-use crate::Message;
 
 /// # Message ID
 ///

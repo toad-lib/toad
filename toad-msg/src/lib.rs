@@ -81,8 +81,10 @@ extern crate alloc as std_alloc;
 
 #[doc(hidden)]
 pub mod from_bytes;
-#[doc(hidden)]
+
+/// Message structs
 pub mod msg;
+
 #[doc(hidden)]
 pub mod to_bytes;
 
@@ -95,7 +97,7 @@ use std_alloc::{collections::BTreeMap, vec::Vec};
 use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
-use toad_common::{Array, GetSize};
+use toad_common::Array;
 
 /// Message that uses Vec byte buffers
 #[cfg(feature = "alloc")]

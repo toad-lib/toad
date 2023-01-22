@@ -8,6 +8,7 @@ use toad_macros::rfc_7252_doc;
 
 use crate::from_bytes::*;
 
+/// Option parsing error
 pub mod parse_error;
 pub use parse_error::*;
 
@@ -56,9 +57,11 @@ impl<'a, I, V> Iterator for OptRefIter<I>
   }
 }
 
+/// Given an iterator of option number + option value, produce an iterator of raw [`Opt`] structs.
 pub trait IterOpts<V>
   where Self: Sized + IntoIterator<Item = (OptNumber, OptValue<V>)>
 {
+  /// Perform the conversion
   fn opts(self) -> OptIter<Self::IntoIter>;
 }
 
@@ -70,10 +73,12 @@ impl<V, I> IterOpts<V> for I where I: Sized + IntoIterator<Item = (OptNumber, Op
   }
 }
 
+/// Given an iterator of option number + option value, produce an iterator of raw [`OptRef`] structs.
 pub trait IterOptRefs<'a, V>
   where Self: Sized + IntoIterator<Item = (&'a OptNumber, &'a OptValue<V>)> + 'a,
         V: 'a
 {
+  /// Perform the conversion
   fn opt_refs(self) -> OptRefIter<Self::IntoIter>;
 }
 
@@ -87,9 +92,11 @@ impl<'a, V, I> IterOptRefs<'a, V> for I
   }
 }
 
+/// Generalization of `HashMap<OptNumber, OptValue<Vec<u8>>>`
 pub trait OptionMap
   where Self: Map<OptNumber, OptValue<Self::OptValue>>
 {
+  /// Byte array for option values
   type OptValue: Array<Item = u8> + AppendCopy<u8>;
 }
 
@@ -156,11 +163,11 @@ pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
 /// </details>
 ///
 /// # `Opt` struct
-/// Low-level representation of a freshly parsed CoAP Option
+/// Low-level representation of a CoAP Option, closely mirroring the byte layout
+/// of message options.
 ///
-/// ## Option Numbers
-/// This struct just stores data parsed directly from the message on the wire,
-/// and does not compute or store the Option Number.
+/// Notably, this doesn't include the Number (key, e.g. "Content-Format" or "Uri-Path").
+/// To refer to numbers we use implementors of the [`OptionMap`] trait.
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct Opt<C> {
   /// See [`OptDelta`]
@@ -169,8 +176,9 @@ pub struct Opt<C> {
   pub value: OptValue<C>,
 }
 
-/// TODO
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+/// A low-cost copyable [`Opt`] that stores a reference to the value
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+#[allow(missing_docs)]
 pub struct OptRef<'a, C> {
   pub delta: OptDelta,
   pub value: &'a OptValue<C>,
