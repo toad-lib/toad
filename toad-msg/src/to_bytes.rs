@@ -1,5 +1,5 @@
 use tinyvec::ArrayVec;
-use toad_common::{AppendCopy, GetSize};
+use toad_common::GetSize;
 
 use crate::*;
 
@@ -45,15 +45,14 @@ pub trait TryIntoBytes {
 }
 
 /// Errors encounterable serializing to bytes
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MessageToBytesError {
   /// Reserved capacity was not enough for size of message
   TooLong { capacity: usize, size: usize },
 }
 
-impl<PayloadBytes: Array<Item = u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8>,
-      Options: Array<Item = Opt<OptionValue>>> TryIntoBytes for Message<PayloadBytes, Options>
+impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> TryIntoBytes
+  for Message<PayloadBytes, Options>
 {
   type Error = MessageToBytesError;
 
@@ -81,7 +80,7 @@ impl<PayloadBytes: Array<Item = u8>,
     bytes.extend(id);
     bytes.extend(token);
 
-    for opt in self.opts.into_iter() {
+    for opt in self.opts.opts() {
       opt.extend_bytes(&mut bytes);
     }
 

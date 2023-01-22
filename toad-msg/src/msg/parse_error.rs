@@ -1,5 +1,5 @@
 /// Errors encounterable while parsing a message from bytes
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum MessageParseError {
   /// Reached end of stream before parsing was finished
   UnexpectedEndOfStream,

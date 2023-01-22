@@ -1,10 +1,11 @@
 /// Errors encounterable while parsing an option from bytes
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum OptParseError {
   /// Reached end of stream before parsing was finished
   UnexpectedEndOfStream,
 
   /// Option value was longer than the fixed capacity
+  #[allow(missing_docs)]
   OptionValueTooLong { capacity: usize, actual: usize },
 
   /// Parsed more options than reserved capacity

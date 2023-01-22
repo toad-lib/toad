@@ -1,11 +1,12 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::net::UdpSocket;
 use std::sync::{Arc, Barrier};
 use std::thread::{self, JoinHandle};
 
-use toad_msg::{EnumerateOptNumbers, TryFromBytes, TryIntoBytes};
+use toad_msg::{OptNumber, OptValue, TryFromBytes, TryIntoBytes};
 
-type Message = toad_msg::Message<Vec<u8>, Vec<toad_msg::Opt<Vec<u8>>>>;
+type Message = toad_msg::Message<Vec<u8>, BTreeMap<OptNumber, OptValue<Vec<u8>>>>;
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));
@@ -65,10 +66,9 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
         };
         let (_, path_opt) = req.opts
                                .iter()
-                               .enumerate_option_numbers()
                                .find(|(n, _)| n.0 == 11)
                                .ok_or_else(|| err("no Uri-Path"))?;
-        let path = String::from_utf8(path_opt.value.0.clone()).map_err(err)?;
+        let path = String::from_utf8(path_opt.0.clone()).map_err(err)?;
 
         let rep = match path.as_str() {
           | "hello" => ok_hello(req.token),
@@ -99,8 +99,8 @@ fn get_hello() -> Message {
             token: Token(Default::default()),
             code: Code { class: 0,
                          detail: 1 }, // GET
-            opts: vec![Opt { delta: OptDelta(11), // Uri-Path
-                             value: OptValue("hello".as_bytes().to_vec()) }],
+            opts: BTreeMap::from([(OptNumber(11), // Uri-Path
+                                   OptValue("hello".as_bytes().to_vec()))]),
             payload: Payload(Vec::new()) }
 }
 
@@ -112,7 +112,7 @@ fn ok_hello(token: toad_msg::Token) -> Message {
             token,
             code: Code { class: 2,
                          detail: 5 }, // 2.05 OK
-            opts: Vec::new(),
+            opts: Default::default(),
             payload: Payload("hi there!".as_bytes().to_vec()) }
 }
 
@@ -124,6 +124,6 @@ fn not_found(token: toad_msg::Token) -> Message {
             token,
             code: Code { class: 4,
                          detail: 4 }, // 4.04 NOT FOUND
-            opts: Vec::new(),
+            opts: Default::default(),
             payload: Payload("not found :(".as_bytes().to_vec()) }
 }

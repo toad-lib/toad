@@ -1,7 +1,7 @@
 use toad_common::Array;
 use toad_msg::{Opt, OptDelta, OptNumber};
 
-/// Content formats supported by toad
+/// Content-Format
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub enum ContentFormat {
@@ -63,7 +63,7 @@ pub trait ToCoapValue {
 
 impl<'a> ToCoapValue for &'a str {
   fn to_coap_value<T: Array<Item = u8>>(self) -> T {
-    self.bytes().collect()
+    self.bytes().to_coap_value()
   }
 }
 

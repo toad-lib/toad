@@ -1,10 +1,143 @@
-use toad_common::{AppendCopy, Array, Cursor, GetSize};
+use core::ops::{Add, Sub};
+
+#[cfg(feature = "alloc")]
+use std_alloc::vec::Vec;
+use tinyvec::ArrayVec;
+use toad_common::{AppendCopy, Array, Cursor, GetSize, Map};
 use toad_macros::rfc_7252_doc;
 
 use crate::from_bytes::*;
 
+/// Option parsing error
 pub mod parse_error;
 pub use parse_error::*;
+
+/// Implementor of [`IterOpts`]
+#[derive(Debug, Clone)]
+pub struct OptIter<I> {
+  iter: I,
+  last_seen_num: OptNumber,
+}
+
+/// Implementor of [`IterOptRefs`]
+#[derive(Debug, Clone)]
+pub struct OptRefIter<I> {
+  iter: I,
+  last_seen_num: OptNumber,
+}
+
+impl<I, V> Iterator for OptIter<I> where I: Iterator<Item = (OptNumber, OptValue<V>)>
+{
+  type Item = Opt<V>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let (num, value) = self.iter.next()?;
+    let OptNumber(delta) = num - self.last_seen_num;
+    let delta = OptDelta(delta as u16);
+
+    self.last_seen_num = num;
+    Some(Opt { delta, value })
+  }
+}
+
+impl<'a, I, V> Iterator for OptRefIter<I>
+  where I: Iterator<Item = (&'a OptNumber, &'a OptValue<V>)>,
+        Self: 'a,
+        V: 'a
+{
+  type Item = OptRef<'a, V>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let (num, value) = self.iter.next()?;
+    let OptNumber(delta) = *num - self.last_seen_num;
+    let delta = OptDelta(delta as u16);
+
+    self.last_seen_num = *num;
+    Some(OptRef { delta, value })
+  }
+}
+
+/// Given an iterator of option number + option value, produce an iterator of raw [`Opt`] structs.
+pub trait IterOpts<V>
+  where Self: Sized + IntoIterator<Item = (OptNumber, OptValue<V>)>
+{
+  /// Perform the conversion
+  fn opts(self) -> OptIter<Self::IntoIter>;
+}
+
+impl<V, I> IterOpts<V> for I where I: Sized + IntoIterator<Item = (OptNumber, OptValue<V>)>
+{
+  fn opts(self) -> OptIter<I::IntoIter> {
+    OptIter { iter: self.into_iter(),
+              last_seen_num: OptNumber(0) }
+  }
+}
+
+/// Given an iterator of option number + option value, produce an iterator of raw [`OptRef`] structs.
+pub trait IterOptRefs<'a, V>
+  where Self: Sized + IntoIterator<Item = (&'a OptNumber, &'a OptValue<V>)> + 'a,
+        V: 'a
+{
+  /// Perform the conversion
+  fn opt_refs(self) -> OptRefIter<Self::IntoIter>;
+}
+
+impl<'a, V, I> IterOptRefs<'a, V> for I
+  where I: 'a + Sized + IntoIterator<Item = (&'a OptNumber, &'a OptValue<V>)>,
+        V: 'a
+{
+  fn opt_refs(self) -> OptRefIter<I::IntoIter> {
+    OptRefIter { iter: self.into_iter(),
+                 last_seen_num: OptNumber(0) }
+  }
+}
+
+/// Generalization of `HashMap<OptNumber, OptValue<Vec<u8>>>`
+pub trait OptionMap
+  where Self: Map<OptNumber, OptValue<Self::OptValue>>
+{
+  /// Byte array for option values
+  type OptValue: Array<Item = u8> + AppendCopy<u8>;
+}
+
+#[cfg(feature = "alloc")]
+impl OptionMap for std_alloc::collections::BTreeMap<OptNumber, OptValue<Vec<u8>>> {
+  type OptValue = Vec<u8>;
+}
+
+impl<const N_OPTS: usize, const OPT_VALUE_LEN: usize> OptionMap
+  for ArrayVec<[(OptNumber, OptValue<ArrayVec<[u8; OPT_VALUE_LEN]>>); N_OPTS]>
+{
+  type OptValue = ArrayVec<[u8; OPT_VALUE_LEN]>;
+}
+
+impl<B: AsRef<[u8]>, M: OptionMap> TryConsumeBytes<B> for M {
+  type Error = OptParseError;
+
+  fn try_consume_bytes(bytes: &mut Cursor<B>) -> Result<Self, Self::Error> {
+    let mut map = Self::default();
+
+    let mut last_inserted = OptNumber(0);
+
+    loop {
+      match Opt::try_consume_bytes(bytes) {
+        | Ok(opt) => {
+          if map.is_full() {
+            break Err(Self::Error::TooManyOptions(map.get_size()));
+          }
+
+          let OptDelta(d) = opt.delta;
+          let num = last_inserted + OptNumber(d as u32);
+
+          map.insert(num, opt.value).ok();
+          last_inserted = num;
+        },
+        | Err(OptParseError::OptionsExhausted) => break Ok(map),
+        | Err(e) => break Err(e),
+      }
+    }
+  }
+}
 
 pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
                                                      bytes: &mut Cursor<A>,
@@ -30,13 +163,11 @@ pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
 /// </details>
 ///
 /// # `Opt` struct
-/// Low-level representation of a freshly parsed CoAP Option
+/// Low-level representation of a CoAP Option, closely mirroring the byte layout
+/// of message options.
 ///
-/// ## Option Numbers
-/// This struct just stores data parsed directly from the message on the wire,
-/// and does not compute or store the Option Number.
-///
-/// To get [`OptNumber`]s, you can use the iterator extension [`EnumerateOptNumbers`] on a collection of [`Opt`]s.
+/// Notably, this doesn't include the Number (key, e.g. "Content-Format" or "Uri-Path").
+/// To refer to numbers we use implementors of the [`OptionMap`] trait.
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct Opt<C> {
   /// See [`OptDelta`]
@@ -45,7 +176,15 @@ pub struct Opt<C> {
   pub value: OptValue<C>,
 }
 
-impl<C: Array<Item = u8>> GetSize for Opt<C> {
+/// A low-cost copyable [`Opt`] that stores a reference to the value
+#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+#[allow(missing_docs)]
+pub struct OptRef<'a, C> {
+  pub delta: OptDelta,
+  pub value: &'a OptValue<C>,
+}
+
+impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
   fn get_size(&self) -> usize {
     let header_size = 1;
     let delta_size = match self.delta.0 {
@@ -69,6 +208,13 @@ impl<C: Array<Item = u8>> GetSize for Opt<C> {
 
   fn is_full(&self) -> bool {
     false
+  }
+}
+
+impl<'a, V> From<&'a Opt<V>> for OptRef<'a, V> {
+  fn from(o: &'a Opt<V>) -> Self {
+    Self { value: &o.value,
+           delta: o.delta }
   }
 }
 
@@ -101,8 +247,6 @@ impl<C: Array<Item = u8>> Opt<C> {
 /// This is just used to compute the Option Number, identifying which
 /// Option is being set (e.g. Content-Format has a Number of 12)
 ///
-/// To use this to get Option Numbers, see [`EnumerateOptNumbers`].
-///
 /// # Related
 /// - [RFC7252#section-3.1 Option Format](https://datatracker.ietf.org/doc/html/rfc7252#section-3.1)
 #[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
@@ -112,12 +256,24 @@ pub struct OptDelta(pub u16);
 /// <details><summary><b>RFC7252 Section 12.2 Core CoAP Option Numbers</b></summary>
 #[doc = concat!("\n#", rfc_7252_doc!("12.2"))]
 /// </details>
-///
-/// # `OptNumber` struct
-/// Because Option Numbers are only able to be computed in the context of other options, in order to
-/// get Option Numbers you must have a collection of [`Opt`]s, and use the provided [`EnumerateOptNumbers`].
 #[derive(Copy, Clone, Hash, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
 pub struct OptNumber(pub u32);
+
+impl Add for OptNumber {
+  type Output = OptNumber;
+
+  fn add(self, rhs: Self) -> Self::Output {
+    Self(self.0 + rhs.0)
+  }
+}
+
+impl Sub for OptNumber {
+  type Output = OptNumber;
+
+  fn sub(self, rhs: Self) -> Self::Output {
+    Self(self.0 - rhs.0)
+  }
+}
 
 #[doc = rfc_7252_doc!("5.4.1")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -213,30 +369,6 @@ impl OptNumber {
 #[derive(Default, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
 pub struct OptValue<C>(pub C);
 
-impl<V: Array<Item = u8> + AppendCopy<u8>, T: Array<Item = Opt<V>>, Bytes: AsRef<[u8]>>
-  TryConsumeBytes<Bytes> for T
-{
-  type Error = OptParseError;
-
-  fn try_consume_bytes(bytes: &mut Cursor<Bytes>) -> Result<Self, Self::Error> {
-    let mut opts = T::default();
-
-    loop {
-      match Opt::try_consume_bytes(bytes) {
-        | Ok(opt) => {
-          if opts.is_full() {
-            break Err(Self::Error::TooManyOptions(opts.get_size()));
-          }
-
-          opts.push(opt);
-        },
-        | Err(OptParseError::OptionsExhausted) => break Ok(opts),
-        | Err(e) => break Err(e),
-      }
-    }
-  }
-}
-
 impl<Bytes: AsRef<[u8]>, V: Array<Item = u8> + AppendCopy<u8>> TryConsumeBytes<Bytes> for Opt<V> {
   type Error = OptParseError;
 
@@ -275,89 +407,10 @@ impl<Bytes: AsRef<[u8]>, V: Array<Item = u8> + AppendCopy<u8>> TryConsumeBytes<B
   }
 }
 
-/// Creates an iterator which gives the current opt's number as well as the option.
-///
-/// The iterator returned yields pairs `(i, val)`, where `i` is the [`OptNumber`] and `val` is the Opt returned by the iterator.
-pub trait EnumerateOptNumbers<T>
-  where Self: Sized + Iterator<Item = T>
-{
-  /// Creates an iterator which gives the current Opt along with its Number.
-  ///
-  /// ```
-  /// use toad_msg::*;
-  ///
-  /// let opt_a = Opt { delta: OptDelta(12),
-  ///                   value: OptValue(Vec::new()) };
-  /// let opt_b = Opt { delta: OptDelta(2),
-  ///                   value: OptValue(Vec::new()) };
-  /// let opts = vec![opt_a.clone(), opt_b.clone()];
-  ///
-  /// let opt_ns = opts.into_iter()
-  ///                  .enumerate_option_numbers()
-  ///                  .collect::<Vec<_>>();
-  ///
-  /// assert_eq!(opt_ns, vec![(OptNumber(12), opt_a), (OptNumber(14), opt_b)])
-  /// ```
-  fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<T, Self>;
-}
-
-impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> EnumerateOptNumbers<Opt<C>> for I {
-  fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<Opt<C>, Self> {
-    EnumerateOptNumbersIter { number: 0,
-                              iter: self }
-  }
-}
-
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> EnumerateOptNumbers<&'a Opt<C>>
-  for I
-{
-  fn enumerate_option_numbers(self) -> EnumerateOptNumbersIter<&'a Opt<C>, Self> {
-    EnumerateOptNumbersIter { number: 0,
-                              iter: self }
-  }
-}
-
-/// Iterator yielded by [`EnumerateOptNumbers`], wrapping an Iterator
-/// over [`Opt`]s.
-///
-/// Invoking [`Iterator::next`] on this struct will advance the
-/// inner iterator, and add the delta of the new opt to its running sum of deltas.
-///
-/// This running sum is the Number of the newly iterated Opt.
-#[derive(Clone, Debug)]
-pub struct EnumerateOptNumbersIter<T, I: Iterator<Item = T>> {
-  number: u32,
-  iter: I,
-}
-
-impl<C: Array<Item = u8>, I: Iterator<Item = Opt<C>>> Iterator
-  for EnumerateOptNumbersIter<Opt<C>, I>
-{
-  type Item = (OptNumber, Opt<C>);
-
-  fn next(&mut self) -> Option<Self::Item> {
-    self.iter.next().map(|opt| {
-                      self.number += opt.delta.0 as u32;
-                      (OptNumber(self.number), opt)
-                    })
-  }
-}
-
-impl<'a, C: Array<Item = u8>, I: Iterator<Item = &'a Opt<C>>> Iterator
-  for EnumerateOptNumbersIter<&'a Opt<C>, I>
-{
-  type Item = (OptNumber, &'a Opt<C>);
-
-  fn next(&mut self) -> Option<Self::Item> {
-    self.iter.next().map(|opt| {
-                      self.number += opt.delta.0 as u32;
-                      (OptNumber(self.number), opt)
-                    })
-  }
-}
-
 #[cfg(test)]
 mod tests {
+  use std_alloc::collections::BTreeMap;
+
   use super::*;
 
   #[test]
@@ -387,12 +440,10 @@ mod tests {
                      value: OptValue(vec![1]) });
 
     let mut opt_bytes = Cursor::new([0b00000001, 0b00000001, 0b00010001, 0b00000011, 0b11111111]);
-    let opt = Vec::<Opt<Vec<_>>>::try_consume_bytes(&mut opt_bytes).unwrap();
+    let opt = BTreeMap::<OptNumber, OptValue<Vec<u8>>>::try_consume_bytes(&mut opt_bytes).unwrap();
     assert_eq!(opt,
-               vec![Opt { delta: OptDelta(0),
-                          value: OptValue(vec![1]) },
-                    Opt { delta: OptDelta(1),
-                          value: OptValue(vec![3]) },]);
+               BTreeMap::from([(OptNumber(0), OptValue(vec![1])),
+                               (OptNumber(1), OptValue(vec![3]))]));
   }
 
   #[test]

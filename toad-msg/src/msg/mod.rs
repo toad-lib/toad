@@ -1,4 +1,4 @@
-use toad_common::{AppendCopy, Array, Cursor, GetSize};
+use toad_common::{AppendCopy, Array, Cursor, GetSize, InsertError};
 use toad_macros::rfc_7252_doc;
 
 /// Message Code
@@ -34,7 +34,7 @@ use crate::from_bytes::TryConsumeBytes;
 use crate::TryFromBytes;
 
 #[doc = rfc_7252_doc!("5.5")]
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Payload<C>(pub C);
 
 /// Struct representing the first byte of a message.
@@ -49,7 +49,7 @@ pub struct Payload<C>(pub C);
 /// vv vv vvvv
 /// 01 00 0000
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub(crate) struct Byte1 {
   pub(crate) ver: Version,
   pub(crate) ty: Type,
@@ -70,16 +70,15 @@ impl TryFrom<u8> for Byte1 {
   }
 }
 
-impl<PayloadBytes: Array<Item = u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8>,
-      Options: Array<Item = Opt<OptionValue>>> GetSize for Message<PayloadBytes, Options>
+impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
+  for Message<PayloadBytes, Options>
 {
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
     let payload_size = self.payload.0.get_size();
     let token_size = self.token.0.len();
-    let opts_size: usize = self.opts.iter().map(|o| o.get_size()).sum();
+    let opts_size: usize = self.opts.iter().opt_refs().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
   }
@@ -113,8 +112,11 @@ impl<PayloadBytes: Array<Item = u8>,
 /// </details>
 ///
 /// ```
+/// use std::collections::BTreeMap;
+///
 /// use toad_msg::TryFromBytes;
 /// use toad_msg::*;
+///
 /// # //                       version  token len  code (2.05 Content)
 /// # //                       |        |          /
 /// # //                       |  type  |         /  message ID
@@ -130,13 +132,7 @@ impl<PayloadBytes: Array<Item = u8>,
 ///
 /// // `VecMessage` uses `Vec` as the backing structure for byte buffers
 /// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
-/// # let opt = Opt {
-/// #   delta: OptDelta(12),
-/// #   value: OptValue(content_format.iter().map(|u| *u).collect()),
-/// # };
-/// let mut opts_expected = /* create expected options */
-/// # Vec::new();
-/// # opts_expected.push(opt);
+/// let mut opts_expected = BTreeMap::from([(OptNumber(12), OptValue(content_format.iter().map(|u| *u).collect()))]);
 ///
 /// let expected = VecMessage {
 ///   id: Id(1),
@@ -150,7 +146,7 @@ impl<PayloadBytes: Array<Item = u8>,
 ///
 /// assert_eq!(msg, expected);
 /// ```
-#[derive(Clone, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
 pub struct Message<PayloadBytes, Options> {
   /// see [`Id`] for details
   pub id: Id,
@@ -168,9 +164,8 @@ pub struct Message<PayloadBytes, Options> {
   pub payload: Payload<PayloadBytes>,
 }
 
-impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8> + 'static,
-      Options: Array<Item = Opt<OptionValue>>> Message<PayloadBytes, Options>
+impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
+  Message<PayloadBytes, Options>
 {
   /// Create a new message that ACKs this one.
   ///
@@ -194,7 +189,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
   ///   #                     ty: Type::Con,
   ///   #                     ver: Version(1),
   ///   #                     token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-  ///   #                     opts: vec![],
+  ///   #                     opts: Default::default(),
   ///   #                     payload: Payload(vec![]) };
   ///   # Some((addr, msg))
   /// }
@@ -219,13 +214,27 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
            payload: Payload(Default::default()),
            opts: Default::default() }
   }
+
+  /// Set an option by number
+  ///
+  /// This just invokes [`Map::insert`] on [`Message.opts`].
+  pub fn set(&mut self,
+             n: OptNumber,
+             v: OptValue<Options::OptValue>)
+             -> Result<(), InsertError<OptValue<Options::OptValue>>> {
+    self.opts.insert(n, v)
+  }
+
+  /// Get the value of an option by number
+  ///
+  /// This just invokes [`Map::get`] on [`Message.opts`].
+  pub fn get(&self, n: OptNumber) -> Option<&OptValue<Options::OptValue>> {
+    self.opts.get(&n)
+  }
 }
 
-impl<Bytes: AsRef<[u8]>,
-      PayloadBytes: Array<Item = u8> + AppendCopy<u8>,
-      OptionValue: Array<Item = u8> + AppendCopy<u8>,
-      Options: Array<Item = Opt<OptionValue>>> TryFromBytes<Bytes>
-  for Message<PayloadBytes, Options>
+impl<Bytes: AsRef<[u8]>, PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
+  TryFromBytes<Bytes> for Message<PayloadBytes, Options>
 {
   type Error = MessageParseError;
 
@@ -233,18 +242,18 @@ impl<Bytes: AsRef<[u8]>,
     let mut bytes = Cursor::new(bytes);
 
     let Byte1 { tkl, ty, ver } = bytes.next()
-                                      .ok_or_else(|| MessageParseError::eof())?
+                                      .ok_or_else(MessageParseError::eof)?
                                       .try_into()?;
 
     if tkl > 8 {
       return Err(Self::Error::InvalidTokenLength(tkl));
     }
 
-    let code: Code = bytes.next().ok_or_else(|| MessageParseError::eof())?.into();
+    let code: Code = bytes.next().ok_or_else(MessageParseError::eof)?.into();
     let id: Id = Id::try_consume_bytes(&mut bytes)?;
 
     let token = bytes.take_exact(tkl as usize)
-                     .ok_or_else(|| MessageParseError::eof())?;
+                     .ok_or_else(MessageParseError::eof)?;
     let token = tinyvec::ArrayVec::<[u8; 8]>::try_from(token).expect("tkl was checked to be <= 8");
     let token = Token(token);
 
