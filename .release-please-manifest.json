@@ -1,6 +1,6 @@
 {
-  "toad": "0.12.1",
-  "toad-msg": "0.8.6",
-  "toad-common": "0.11.3",
-  "toad-macros": "0.2.0"
+  "toad": "0.13.0",
+  "toad-msg": "0.9.0",
+  "toad-common": "0.12.0",
+  "toad-macros": "0.3.0"
 }

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0](https://github.com/toad-lib/toad/compare/toad-macros-v0.2.0...toad-macros-v0.3.0) (2023-01-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename kwap_macros -> toad-macros ([#138](https://github.com/toad-lib/toad/issues/138))
+
+### Features
+
+* **kwap:** add support for coap runtime config ([c082f06](https://github.com/toad-lib/toad/commit/c082f0696a288d2a2db9b986c3e3eaf2e7a4e8f4))
+* rename kwap_macros -&gt; toad-macros ([#138](https://github.com/toad-lib/toad/issues/138)) ([dbb2e9e](https://github.com/toad-lib/toad/commit/dbb2e9e826ea56b4f032cae9f812e224772248dd))
+
 ## 0.2.0 (2022-10-08)
 
 

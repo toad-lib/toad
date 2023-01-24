@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.12.0](https://github.com/toad-lib/toad/compare/toad-common-v0.11.3...toad-common-v0.12.0) (2023-01-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **toad_common:** remove prelude module in favor of exporting from root ([#144](https://github.com/toad-lib/toad/issues/144))
+* remove default GetSize.is_full implementation, add Cursor type, add AppendCopy trait ([#140](https://github.com/toad-lib/toad/issues/140))
+* rename kwap_msg -> toad_msg ([#136](https://github.com/toad-lib/toad/issues/136))
+* rename kwap-common -> toad-common ([#135](https://github.com/toad-lib/toad/issues/135))
+
+### Features
+
+* **common:** add std, alloc features ([fb6a632](https://github.com/toad-lib/toad/commit/fb6a6325bd080dcecd1a7aeb219c72306456512d))
+* **kwap:** add support for coap runtime config ([c082f06](https://github.com/toad-lib/toad/commit/c082f0696a288d2a2db9b986c3e3eaf2e7a4e8f4))
+* remove default GetSize.is_full implementation, add Cursor type, add AppendCopy trait ([#140](https://github.com/toad-lib/toad/issues/140)) ([3f11a1d](https://github.com/toad-lib/toad/commit/3f11a1d02934ebb1dcf4ebe728a1297ba93087e3))
+* rename kwap_msg -&gt; toad_msg ([#136](https://github.com/toad-lib/toad/issues/136)) ([1035350](https://github.com/toad-lib/toad/commit/1035350f453c1c0d5433a13b287f5fc9d5c556e9))
+* rename kwap-common -&gt; toad-common ([#135](https://github.com/toad-lib/toad/issues/135)) ([49312be](https://github.com/toad-lib/toad/commit/49312be14bbc11ee95cdfc9915a45a3be4c79383))
+
+
+### Bug Fixes
+
+* Cursor::take_while implementation ([79813d2](https://github.com/toad-lib/toad/commit/79813d2224a07f5c40bd87875f61bb3a74e5a6a7))
+* fmt ([fce0056](https://github.com/toad-lib/toad/commit/fce00565397608bc123bab19f5ba4d34d1068961))
+* **toad_common:** remove prelude module in favor of exporting from root ([#144](https://github.com/toad-lib/toad/issues/144)) ([faef5d9](https://github.com/toad-lib/toad/commit/faef5d9463bf19c08f5031d03717150cd74ea080))
+
 ### 0.11.3 (2023-01-03)
 
 ### 0.11.2 (2022-12-28)

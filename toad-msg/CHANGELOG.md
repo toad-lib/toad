@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.9.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.6...toad-msg-v0.9.0) (2023-01-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **toad-msg:** option map should support repeated options
+* options should be stored with number
+* **toad-msg:** parsing messages should use slices instead of iterators ([#142](https://github.com/toad-lib/toad/issues/142))
+* rename kwap_msg -> toad_msg ([#136](https://github.com/toad-lib/toad/issues/136))
+
+### Features
+
+* **kwap:** add support for coap runtime config ([c082f06](https://github.com/toad-lib/toad/commit/c082f0696a288d2a2db9b986c3e3eaf2e7a4e8f4))
+* **msg:** impl hash for structs ([#155](https://github.com/toad-lib/toad/issues/155)) ([d64d6d2](https://github.com/toad-lib/toad/commit/d64d6d2cb69cc9da9855411457e24c5bd335019d))
+* options should be stored with number ([f9ed97e](https://github.com/toad-lib/toad/commit/f9ed97e58ad1db63516c3cdf1c76a8d563eeee01))
+* rename kwap_msg -&gt; toad_msg ([#136](https://github.com/toad-lib/toad/issues/136)) ([1035350](https://github.com/toad-lib/toad/commit/1035350f453c1c0d5433a13b287f5fc9d5c556e9))
+* **toad-msg:** option map should support repeated options ([dad3ee1](https://github.com/toad-lib/toad/commit/dad3ee1697f74d78d3c48e6b972311feaeca8be7))
+* **toad-msg:** parsing messages should use slices instead of iterators ([#142](https://github.com/toad-lib/toad/issues/142)) ([03b3a5b](https://github.com/toad-lib/toad/commit/03b3a5b0155dd8104ced35825be3cebd051d81c9))
+
+
+### Bug Fixes
+
+* bellybutton lint ([1037f28](https://github.com/toad-lib/toad/commit/1037f287f04fe652c4514282b1940d4219f9c039))
+* code kind should be correct ([5fbbb1f](https://github.com/toad-lib/toad/commit/5fbbb1f4728b8c0b26cb64be062a9704a4822c88))
+* impl ord ([#156](https://github.com/toad-lib/toad/issues/156)) ([3cb36fc](https://github.com/toad-lib/toad/commit/3cb36fc1dc4303153ce7b4eba9e81261240d50ac))
+* **toad-msg:** update toad-common 0.10 -&gt; 0.11 ([#145](https://github.com/toad-lib/toad/issues/145)) ([62a05ce](https://github.com/toad-lib/toad/commit/62a05ce433d253d2a98722807cd031b9fba8176d))
+
 ### 0.8.6 (2023-01-24)
 
 ### 0.8.5 (2023-01-22)
