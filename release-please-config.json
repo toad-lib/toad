@@ -7,6 +7,7 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
+      "extra-files": ["src/lib.rs"],
       "prerelease": true
     },
     "toad-msg": {
@@ -16,6 +17,7 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
+      "extra-files": ["src/lib.rs"],
       "prerelease": true
     },
     "toad-macros": {
@@ -25,6 +27,7 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
+      "extra-files": ["src/lib.rs"],
       "prerelease": true
     },
     "toad-common": {
@@ -34,14 +37,9 @@
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
+      "extra-files": ["src/lib.rs"],
       "prerelease": true
     }
   },
-  "extra-files": [
-    "toad/src/lib.rs",
-    "toad-common/src/lib.rs",
-    "toad-macros/src/lib.rs",
-    "toad-msg/src/lib.rs"
-  ],
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
