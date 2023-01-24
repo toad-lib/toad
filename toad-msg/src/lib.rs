@@ -124,14 +124,12 @@ pub(crate) fn test_msg() -> (alloc::Message, Vec<u8>) {
                options.concat().as_ref(),
                payload.concat().as_ref()].concat();
 
-  let mut opts = BTreeMap::new();
-  opts.insert(OptNumber(12), vec![OptValue(content_format.to_vec())]);
-
   let msg = alloc::Message { id: Id(1),
                              ty: Type::Con,
                              ver: Version(1),
                              token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-                             opts,
+                             opts: BTreeMap::from([(OptNumber(12),
+                                                    vec![OptValue(content_format.to_vec())])]),
                              code: Code { class: 2,
                                           detail: 5 },
                              payload: Payload(b"hello, world!".to_vec()) };
