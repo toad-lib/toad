@@ -69,7 +69,9 @@
 //! ![chart](https://raw.githubusercontent.com/clov-coffee/toad/main/toad-msg/docs/to_bytes.svg)
 //! </details>
 
+// x-release-please-version
 #![doc(html_root_url = "https://docs.rs/toad-msg/0.8.6")]
+// x-release-please-end
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
 #![cfg_attr(not(test), deny(unsafe_code, missing_copy_implementations))]
@@ -111,6 +113,7 @@ pub mod alloc {
 #[cfg(test)]
 pub(crate) fn test_msg() -> (alloc::Message, Vec<u8>) {
   use std_alloc::collections::BTreeMap;
+  // TEST
 
   let header: [u8; 4] = 0b0100_0001_0100_0101_0000_0000_0000_0001_u32.to_be_bytes();
   let token: [u8; 1] = [254u8];
@@ -122,14 +125,12 @@ pub(crate) fn test_msg() -> (alloc::Message, Vec<u8>) {
                options.concat().as_ref(),
                payload.concat().as_ref()].concat();
 
-  let mut opts = BTreeMap::new();
-  opts.insert(OptNumber(12), vec![OptValue(content_format.to_vec())]);
-
   let msg = alloc::Message { id: Id(1),
                              ty: Type::Con,
                              ver: Version(1),
                              token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-                             opts,
+                             opts: BTreeMap::from([(OptNumber(12),
+                                                    vec![OptValue(content_format.to_vec())])]),
                              code: Code { class: 2,
                                           detail: 5 },
                              payload: Payload(b"hello, world!".to_vec()) };

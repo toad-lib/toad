@@ -1,0 +1,15 @@
+{
+  "name": "toad-ci",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:toad-lib/toad",
+  "author": "Orion Kindel <cakekindel@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "release": "release-please"
+  },
+  "dependencies": {
+    "release-please": "^15.2.0"
+  }
+}

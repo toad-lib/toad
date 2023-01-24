@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.8.13](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.12...toad-msg-v0.8.13) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([206e77a](https://github.com/toad-lib/toad/commit/206e77a3fa48739ae64788af4695dc69833b4d2c))
+
+## [0.8.12](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.11...toad-msg-v0.8.12) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([c61b9c5](https://github.com/toad-lib/toad/commit/c61b9c550046548892981889a43084701c3fc1e0))
+
+## [0.8.11](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.10...toad-msg-v0.8.11) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([104b5ff](https://github.com/toad-lib/toad/commit/104b5ff6c2365b38ed436717f37effeb8d88b50f))
+
+## [0.8.10](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.9...toad-msg-v0.8.10) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([6247519](https://github.com/toad-lib/toad/commit/62475196211d694bd79f33bdf394397d6f4021dd))
+
+## [0.8.9](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.8...toad-msg-v0.8.9) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([7c43cbc](https://github.com/toad-lib/toad/commit/7c43cbcf8f92b288de37244119bd51fe32fc1db7))
+* release-please ([c8eb82f](https://github.com/toad-lib/toad/commit/c8eb82ff9458076323eda15373aabfea93182aa7))
+
+## [0.8.8](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.7...toad-msg-v0.8.8) (2023-01-24)
+
+
+### Bug Fixes
+
+* release-please ([45c5386](https://github.com/toad-lib/toad/commit/45c5386a5f6a2acbca3c9b8838270a5311ff723f))
+* release-please ([3e9396d](https://github.com/toad-lib/toad/commit/3e9396d6d5c369a626a2173c3b951ed40a17a892))
+
+## [0.8.7](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.6...toad-msg-v0.8.7) (2023-01-24)
+
+
+### Bug Fixes
+
+* add existing release-please tags ([0d4bf22](https://github.com/toad-lib/toad/commit/0d4bf22b37ff0e2e1e5a27b79355fe2cfec80793))
+* testing release-please ([4820c92](https://github.com/toad-lib/toad/commit/4820c92680b48fda5a2382a00ce70abd0d49b3da))
+
 ### 0.8.6 (2023-01-24)
 
 ### 0.8.5 (2023-01-22)
