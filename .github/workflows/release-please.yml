@@ -1,0 +1,59 @@
+on:
+  push:
+    branches:
+      - main
+name: release-please
+jobs:
+  release:
+    if: |
+         !startsWith(github.event.head_commit.message, 'bump')
+         && !startsWith(github.event.head_commit.message, 'ci')
+         && !startsWith(github.event.head_commit.message, 'chore')
+         && !startsWith(github.event.head_commit.message, '[NO_PUB]')
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        id: release
+        with:
+          command: manifest
+
+      - uses: actions/checkout@v2
+        if: ${{ steps.release.outputs.release_created }}
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo
+            target
+          key: ${{ runner.os }}-cargo
+          if: ${{ steps.release.outputs.release_created }}
+
+      - name: 'publish toad-msg'
+        if: ${{ steps.release.outputs['packages/toad-msg--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-msg'
+  
+      - name: 'publish toad-macros'
+        if: ${{ steps.release.outputs['packages/toad-macros--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-macros'
+  
+      - name: 'publish toad'
+        if: ${{ steps.release.outputs['packages/toad--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad'
+  
+      - name: 'publish toad-common'
+        if: ${{ steps.release.outputs['packages/toad-common--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-common'

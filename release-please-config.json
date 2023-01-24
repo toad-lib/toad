@@ -1,0 +1,47 @@
+{
+  "packages": {
+    "toad": {
+      "package-name": "toad",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "prerelease": true
+    },
+    "toad-msg": {
+      "package-name": "toad-msg",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "prerelease": true
+    },
+    "toad-macros": {
+      "package-name": "toad-macros",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "prerelease": true
+    },
+    "toad-common": {
+      "package-name": "toad-common",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "prerelease": true
+    }
+  },
+  "extra-files": [
+    "toad/src/lib.rs",
+    "toad-common/src/lib.rs",
+    "toad-macros/src/lib.rs",
+    "toad-msg/src/lib.rs"
+  ],
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+}
