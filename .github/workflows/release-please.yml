@@ -5,7 +5,8 @@ on:
 name: release-please
 jobs:
   release:
-    if: !startsWith(github.event.head_commit.message, '[NO_PUB]')
+    if: |
+          !startsWith(github.event.head_commit.message, '[NO_CI]')
 
     runs-on: ubuntu-latest
     steps:
