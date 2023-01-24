@@ -78,7 +78,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
     let payload_marker_size = 1;
     let payload_size = self.payload.0.get_size();
     let token_size = self.token.0.len();
-    let opts_size: usize = self.opts.iter().opt_refs().map(|o| o.get_size()).sum();
+    let opts_size: usize = self.opts.opt_refs().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
   }
@@ -130,11 +130,11 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
 /// let packet: Vec<u8> = /* bytes! */
 /// # [header.as_ref(), token.as_ref(), options.concat().as_ref(), payload.concat().as_ref()].concat();
 ///
-/// // `VecMessage` uses `Vec` as the backing structure for byte buffers
-/// let msg = VecMessage::try_from_bytes(packet.clone()).unwrap();
-/// let mut opts_expected = BTreeMap::from([(OptNumber(12), OptValue(content_format.iter().map(|u| *u).collect()))]);
+/// // `toad_msg::alloc::Message` uses `Vec` as the backing structure for byte buffers
+/// let msg = toad_msg::alloc::Message::try_from_bytes(packet.clone()).unwrap();
+/// let mut opts_expected = BTreeMap::from([(OptNumber(12), vec![OptValue(content_format.iter().map(|u| *u).collect())])]);
 ///
-/// let expected = VecMessage {
+/// let expected = toad_msg::alloc::Message {
 ///   id: Id(1),
 ///   ty: Type::Con,
 ///   ver: Version(1),
@@ -176,7 +176,8 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   ///
   /// use std::net::SocketAddr;
   ///
-  /// use toad_msg::{Id, VecMessage as Message};
+  /// use toad_msg::alloc::Message;
+  /// use toad_msg::Id;
   ///
   /// fn server_get_request() -> Option<(SocketAddr, Message)> {
   ///   // Servery sockety things...
@@ -221,14 +222,16 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   pub fn set(&mut self,
              n: OptNumber,
              v: OptValue<Options::OptValue>)
-             -> Result<(), InsertError<OptValue<Options::OptValue>>> {
-    self.opts.insert(n, v)
+             -> Result<(), InsertError<Options::OptValues>> {
+    let mut vs = Options::OptValues::default();
+    vs.push(v);
+    self.opts.insert(n, vs)
   }
 
   /// Get the value of an option by number
   ///
   /// This just invokes [`Map::get`] on [`Message.opts`].
-  pub fn get(&self, n: OptNumber) -> Option<&OptValue<Options::OptValue>> {
+  pub fn get(&self, n: OptNumber) -> Option<&Options::OptValues> {
     self.opts.get(&n)
   }
 }
@@ -276,12 +279,12 @@ impl<Bytes: AsRef<[u8]>, PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Option
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::VecMessage;
+  use crate::alloc;
 
   #[test]
   fn parse_msg() {
     let (expect, msg) = crate::test_msg();
-    assert_eq!(VecMessage::try_from_bytes(&msg).unwrap(), expect)
+    assert_eq!(alloc::Message::try_from_bytes(&msg).unwrap(), expect)
   }
 
   #[test]

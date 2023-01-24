@@ -10,11 +10,14 @@ pub trait TryIntoBytes {
   /// Try to convert into a collection of bytes
   ///
   /// ```
-  /// use toad_msg::TryIntoBytes;
+  /// use tinyvec::ArrayVec;
+  /// use toad_msg::{Message, OptNumber, OptValue, TryIntoBytes};
   ///
-  /// // This one has static params that allocates space on the static
-  /// // and uses `tinyvec::ArrayVec` as the byte buffer backing structure
-  /// let arrayvec_message = toad_msg::ArrayVecMessage::<0, 0, 0> {
+  /// type OptionValue = OptValue<ArrayVec<[u8; 128]>>;
+  /// type OptionMapEntry = (OptNumber, ArrayVec<[OptionValue; 4]>);
+  /// type OptionMap = ArrayVec<[OptionMapEntry; 16]>;
+  /// type Payload = ArrayVec<[u8; 1024]>;
+  /// let arrayvec_message = Message::<Payload, OptionMap> {
   ///   // ...
   /// # id: toad_msg::Id(0),
   /// # ty: toad_msg::Type::Con,
@@ -28,7 +31,7 @@ pub trait TryIntoBytes {
   /// let bytes: tinyvec::ArrayVec<[u8; 1024]> = arrayvec_message.try_into_bytes().unwrap();
   ///
   /// // This one uses Vec
-  /// let vec_message = toad_msg::VecMessage {
+  /// let vec_message = toad_msg::alloc::Message {
   ///   // ...
   /// # id: toad_msg::Id(0),
   /// # ty: toad_msg::Type::Con,
@@ -223,14 +226,14 @@ mod tests {
 
   #[test]
   fn no_payload_marker() {
-    let msg = VecMessage { id: Id(0),
-                           ty: Type::Con,
-                           ver: Default::default(),
-                           code: Code { class: 2,
-                                        detail: 5 },
-                           token: Token(Default::default()),
-                           opts: Default::default(),
-                           payload: Payload(Default::default()) };
+    let msg = alloc::Message { id: Id(0),
+                               ty: Type::Con,
+                               ver: Default::default(),
+                               code: Code { class: 2,
+                                            detail: 5 },
+                               token: Token(Default::default()),
+                               opts: Default::default(),
+                               payload: Payload(Default::default()) };
 
     assert_ne!(msg.try_into_bytes::<Vec<_>>().unwrap().last(),
                Some(&0b11111111));

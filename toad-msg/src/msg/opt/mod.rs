@@ -1,9 +1,11 @@
+use core::iter::FromIterator;
+use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
-use toad_common::{AppendCopy, Array, Cursor, GetSize, Map};
+use toad_common::{map, AppendCopy, Array, Cursor, GetSize, Map};
 use toad_macros::rfc_7252_doc;
 
 use crate::from_bytes::*;
@@ -14,101 +16,146 @@ pub use parse_error::*;
 
 /// Implementor of [`IterOpts`]
 #[derive(Debug, Clone)]
-pub struct OptIter<I> {
+pub struct OptIter<M, I>
+  where M: OptionMap
+{
   iter: I,
   last_seen_num: OptNumber,
+  repeated: Option<(OptNumber, M::OptValues)>,
+  __p: PhantomData<M>,
 }
 
 /// Implementor of [`IterOptRefs`]
 #[derive(Debug, Clone)]
-pub struct OptRefIter<I> {
+pub struct OptRefIter<'a, M, I>
+  where M: OptionMap
+{
   iter: I,
   last_seen_num: OptNumber,
+  repeated: Option<(OptNumber, &'a M::OptValues, usize)>,
+  __p: PhantomData<M>,
 }
 
-impl<I, V> Iterator for OptIter<I> where I: Iterator<Item = (OptNumber, OptValue<V>)>
+impl<M, I> Iterator for OptIter<M, I>
+  where I: Iterator<Item = (OptNumber, M::OptValues)>,
+        M: OptionMap
 {
-  type Item = Opt<V>;
+  type Item = Opt<M::OptValue>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let (num, value) = self.iter.next()?;
-    let OptNumber(delta) = num - self.last_seen_num;
-    let delta = OptDelta(delta as u16);
+    let (num, values) = Option::take(&mut self.repeated).or(self.iter.next())?;
 
-    self.last_seen_num = num;
-    Some(Opt { delta, value })
+    match values.len() {
+      | 1 => {
+        let OptNumber(delta) = num - self.last_seen_num;
+        let delta = OptDelta(delta as u16);
+        self.last_seen_num = num;
+
+        Some(Opt { value: values.into_iter().next().unwrap(),
+                   delta })
+      },
+      | _ => {
+        let mut values = values.into_iter();
+        if let Some(value) = values.next() {
+          self.repeated = Some((num, values.collect()));
+
+          let OptNumber(delta) = num - self.last_seen_num;
+          let delta = OptDelta(delta as u16);
+          self.last_seen_num = num;
+
+          Some(Opt { value, delta })
+        } else {
+          self.repeated = None;
+          self.next()
+        }
+      },
+    }
   }
 }
 
-impl<'a, I, V> Iterator for OptRefIter<I>
-  where I: Iterator<Item = (&'a OptNumber, &'a OptValue<V>)>,
+impl<'a, M, I> Iterator for OptRefIter<'a, M, I>
+  where I: Iterator<Item = (&'a OptNumber, &'a M::OptValues)>,
         Self: 'a,
-        V: 'a
+        M: 'a + OptionMap
 {
-  type Item = OptRef<'a, V>;
+  type Item = OptRef<'a, M::OptValue>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let (num, value) = self.iter.next()?;
-    let OptNumber(delta) = *num - self.last_seen_num;
-    let delta = OptDelta(delta as u16);
+    let (num, values, ix) = self.repeated
+                                .or(self.iter.next().map(|(a, b)| (*a, b, 0)))?;
 
-    self.last_seen_num = *num;
-    Some(OptRef { delta, value })
-  }
-}
+    match values.len() {
+      | 1 => {
+        let OptNumber(delta) = num - self.last_seen_num;
+        let delta = OptDelta(delta as u16);
+        self.last_seen_num = num;
 
-/// Given an iterator of option number + option value, produce an iterator of raw [`Opt`] structs.
-pub trait IterOpts<V>
-  where Self: Sized + IntoIterator<Item = (OptNumber, OptValue<V>)>
-{
-  /// Perform the conversion
-  fn opts(self) -> OptIter<Self::IntoIter>;
-}
+        Some(OptRef { value: &values[0],
+                      delta })
+      },
+      | _ => {
+        if let Some(value) = values.get(ix) {
+          self.repeated = Some((num, values, ix + 1));
 
-impl<V, I> IterOpts<V> for I where I: Sized + IntoIterator<Item = (OptNumber, OptValue<V>)>
-{
-  fn opts(self) -> OptIter<I::IntoIter> {
-    OptIter { iter: self.into_iter(),
-              last_seen_num: OptNumber(0) }
-  }
-}
+          let OptNumber(delta) = num - self.last_seen_num;
+          let delta = OptDelta(delta as u16);
+          self.last_seen_num = num;
 
-/// Given an iterator of option number + option value, produce an iterator of raw [`OptRef`] structs.
-pub trait IterOptRefs<'a, V>
-  where Self: Sized + IntoIterator<Item = (&'a OptNumber, &'a OptValue<V>)> + 'a,
-        V: 'a
-{
-  /// Perform the conversion
-  fn opt_refs(self) -> OptRefIter<Self::IntoIter>;
-}
-
-impl<'a, V, I> IterOptRefs<'a, V> for I
-  where I: 'a + Sized + IntoIterator<Item = (&'a OptNumber, &'a OptValue<V>)>,
-        V: 'a
-{
-  fn opt_refs(self) -> OptRefIter<I::IntoIter> {
-    OptRefIter { iter: self.into_iter(),
-                 last_seen_num: OptNumber(0) }
+          Some(OptRef { value, delta })
+        } else {
+          self.repeated = None;
+          self.next()
+        }
+      },
+    }
   }
 }
 
 /// Generalization of `HashMap<OptNumber, OptValue<Vec<u8>>>`
 pub trait OptionMap
-  where Self: Map<OptNumber, OptValue<Self::OptValue>>
+  where Self: Map<OptNumber, Self::OptValues>
 {
   /// Byte array for option values
   type OptValue: Array<Item = u8> + AppendCopy<u8>;
+
+  /// One or more values for a given number.
+  ///
+  /// Note that not all options are repeatable.
+  type OptValues: Array<Item = OptValue<Self::OptValue>>;
+
+  /// Iterate over the map, yielding raw option structures
+  fn opts(self) -> OptIter<Self, Self::IntoIter> {
+    OptIter { iter: self.into_iter(),
+              last_seen_num: OptNumber(0),
+              __p: PhantomData,
+              repeated: None }
+  }
+
+  /// Iterate over the map, yielding raw option structures
+  fn opt_refs<'a>(&'a self) -> OptRefIter<'a, Self, map::Iter<'a, OptNumber, Self::OptValues>> {
+    OptRefIter { iter: self.iter(),
+                 last_seen_num: OptNumber(0),
+                 __p: PhantomData,
+                 repeated: None }
+  }
 }
 
 #[cfg(feature = "alloc")]
-impl OptionMap for std_alloc::collections::BTreeMap<OptNumber, OptValue<Vec<u8>>> {
+impl OptionMap for std_alloc::collections::BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>> {
   type OptValue = Vec<u8>;
+  type OptValues = Vec<OptValue<Vec<u8>>>;
 }
 
-impl<const N_OPTS: usize, const OPT_VALUE_LEN: usize> OptionMap
-  for ArrayVec<[(OptNumber, OptValue<ArrayVec<[u8; OPT_VALUE_LEN]>>); N_OPTS]>
+type ArrayVecMap<const N: usize, K, V> = ArrayVec<[(K, V); N]>;
+
+impl<const MAX_OPTS: usize, const MAX_INSTANCES: usize, const MAX_BYTES_PER_INSTANCE: usize>
+  OptionMap
+  for ArrayVecMap<MAX_OPTS,
+                  OptNumber,
+                  ArrayVec<[OptValue<ArrayVec<[u8; MAX_BYTES_PER_INSTANCE]>>; MAX_INSTANCES]>>
 {
-  type OptValue = ArrayVec<[u8; OPT_VALUE_LEN]>;
+  type OptValue = ArrayVec<[u8; MAX_BYTES_PER_INSTANCE]>;
+  type OptValues = ArrayVec<[OptValue<Self::OptValue>; MAX_INSTANCES]>;
 }
 
 impl<B: AsRef<[u8]>, M: OptionMap> TryConsumeBytes<B> for M {
@@ -129,7 +176,10 @@ impl<B: AsRef<[u8]>, M: OptionMap> TryConsumeBytes<B> for M {
           let OptDelta(d) = opt.delta;
           let num = last_inserted + OptNumber(d as u32);
 
-          map.insert(num, opt.value).ok();
+          let mut values = M::OptValues::default();
+          values.push(opt.value);
+
+          map.insert(num, values).ok();
           last_inserted = num;
         },
         | Err(OptParseError::OptionsExhausted) => break Ok(map),
@@ -369,6 +419,13 @@ impl OptNumber {
 #[derive(Default, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
 pub struct OptValue<C>(pub C);
 
+impl<C> FromIterator<u8> for OptValue<C> where C: FromIterator<u8>
+{
+  fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
+    Self(iter.into_iter().collect::<C>())
+  }
+}
+
 impl<Bytes: AsRef<[u8]>, V: Array<Item = u8> + AppendCopy<u8>> TryConsumeBytes<Bytes> for Opt<V> {
   type Error = OptParseError;
 
@@ -440,10 +497,11 @@ mod tests {
                      value: OptValue(vec![1]) });
 
     let mut opt_bytes = Cursor::new([0b00000001, 0b00000001, 0b00010001, 0b00000011, 0b11111111]);
-    let opt = BTreeMap::<OptNumber, OptValue<Vec<u8>>>::try_consume_bytes(&mut opt_bytes).unwrap();
+    let opt =
+      BTreeMap::<OptNumber, Vec<OptValue<Vec<u8>>>>::try_consume_bytes(&mut opt_bytes).unwrap();
     assert_eq!(opt,
-               BTreeMap::from([(OptNumber(0), OptValue(vec![1])),
-                               (OptNumber(1), OptValue(vec![3]))]));
+               BTreeMap::from([(OptNumber(0), vec![OptValue(vec![1])]),
+                               (OptNumber(1), vec![OptValue(vec![3])])]));
   }
 
   #[test]
