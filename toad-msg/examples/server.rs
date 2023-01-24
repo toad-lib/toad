@@ -4,9 +4,8 @@ use std::net::UdpSocket;
 use std::sync::{Arc, Barrier};
 use std::thread::{self, JoinHandle};
 
-use toad_msg::{OptNumber, OptValue, TryFromBytes, TryIntoBytes};
-
-type Message = toad_msg::Message<Vec<u8>, BTreeMap<OptNumber, OptValue<Vec<u8>>>>;
+use toad_msg::alloc::Message;
+use toad_msg::{TryFromBytes, TryIntoBytes};
 
 fn main() {
   let server_up = Arc::new(Barrier::new(2));
@@ -68,7 +67,7 @@ fn spawn_server(b: Arc<Barrier>) -> JoinHandle<()> {
                                .iter()
                                .find(|(n, _)| n.0 == 11)
                                .ok_or_else(|| err("no Uri-Path"))?;
-        let path = String::from_utf8(path_opt.0.clone()).map_err(err)?;
+        let path = String::from_utf8(path_opt[0].0.clone()).map_err(err)?;
 
         let rep = match path.as_str() {
           | "hello" => ok_hello(req.token),
@@ -100,7 +99,7 @@ fn get_hello() -> Message {
             code: Code { class: 0,
                          detail: 1 }, // GET
             opts: BTreeMap::from([(OptNumber(11), // Uri-Path
-                                   OptValue("hello".as_bytes().to_vec()))]),
+                                   vec![OptValue("hello".as_bytes().to_vec())])]),
             payload: Payload(Vec::new()) }
 }
 

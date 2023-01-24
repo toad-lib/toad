@@ -92,25 +92,26 @@ pub mod to_bytes;
 pub use from_bytes::TryFromBytes;
 #[doc(inline)]
 pub use msg::*;
-#[cfg(feature = "alloc")]
-use std_alloc::{collections::BTreeMap, vec::Vec};
-use tinyvec::ArrayVec;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
 use toad_common::Array;
 
-/// Message that uses Vec byte buffers
+/// Type aliases for std or alloc platforms
 #[cfg(feature = "alloc")]
-#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
-pub type VecMessage = Message<Vec<u8>, BTreeMap<OptNumber, OptValue<Vec<u8>>>>;
+pub mod alloc {
+  use std_alloc::collections::BTreeMap;
+  use std_alloc::vec::Vec;
 
-/// Message that uses static fixed-capacity stack-allocating byte buffers
-pub type ArrayVecMessage<const PAYLOAD_CAP: usize, const N_OPTS: usize, const OPT_CAP: usize> =
-  Message<ArrayVec<[u8; PAYLOAD_CAP]>,
-          ArrayVec<[(OptNumber, OptValue<ArrayVec<[u8; OPT_CAP]>>); N_OPTS]>>;
+  use crate::{OptNumber, OptValue};
+
+  /// [`crate::Message`] that uses Vec and BTreeMap
+  pub type Message = crate::Message<Vec<u8>, BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>>;
+}
 
 #[cfg(test)]
-pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
+pub(crate) fn test_msg() -> (alloc::Message, Vec<u8>) {
+  use std_alloc::collections::BTreeMap;
+
   let header: [u8; 4] = 0b0100_0001_0100_0101_0000_0000_0000_0001_u32.to_be_bytes();
   let token: [u8; 1] = [254u8];
   let content_format: &[u8] = b"application/json";
@@ -122,16 +123,16 @@ pub(crate) fn test_msg() -> (VecMessage, Vec<u8>) {
                payload.concat().as_ref()].concat();
 
   let mut opts = BTreeMap::new();
-  opts.insert(OptNumber(12), OptValue(content_format.to_vec()));
+  opts.insert(OptNumber(12), vec![OptValue(content_format.to_vec())]);
 
-  let msg = VecMessage { id: Id(1),
-                         ty: Type::Con,
-                         ver: Version(1),
-                         token: Token(tinyvec::array_vec!([u8; 8] => 254)),
-                         opts,
-                         code: Code { class: 2,
-                                      detail: 5 },
-                         payload: Payload(b"hello, world!".to_vec()) };
+  let msg = alloc::Message { id: Id(1),
+                             ty: Type::Con,
+                             ver: Version(1),
+                             token: Token(tinyvec::array_vec!([u8; 8] => 254)),
+                             opts,
+                             code: Code { class: 2,
+                                          detail: 5 },
+                             payload: Payload(b"hello, world!".to_vec()) };
   (msg, bytes)
 }
 
