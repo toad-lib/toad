@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.11.4](https://github.com/toad-lib/toad/compare/toad-common-v0.11.3...toad-common-v0.11.4) (2023-01-24)
+
+
+### Bug Fixes
+
+* add existing release-please tags ([0d4bf22](https://github.com/toad-lib/toad/commit/0d4bf22b37ff0e2e1e5a27b79355fe2cfec80793))
+
 ### 0.11.3 (2023-01-03)
 
 ### 0.11.2 (2022-12-28)
