@@ -1032,7 +1032,7 @@ dependencies = [
 
 [[package]]
 name = "toad-msg"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "arrayvec",
  "blake2",
