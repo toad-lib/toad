@@ -113,7 +113,6 @@ pub mod alloc {
 #[cfg(test)]
 pub(crate) fn test_msg() -> (alloc::Message, Vec<u8>) {
   use std_alloc::collections::BTreeMap;
-  // TEST
 
   let header: [u8; 4] = 0b0100_0001_0100_0101_0000_0000_0000_0001_u32.to_be_bytes();
   let token: [u8; 1] = [254u8];

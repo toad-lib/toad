@@ -17,10 +17,10 @@ jobs:
           command: manifest
 
       - uses: actions/checkout@v2
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.releases_created }}
 
       - uses: actions/cache@v2
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.releases_created }}
         with:
           path: |
             ~/.rustup
