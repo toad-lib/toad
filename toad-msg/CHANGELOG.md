@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.8.13](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.12...toad-msg-v0.8.13) (2023-01-25)
+
+
+### Bug Fixes
+
+* release-please ([206e77a](https://github.com/toad-lib/toad/commit/206e77a3fa48739ae64788af4695dc69833b4d2c))
+
 ## [0.8.12](https://github.com/toad-lib/toad/compare/toad-msg-v0.8.11...toad-msg-v0.8.12) (2023-01-25)
 
 
