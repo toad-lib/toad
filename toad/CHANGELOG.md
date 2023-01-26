@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.13.0](https://github.com/toad-lib/toad/compare/toad-v0.12.2...toad-v0.13.0) (2023-01-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* options should be stored with number
+* lightly revise blocking client api ([#148](https://github.com/toad-lib/toad/issues/148))
+* rename kwap -> toad ([#139](https://github.com/toad-lib/toad/issues/139))
+
+### Features
+
+* **kwap:** add support for coap runtime config ([c082f06](https://github.com/toad-lib/toad/commit/c082f0696a288d2a2db9b986c3e3eaf2e7a4e8f4))
+* options should be stored with number ([f9ed97e](https://github.com/toad-lib/toad/commit/f9ed97e58ad1db63516c3cdf1c76a8d563eeee01))
+* rename kwap -&gt; toad ([#139](https://github.com/toad-lib/toad/issues/139)) ([e7d4b4b](https://github.com/toad-lib/toad/commit/e7d4b4b61f9bd41b6abb8c933c3d2602cf5d4333))
+
+
+### Bug Fixes
+
+* lightly revise blocking client api ([#148](https://github.com/toad-lib/toad/issues/148)) ([f6181fb](https://github.com/toad-lib/toad/commit/f6181fbf9a034ab1d861d5a3257941b0f42b608a))
+* **toad:** update toad-msg -&gt; 0.8.1, toad-common -> 0.11.0 ([#146](https://github.com/toad-lib/toad/issues/146)) ([8d68cb1](https://github.com/toad-lib/toad/commit/8d68cb1789acc89905a4d76981874276e8df231a))
+
 ## [0.12.2](https://github.com/toad-lib/toad/compare/toad-v0.12.1...toad-v0.12.2) (2023-01-24)
 
 
