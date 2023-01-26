@@ -1,4 +1,4 @@
-use toad_common::{AppendCopy, Array, Cursor, GetSize, InsertError};
+use toad_common::{AppendCopy, Array, Cursor, GetSize};
 use toad_macros::rfc_7252_doc;
 
 /// Message Code
@@ -164,6 +164,14 @@ pub struct Message<PayloadBytes, Options> {
   pub payload: Payload<PayloadBytes>,
 }
 
+/// An error occurred during a call to [`Message::set`]
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SetOptionError<OV, OVs> {
+  RepeatedTooManyTimes(OV),
+  TooManyOptions(OptNumber, OVs),
+}
+
 impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   Message<PayloadBytes, Options>
 {
@@ -218,21 +226,38 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
 
   /// Set an option by number
   ///
-  /// This just invokes [`Map::insert`] on [`Message.opts`].
+  /// If there's already at least one value for this option,
+  /// this method naiively assumes the option is repeatable.
+  ///
+  /// Errors when there cannot be any more options, or the option
+  /// cannot be repeated any more (only applies to non-std environments)
+  #[doc = rfc_7252_doc!("5.4.5")]
   pub fn set(&mut self,
              n: OptNumber,
              v: OptValue<Options::OptValue>)
-             -> Result<(), InsertError<Options::OptValues>> {
-    let mut vs = Options::OptValues::default();
-    vs.push(v);
-    self.opts.insert(n, vs)
+             -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    match (self.remove(n).unwrap_or_default(), &mut self.opts) {
+      | (vals, _) if vals.is_full() => Err(SetOptionError::RepeatedTooManyTimes(v)),
+      | (vals, opts) if opts.is_full() => Err(SetOptionError::TooManyOptions(n, vals)),
+      | (mut vals, opts) => {
+        vals.push(v);
+        opts.insert(n, vals).ok();
+        Ok(())
+      },
+    }
   }
 
-  /// Get the value of an option by number
+  /// Get the value(s) of an option by number
   ///
   /// This just invokes [`Map::get`] on [`Message.opts`].
   pub fn get(&self, n: OptNumber) -> Option<&Options::OptValues> {
     self.opts.get(&n)
+  }
+
+  /// Remove all values for the option from this message,
+  /// returning them if there were any.
+  pub fn remove(&mut self, n: OptNumber) -> Option<Options::OptValues> {
+    self.opts.remove(&n)
   }
 }
 

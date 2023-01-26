@@ -43,7 +43,7 @@ impl<M, I> Iterator for OptIter<M, I>
   type Item = Opt<M::OptValue>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let (num, values) = Option::take(&mut self.repeated).or(self.iter.next())?;
+    let (num, values) = Option::take(&mut self.repeated).or_else(|| self.iter.next())?;
 
     match values.len() {
       | 1 => {
@@ -82,7 +82,7 @@ impl<'a, M, I> Iterator for OptRefIter<'a, M, I>
 
   fn next(&mut self) -> Option<Self::Item> {
     let (num, values, ix) = self.repeated
-                                .or(self.iter.next().map(|(a, b)| (*a, b, 0)))?;
+                                .or_else(|| self.iter.next().map(|(a, b)| (*a, b, 0)))?;
 
     match values.len() {
       | 1 => {
@@ -132,7 +132,7 @@ pub trait OptionMap
   }
 
   /// Iterate over the map, yielding raw option structures
-  fn opt_refs<'a>(&'a self) -> OptRefIter<'a, Self, map::Iter<'a, OptNumber, Self::OptValues>> {
+  fn opt_refs(&self) -> OptRefIter<'_, Self, map::Iter<'_, OptNumber, Self::OptValues>> {
     OptRefIter { iter: self.iter(),
                  last_seen_num: OptNumber(0),
                  __p: PhantomData,
