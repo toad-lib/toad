@@ -85,7 +85,7 @@ impl<E: super::Error> super::Error for Error<E> {}
 
 macro_rules! common {
   ($in:expr, $msg:expr, $effects:expr, $buffer:expr) => {{
-    let msg = $msg;
+    let msg: Addrd<&platform::Message<P>> = $msg;
 
     if msg.data().ty == Type::Ack && !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token))) {
       $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
@@ -123,7 +123,7 @@ impl<P: PlatformTypes,
 
     match req {
       | Some(req) => {
-        let msg = req.as_ref().map(|r| &r.msg);
+        let msg = req.as_ref().map(|r| r.as_ref());
         common!(req, msg, effects, self.buffer)
       },
       | None => None,
@@ -141,7 +141,7 @@ impl<P: PlatformTypes,
 
     match resp {
       | Some(resp) => {
-        let msg = resp.as_ref().map(|r| &r.msg);
+        let msg = resp.as_ref().map(|r| r.as_ref());
         common!(resp, msg, effects, self.buffer)
       },
       | None => None,
@@ -232,7 +232,7 @@ mod test {
       (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
       (inner.on_message_sent = { |_, _| Ok(()) })
     ]
-    THEN should_ignore_and_send_reset [
+    THEN should_ignore [
       (
         poll_resp(
           _,

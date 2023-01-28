@@ -181,7 +181,7 @@ impl<P> core::fmt::Debug for Hydrate<P> where P: PlatformTypes
 /// }
 ///
 /// let addr: no_std_net::SocketAddr = "1.1.1.1:5683".parse().unwrap();
-/// let req = || Req::get(addr, "hello");
+/// let req = || Req::get("hello");
 ///
 /// // OkHydrated.bind(Ok) => OkHydrated
 /// let ok_hy_123: Ap<_, Std<dtls::Y>, u32, Error> =
@@ -601,7 +601,7 @@ mod tests {
     type Ap<S> = super::Ap<S, crate::test::Platform, (), ()>;
 
     let addr = crate::test::x.x.x.x(80);
-    let req = || Req::<crate::test::Platform>::get(addr, "foo");
+    let req = || Req::<crate::test::Platform>::get("foo");
 
     let ok = || Ap::ok(());
     let err = || Ap::err(());

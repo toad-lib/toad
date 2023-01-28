@@ -148,6 +148,21 @@ pub mod handle_acks;
 /// None
 pub mod ack;
 
+/// # Set standard options on outbound messages
+/// * Client Flow ✓
+/// * Server Flow ✓
+///
+/// ## Internal State
+/// None
+///
+/// ## Behavior
+/// Will modify outbound messages, setting standard options
+/// like Uri-Host and Uri-Port.
+///
+/// ## Transformation
+/// None
+pub mod set_standard_options;
+
 /// # Ensure clients only receive relevant response
 /// * Client Flow ✓
 /// * Server Flow ✗

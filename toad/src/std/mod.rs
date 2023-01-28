@@ -5,12 +5,13 @@ use embedded_time::rate::Fraction;
 /// Networking! woohoo!
 pub mod net;
 use core::marker::PhantomData;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::io;
 
 use dtls::sealed::Security;
 pub use net::*;
-use toad_msg::{Opt, OptNumber};
+use toad_msg::{Opt, OptNumber, OptValue};
 
 use crate::net::{Addrd, Socket};
 use crate::platform::{Effect, PlatformError};
@@ -63,7 +64,7 @@ impl<Sec> crate::platform::PlatformTypes for PlatformTypes<Sec> where Sec: Secur
 {
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
-  type MessageOptions = Vec<Opt<Vec<u8>>>;
+  type MessageOptions = BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clock;
   type Socket = Sec::Socket;

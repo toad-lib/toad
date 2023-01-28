@@ -47,7 +47,8 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
               -> StepOutput<Self::PollReq, Inner::Error> {
     match exec_inner_step!(self.0.poll_req(snap, effects), core::convert::identity) {
       | Some(req)
-        if req.data().msg.ty == Type::Con && req.data().msg.code.kind() == CodeKind::Request =>
+        if req.data().as_ref().ty == Type::Con
+           && req.data().as_ref().code.kind() == CodeKind::Request =>
       {
         effects.push(Effect::Send(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
         Some(Ok(req))

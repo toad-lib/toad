@@ -1,11 +1,11 @@
 use core::fmt::Debug;
 
+use ::toad_msg::{Id, Opt, OptNumber, OptValue, OptionMap, Token, TryIntoBytes};
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_common::*;
-use toad_msg::{Id, Opt, OptNumber, Token, TryIntoBytes};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
@@ -19,7 +19,7 @@ use crate::todo::String1Kb;
 #[derive(Debug)]
 #[allow(missing_docs)]
 pub enum Error<Step, Socket> {
-  MessageToBytes(toad_msg::to_bytes::MessageToBytesError),
+  MessageToBytes(::toad_msg::to_bytes::MessageToBytesError),
   Step(Step),
   Socket(Socket),
   Clock(embedded_time::clock::Error),
@@ -29,7 +29,7 @@ impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket>
   where Step: core::fmt::Debug,
         Socket: core::fmt::Debug
 {
-  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
+  fn msg_to_bytes(e: ::toad_msg::to_bytes::MessageToBytesError) -> Self {
     Self::MessageToBytes(e)
   }
 
@@ -49,7 +49,7 @@ impl<Step, Socket> PlatformError<Step, Socket> for Error<Step, Socket>
 /// Errors that may be encountered during the CoAP lifecycle
 pub trait PlatformError<StepError, SocketError>: Sized + core::fmt::Debug {
   /// Convert a [`toad_msg::to_bytes::MessageToBytesError`] to PlatformError
-  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self;
+  fn msg_to_bytes(e: ::toad_msg::to_bytes::MessageToBytesError) -> Self;
 
   /// Convert a step error to PlatformError
   fn step(e: StepError) -> Self;
@@ -155,7 +155,7 @@ pub trait Platform<Steps>
 
   /// Send a [`toad_msg::Message`]
   fn send_msg(&self,
-              mut addrd_msg: Addrd<Message<Self::Types>>)
+              mut addrd_msg: Addrd<self::toad_msg::Message<Self::Types>>)
               -> nb::Result<(Id, Token), Self::Error> {
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
@@ -252,7 +252,7 @@ pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
   type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq + AppendCopy<u8>;
 
   /// What type should we use to store the options?
-  type MessageOptions: Array<Item = Opt<Self::MessageOptionBytes>> + Clone + Debug + PartialEq;
+  type MessageOptions: OptionMap + Clone + Debug + PartialEq;
 
   /// What type should we use to keep track of options before serializing?
   type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)>
@@ -301,7 +301,7 @@ impl<P: PlatformTypes> Clone for Snapshot<P> {
 /// to perform.
 #[allow(missing_docs)]
 pub enum Effect<P: PlatformTypes> {
-  Send(Addrd<Message<P>>),
+  Send(Addrd<self::toad_msg::Message<P>>),
   Log(log::Level, String1Kb),
 }
 
@@ -378,13 +378,33 @@ impl<Clk: Clock + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
 impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> PlatformTypes for Alloc<Clk, Sock> {
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
-  type MessageOptions = Vec<Opt<Vec<u8>>>;
+  type MessageOptions = std_alloc::collections::BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
   type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clk;
   type Socket = Sock;
   type Effects = Vec<Effect<Self>>;
 }
 
-/// [`toad_msg::Message`] shorthand using Platform types
-pub type Message<P> =
-  toad_msg::Message<<P as PlatformTypes>::MessagePayload, <P as PlatformTypes>::MessageOptions>;
+#[deprecated = "use `toad::platform::toad_msg::Message`"]
+pub use self::toad_msg::Message;
+
+/// Aliases that fill in verbose type arguments with
+/// [`PlatformTypes`]
+#[allow(missing_docs)]
+pub mod toad_msg {
+  use super::*;
+
+  pub type Message<P> = ::toad_msg::Message<Payload<P>, opt::Map<P>>;
+  pub type Payload<P> = <P as PlatformTypes>::MessagePayload;
+
+  pub mod opt {
+    use super::*;
+
+    pub type Map<P> = <P as PlatformTypes>::MessageOptions;
+    pub type Opt<P> = ::toad_msg::Opt<Bytes<P>>;
+    pub type Bytes<P> = <Map<P> as ::toad_msg::OptionMap>::OptValue;
+    pub type OptValue<P> = ::toad_msg::OptValue<Bytes<P>>;
+    pub type SetError<P> =
+      ::toad_msg::SetOptionError<::toad_msg::OptValue<Bytes<P>>, <Map<P> as OptionMap>::OptValues>;
+  }
+}

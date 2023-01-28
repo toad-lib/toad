@@ -277,7 +277,7 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
                   .poll_req(snap, effects)
                   .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let req = _try!(Option<nb::Result>; req);
-    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, req.as_ref().map(|r| &r.msg))));
+    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, req.as_ref().map(|r| r.as_ref()))));
     Some(Ok(req))
   }
 
@@ -298,7 +298,7 @@ impl<P, E, Inner, Buffer> Step<P> for Retry<Inner, Buffer>
           .poll_resp(snap, effects, token, addr)
           .map(|r| r.map_err(|nb| nb.map(Error::Inner)));
     let resp = _try!(Option<nb::Result>; resp);
-    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, resp.as_ref().map(|r| &r.msg))));
+    _try!(Result; self.buf.map_mut(|b| b.maybe_seen_response::<Inner::Error>(snap.time, resp.as_ref().map(|r| r.as_ref()))));
     Some(Ok(resp))
   }
 
@@ -424,7 +424,7 @@ mod tests {
           _,
           _
         ) should satisfy {
-          |out| assert!(matches!(out, Some(Ok(r)) if r.data().msg.ty == Type::Ack))
+          |out| assert!(matches!(out, Some(Ok(r)) if r.data().as_ref().ty == Type::Ack))
         }
       ),
       (poll_resp(snap_time(config(200, 400), 550), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
@@ -446,7 +446,7 @@ mod tests {
           _,
           _
         ) should satisfy {
-          |out| assert!(matches!(out, Some(Ok(rep)) if rep.data().msg.ty == Type::Non))
+          |out| assert!(matches!(out, Some(Ok(rep)) if rep.data().as_ref().ty == Type::Non))
         }
       ),
       (poll_resp(snap_time(config(200, 400), 10_000), _, _, _) should satisfy { |out| assert_eq!(out, None) }),
@@ -501,7 +501,7 @@ mod tests {
           snap_time(config(200, 400), 350),
           _
         ) should satisfy {
-          |out| assert!(matches!(out, Some(Ok(r)) if r.data().msg.ty == Type::Ack))
+          |out| assert!(matches!(out, Some(Ok(r)) if r.data().as_ref().ty == Type::Ack))
         }
       ),
       (poll_req(snap_time(config(200, 400), 550), _) should satisfy { |out| assert_eq!(out, None) }),
@@ -569,7 +569,7 @@ mod tests {
           _,
           _
         ) should satisfy {
-          |out| assert!(matches!(out, Some(Ok(r)) if r.data().msg.ty == Type::Non))
+          |out| assert!(matches!(out, Some(Ok(r)) if r.data().as_ref().ty == Type::Non))
         }
       ),
       (effects should satisfy {

@@ -22,7 +22,7 @@ pub mod segment {
   /// #   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
   /// # };
   /// let addr = addr(); // 192.168.0.1:8080
-  /// let req = Req::<Std<dtls::Y>>::get(addr, "a/b/c");
+  /// let req = Req::<Std<dtls::Y>>::get("a/b/c");
   /// let ap: Ap<_, Std<dtls::Y>, (), ()> =
   ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(req, addr)));
   ///
@@ -80,7 +80,7 @@ pub mod segment {
     /// # };
     /// let addr = addr(); // 192.168.0.1:8080
     ///
-    /// let fruit_request = Req::<Std<dtls::Y>>::get(addr, "fruit/banana");
+    /// let fruit_request = Req::<Std<dtls::Y>>::get("fruit/banana");
     /// let fruit_ap: Ap<_, Std<dtls::Y>, (), ()> =
     ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(fruit_request, addr)));
     /// let fruit_filtered = fruit_ap.pipe(path::segment::check::next_is(|s| s == "fruit"));
@@ -88,7 +88,7 @@ pub mod segment {
     /// assert!(fruit_filtered.pipe(path::segment::check::next_is(|s| s == "meat"))
     ///                       .is_rejected());
     ///
-    /// let meat_request = Req::<Std<dtls::Y>>::get(addr, "meat/steak");
+    /// let meat_request = Req::<Std<dtls::Y>>::get("meat/steak");
     /// let meat_ap: Ap<_, Std<dtls::Y>, (), ()> =
     ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(meat_request, addr)));
     /// let meat_filtered = meat_ap.pipe(path::segment::check::next_is(|s| s == "meat"));
@@ -140,7 +140,7 @@ pub mod segment {
     /// # };
     /// let addr = addr(); // 192.168.0.1:8080
     ///
-    /// let num_request = Req::<Std<dtls::Y>>::get(addr, "1234");
+    /// let num_request = Req::<Std<dtls::Y>>::get("1234");
     /// let num_ap: Ap<_, Std<dtls::Y>, (), ()> =
     ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(num_request, addr)));
     ///
@@ -149,7 +149,7 @@ pub mod segment {
     ///                  .unwrap(),
     ///            ((), 1234));
     ///
-    /// let other_request = Req::<Std<dtls::Y>>::get(addr, "foobar");
+    /// let other_request = Req::<Std<dtls::Y>>::get("foobar");
     /// let other_ap: Ap<_, Std<dtls::Y>, (), ()> =
     ///   Ap::ok_hydrated((), Hydrate::from_request(Addrd(other_request, addr)));
     /// assert!(other_ap.pipe(path::segment::param::u32).is_rejected());

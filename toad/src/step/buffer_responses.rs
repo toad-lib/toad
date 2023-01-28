@@ -37,7 +37,7 @@ impl<S, B> BufferResponses<S, B> {
     let mut resp_removable = Some(resp);
     self.buffer.map_mut(|buf| {
                  let resp = Option::take(&mut resp_removable).unwrap();
-                 buf.insert((resp.addr(), resp.data().msg.token, resp.data().msg.ty),
+                 buf.insert((resp.addr(), resp.data().as_ref().token, resp.data().as_ref().ty),
                             resp)
                     .ok()
                });
@@ -118,7 +118,7 @@ impl<P: PlatformTypes,
       |ty: Type| self.buffer.map_mut(|buf| buf.remove(&(addr, token, ty)));
 
     let is_what_we_polled_for =
-      |resp: &Addrd<Resp<_>>| resp.addr() == addr && resp.data().msg.token == token;
+      |resp: &Addrd<Resp<_>>| resp.addr() == addr && resp.data().as_ref().token == token;
 
     match resp {
       | Some(resp) if is_what_we_polled_for(&resp) => Some(Ok(resp)),
@@ -196,7 +196,7 @@ mod test {
           ty: Type::Con,
           code: Code::new(1, 01),
           id: Id(1),
-          opts: vec![],
+          opts: Default::default(),
           payload: Payload(vec![]),
         };
 
@@ -204,7 +204,7 @@ mod test {
       }})
     ]
     THEN this_should_pass_through [
-      (poll_req(_, _) should satisfy { |out| assert_eq!(out.unwrap().unwrap().data().msg.id, Id(1)) })
+      (poll_req(_, _) should satisfy { |out| assert_eq!(out.unwrap().unwrap().data().as_ref().id, Id(1)) })
     ]
   );
 
@@ -250,7 +250,7 @@ mod test {
             ty,
             code: Code::new(1, 01),
             id,
-            opts: vec![],
+            opts: Default::default(),
             payload: Payload(vec![]),
           };
 
@@ -300,7 +300,7 @@ mod test {
           crate::test::dummy_addr_2()
         ) should satisfy {
           // POPPED: ACK Token(2) Id(2) dummy_addr_2
-          |out| assert_eq!(out.expect("a").expect("a").data().msg.id, Id(1))
+          |out| assert_eq!(out.expect("a").expect("a").data().as_ref().id, Id(1))
         }
       ),
       (
@@ -311,7 +311,7 @@ mod test {
           crate::test::dummy_addr()
         ) should satisfy {
           // POPPED: ACK Token(1) Id(1) dummy_addr
-          |out| assert_eq!(out.expect("b").expect("b").data().msg.id, Id(1))
+          |out| assert_eq!(out.expect("b").expect("b").data().as_ref().id, Id(1))
         }
       ),
       (
@@ -322,7 +322,7 @@ mod test {
           crate::test::dummy_addr()
         ) should satisfy {
           // POPPED: ACK Token(2) Id(2) dummy_addr
-          |out| assert_eq!(out.expect("c").expect("c").data().msg.id, Id(2))
+          |out| assert_eq!(out.expect("c").expect("c").data().as_ref().id, Id(2))
         }
       ),
       (poll_resp(_, _, _, _) should satisfy { |_| () } ), // CACHED: ACK Token(3) Id(2) dummy_addr_2
@@ -336,9 +336,9 @@ mod test {
         ) should satisfy {
           |out| {
             // POPPED: ACK Token(1) Id(2) dummy_addr_2
-            let msg = out.expect("d").expect("d").unwrap().msg;
-            assert_eq!(msg.id, Id(2));
-            assert_eq!(msg.ty, Type::Ack);
+            let msg = out.expect("d").expect("d").unwrap();
+            assert_eq!(msg.as_ref().id, Id(2));
+            assert_eq!(msg.as_ref().ty, Type::Ack);
           }
         }
       ),
@@ -351,9 +351,9 @@ mod test {
         ) should satisfy {
           |out| {
             // POPPED: NON Token(1) Id(3) dummy_addr_2
-            let msg = out.expect("e").expect("e").unwrap().msg;
-            assert_eq!(msg.id, Id(3));
-            assert_eq!(msg.ty, Type::Non);
+            let msg = out.expect("e").expect("e").unwrap();
+            assert_eq!(msg.as_ref().id, Id(3));
+            assert_eq!(msg.as_ref().ty, Type::Non);
           }
         }
       )

@@ -2,6 +2,7 @@ use core::fmt::Write;
 
 pub use ap::Ap;
 use toad_common::Cursor;
+use toad_msg::{OptNumber, OptValue};
 
 use self::ap::state::{Complete, Hydrated};
 use self::ap::{ApInner, Hydrate, Respond};
@@ -109,7 +110,7 @@ impl<P, E> Run<P, E>
         resp.set_payload(payload);
 
         if let Some(etag) = etag {
-          resp.set_option(4, etag);
+          resp.set(OptNumber(4), OptValue(etag)).ok();
         }
 
         Self::Matched(Addrd(resp.into(), addr))
