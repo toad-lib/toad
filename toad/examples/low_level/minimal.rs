@@ -15,7 +15,7 @@ pub fn main() {
   let server = P::try_new(server_addr, Config::default()).unwrap();
 
   let client = P::try_new(client_addr, Config::default()).unwrap();
-  client.send_msg(Addrd(Req::<T<dtls::N>>::get(server_addr.parse().unwrap(), "hello").into(),
+  client.send_msg(Addrd(Req::<T<dtls::N>>::get("hello").into(),
                         server_addr.parse().unwrap()))
         .unwrap();
 

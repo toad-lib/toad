@@ -68,9 +68,7 @@ mod test {
   use super::*;
 
   pub fn not_found(client: &P, addr: &str) {
-    // UX: why do i have to specify the address twice, when i make the request and when i invoke send_msg?
-    let (_, token) = client.send_msg(Addrd(Req::<T<dtls::N>>::get(addr.parse().unwrap(),
-                                                                  "foobar").into(),
+    let (_, token) = client.send_msg(Addrd(Req::<T<dtls::N>>::get("foobar").into(),
                                            addr.parse().unwrap()))
                            .unwrap();
     log::info!("[4] GET /foobar sent");
@@ -84,8 +82,7 @@ mod test {
 
   pub fn hello(client: &P, name: &str, addr: &str) {
     let (_, token) =
-      client.send_msg(Addrd(Req::<T<dtls::N>>::get(addr.parse().unwrap(),
-                                                   format!("hello/{}", name)).into(),
+      client.send_msg(Addrd(Req::<T<dtls::N>>::get(format!("hello/{}", name)).into(),
                             addr.parse().unwrap()))
             .unwrap();
     log::info!("{} -> GET /hello/{}",
@@ -132,7 +129,7 @@ pub fn main() {
 
   done.wait();
 
-  P::try_new("127.0.0.1:8888", Config::default()).unwrap().send_msg(Addrd(Req::<T<dtls::N>>::get("0.0.0.0:1".parse().unwrap(), "done").into(),
+  P::try_new("127.0.0.1:8888", Config::default()).unwrap().send_msg(Addrd(Req::<T<dtls::N>>::get( "done").into(),
                         server_addr.parse().unwrap()))
         .unwrap();
 }

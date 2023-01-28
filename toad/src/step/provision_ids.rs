@@ -263,7 +263,7 @@ macro_rules! common {
   ($self:expr, $snap:expr, $req_or_resp:expr) => {{
     let r = $req_or_resp;
     $self.seen
-         .map_mut(|s| Self::seen(s, $snap.config, $snap.time, r.addr(), r.data().msg.id));
+         .map_mut(|s| Self::seen(s, $snap.config, $snap.time, r.addr(), r.data().msg_id()));
     Some(Ok(r))
   }};
 }
@@ -343,7 +343,7 @@ mod test {
                                  ty: Type::Con,
                                  ver: Default::default(),
                                  code: Code::new(0, 0),
-                                 opts: vec![],
+                                 opts: Default::default(),
                                  payload: Payload(vec![]),
                                  token: Token(Default::default()) },
           crate::test::dummy_addr())
@@ -388,8 +388,8 @@ mod test {
       (inner.poll_resp => { Some(Ok(test_msg(Id(0)).map(Resp::from))) })
     ]
     THEN id_should_be_respected [
-      (poll_req(_, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(0))) }),
-      (poll_resp(_, _, _, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().msg.id, Id(0))) })
+      (poll_req(_, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().as_ref().id, Id(0))) }),
+      (poll_resp(_, _, _, _) should satisfy { |out| assert!(matches!(out.unwrap().unwrap().data().as_ref().id, Id(0))) })
     ]
   );
 
