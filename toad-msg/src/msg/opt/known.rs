@@ -1,4 +1,4 @@
-/// Content-Format
+/// Content-Format values
 pub mod content_format;
 
 macro_rules! opt {

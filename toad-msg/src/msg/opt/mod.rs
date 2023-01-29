@@ -18,7 +18,7 @@ pub use parse_error::*;
 pub mod known;
 pub use known::*;
 
-/// Implementor of [`IterOpts`]
+/// An iterator over owned [`Opt`]s
 #[derive(Debug, Clone)]
 pub struct OptIter<M, I>
   where M: OptionMap
@@ -29,7 +29,7 @@ pub struct OptIter<M, I>
   __p: PhantomData<M>,
 }
 
-/// Implementor of [`IterOptRefs`]
+/// An iterator over [`OptRef`]s
 #[derive(Debug, Clone)]
 pub struct OptRefIter<'a, M, I>
   where M: OptionMap
@@ -369,14 +369,14 @@ pub enum WhenOptionUnsupportedByProxy {
 #[doc = rfc_7252_doc!("5.4.2")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WhenOptionChanges {
-  /// If this option is [safe to forward](`ProxySafe::ForwardWhenUnknown`),
+  /// If this option is [safe to forward](`WhenOptionUnsupportedByProxy::Forward`),
   /// but unknown to a proxy, it should be included in the proxy's
   /// cache key for this message.
   ///
   /// Corresponds to the option being not "NoCacheKey"
   /// in strict CoAP terms
   ResponseChanges,
-  /// If this option is [safe to forward](`ProxySafe::ForwardWhenUnknown`),
+  /// If this option is [safe to forward](`WhenOptionUnsupportedByProxy::Forward`),
   /// but unknown to a proxy, it should not be included in the proxy's
   /// cache key for this message, and different values for this option
   /// should yield the cached response.

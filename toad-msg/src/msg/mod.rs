@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use crate::TryIntoBytes;
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
 use toad_macros::rfc_7252_doc;
 
@@ -249,7 +251,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
 
   /// Get the value(s) of an option by number
   ///
-  /// This just invokes [`Map::get`] on [`Message.opts`].
+  /// This just invokes [`toad_common::Map::get`] on [`Message.opts`].
   pub fn get(&self, n: OptNumber) -> Option<&Options::OptValues> {
     self.opts.get(&n)
   }
