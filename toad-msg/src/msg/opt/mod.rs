@@ -14,6 +14,10 @@ use crate::from_bytes::*;
 pub mod parse_error;
 pub use parse_error::*;
 
+/// Well-known options
+pub mod known;
+pub use known::*;
+
 /// Implementor of [`IterOpts`]
 #[derive(Debug, Clone)]
 pub struct OptIter<M, I>
