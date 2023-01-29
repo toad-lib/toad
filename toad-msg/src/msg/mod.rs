@@ -1,6 +1,7 @@
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
 use toad_macros::rfc_7252_doc;
 
+use crate::content_format::ContentFormat;
 #[allow(unused_imports)]
 use crate::TryIntoBytes;
 
@@ -227,15 +228,12 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
            opts: Default::default() }
   }
 
-  /// Set an option by number
-  ///
-  /// If there's already at least one value for this option,
-  /// this method naiively assumes the option is repeatable.
+  /// Insert a new value for a given option
   ///
   /// Errors when there cannot be any more options, or the option
   /// cannot be repeated any more (only applies to non-std environments)
   #[doc = rfc_7252_doc!("5.4.5")]
-  pub fn set(&mut self,
+  pub fn add(&mut self,
              n: OptNumber,
              v: OptValue<Options::OptValue>)
              -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
@@ -250,6 +248,22 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
     }
   }
 
+  /// Replace any / all existing values with a new one,
+  /// yielding the previous value(s)
+  pub fn set(
+    &mut self,
+    n: OptNumber,
+    v: OptValue<Options::OptValue>)
+    -> Result<Option<Options::OptValues>,
+              SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    Ok(self.remove(n)).and_then(|old| self.add(n, v).map(|_| old))
+  }
+
+  /// Get the number of values for a given option
+  pub fn count(&self, n: OptNumber) -> usize {
+    self.get(n).map(|a| a.get_size()).unwrap_or(0)
+  }
+
   /// Get the value(s) of an option by number
   ///
   /// This just invokes [`toad_common::Map::get`] on [`Message.opts`].
@@ -261,6 +275,218 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   /// returning them if there were any.
   pub fn remove(&mut self, n: OptNumber) -> Option<Options::OptValues> {
     self.opts.remove(&n)
+  }
+
+  /// Update the value for the [Uri-Host](opt::known::no_repeat::HOST) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.1")]
+  pub fn set_host<S>(
+    &mut self,
+    host: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.set(opt::known::no_repeat::HOST,
+             host.as_ref().as_bytes().iter().copied().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Uri-Port](opt::known::no_repeat::PORT) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.1")]
+  pub fn set_port(
+    &mut self,
+    port: u16)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::PORT,
+             port.to_be_bytes().into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Uri-Path](opt::known::no_repeat::PATH) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.1")]
+  pub fn set_path<S>(
+    &mut self,
+    path: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.set(opt::known::no_repeat::PATH,
+             path.as_ref().as_bytes().iter().copied().collect())
+        .map(|_| ())
+  }
+
+  /// Insert a new value for the [Uri-Query](opt::known::repeat::QUERY) option,
+  /// alongside any existing values.
+  #[doc = rfc_7252_doc!("5.10.1")]
+  pub fn add_query<S>(
+    &mut self,
+    query: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.add(opt::known::repeat::QUERY,
+             query.as_ref().as_bytes().iter().copied().collect())
+  }
+
+  /// Update the value for the [Content-Format](opt::known::no_repeat::CONTENT_FORMAT) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.3")]
+  pub fn set_content_format(
+    &mut self,
+    format: ContentFormat)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::CONTENT_FORMAT,
+             format.into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Accept](opt::known::no_repeat::ACCEPT) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.4")]
+  pub fn set_accept(
+    &mut self,
+    format: ContentFormat)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::ACCEPT, format.into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Size1](opt::known::no_repeat::SIZE1) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.9")]
+  pub fn set_size1(
+    &mut self,
+    size_bytes: u64)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::SIZE1,
+             size_bytes.to_be_bytes().into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Discard all values for [If-Match](opt::known::repeat::IF_MATCH), and replace them with
+  /// an empty value.
+  ///
+  /// This signals that our request should only be processed if we're trying to update
+  /// a resource that exists (e.g. this ensures PUT only updates and will never insert)
+  #[doc = rfc_7252_doc!("5.10.8.1")]
+  pub fn set_if_exists(
+    &mut self)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::repeat::IF_MATCH, Default::default())
+        .map(|_| ())
+  }
+
+  /// Enable the [If-None-Match](opt::known::no_repeat::IF_NONE_MATCH) flag
+  ///
+  /// This signals that our request should only be processed if we're trying to insert
+  /// a resource that does not exist (e.g. this ensures PUT only inserts and will never update)
+  #[doc = rfc_7252_doc!("5.10.8.2")]
+  pub fn set_if_not_exists(
+    &mut self)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::IF_NONE_MATCH, Default::default())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Max-Age](opt::known::no_repeat::MAX_AGE) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.5")]
+  pub fn set_max_age(
+    &mut self,
+    max_age_seconds: u32)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>> {
+    self.set(opt::known::no_repeat::MAX_AGE,
+             max_age_seconds.to_be_bytes().into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Proxy-Uri](opt::known::no_repeat::PROXY_URI) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.2")]
+  pub fn set_proxy_uri<S>(
+    &mut self,
+    uri: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.set(opt::known::no_repeat::PROXY_URI,
+             uri.as_ref().as_bytes().iter().copied().collect())
+        .map(|_| ())
+  }
+
+  /// Update the value for the [Proxy-Scheme](opt::known::no_repeat::PROXY_SCHEME) option,
+  /// discarding any existing values.
+  #[doc = rfc_7252_doc!("5.10.2")]
+  pub fn set_proxy_scheme<S>(
+    &mut self,
+    scheme: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.set(opt::known::no_repeat::PROXY_URI,
+             scheme.as_ref().as_bytes().iter().copied().collect())
+        .map(|_| ())
+  }
+
+  /// Insert a new value for the [If-Match](opt::known::repeat::IF_MATCH) option,
+  /// alongside any existing values.
+  #[doc = rfc_7252_doc!("5.10.8.1")]
+  pub fn add_if_match<B>(
+    &mut self,
+    tag: B)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where B: AsRef<[u8]>
+  {
+    if let Some(others) = self.remove(opt::known::repeat::IF_MATCH) {
+      others.into_iter()
+            .filter(|v| v.0.get_size() > 0)
+            .map(|v| self.add(opt::known::repeat::IF_MATCH, v))
+            .collect::<Result<(), _>>()?;
+    }
+
+    self.add(opt::known::repeat::IF_MATCH,
+             tag.as_ref().iter().copied().collect())
+  }
+
+  /// Insert a new value for the [Location-Path](opt::known::repeat::LOCATION_PATH) option,
+  /// alongside any existing values.
+  #[doc = rfc_7252_doc!("5.10.7")]
+  pub fn add_location_path<S>(
+    &mut self,
+    path: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.add(opt::known::repeat::LOCATION_PATH,
+             path.as_ref().as_bytes().iter().copied().collect())
+  }
+
+  /// Insert a new value for the [Location-Query](opt::known::repeat::LOCATION_QUERY) option,
+  /// alongside any existing values.
+  #[doc = rfc_7252_doc!("5.10.7")]
+  pub fn add_location_query<S>(
+    &mut self,
+    query: S)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where S: AsRef<str>
+  {
+    self.add(opt::known::repeat::LOCATION_QUERY,
+             query.as_ref().as_bytes().iter().copied().collect())
+  }
+
+  /// Insert a new value for the [ETag](opt::known::repeat::ETAG) option,
+  /// alongside any existing values.
+  #[doc = rfc_7252_doc!("5.10.7")]
+  pub fn add_etag<B>(
+    &mut self,
+    tag: B)
+    -> Result<(), SetOptionError<OptValue<Options::OptValue>, Options::OptValues>>
+    where B: AsRef<[u8]>
+  {
+    self.add(opt::known::repeat::ETAG,
+             tag.as_ref().iter().copied().collect())
   }
 }
 
