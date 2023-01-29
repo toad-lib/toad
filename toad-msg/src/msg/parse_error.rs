@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use crate::Type;
+
 /// Errors encounterable while parsing a message from bytes
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum MessageParseError {
