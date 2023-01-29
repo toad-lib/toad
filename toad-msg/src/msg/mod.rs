@@ -1,7 +1,8 @@
-#[allow(unused_imports)]
-use crate::TryIntoBytes;
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
 use toad_macros::rfc_7252_doc;
+
+#[allow(unused_imports)]
+use crate::TryIntoBytes;
 
 /// Message Code
 pub mod code;

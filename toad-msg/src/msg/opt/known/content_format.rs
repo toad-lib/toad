@@ -41,11 +41,11 @@ impl<'a> From<&'a ContentFormat> for u16 {
 }
 
 impl<'a> IntoIterator for &'a ContentFormat {
-    type Item = u8;
+  type Item = u8;
 
-    type IntoIter = <[u8; 2] as IntoIterator>::IntoIter;
+  type IntoIter = <[u8; 2] as IntoIterator>::IntoIter;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.bytes().into_iter()
-    }
+  fn into_iter(self) -> Self::IntoIter {
+    self.bytes().into_iter()
+  }
 }

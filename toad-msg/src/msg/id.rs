@@ -1,9 +1,9 @@
-#[allow(unused_imports)]
-use crate::Token;
 use toad_common::Cursor;
 
 use super::MessageParseError;
 use crate::from_bytes::TryConsumeBytes;
+#[allow(unused_imports)]
+use crate::Token;
 
 /// # Message ID
 ///
