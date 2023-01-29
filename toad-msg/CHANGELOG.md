@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.11.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.10.0...toad-msg-v0.11.0) (2023-01-29)
+
+
+### Features
+
+* **msg:** add known option methods with nice types ([272c5dc](https://github.com/toad-lib/toad/commit/272c5dca5a518d9ac98c8d7242177da2868efbf1))
+
 ## [0.10.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.9.0...toad-msg-v0.10.0) (2023-01-29)
 
 
