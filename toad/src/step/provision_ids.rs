@@ -112,7 +112,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
       let remove_before =
         ids.iter()
            .enumerate()
-           .find(|(_, id)| now - id.time() < Milliseconds(config.exchange_lifetime_millis()).into())
+           .find(|(_, id)| now.checked_duration_since(&id.time()) < Some(Milliseconds(config.exchange_lifetime_millis()).into()))
            .map(|(ix, _)| ix);
 
       match remove_before {

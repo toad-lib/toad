@@ -12,12 +12,12 @@ keywords = ["coap", "iot", "networking", "no_std", "wasm"]
 categories = ["network-programming"]
 
 [[example]]
-name = "low_level_minimal"
-path = "examples/low_level/minimal.rs"
-
-[[example]]
 name = "server"
 path = "examples/server.rs"
+
+[[example]]
+name = "server_minimal"
+path = "examples/server_minimal.rs"
 
 [[example]]
 name = "server_traffic"
@@ -50,4 +50,5 @@ naan = "0.1.27"
 
 [dev-dependencies]
 simple_logger = "2"
+lazycell = "1.3.0"
 paste = "1.0.9"

@@ -1,6 +1,7 @@
 use std::io;
 use std::sync::{Arc, Barrier, Mutex};
 
+use lazycell::AtomicLazyCell;
 use toad::config::Config;
 use toad::net::Addrd;
 use toad::platform::Platform as _;
@@ -11,28 +12,35 @@ use toad::std::{dtls, Platform, PlatformTypes as T};
 use toad::step::runtime;
 
 fn start_server(addr: &'static str) {
-  let server_starting = Arc::new(Mutex::new(true));
-  let server_starting_2 = Arc::clone(&server_starting);
+  const WORKER_THREAD_COUNT: usize = 10;
+  static STARTED: AtomicLazyCell<Barrier> = AtomicLazyCell::NONE;
+  STARTED.fill(Barrier::new(WORKER_THREAD_COUNT + 1)).unwrap();
 
   log::info!("[1] starting server");
   std::thread::spawn(move || {
-    let server = P::try_new(addr, Config::default()).unwrap();
-
-    let init = Init(Some(|| {
-                      *server_starting_2.lock().unwrap() = false;
-                    }));
-
-    server.run(init, |run| {
-            run.maybe(route::done)
-               .maybe(route::hello)
-               .maybe(route::not_found)
-          })
+    static SERVER: AtomicLazyCell<P> = AtomicLazyCell::NONE;
+    SERVER.fill(P::try_new(addr, Config::default()).unwrap())
           .unwrap();
+
+    for _ in 1..=WORKER_THREAD_COUNT {
+      std::thread::spawn(|| {
+        let init = Init(Some(|| {
+                          STARTED.borrow().unwrap().wait();
+                        }));
+
+        SERVER.borrow()
+              .unwrap()
+              .run(init, |run| {
+                run.maybe(route::done)
+                   .maybe(route::hello)
+                   .maybe(route::not_found)
+              })
+              .unwrap();
+      });
+    }
   });
 
-  while *server_starting.lock().unwrap() {
-    std::thread::sleep(std::time::Duration::from_millis(10));
-  }
+  STARTED.borrow().unwrap().wait();
 }
 
 mod route {
@@ -105,9 +113,9 @@ pub fn main() {
   let server_addr = "127.0.0.1:1111";
   start_server(&server_addr);
 
-  const N_THREADS: usize = 5;
-  let done = Arc::new(Barrier::new(N_THREADS + 1));
-  let done_ref = unsafe { std::mem::transmute::<_, &'static Arc<Barrier>>(&done) };
+  const N_CLIENTS: usize = 4;
+  static FINISHED: AtomicLazyCell<Barrier> = AtomicLazyCell::NONE;
+  FINISHED.fill(Barrier::new(N_CLIENTS + 1)).unwrap();
 
   let names = include_str!("./names.txt").split("\n")
                                          .filter(|s| !s.is_empty())
@@ -116,20 +124,25 @@ pub fn main() {
   let mut names = names.into_iter();
   let names_mut = &mut names;
 
-  (0..N_THREADS).for_each(|n| {
-                  let names = names_mut.take(n_names / N_THREADS).collect::<Vec<_>>();
-                  std::thread::spawn(move || {
-                    let addr = format!("127.0.0.1:222{n}");
-                    let client = P::try_new(addr, Config::default()).unwrap();
-                    names.into_iter()
-                         .for_each(|name| test::hello(&client, name.trim(), server_addr));
-                    Arc::clone(done_ref).wait();
-                  });
-                });
+  for n in 1..=N_CLIENTS {
+    let names_count = n_names / N_CLIENTS;
+    let names = names_mut.take(names_count).collect::<Vec<_>>();
 
-  done.wait();
+    std::thread::spawn(move || {
+      let addr = format!("127.0.0.1:22{n:02}");
+      let client = P::try_new(addr, Config::default()).unwrap();
+      names.into_iter()
+           .for_each(|name| test::hello(&client, name.trim(), server_addr));
+      FINISHED.borrow().unwrap().wait();
+    });
+  }
 
-  P::try_new("127.0.0.1:8888", Config::default()).unwrap().send_msg(Addrd(Req::<T<dtls::N>>::get( "done").into(),
-                        server_addr.parse().unwrap()))
-        .unwrap();
+  FINISHED.borrow().unwrap().wait();
+
+  let done = Addrd(Req::<T<dtls::N>>::get("done").into(),
+                   server_addr.parse().unwrap());
+
+  P::try_new("127.0.0.1:8888", Config::default()).unwrap()
+                                                 .send_msg(done)
+                                                 .unwrap();
 }

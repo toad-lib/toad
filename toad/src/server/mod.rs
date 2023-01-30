@@ -158,7 +158,7 @@ pub trait BlockingServer<S>: Sized + Platform<S>
   where S: Step<Self::Types, PollReq = Addrd<Req<Self::Types>>, PollResp = Addrd<Resp<Self::Types>>>
 {
   /// TODO
-  fn run<I, R>(self, init: Init<I>, mut handle_request: R) -> Result<(), Error<Self::Error>>
+  fn run<I, R>(&self, init: Init<I>, mut handle_request: R) -> Result<(), Error<Self::Error>>
     where I: FnMut(),
           R: FnMut(Run<Self::Types, Self::Error>) -> Run<Self::Types, Self::Error>
   {

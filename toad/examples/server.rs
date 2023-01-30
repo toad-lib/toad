@@ -1,6 +1,7 @@
 use std::io;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Barrier, Mutex};
 
+use lazycell::AtomicLazyCell;
 use toad::config::Config;
 use toad::net::Addrd;
 use toad::platform::Platform as _;
@@ -11,28 +12,35 @@ use toad::std::{dtls, Platform, PlatformTypes as T};
 use toad::step::runtime;
 
 fn start_server(addr: &'static str) {
-  let server_starting = Arc::new(Mutex::new(true));
-  let server_starting_2 = Arc::clone(&server_starting);
+  // 5 worker threads + main thread
+  static STARTED: AtomicLazyCell<Barrier> = AtomicLazyCell::NONE;
+  STARTED.fill(Barrier::new(6)).unwrap();
 
   log::info!("[1] starting server");
   std::thread::spawn(move || {
-    let server = P::try_new(addr, Config::default()).unwrap();
-
-    let init = Init(Some(|| {
-                      *server_starting_2.lock().unwrap() = false;
-                    }));
-
-    server.run(init, |run| {
-            run.maybe(route::done)
-               .maybe(route::hello)
-               .maybe(route::not_found)
-          })
+    static SERVER: AtomicLazyCell<P> = AtomicLazyCell::NONE;
+    SERVER.fill(P::try_new(addr, Config::default()).unwrap())
           .unwrap();
+
+    for _ in 1..=5 {
+      std::thread::spawn(|| {
+        let init = Init(Some(|| {
+                          STARTED.borrow().unwrap().wait();
+                        }));
+
+        SERVER.borrow()
+              .unwrap()
+              .run(init, |run| {
+                run.maybe(route::done)
+                   .maybe(route::hello)
+                   .maybe(route::not_found)
+              })
+              .unwrap();
+      });
+    }
   });
 
-  while *server_starting.lock().unwrap() {
-    std::thread::sleep(std::time::Duration::from_millis(10));
-  }
+  STARTED.borrow().unwrap().wait();
 }
 
 mod route {
