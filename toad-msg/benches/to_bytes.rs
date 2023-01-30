@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use toad_msg::TryIntoBytes;
 
 #[path = "bench_input.rs"]
 mod bench_input;
 use bench_input::TestInput;
 use tinyvec::ArrayVec;
+use toad_msg::TryIntoBytes;
 
 fn message_to_bytes(c: &mut Criterion) {
   let mut group = c.benchmark_group("msg/to_bytes");

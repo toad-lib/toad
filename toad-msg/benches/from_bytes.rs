@@ -5,6 +5,10 @@ use toad_msg::*;
 mod bench_input;
 use bench_input::TestInput;
 
+#[path = "common.rs"]
+mod common;
+use common::*;
+
 fn message_from_bytes(c: &mut Criterion) {
   let mut group = c.benchmark_group("msg/from_bytes");
   group.measurement_time(std::time::Duration::from_secs(5));
@@ -66,14 +70,14 @@ fn message_from_bytes(c: &mut Criterion) {
                                 opt_size: 512,
                                 payload_size: 4096 },];
 
-  type ArrayMessage = ArrayVecMessage<4096, 32, 512>;
+  type ArrayMessage = StackMessage<4096, 32, 512>;
 
   for inp in inputs.iter() {
     let bytes = inp.get_bytes();
 
     group.bench_with_input(BenchmarkId::new("toad_msg/alloc/size", bytes.len()),
                            &bytes,
-                           |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
+                           |b, bytes| b.iter(|| alloc::Message::try_from_bytes(bytes)));
 
     group.bench_with_input(BenchmarkId::new("toad_msg/no_alloc/size", bytes.len()),
                            &bytes,

@@ -1,6 +1,6 @@
 /// Content-Format
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ContentFormat {
   /// `text/plain; charset=utf-8`
   Text,
@@ -36,6 +36,21 @@ impl<'a> From<&'a ContentFormat> for u16 {
       | Exi => 47,
       | Json => 50,
       | Other(n) => n,
+    }
+  }
+}
+
+impl From<u16> for ContentFormat {
+  fn from(n: u16) -> Self {
+    use ContentFormat::*;
+    match n {
+      | 0 => Text,
+      | 40 => LinkFormat,
+      | 41 => Xml,
+      | 42 => OctetStream,
+      | 47 => Exi,
+      | 50 => Json,
+      | n => Other(n),
     }
   }
 }
