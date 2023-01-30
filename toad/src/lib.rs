@@ -130,7 +130,7 @@ pub mod std;
 
 mod option;
 
-/// TODO
+/// Server functionality
 pub mod server;
 
 pub use option::{ContentFormat, ToCoapValue};
