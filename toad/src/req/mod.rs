@@ -5,6 +5,7 @@ use tinyvec::ArrayVec;
 use toad_common::*;
 use toad_msg::{Id,
                Message,
+               MessageOptions,
                Opt,
                OptDelta,
                OptNumber,
@@ -14,7 +15,7 @@ use toad_msg::{Id,
                SetOptionError,
                Token,
                TryIntoBytes,
-               Type, MessageOptions};
+               Type};
 
 use crate::ToCoapValue;
 
@@ -98,8 +99,7 @@ impl<P: PlatformTypes> Req<P> {
 
     let mut self_ = Self(msg);
 
-    self_.as_mut().set_path(path.as_ref())
-         .ok();
+    self_.as_mut().set_path(path.as_ref()).ok();
     self_
   }
 

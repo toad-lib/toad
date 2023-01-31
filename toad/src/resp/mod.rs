@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 use toad_common::Array;
-use toad_msg::{Id, Message, OptNumber, OptValue, Payload, TryIntoBytes, Type, MessageOptions};
+use toad_msg::{Id, Message, MessageOptions, OptNumber, OptValue, Payload, TryIntoBytes, Type};
 
 use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
@@ -22,7 +22,8 @@ pub mod code;
 ///     let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
 ///
 ///     resp.set_code(toad::resp::code::CONTENT);
-///     resp.msg_mut().set_content_format(toad_msg::ContentFormat::Json); // Content-Format: application/json
+///     resp.msg_mut()
+///         .set_content_format(toad_msg::ContentFormat::Json); // Content-Format: application/json
 ///
 ///     let payload = r#"""{
 ///       "foo": "bar",

@@ -2,7 +2,7 @@ use core::fmt::Write;
 
 pub use ap::Ap;
 use toad_common::Cursor;
-use toad_msg::{OptNumber, OptValue, MessageOptions};
+use toad_msg::{MessageOptions, OptNumber, OptValue};
 
 use self::ap::state::{Complete, Hydrated};
 use self::ap::{ApInner, Hydrate, Respond};

@@ -109,11 +109,13 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
   fn prune(seen: &mut Ids, now: Instant<P::Clock>, config: Config) {
     for (_, ids) in seen.iter_mut() {
       ids.sort_by_key(|t| t.time());
-      let remove_before =
-        ids.iter()
-           .enumerate()
-           .find(|(_, id)| now.checked_duration_since(&id.time()) < Some(Milliseconds(config.exchange_lifetime_millis()).into()))
-           .map(|(ix, _)| ix);
+      let remove_before = ids.iter()
+                             .enumerate()
+                             .find(|(_, id)| {
+                               now.checked_duration_since(&id.time())
+                               < Some(Milliseconds(config.exchange_lifetime_millis()).into())
+                             })
+                             .map(|(ix, _)| ix);
 
       match remove_before {
         | Some(ix) if ix == 0 => (),
