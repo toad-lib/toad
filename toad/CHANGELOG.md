@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.13.0](https://github.com/toad-lib/toad/compare/toad-v0.12.2...toad-v0.13.0) (2023-01-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **toad:** rewrite server, client, platform, core abstractions  ([#197](https://github.com/toad-lib/toad/issues/197))
+
+### Features
+
+* **toad:** rewrite server, client, platform, core abstractions  ([#197](https://github.com/toad-lib/toad/issues/197)) ([e77f8cc](https://github.com/toad-lib/toad/commit/e77f8ccfc84e144cdf9b8217810212f05b362b53))
+
 ## [0.12.2](https://github.com/toad-lib/toad/compare/toad-v0.12.1...toad-v0.12.2) (2023-01-24)
 
 
