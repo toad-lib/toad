@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.12.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.11.0...toad-msg-v0.12.0) (2023-01-31)
+
+
+### Features
+
+* add trait for getting & setting options ([bd7e8a7](https://github.com/toad-lib/toad/commit/bd7e8a7446c77c6c1a01b2e563c4de7af0f17c8b))
+
+
+### Performance Improvements
+
+* benches ([9df2c1e](https://github.com/toad-lib/toad/commit/9df2c1e474c606fcd28e66fc2751a97e2c72861e))
+
 ## [0.11.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.10.0...toad-msg-v0.11.0) (2023-01-29)
 
 
