@@ -263,7 +263,7 @@ macro_rules! common {
   ($self:expr, $snap:expr, $req_or_resp:expr) => {{
     let r = $req_or_resp;
     $self.seen
-         .map_mut(|s| Self::seen(s, $snap.config, $snap.time, r.addr(), r.data().msg_id()));
+         .map_mut(|s| Self::seen(s, $snap.config, $snap.time, r.addr(), r.data().msg().id));
     Some(Ok(r))
   }};
 }

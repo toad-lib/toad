@@ -14,7 +14,7 @@ use toad_msg::{Id,
                SetOptionError,
                Token,
                TryIntoBytes,
-               Type};
+               Type, MessageOptions};
 
 use crate::ToCoapValue;
 
@@ -98,69 +98,24 @@ impl<P: PlatformTypes> Req<P> {
 
     let mut self_ = Self(msg);
 
-    self_.set_uri_path(path.as_ref().as_bytes().into_iter().copied())
+    self_.as_mut().set_path(path.as_ref())
          .ok();
     self_
-  }
-
-  /// TODO
-  pub fn set_uri_port(&mut self, port: usize) -> Result<(), platform::toad_msg::opt::SetError<P>> {
-    self.set(OptNumber(7), OptValue(port.to_be_bytes()))
-  }
-
-  /// TODO
-  pub fn set_uri_host<V>(&mut self, v: V) -> Result<(), platform::toad_msg::opt::SetError<P>>
-    where V: IntoIterator<Item = u8>
-  {
-    self.set(OptNumber(3), OptValue(v))
-  }
-
-  /// TODO
-  pub fn set_uri_path<V>(&mut self, v: V) -> Result<(), platform::toad_msg::opt::SetError<P>>
-    where V: IntoIterator<Item = u8>
-  {
-    self.set(OptNumber(11), OptValue(v))
-  }
-
-  /// Updates the Message ID for this request
-  ///
-  /// ```
-  /// use toad::platform;
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  /// use toad_msg::{Id, Token};
-  ///
-  /// let mut req = Req::<Std<dtls::Y>>::get("hello");
-  /// req.set_msg_id(Id(0));
-  /// req.set_msg_token(Token(Default::default()));
-  ///
-  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
-  /// ```
-  pub fn set_msg_id(&mut self, id: Id) {
-    self.0.id = id;
-  }
-
-  /// Updates the Message Token for this request
-  ///
-  /// ```
-  /// use toad::platform;
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  /// use toad_msg::{Id, Token};
-  ///
-  /// let mut req = Req::<Std<dtls::Y>>::get("hello");
-  /// req.set_msg_id(Id(0));
-  /// req.set_msg_token(Token(Default::default()));
-  ///
-  /// let msg: platform::Message<Std<dtls::Y>> = req.into();
-  /// ```
-  pub fn set_msg_token(&mut self, token: Token) {
-    self.0.token = token;
   }
 
   /// Get the request method
   pub fn method(&self) -> Method {
     Method(self.0.code)
+  }
+
+  /// Obtain a reference to the inner message
+  pub fn msg(&self) -> &platform::Message<P> {
+    &self.0
+  }
+
+  /// Obtain a mutable reference to the inner message
+  pub fn msg_mut(&mut self) -> &mut platform::Message<P> {
+    &mut self.0
   }
 
   /// Get the request path (Uri-Path option)
@@ -184,50 +139,6 @@ impl<P: PlatformTypes> Req<P> {
   /// application requirements, such as repeated readings from a sensor.
   pub fn non(&mut self) -> () {
     self.0.ty = Type::Non;
-  }
-
-  /// Get a copy of the message id for this request
-  ///
-  /// ```
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  ///
-  /// let req = Req::<Std<dtls::Y>>::get("/hello");
-  /// let _msg_id = req.msg_id();
-  /// ```
-  pub fn msg_id(&self) -> toad_msg::Id {
-    self.0.id
-  }
-
-  /// Get a copy of the message token for this request
-  pub fn msg_token(&self) -> toad_msg::Token {
-    self.0.token
-  }
-
-  /// Set a custom option for this request not [`known`](toad_msg::opt::known)
-  /// to the toad library.
-  ///
-  /// ```
-  /// use toad::req::Req;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  /// use toad_msg::{OptNumber, OptValue};
-  ///
-  /// let mut req = Req::<Std<dtls::Y>>::get("/hello");
-  /// req.set(OptNumber(17), OptValue(vec![50])); // Accept: application/json
-  /// ```
-  pub fn set<V: IntoIterator<Item = u8>>(&mut self,
-                                         number: OptNumber,
-                                         value: OptValue<V>)
-                                         -> Result<(), platform::toad_msg::opt::SetError<P>> {
-    self.0.set(number,
-               OptValue(value.0
-                             .into_iter()
-                             .collect::<platform::toad_msg::opt::Bytes<P>>()))
-  }
-
-  /// Get the number of values for a given option in this Request
-  pub fn count(&mut self, number: OptNumber) -> usize {
-    self.as_ref().get(number).map(|v| v.get_size()).unwrap_or(0)
   }
 
   /// Creates a new GET request

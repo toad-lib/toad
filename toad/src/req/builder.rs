@@ -1,6 +1,6 @@
 use no_std_net::SocketAddr;
 use toad_common::*;
-use toad_msg::{OptNumber, OptValue, OptionMap, SetOptionError};
+use toad_msg::{OptNumber, OptValue, OptionMap, SetOptionError, MessageOptions};
 
 use super::{Method, Req};
 use crate::option::common_options;
@@ -105,7 +105,7 @@ impl<P> ReqBuilder<P>
                                                        old: existing.into_iter().next().unwrap(),
                                                        new: val })
                     },
-                    | None => req.set(number, val)
+                    | None => req.msg_mut().set(number, val)
                                  .map_err(Error::SetOptionError)
                                  .map(|_| req),
                   }
@@ -119,7 +119,7 @@ impl<P> ReqBuilder<P>
     self.inner = self.inner.and_then(|mut req| {
                              let val =
                                OptValue(value.to_coap_value::<platform::toad_msg::opt::Bytes<P>>());
-                             req.set(number, val)
+                             req.msg_mut().set(number, val)
                                 .map_err(Error::SetOptionError)
                                 .map(|_| req)
                            });

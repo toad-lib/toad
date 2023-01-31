@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 use toad_common::Array;
-use toad_msg::{Id, Message, OptNumber, OptValue, Payload, TryIntoBytes, Type};
+use toad_msg::{Id, Message, OptNumber, OptValue, Payload, TryIntoBytes, Type, MessageOptions};
 
 use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
@@ -22,7 +22,7 @@ pub mod code;
 ///     let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
 ///
 ///     resp.set_code(toad::resp::code::CONTENT);
-///     resp.set(OptNumber(12), OptValue(vec![50])); // Content-Format: application/json
+///     resp.msg_mut().set_content_format(toad_msg::ContentFormat::Json); // Content-Format: application/json
 ///
 ///     let payload = r#"""{
 ///       "foo": "bar",
@@ -77,6 +77,16 @@ impl<P> PartialEq for Resp<P> where P: PlatformTypes
 }
 
 impl<P: PlatformTypes> Resp<P> {
+  /// Obtain a reference to the inner message
+  pub fn msg(&self) -> &platform::Message<P> {
+    &self.0
+  }
+
+  /// Obtain a mutable reference to the inner message
+  pub fn msg_mut(&mut self) -> &mut platform::Message<P> {
+    &mut self.0
+  }
+
   /// Create a new response for a given request.
   ///
   /// If the request is CONfirmable, this will return Some(ACK).
@@ -93,8 +103,8 @@ impl<P: PlatformTypes> Resp<P> {
   ///
   /// // pretend this is an incoming request
   /// let mut req = Req::<Std<dtls::Y>>::get("/hello");
-  /// req.set_msg_id(toad_msg::Id(0));
-  /// req.set_msg_token(toad_msg::Token(Default::default()));
+  /// req.msg_mut().id = toad_msg::Id(0);
+  /// req.msg_mut().token = toad_msg::Token(Default::default());
   ///
   /// let resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
   ///
@@ -127,12 +137,12 @@ impl<P: PlatformTypes> Resp<P> {
   /// you
   pub fn ack(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Ack,
-                        id: req.msg_id(),
+                        id: req.msg().id,
                         opts: P::MessageOptions::default(),
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.msg_token() };
+                        token: req.msg().token };
 
     Self(msg)
   }
@@ -156,7 +166,7 @@ impl<P: PlatformTypes> Resp<P> {
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.msg_token() };
+                        token: req.msg().token };
 
     Self(msg)
   }
@@ -173,7 +183,7 @@ impl<P: PlatformTypes> Resp<P> {
                         code: code::CONTENT,
                         ver: Default::default(),
                         payload: Payload(Default::default()),
-                        token: req.msg_token() };
+                        token: req.msg().token };
 
     Self(msg)
   }
@@ -269,31 +279,6 @@ impl<P: PlatformTypes> Resp<P> {
   /// ```
   pub fn set_code(&mut self, code: toad_msg::Code) {
     self.0.code = code;
-  }
-
-  /// Add a custom option to the response
-  ///
-  /// If there was no room in the collection, returns the arguments back as `Some(number, value)`.
-  /// Otherwise, returns `None`.
-  ///
-  /// ```
-  /// use toad::req::Req;
-  /// use toad::resp::Resp;
-  /// use toad::std::{dtls, PlatformTypes as Std};
-  /// use toad_msg::{OptNumber, OptValue};
-  ///
-  /// // pretend this is an incoming request
-  /// let req = Req::<Std<dtls::Y>>::get("/hello");
-  /// let mut resp = Resp::<Std<dtls::Y>>::for_request(&req).unwrap();
-  ///
-  /// resp.set(OptNumber(17), OptValue(vec![50])); // Accept: application/json
-  /// ```
-  pub fn set<V: IntoIterator<Item = u8>>(&mut self,
-                                         number: OptNumber,
-                                         value: OptValue<V>)
-                                         -> Result<(), platform::toad_msg::opt::SetError<P>> {
-    self.as_mut()
-        .set(number, OptValue(value.0.into_iter().collect()))
   }
 
   /// Add a payload to this response

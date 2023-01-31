@@ -4,7 +4,7 @@ use core::fmt::Write;
 use tinyvec::ArrayVec;
 use toad_common::{Array, GetSize, InsertError, Map, ResultExt, Stem, Writable};
 use toad_msg::opt::known as option;
-use toad_msg::{CodeKind, OptValue, Token, Type};
+use toad_msg::{CodeKind, OptValue, Token, Type, MessageOptions};
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
@@ -69,12 +69,10 @@ impl<P, E, S> Step<P> for SetStandardOptions<S>
     let mut bytes = Writable::<ArrayVec<[u8; 4]>>::default();
     write!(bytes, "{}", host).ok();
     msg.as_mut()
-       .set(option::no_repeat::HOST,
-            OptValue(bytes.into_iter().collect()))
+       .set_host(bytes.as_str())
        .ok();
     msg.as_mut()
-       .set(option::no_repeat::PORT,
-            OptValue(port.to_be_bytes().into_iter().collect()))
+       .set_port(port)
        .ok();
 
     Ok(())
