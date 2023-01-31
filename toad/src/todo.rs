@@ -1,9 +1,83 @@
 //! Future inherent methods on structs in other crates
-use core::fmt::Write;
 use core::ops::{Div, Mul};
 
 use tinyvec::ArrayVec;
 use toad_common::*;
+
+pub mod hkt {
+  pub trait Array {
+    type Of<T: Default>: toad_common::Array<Item = T>;
+  }
+
+  #[cfg(feature = "alloc")]
+  #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+  pub struct Vec;
+
+  #[cfg(feature = "alloc")]
+  impl Array for Vec {
+    type Of<T: Default> = ::std_alloc::vec::Vec<T>;
+  }
+
+  #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+  pub struct ArrayVec<const N: usize>;
+  impl<const N: usize> Array for ArrayVec<N> {
+    type Of<T: Default> = tinyvec::ArrayVec<[T; N]>;
+  }
+}
+
+/// A [`Map`](toad_common::Map) stored completely on the stack
+pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;
+
+/// String with capacity of 1KB
+#[derive(Debug, Copy, Clone, Default)]
+pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
+
+impl String1Kb {
+  /// Alias for [`AsRef`]
+  pub fn as_str(&self) -> &str {
+    self.as_ref()
+  }
+
+  /// Alias for [`AsRef`]
+  pub fn as_bytes(&self) -> &[u8] {
+    self.as_ref()
+  }
+}
+
+impl PartialEq for String1Kb {
+  fn eq(&self, other: &Self) -> bool {
+    self.0.as_str() == other.0.as_str()
+  }
+}
+
+impl Eq for String1Kb {}
+
+impl core::fmt::Write for String1Kb {
+  fn write_str(&mut self, s: &str) -> core::fmt::Result {
+    self.0.write_str(s)
+  }
+}
+
+impl<'a> From<&'a str> for String1Kb {
+  fn from(s: &'a str) -> Self {
+    let mut arr = Writable::default();
+    ArrayVec::extend_from_slice(&mut arr, s.as_bytes());
+
+    Self(arr)
+  }
+}
+
+impl AsRef<str> for String1Kb {
+  fn as_ref(&self) -> &str {
+    self.0.as_str()
+  }
+}
+
+impl AsRef<[u8]> for String1Kb {
+  fn as_ref(&self) -> &[u8] {
+    self.0.as_str().as_bytes()
+  }
+}
 
 pub(crate) trait Capacity: GetSize {
   fn capacity(&self) -> Option<f32> {
@@ -17,14 +91,6 @@ pub(crate) trait Capacity: GetSize {
 }
 
 impl<T: GetSize> Capacity for T {}
-
-pub(crate) fn code_to_human(code: toad_msg::Code) -> Writable<ArrayVec<[u8; 4]>> {
-  let mut buf: Writable<ArrayVec<[u8; 4]>> = Writable::default();
-  code.to_human().iter().for_each(|char| {
-                          write!(buf, "{}", char).ok();
-                        });
-  buf
-}
 
 pub(crate) trait ResultExt2<T, E> {
   fn unwrap_err_or(self, f: impl FnOnce(T) -> E) -> E;

@@ -8,11 +8,95 @@ use ::std::thread;
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
 use net::*;
-use no_std_net::SocketAddr;
+use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std_alloc::sync::Arc;
+use tinyvec::ArrayVec;
 use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
+
+// lol `crate::test::x.x.x.x(80)`
+pub struct X1 {
+  pub x: X2,
+}
+pub struct X2 {
+  pub x: X3,
+}
+pub struct X3;
+impl X3 {
+  pub fn x(&self, port: u16) -> SocketAddr {
+    addr(port)
+  }
+}
+
+#[allow(non_upper_case_globals)]
+pub const x: X1 = X1 { x: X2 { x: X3 } };
+
+pub fn addr(port: u16) -> SocketAddr {
+  use no_std_net::*;
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), port))
+}
+
+#[macro_export]
+macro_rules! msg {
+  (CON GET x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 1} x.x.x.x:$port) };
+  (CON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 2} x.x.x.x:$port) };
+  (CON POST x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 3} x.x.x.x:$port) };
+  (CON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(CON {0 . 4} x.x.x.x:$port) };
+  (NON GET x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 1} x.x.x.x:$port) };
+  (NON PUT x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 2} x.x.x.x:$port) };
+  (NON POST x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 3} x.x.x.x:$port) };
+  (NON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 4} x.x.x.x:$port) };
+
+  (CON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Con} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (NON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Non} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (ACK {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+  }};
+  (ACK EMPTY x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new(0, 0)} x.x.x.x:$port)
+  }};
+
+  ({$ty:expr} {$code:expr} x.x.x.x:$port:literal) => {{
+    use $crate::net::Addrd;
+    use toad_msg::*;
+
+    let addr = $crate::test::x.x.x.x($port);
+
+    Addrd($crate::test::Message {
+      ver: Default::default(),
+      ty: $ty,
+      token: Token(Default::default()),
+      code: $code,
+      id: Id(0),
+      opts: Default::default(),
+      payload: Payload(Default::default()),
+    }, addr)
+  }};
+}
+
+pub use msg;
+
+pub type Message = crate::platform::Message<Platform>;
+pub type Snapshot = crate::platform::Snapshot<Platform>;
+pub type Req = crate::req::Req<Platform>;
+pub type Resp = crate::resp::Resp<Platform>;
+
+pub fn dummy_addr() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
+}
+
+pub fn dummy_addr_2() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 2), 8080))
+}
+
+pub fn dummy_addr_3() -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 3), 8080))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TimeoutState {
@@ -50,7 +134,7 @@ impl Timeout {
 }
 
 /// Config implementor using mocks for clock and sock
-pub type Config = crate::platform::Alloc<ClockMock, SockMock>;
+pub type Platform = crate::platform::Alloc<ClockMock, SockMock>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ClockMock(pub Cell<u64>);
@@ -63,12 +147,16 @@ impl ClockMock {
   pub fn set(&self, to: u64) {
     self.0.set(to);
   }
+
+  pub fn instant(n: u64) -> Instant<Self> {
+    Instant::new(n)
+  }
 }
 
 impl embedded_time::Clock for ClockMock {
   type T = u64;
 
-  const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000_000);
+  const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
 
   fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
     Ok(Instant::new(self.0.get()))
@@ -90,16 +178,16 @@ impl SockMock {
            tx: Default::default() }
   }
 
-  pub fn send_msg<P: platform::Platform>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
-                                         msg: Addrd<platform::Message<P>>) {
+  pub fn send_msg<P: platform::PlatformTypes>(rx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>,
+                                              msg: Addrd<platform::Message<P>>) {
     rx.lock()
       .unwrap()
       .push(msg.map(|msg| msg.try_into_bytes().unwrap()));
   }
 
-  pub fn await_msg<P: platform::Platform>(addr: SocketAddr,
-                                          tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
-                                          -> platform::Message<P> {
+  pub fn await_msg<P: platform::PlatformTypes>(addr: SocketAddr,
+                                               tx: &Arc<Mutex<Vec<Addrd<Vec<u8>>>>>)
+                                               -> platform::Message<P> {
     let attempt = || {
       tx.lock()
         .unwrap()
@@ -120,6 +208,11 @@ impl SockMock {
 
 impl Socket for SockMock {
   type Error = Option<()>;
+  type Dgram = ArrayVec<[u8; 1024]>;
+
+  fn empty_dgram() -> Self::Dgram {
+    ArrayVec::from([0u8; 1024])
+  }
 
   fn recv(&self, buf: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
     let mut rx = self.rx.lock().unwrap();
@@ -153,6 +246,10 @@ impl Socket for SockMock {
   }
 
   fn peek(&self, _: &mut [u8]) -> nb::Result<Addrd<usize>, Self::Error> {
+    todo!()
+  }
+
+  fn local_addr(&self) -> SocketAddr {
     todo!()
   }
 }

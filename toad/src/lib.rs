@@ -52,11 +52,6 @@ pub mod todo;
 #[cfg(test)]
 pub(crate) mod test;
 
-pub(crate) mod logging;
-
-/// Blocking rust CoAP client & server
-pub mod blocking;
-
 /// customizable retrying of fallible operations
 pub mod retry;
 
@@ -66,8 +61,55 @@ pub mod resp;
 /// requests
 pub mod req;
 
-/// low-level coap behavior
-pub mod core;
+/// # The [`Step`](crate::step::Step) trait
+/// The Step trait defines a powerful but simple API that allows
+/// the CoAP runtime to be a composition of "steps," stored as a
+/// type-level linked list.
+///
+/// e.g.
+/// ```text
+/// Gather Ingredients
+///   -> Mix Wet Ingredients
+///   -> Mix Dry Ingredients
+///   -> Mix Everything together
+///   -> Pour into cake tin
+///   -> Bake
+/// ```
+/// as Steps:
+/// ```text
+/// Bake<PourIntoCakeTin<MixEverything<MixDry<MixWet<GatherIngredients<Empty>>>>>>
+/// ```
+///
+/// ## Capabilities
+///  * May read system state (time, dgram on the socket, platform configuration)
+///     * [`platform::Snapshot`]
+///  * May maintain internal state
+///     * Must be managed with interior mutability (e.g. [`RwLock`](::std::sync::RwLock))
+///  * May perform side effects
+///     * [`platform::Effect`] provides deterministic API for logging and sending bytes over the wire
+///  * May participate in client role, server role, or both roles in the CoAP runtime
+///     * [`step::Step::poll_req`] (server)
+///     * [`step::Step::poll_resp`] (client)
+///  * May modify messages before they are sent
+///     * [`step::Step::before_message_sent`]
+///  * May be notified whenever a message is sent
+///     * [`step::Step::on_message_sent`]
+///  * May yield data to the outer step
+///     * [`step::Step::PollReq`]
+///     * [`step::Step::PollResp`]
+///
+/// ## Determinism
+/// Steps provided by this crate will never perform any observable IO,
+/// aside from managing their own internal state and appending to the list of
+/// effects provided in the `poll_req`/`poll_resp` fns.
+///
+/// ## Logging
+/// Steps provided by this crate will never log to any streams directly,
+/// and will provide them via [`platform::Effect::Log`].
+///
+/// It is **strongly** recommended that [`log::Level::Warn`] and
+/// [`log::Level::Error`] messages are not ignored.
+pub mod step;
 
 /// platform configuration
 pub mod platform;
@@ -87,6 +129,9 @@ pub mod config;
 pub mod std;
 
 mod option;
+
+/// Server functionality
+pub mod server;
 
 pub use option::{ContentFormat, ToCoapValue};
 

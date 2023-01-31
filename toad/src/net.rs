@@ -1,5 +1,4 @@
 use no_std_net::{SocketAddr, ToSocketAddrs};
-use tinyvec::ArrayVec;
 use toad_common::*;
 
 /// Data that came from a network socket
@@ -32,9 +31,19 @@ impl<T> Addrd<T> {
     &self.0
   }
 
+  /// Mutably borrow the contents of the addressed item
+  pub fn data_mut(&mut self) -> &mut T {
+    &mut self.0
+  }
+
   /// Copy the socket address for the data
   pub fn addr(&self) -> SocketAddr {
     self.1
+  }
+
+  /// Turn the entire structure into something else
+  pub fn fold<R>(self, f: impl FnOnce(T, SocketAddr) -> R) -> R {
+    f(self.0, self.1)
   }
 }
 
@@ -43,12 +52,6 @@ impl<T> AsMut<T> for Addrd<T> {
     &mut self.0
   }
 }
-
-/// A packet recieved over a UDP socket.
-///
-/// Currently the capacity is hard-coded at 1152 bytes,
-/// but this will eventually be configurable at compile-time.
-pub type Dgram = ArrayVec<[u8; 1152]>;
 
 /// A CoAP network socket
 ///
@@ -59,6 +62,21 @@ pub type Dgram = ArrayVec<[u8; 1152]>;
 pub trait Socket: Sized {
   /// The error yielded by socket operations
   type Error: core::fmt::Debug;
+
+  /// Buffer type used for receiving and sending datagrams.
+  ///
+  /// GOTCHA: if the length of the buffer is zero (even if the capacity is greater in the case
+  /// of ArrayVec or Vec), no bytes will be read. Make sure you set the length
+  /// manually with zero `0u8` filled in each position. (ex. `Vec::resize(_, 1024usize, 0u8)`)
+  type Dgram: Array<Item = u8> + AsRef<[u8]> + Clone + core::fmt::Debug + PartialEq;
+
+  /// Get the local address this socket was created from
+  fn local_addr(&self) -> SocketAddr;
+
+  /// Create an empty [`Socket::Dgram`] buffer
+  ///
+  /// (this has a major GOTCHA, see [`Socket::Dgram`].)
+  fn empty_dgram() -> Self::Dgram;
 
   /// Bind the socket to an address, without doing any spooky magic things like switching to non-blocking mode
   /// or auto-detecting and joining multicast groups.
@@ -129,8 +147,8 @@ pub trait Socket: Sized {
   }
 
   /// Poll the socket for a datagram from the `connect`ed host
-  fn poll(&self) -> Result<Option<Addrd<Dgram>>, Self::Error> {
-    let mut buf = [0u8; 1152];
+  fn poll(&self) -> Result<Option<Addrd<Self::Dgram>>, Self::Error> {
+    let mut buf = Self::empty_dgram();
     let recvd = self.recv(&mut buf);
 
     match recvd {

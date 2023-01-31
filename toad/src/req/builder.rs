@@ -1,16 +1,29 @@
 use no_std_net::SocketAddr;
 use toad_common::*;
+use toad_msg::{MessageOptions, OptNumber, OptValue, OptionMap, SetOptionError};
 
 use super::{Method, Req};
 use crate::option::common_options;
-use crate::platform::Platform;
+use crate::platform::{self, PlatformTypes};
 use crate::ToCoapValue;
 
 /// Errors encounterable while using ReqBuilder
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Error {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Error<P>
+  where P: PlatformTypes,
+        platform::toad_msg::opt::OptValue<P>: Clone + Eq + core::fmt::Debug,
+        platform::toad_msg::opt::SetError<P>: Clone + core::fmt::Debug + Eq
+{
   /// Ran out of storage space for options
-  TooManyOptions,
+  SetOptionError(platform::toad_msg::opt::SetError<P>),
+
+  /// You tried to set multiple values for a non-repeatable option
+  #[allow(missing_docs)]
+  OptionNotRepeatable {
+    number: OptNumber,
+    old: platform::toad_msg::opt::OptValue<P>,
+    new: platform::toad_msg::opt::OptValue<P>,
+  },
 }
 
 /// Build a request
@@ -18,8 +31,8 @@ pub enum Error {
 /// note: this is highly experimental and will likely move and change roles. Do not use.
 ///
 /// ```
-/// use toad::platform::Std;
 /// use toad::req::ReqBuilder;
+/// use toad::std::{dtls, PlatformTypes as Std};
 /// use toad::ContentFormat;
 ///
 /// let payload = r#"""{
@@ -27,83 +40,91 @@ pub enum Error {
 ///              "say": "Hello"
 ///            }"""#;
 ///
-/// let request =
-///   ReqBuilder::<Std>::get("127.0.0.1:1234".parse().unwrap(), "say_stuff").accept(ContentFormat::Json)
-///                                                         .content_format(ContentFormat::Json)
-///                                                         .payload(payload)
-///                                                         .build()
-///                                                         .unwrap();
+/// let request = ReqBuilder::<Std<dtls::Y>>::get("say_stuff").accept(ContentFormat::Json)
+///                                                           .content_format(ContentFormat::Json)
+///                                                           .payload(payload)
+///                                                           .build()
+///                                                           .unwrap();
 ///
 /// let rep = send(&request);
 /// assert_eq!(rep.payload_string().unwrap(), "Hello, Jameson!");
-/// # fn send(req: &toad::req::Req<Std>) -> toad::resp::Resp<Std> {
+/// # fn send(req: &toad::req::Req<Std<dtls::Y>>) -> toad::resp::Resp<Std<dtls::Y>> {
 /// #   let mut rep = toad::resp::Resp::for_request(req).unwrap();
 /// #   rep.set_payload("Hello, Jameson!".bytes());
 /// #   rep
 /// # }
 /// ```
 #[derive(Clone, Debug)]
-pub struct ReqBuilder<P: Platform> {
-  inner: Result<Req<P>, Error>,
+pub struct ReqBuilder<P>
+  where P: PlatformTypes,
+        platform::toad_msg::opt::OptValue<P>: Clone + Eq + core::fmt::Debug,
+        platform::toad_msg::opt::SetError<P>: Clone + core::fmt::Debug + Eq
+{
+  inner: Result<Req<P>, Error<P>>,
 }
 
-impl<P: Platform> ReqBuilder<P> {
-  fn new(method: Method, host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self { inner: Ok(Req::new(method, host, path)) }
+impl<P> ReqBuilder<P>
+  where P: PlatformTypes,
+        platform::toad_msg::opt::OptValue<P>: Clone + Eq + core::fmt::Debug,
+        platform::toad_msg::opt::SetError<P>: Clone + core::fmt::Debug + Eq
+{
+  fn new(method: Method, path: impl AsRef<str>) -> Self {
+    Self { inner: Ok(Req::new(method, path)) }
   }
 
   /// Creates a GET request
-  pub fn get(host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self::new(Method::GET, host, path)
+  pub fn get(path: impl AsRef<str>) -> Self {
+    Self::new(Method::GET, path)
   }
 
   /// Creates a PUT request
-  pub fn put(host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self::new(Method::PUT, host, path)
+  pub fn put(path: impl AsRef<str>) -> Self {
+    Self::new(Method::PUT, path)
   }
 
   /// Creates a POST request
-  pub fn post(host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self::new(Method::POST, host, path)
+  pub fn post(path: impl AsRef<str>) -> Self {
+    Self::new(Method::POST, path)
   }
 
   /// Creates a DELETE request
-  pub fn delete(host: SocketAddr, path: impl AsRef<str>) -> Self {
-    Self::new(Method::DELETE, host, path)
+  pub fn delete(path: impl AsRef<str>) -> Self {
+    Self::new(Method::DELETE, path)
   }
 
-  /// Insert or update an option value - use this for non-Repeatable Options.
+  /// Set the value of a non-repeatable option.
   ///
-  /// # Errors
-  /// Causes the builder to error if the capacity of the options collection is exhausted.
-  pub fn option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
-    self.inner
-        .as_mut()
-        .map(|inner| inner.set_option(number, value.to_coap_value::<P::MessageOptionBytes>()))
-        .map_err(|e| *e)
-        .perform(|res| match res {
-          | Some(_) => self.inner = Err(Error::TooManyOptions),
-          | None => (),
-        })
-        .ok();
+  /// If the option has already been set, this will yield `Err(Error::OptionNotRepeatable)`.
+  pub fn option<V: ToCoapValue>(mut self, number: OptNumber, value: V) -> Self {
+    self.inner =
+      self.inner.and_then(|mut req| {
+                  let val = OptValue(value.to_coap_value::<platform::toad_msg::opt::Bytes<P>>());
+                  match req.as_mut().remove(number) {
+                    | Some(existing) => {
+                      Err(Error::OptionNotRepeatable { number,
+                                                       old: existing.into_iter().next().unwrap(),
+                                                       new: val })
+                    },
+                    | None => req.msg_mut()
+                                 .set(number, val)
+                                 .map_err(Error::SetOptionError)
+                                 .map(|_| req),
+                  }
+                });
 
     self
   }
 
-  /// Insert an option value - use this for Repeatable Options.
   ///
-  /// # Errors
-  /// Causes the builder to error if the capacity of the options collection is exhausted.
-  pub fn add_option<V: ToCoapValue>(mut self, number: u32, value: V) -> Self {
-    self.inner
-        .as_mut()
-        .map(|inner| inner.add_option(number, value.to_coap_value::<P::MessageOptionBytes>()))
-        .map_err(|e| *e)
-        .perform(|res| match res {
-          | Some(_) => self.inner = Err(Error::TooManyOptions),
-          | None => (),
-        })
-        .ok();
+  pub fn add_option<V: ToCoapValue>(mut self, number: OptNumber, value: V) -> Self {
+    self.inner = self.inner.and_then(|mut req| {
+                             let val =
+                               OptValue(value.to_coap_value::<platform::toad_msg::opt::Bytes<P>>());
+                             req.msg_mut()
+                                .set(number, val)
+                                .map_err(Error::SetOptionError)
+                                .map(|_| req)
+                           });
 
     self
   }
@@ -118,7 +139,7 @@ impl<P: Platform> ReqBuilder<P> {
   }
 
   /// Unwrap the builder into the built request
-  pub fn build(self) -> Result<Req<P>, Error> {
+  pub fn build(self) -> Result<Req<P>, Error<P>> {
     self.inner
   }
 
