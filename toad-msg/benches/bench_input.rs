@@ -1,5 +1,11 @@
+use std::collections::BTreeMap;
+
 use tinyvec::ArrayVec;
 use toad_msg::*;
+
+#[path = "common.rs"]
+mod common;
+use common::*;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct TestInput {
@@ -13,12 +19,12 @@ impl TestInput {
   pub fn get_bytes(&self) -> Vec<u8> {
     self.get_alloc_message().try_into_bytes::<Vec<_>>().unwrap()
   }
-  pub fn get_alloc_message(&self) -> VecMessage {
+  pub fn get_alloc_message(&self) -> alloc::Message {
     self.into()
   }
   pub fn get_no_alloc_message<const P: usize, const N: usize, const O: usize>(
     &self)
-    -> ArrayVecMessage<P, N, O> {
+    -> StackMessage<P, N, O> {
     self.into()
   }
   pub fn get_coap_lite_packet(&self) -> coap_lite::Packet {
@@ -26,49 +32,51 @@ impl TestInput {
   }
 }
 
-impl<'a> From<&'a TestInput> for VecMessage {
-  fn from(inp: &'a TestInput) -> VecMessage {
-    let opts: Vec<_> =
-      (0..inp.n_opts).map(|n| Opt { delta: OptDelta(n as _),
-                                    value: OptValue(core::iter::repeat(1).take(inp.opt_size)
-                                                                         .collect()) })
-                     .collect();
+impl<'a> From<&'a TestInput> for alloc::Message {
+  fn from(inp: &'a TestInput) -> alloc::Message {
+    let opts: BTreeMap<_, _> = (0..inp.n_opts).map(|n| {
+                                                (OptNumber(n as u32),
+                                  vec![OptValue(core::iter::repeat(1).take(inp.opt_size)
+                                                                     .collect())])
+                                              })
+                                              .collect();
 
     let token = core::iter::repeat(1u8).take(inp.tkl as _)
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
-    VecMessage { id: Id(1),
-                 ty: Type::Non,
-                 ver: Default::default(),
-                 token: Token(token),
-                 code: Code { class: 2,
-                              detail: 5 },
-                 opts,
-                 payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
+    alloc::Message { id: Id(1),
+                     ty: Type::Non,
+                     ver: Default::default(),
+                     token: Token(token),
+                     code: Code { class: 2,
+                                  detail: 5 },
+                     opts,
+                     payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }
 
 impl<'a, const P: usize, const N: usize, const O: usize> From<&'a TestInput>
-  for ArrayVecMessage<P, N, O>
+  for StackMessage<P, N, O>
 {
-  fn from(inp: &'a TestInput) -> ArrayVecMessage<P, N, O> {
+  fn from(inp: &'a TestInput) -> StackMessage<P, N, O> {
     let opts: ArrayVec<[_; N]> =
-      (0..inp.n_opts).map(|n| Opt::<_> { delta: OptDelta(n as _),
-                                         value:
-                                           OptValue::<_>(core::iter::repeat(1).take(inp.opt_size)
-                                                                              .collect()) })
+      (0..inp.n_opts).map(|n| {
+                       (OptNumber(n as u32),
+                        tinyvec::array_vec![_ => OptValue(core::iter::repeat(1).take(inp.opt_size)
+                                                                         .collect())])
+                     })
                      .collect();
 
     let token = core::iter::repeat(1u8).take(inp.tkl as _)
                                        .collect::<tinyvec::ArrayVec<[_; 8]>>();
 
-    ArrayVecMessage { id: Id(1),
-                      ty: Type::Non,
-                      ver: Default::default(),
-                      token: Token(token),
-                      code: Code { class: 2,
-                                   detail: 5 },
-                      opts,
-                      payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
+    StackMessage { id: Id(1),
+                   ty: Type::Non,
+                   ver: Default::default(),
+                   token: Token(token),
+                   code: Code { class: 2,
+                                detail: 5 },
+                   opts,
+                   payload: Payload(core::iter::repeat(1u8).take(inp.payload_size).collect()) }
   }
 }

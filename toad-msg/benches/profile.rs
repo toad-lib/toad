@@ -6,8 +6,12 @@ use toad_msg::*;
 mod bench_input;
 use bench_input::TestInput;
 
+#[path = "common.rs"]
+mod common;
+use common::*;
+
 fn profile(c: &mut Criterion) {
-  type ArrayMessage = ArrayVecMessage<1024, 16, 128>;
+  type ArrayMessage = StackMessage<1024, 16, 128>;
   let inp = TestInput { tkl: 8,
                         n_opts: 16,
                         opt_size: 128,
@@ -19,7 +23,7 @@ fn profile(c: &mut Criterion) {
   c.bench_with_input(BenchmarkId::new("msg/profile/to_bytes", "toad_msg/alloc"),
                      &inp,
                      |b, inp| {
-                       b.iter_batched(|| VecMessage::from(inp),
+                       b.iter_batched(|| alloc::Message::from(inp),
                                       |m| m.try_into_bytes::<Vec<u8>>().unwrap(),
                                       BatchSize::SmallInput)
                      });
@@ -36,7 +40,7 @@ fn profile(c: &mut Criterion) {
 
   c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "toad_msg/alloc"),
                      &bytes,
-                     |b, bytes| b.iter(|| VecMessage::try_from_bytes(bytes)));
+                     |b, bytes| b.iter(|| alloc::Message::try_from_bytes(bytes)));
   c.bench_with_input(BenchmarkId::new("msg/profile/from_bytes", "toad_msg/no_alloc"),
                      &bytes,
                      |b, bytes| b.iter(|| ArrayMessage::try_from_bytes(bytes)));

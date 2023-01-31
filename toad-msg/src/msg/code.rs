@@ -105,6 +105,21 @@ impl Code {
       | _ => CodeKind::Response,
     }
   }
+
+  #[doc = rfc_7252_doc!("4.1")]
+  pub const EMPTY: Self = Self::new(0, 0);
+
+  #[doc = rfc_7252_doc!("5.8.1")]
+  pub const GET: Self = Self::new(0, 1);
+
+  #[doc = rfc_7252_doc!("5.8.2")]
+  pub const POST: Self = Self::new(0, 3);
+
+  #[doc = rfc_7252_doc!("5.8.3")]
+  pub const PUT: Self = Self::new(0, 2);
+
+  #[doc = rfc_7252_doc!("5.8.4")]
+  pub const DELETE: Self = Self::new(0, 4);
 }
 
 #[cfg(feature = "alloc")]

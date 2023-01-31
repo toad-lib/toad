@@ -1,5 +1,6 @@
 /// Content-Format values
 pub mod content_format;
+pub use content_format::*;
 
 macro_rules! opt {
   (rfc7252($section:literal) $name:ident = $n:literal) => {
