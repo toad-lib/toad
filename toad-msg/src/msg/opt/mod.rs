@@ -239,6 +239,8 @@ pub struct OptRef<'a, C> {
 }
 
 impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
+  const CAPACITY: Option<usize> = None;
+
   fn get_size(&self) -> usize {
     let header_size = 1;
     let delta_size = match self.delta.0 {
@@ -254,10 +256,6 @@ impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
     };
 
     header_size + delta_size + value_len_size + self.value.0.get_size()
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
   }
 
   fn is_full(&self) -> bool {
