@@ -78,6 +78,8 @@ impl TryFrom<u8> for Byte1 {
 impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
   for Message<PayloadBytes, Options>
 {
+  const CAPACITY: Option<usize> = None;
+
   fn get_size(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
@@ -86,10 +88,6 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
     let opts_size: usize = self.opts.opt_refs().map(|o| o.get_size()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
   }
 
   fn is_full(&self) -> bool {

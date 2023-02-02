@@ -63,7 +63,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> TryIntoBytes
     let mut bytes = C::reserve(self.get_size());
     let size: usize = self.get_size();
 
-    if let Some(max) = bytes.max_size() {
+    if let Some(max) = C::CAPACITY {
       if max < size {
         return Err(Self::Error::TooLong { capacity: max,
                                           size });
