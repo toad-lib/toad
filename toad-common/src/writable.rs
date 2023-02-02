@@ -48,7 +48,7 @@ impl<A: Array<Item = u8>> AsRef<str> for Writable<A> {
 
 impl<A: Array<Item = u8>> core::fmt::Write for Writable<A> {
   fn write_str(&mut self, s: &str) -> core::fmt::Result {
-    match self.0.max_size() {
+    match A::CAPACITY {
       | Some(max) if max < self.len() + s.len() => Err(core::fmt::Error),
       | _ => {
         self.extend(s.bytes());

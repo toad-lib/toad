@@ -19,6 +19,9 @@ use std_alloc::vec::Vec;
 /// this is expected to yield the runtime size in bytes
 /// (not the static Rust [`core::mem::size_of`] size)
 pub trait GetSize {
+  /// Get the max size that this data structure can acommodate.
+  const CAPACITY: Option<usize>;
+
   /// Get the runtime size (in bytes) of a struct
   ///
   /// For collections this is always equivalent to calling an inherent `len` method.
@@ -29,20 +32,6 @@ pub trait GetSize {
   /// assert_eq!(vec![1u8, 2].get_size(), 2)
   /// ```
   fn get_size(&self) -> usize;
-
-  /// Get the max size that this data structure can acommodate.
-  ///
-  /// By default, this returns `None` and can be left unimplemented for dynamic collections.
-  ///
-  /// However, for fixed-size collections this method must be implemented.
-  ///
-  /// ```
-  /// use toad_common::GetSize;
-  ///
-  /// let stack_nums = tinyvec::ArrayVec::<[u8; 2]>::from([0, 1]);
-  /// assert_eq!(stack_nums.max_size(), Some(2));
-  /// ```
-  fn max_size(&self) -> Option<usize>;
 
   /// Check if the runtime size is zero
   ///
@@ -69,12 +58,10 @@ pub trait GetSize {
 
 #[cfg(feature = "alloc")]
 impl<T> GetSize for Vec<T> {
+  const CAPACITY: Option<usize> = None;
+
   fn get_size(&self) -> usize {
     self.len()
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
   }
 
   fn is_full(&self) -> bool {
@@ -83,12 +70,10 @@ impl<T> GetSize for Vec<T> {
 }
 
 impl<A: tinyvec::Array> GetSize for tinyvec::ArrayVec<A> {
+  const CAPACITY: Option<usize> = Some(A::CAPACITY);
+
   fn get_size(&self) -> usize {
     self.len()
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    Some(A::CAPACITY)
   }
 
   fn is_full(&self) -> bool {
@@ -112,6 +97,31 @@ pub trait Reserve: Default {
   }
 }
 
+/// Fill this collection to the end with copies of `t`,
+/// copying array initialization `[0u8; 1000]` to the [`Array`] trait.
+///
+/// If the collection has no end (e.g. [`Vec`]),
+/// this trait's methods will return `None`.
+pub trait Filled<T>: Sized {
+  #[allow(missing_docs)]
+  fn filled(t: T) -> Option<Self>
+    where T: Copy
+  {
+    Self::filled_using(|| t)
+  }
+
+  #[allow(missing_docs)]
+  fn filled_default() -> Option<Self>
+    where T: Default
+  {
+    Self::filled_using(|| Default::default())
+  }
+
+  #[allow(missing_docs)]
+  fn filled_using<F>(f: F) -> Option<Self>
+    where F: Fn() -> T;
+}
+
 #[cfg(feature = "alloc")]
 impl<T> Reserve for Vec<T> {
   fn reserve(n: usize) -> Self {
@@ -119,7 +129,31 @@ impl<T> Reserve for Vec<T> {
   }
 }
 
+#[cfg(feature = "alloc")]
+impl<T> Filled<T> for Vec<T> {
+  fn filled_using<F>(_: F) -> Option<Self>
+    where F: Fn() -> T
+  {
+    None
+  }
+}
+
 impl<A: tinyvec::Array> Reserve for tinyvec::ArrayVec<A> {}
+
+impl<T, const N: usize> Filled<T> for tinyvec::ArrayVec<[T; N]> where T: Default
+{
+  fn filled_using<F>(f: F) -> Option<Self>
+    where F: Fn() -> T
+  {
+    Some(core::iter::repeat(()).take(N).map(|_| f()).collect())
+  }
+
+  fn filled(t: T) -> Option<Self>
+    where T: Copy
+  {
+    Some(Self::from([t; N]))
+  }
+}
 
 /// An ordered indexable collection of some type `Item`
 ///
@@ -148,6 +182,7 @@ pub trait Array:
   Default
   + GetSize
   + Reserve
+  + Filled<<Self as Array>::Item>
   + Deref<Target = [<Self as Array>::Item]>
   + DerefMut
   + Extend<<Self as Array>::Item>
@@ -215,7 +250,8 @@ impl<T> Array for Vec<T> {
   }
 }
 
-impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> {
+impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T>
+{
   type Item = T;
 
   fn insert_at(&mut self, index: usize, value: A::Item) {

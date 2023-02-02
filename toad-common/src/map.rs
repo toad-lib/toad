@@ -216,12 +216,10 @@ impl<T: crate::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for T {
 
 #[cfg(feature = "std")]
 impl<K: Eq + Hash, V> GetSize for HashMap<K, V> {
+  const CAPACITY: Option<usize> = None;
+
   fn get_size(&self) -> usize {
     self.len()
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
   }
 
   fn is_full(&self) -> bool {
@@ -234,12 +232,10 @@ impl<K, V> Reserve for BTreeMap<K, V> {}
 
 #[cfg(feature = "alloc")]
 impl<K, V> GetSize for BTreeMap<K, V> {
+  const CAPACITY: Option<usize> = None;
+
   fn get_size(&self) -> usize {
     self.len()
-  }
-
-  fn max_size(&self) -> Option<usize> {
-    None
   }
 
   fn is_full(&self) -> bool {
