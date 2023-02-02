@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.12.0](https://github.com/toad-lib/toad/compare/toad-common-v0.11.4...toad-common-v0.12.0) (2023-02-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* common should support const array capacity access & cheap filling ([#201](https://github.com/toad-lib/toad/issues/201))
+
+### Features
+
+* common should support const array capacity access & cheap filling ([#201](https://github.com/toad-lib/toad/issues/201)) ([f2895f9](https://github.com/toad-lib/toad/commit/f2895f9fa17c15e742ede260f2e2f2495f118ff4))
+
 ## [0.11.4](https://github.com/toad-lib/toad/compare/toad-common-v0.11.3...toad-common-v0.11.4) (2023-01-24)
 
 
