@@ -97,6 +97,32 @@ pub trait Reserve: Default {
   }
 }
 
+/// Truncate this collection to a new length.
+///
+/// If self was shorter than `len`, nothing happens.
+///
+/// If self was longer, drops indices after `len - 1`.
+pub trait Trunc
+  where Self: Sized
+{
+  #[allow(missing_docs)]
+  fn trunc(&mut self, len: usize) -> ();
+}
+
+#[cfg(feature = "alloc")]
+impl<T> Trunc for Vec<T> {
+  fn trunc(&mut self, len: usize) -> () {
+    self.truncate(len)
+  }
+}
+
+impl<T, const N: usize> Trunc for tinyvec::ArrayVec<[T; N]> where T: Default
+{
+  fn trunc(&mut self, len: usize) -> () {
+    self.truncate(len)
+  }
+}
+
 /// Fill this collection to the end with copies of `t`,
 /// copying array initialization `[0u8; 1000]` to the [`Array`] trait.
 ///
@@ -183,6 +209,7 @@ pub trait Array:
   + GetSize
   + Reserve
   + Filled<<Self as Array>::Item>
+  + Trunc
   + Deref<Target = [<Self as Array>::Item]>
   + DerefMut
   + Extend<<Self as Array>::Item>
@@ -250,7 +277,7 @@ impl<T> Array for Vec<T> {
   }
 }
 
-impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T>
+impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T> + Trunc
 {
   type Item = T;
 
