@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.13.0](https://github.com/toad-lib/toad/compare/toad-common-v0.12.0...toad-common-v0.13.0) (2023-02-03)
+
+
+### Features
+
+* should support truncating arrays ([#207](https://github.com/toad-lib/toad/issues/207)) ([3667470](https://github.com/toad-lib/toad/commit/3667470f4f775dbb07e0b7db793f6f0eea101352))
+
 ## [0.12.0](https://github.com/toad-lib/toad/compare/toad-common-v0.11.4...toad-common-v0.12.0) (2023-02-02)
 
 
