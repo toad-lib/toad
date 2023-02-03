@@ -162,8 +162,8 @@ mod test {
       }
 
       std::thread::spawn(|| {
+        wait!(START);
         VEC.map_ref(|v| {
-             wait!(START);
              assert!(v.is_empty());
              wait!(READING);
              wait!(READING_DONE);
