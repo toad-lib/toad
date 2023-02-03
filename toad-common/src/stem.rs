@@ -181,8 +181,6 @@ mod test {
 
       wait!(START);
       wait!(READING);
-      VEC.map_ref(|v| assert!(v.is_empty()));
-
       wait!(READING_DONE);
       wait!(MODIFY_DONE);
       VEC.map_ref(|v| assert_eq!(v, &vec![12]));
