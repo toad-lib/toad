@@ -1,3 +1,4 @@
+use core::fmt::Display;
 use core::ops::{Deref, DerefMut};
 
 use crate::Array;
@@ -11,7 +12,7 @@ use crate::Array;
 ///
 /// use toad_common::{Array, Writable};
 ///
-/// let mut faux_string = Writable::<tinyvec::ArrayVec<[u8; 16]>>::default();
+/// let mut faux_string = Writable::from(tinyvec::ArrayVec::<[u8; 16]>::new());
 /// write!(faux_string, "{}", 123).unwrap();
 ///
 /// assert_eq!(faux_string.as_str(), "123");
@@ -20,9 +21,28 @@ use crate::Array;
 pub struct Writable<A: Array<Item = u8>>(A);
 
 impl<A: Array<Item = u8>> Writable<A> {
-  /// Convert the buffer to a string slice
+  /// Attempt to read the data in the buffer
+  /// as a UTF8 string slice
   pub fn as_str(&self) -> &str {
     core::str::from_utf8(self).unwrap()
+  }
+
+  /// Get the collection wrapped by this `Writable`
+  pub fn unwrap(self) -> A {
+    self.0
+  }
+}
+
+impl<A> Display for Writable<A> where A: Array<Item = u8>
+{
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    write!(f, "{}", self.as_str())
+  }
+}
+
+impl<A: Array<Item = u8>> From<A> for Writable<A> {
+  fn from(a: A) -> Self {
+    Self(a)
   }
 }
 
