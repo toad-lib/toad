@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.14.0](https://github.com/toad-lib/toad/compare/toad-common-v0.13.0...toad-common-v0.14.0) (2023-02-05)
+
+
+### Features
+
+* writable should impl From&lt;A&gt;, Display, unwrap ([#211](https://github.com/toad-lib/toad/issues/211)) ([64083fe](https://github.com/toad-lib/toad/commit/64083fe47c696766284b08496c661e8a26b166db))
+
 ## [0.13.0](https://github.com/toad-lib/toad/compare/toad-common-v0.12.0...toad-common-v0.13.0) (2023-02-03)
 
 
