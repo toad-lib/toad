@@ -101,12 +101,17 @@ pub trait Reserve: Default {
 ///
 /// If self was shorter than `len`, nothing happens.
 ///
-/// If self was longer, drops indices after `len - 1`.
+/// If self was longer, drops elements up to `len`
 pub trait Trunc
   where Self: Sized
 {
   #[allow(missing_docs)]
   fn trunc(&mut self, len: usize) -> ();
+
+  /// Erase all elements in the collection
+  fn clear(&mut self) {
+    self.trunc(0);
+  }
 }
 
 #[cfg(feature = "alloc")]
