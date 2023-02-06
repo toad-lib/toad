@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.14.0](https://github.com/toad-lib/toad/compare/toad-v0.13.0...toad-v0.14.0) (2023-02-06)
+
+
+### Features
+
+* add JSON response support ([#215](https://github.com/toad-lib/toad/issues/215)) ([645a2ed](https://github.com/toad-lib/toad/commit/645a2edff475d9d766af2afbad5a2d1ed136e4e9))
+
 ## [0.13.0](https://github.com/toad-lib/toad/compare/toad-v0.12.2...toad-v0.13.0) (2023-01-31)
 
 
