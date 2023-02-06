@@ -81,8 +81,7 @@ impl AsRef<[u8]> for String1Kb {
 
 pub(crate) trait Capacity: GetSize {
   fn capacity(&self) -> Option<f32> {
-    self.max_size()
-        .map(|max| self.get_size() as f32 / max as f32)
+    Self::CAPACITY.map(|max| self.get_size() as f32 / max as f32)
   }
 
   fn capacity_pct(&self) -> Option<f32> {

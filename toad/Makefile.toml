@@ -18,8 +18,16 @@ args = ["check", "--no-default-features"]
 command = "cargo"
 args = ["check", "--no-default-features", "--features", "alloc"]
 
+[tasks.check-std-json]
+command = "cargo"
+args = ["check", "--no-default-features", "--features", "std_serde_json"]
+
+[tasks.check-no-std-json]
+command = "cargo"
+args = ["check", "--no-default-features", "--features", "unstable_serde_json"]
+
 [tasks.ci]
-dependencies = ["test", "fmt-check", "clippy-check", "check-no-std", "check-alloc"]
+dependencies = ["test", "fmt-check", "clippy-check", "check-no-std", "check-alloc", "check-no-std-json"]
 
 [tasks.tdd]
 install_crate = "cargo-watch"
