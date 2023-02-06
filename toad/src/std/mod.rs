@@ -65,7 +65,6 @@ impl<Sec> crate::platform::PlatformTypes for PlatformTypes<Sec> where Sec: Secur
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
-  type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clock;
   type Socket = Sec::Socket;
   type Effects = Vec<Effect<Self>>;

@@ -153,11 +153,25 @@ impl<P, E> Run<P, E>
 #[derive(Debug, Clone, Copy)]
 pub struct Init<T>(pub Option<T>);
 
-/// TODO
+impl Init<fn()> {
+  /// No initialization
+  pub fn none() -> Self {
+    Self(None)
+  }
+}
+
+/// Use a CoAP [`Platform`] as a server
+///
+/// This trait provides a function [`.run()`](BlockingServer::run) that
+/// allows you to provide some work to do when the server initializes ([`Init`])
+/// and a closure that handles incoming requests.
+///
+/// Servers are thread-safe, meaning that [`run`](BlockingServer::run) may
+/// be invoked concurrently by multiple worker threads.
 pub trait BlockingServer<S>: Sized + Platform<S>
   where S: Step<Self::Types, PollReq = Addrd<Req<Self::Types>>, PollResp = Addrd<Resp<Self::Types>>>
 {
-  /// TODO
+  #[allow(missing_docs)]
   fn run<I, R>(&self, init: Init<I>, mut handle_request: R) -> Result<(), Error<Self::Error>>
     where I: FnMut(),
           R: FnMut(Run<Self::Types, Self::Error>) -> Run<Self::Types, Self::Error>

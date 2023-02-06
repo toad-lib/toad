@@ -195,6 +195,7 @@ pub trait Platform<Steps>
       // TODO(orion): remove this clone as soon as `TryIntoBytes`
       // requires &msg not owned msg
       | &Effect::Send(ref msg) => self.send_msg(msg.clone()).map(|_| ()),
+      | &Effect::Nop => Ok(()),
     }
   }
 
@@ -254,12 +255,6 @@ pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the options?
   type MessageOptions: OptionMap + Clone + Debug + PartialEq;
 
-  /// What type should we use to keep track of options before serializing?
-  type NumberedOptions: Array<Item = (OptNumber, Opt<Self::MessageOptionBytes>)>
-    + Clone
-    + Debug
-    + PartialEq;
-
   /// What should we use to keep track of time?
   type Clock: Clock;
 
@@ -300,9 +295,19 @@ impl<P: PlatformTypes> Clone for Snapshot<P> {
 /// to [`Platform`]s side-effects that they would like
 /// to perform.
 #[allow(missing_docs)]
-pub enum Effect<P: PlatformTypes> {
+pub enum Effect<P>
+  where P: PlatformTypes
+{
   Send(Addrd<self::toad_msg::Message<P>>),
   Log(log::Level, String1Kb),
+  Nop,
+}
+
+impl<P> Default for Effect<P> where P: PlatformTypes
+{
+  fn default() -> Self {
+    Self::Nop
+  }
 }
 
 impl<P: PlatformTypes> Clone for Effect<P> {
@@ -310,6 +315,7 @@ impl<P: PlatformTypes> Clone for Effect<P> {
     match self {
       | Effect::Send(m) => Effect::Send(m.clone()),
       | Effect::Log(l, m) => Effect::Log(*l, *m),
+      | Effect::Nop => Effect::Nop,
     }
   }
 }
@@ -319,6 +325,7 @@ impl<P: PlatformTypes> core::fmt::Debug for Effect<P> {
     match self {
       | Self::Send(m) => f.debug_tuple("Send").field(m).finish(),
       | Self::Log(l, s) => f.debug_tuple("Log").field(l).field(s).finish(),
+      | Self::Nop => f.debug_tuple("Nop").finish(),
     }
   }
 }
@@ -379,7 +386,6 @@ impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> PlatformTypes for All
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = std_alloc::collections::BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
-  type NumberedOptions = Vec<(OptNumber, Opt<Vec<u8>>)>;
   type Clock = Clk;
   type Socket = Sock;
   type Effects = Vec<Effect<Self>>;
