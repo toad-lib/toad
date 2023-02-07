@@ -32,6 +32,9 @@ pub mod ap;
 ///    * [`ends_with()`](path::check::ends_with) - assert that the rest of the route ends with a string
 pub mod path;
 
+/// Request method filters
+pub mod method;
+
 /// Respond to requests
 pub mod respond;
 
