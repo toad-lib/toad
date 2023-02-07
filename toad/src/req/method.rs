@@ -6,6 +6,19 @@ use crate::code;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Method(pub(super) Code);
 
+impl Default for Method {
+  fn default() -> Self {
+    Self::GET
+  }
+}
+
+impl Method {
+  /// Convert this into a [`Code`]
+  pub fn code(self) -> Code {
+    self.0
+  }
+}
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 impl core::fmt::Display for Method {

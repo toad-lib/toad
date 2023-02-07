@@ -7,7 +7,7 @@ use toad::net::Addrd;
 use toad::platform::Platform as _;
 use toad::req::Req;
 use toad::server::ap::state::{Complete, Hydrated};
-use toad::server::{path, respond, Ap, BlockingServer, Init};
+use toad::server::{method, path, respond, Ap, BlockingServer, Init};
 use toad::std::{dtls, Platform, PlatformTypes as T};
 use toad::step::runtime;
 
@@ -50,13 +50,15 @@ mod route {
               -> Ap<Complete, T<dtls::N>, (), io::Error> {
     #![allow(unreachable_code)]
 
-    ap.pipe(path::check::rest_equals("done"))
+    ap.pipe(method::post)
+      .pipe(path::check::rest_equals("done"))
       .bind(|_| Ap::respond(panic!("shutting down...")))
   }
 
   pub fn hello(ap: Ap<Hydrated, T<dtls::N>, (), io::Error>)
                -> Ap<Complete, T<dtls::N>, (), io::Error> {
-    ap.pipe(path::segment::check::next_equals("hello"))
+    ap.pipe(method::get)
+      .pipe(path::segment::check::next_equals("hello"))
       .pipe(path::segment::next(|_, name| {
               name.map(String::from)
                   .map(Ap::ok)
@@ -114,7 +116,7 @@ pub fn main() {
   test::hello(&client, server_addr);
   test::not_found(&client, server_addr);
 
-  client.send_msg(Addrd(Req::<T<dtls::N>>::get("done").into(),
+  client.send_msg(Addrd(Req::<T<dtls::N>>::post("done").into(),
                         server_addr.parse().unwrap()))
         .unwrap();
   log::info!("[6] done");
