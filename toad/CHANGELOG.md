@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.15.0](https://github.com/toad-lib/toad/compare/toad-v0.14.0...toad-v0.15.0) (2023-02-07)
+
+
+### Features
+
+* add server method filters ([#217](https://github.com/toad-lib/toad/issues/217)) ([0ec28c7](https://github.com/toad-lib/toad/commit/0ec28c71ef9ef09021ba5b903f8cecc9c8e2b9ac))
+
 ## [0.14.0](https://github.com/toad-lib/toad/compare/toad-v0.13.0...toad-v0.14.0) (2023-02-06)
 
 
