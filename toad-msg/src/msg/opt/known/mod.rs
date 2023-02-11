@@ -2,6 +2,10 @@
 pub mod content_format;
 pub use content_format::*;
 
+/// Observe
+pub mod observe;
+pub use observe::*;
+
 macro_rules! opt {
   (rfc7252($section:literal) $name:ident = $n:literal) => {
     #[doc = ::toad_macros::rfc_7252_doc!($section)]
@@ -23,6 +27,8 @@ pub mod no_repeat {
 
   opt!(rfc7252("5.10.1") HOST = 3);
   opt!(rfc7252("5.10.8.2") IF_NONE_MATCH = 5);
+  opt!(#[doc = "<https://www.rfc-editor.org/rfc/rfc7641#section-2>"]
+       OBSERVE = 6);
   opt!(#[doc = "See [`HOST`]"]
        PORT = 7);
   opt!(#[doc = "See [`HOST`]"]
