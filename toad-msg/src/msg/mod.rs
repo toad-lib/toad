@@ -205,6 +205,10 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap> Messag
     self.get_strs(n)
   }
 
+  fn get_u8(&self, n: OptNumber) -> Option<u8> {
+    self.get_u8(n)
+  }
+
   fn get_u16(&self, n: OptNumber) -> Option<u16> {
     self.get_u16(n)
   }
@@ -263,6 +267,10 @@ pub trait MessageOptions {
   /// Get all values for an option, and interpret them as UTF-8 strings
   fn get_strs<'a, F>(&'a self, n: OptNumber) -> Result<F, Utf8Error>
     where F: FromIterator<&'a str>;
+
+  /// Get the value of an option, and interpret it
+  /// as a u8
+  fn get_u8(&self, n: OptNumber) -> Option<u8>;
 
   /// Get the value of an option, and interpret it
   /// as a u16
@@ -412,6 +420,20 @@ pub trait MessageOptions {
   fn content_format(&self) -> Option<ContentFormat> {
     self.get_u16(opt::known::no_repeat::CONTENT_FORMAT)
         .map(ContentFormat::from)
+  }
+
+  /// Set the value for the [Observe](opt::known::no_repeat::OBSERVE) option,
+  /// discarding any existing values.
+  fn set_observe(&mut self, a: observe::Action) -> Result<(), Self::SetError> {
+    self.set(opt::known::no_repeat::OBSERVE,
+             core::iter::once(u8::from(a)).collect())
+        .map(|_| ())
+  }
+
+  /// Get the value for the [Observe](opt::known::no_repeat::OBSERVE) option
+  fn observe(&self) -> Option<observe::Action> {
+    self.get_u8(opt::known::no_repeat::OBSERVE)
+        .and_then(observe::Action::from_byte)
   }
 
   /// Update the value for the [Accept](opt::known::no_repeat::ACCEPT) option,
@@ -719,6 +741,12 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
       | Some(vs) if vs.get_size() >= 1 => vs.iter().map(|s| from_utf8(&s.0)).collect(),
       | _ => Ok(core::iter::empty().collect()),
     }
+  }
+
+  fn get_u8(&self, n: OptNumber) -> Option<u8> {
+    self.get_first(n)
+        .filter(|bytes| bytes.0.len() == 1)
+        .map(|bytes| bytes.0[0])
   }
 
   fn get_u16(&self, n: OptNumber) -> Option<u16> {
