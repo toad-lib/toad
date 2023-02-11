@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.13.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.12.3...toad-msg-v0.13.0) (2023-02-11)
+
+
+### Features
+
+* **toad-msg:** Message should support Observe option ([#219](https://github.com/toad-lib/toad/issues/219)) ([4eff389](https://github.com/toad-lib/toad/commit/4eff389d81210ef8eebe9d65a821de2d02ce4fec))
+
 ## [0.12.3](https://github.com/toad-lib/toad/compare/toad-msg-v0.12.2...toad-msg-v0.12.3) (2023-02-05)
 
 
