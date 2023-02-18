@@ -46,7 +46,7 @@ pub struct Payload<C>(pub C);
 
 impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
 {
-  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     self.0.iter().partial_cmp(other.0.iter())
   }
 }
@@ -60,7 +60,7 @@ impl<C> PartialEq for Payload<C> where C: Array<Item = u8>
 
 impl<C> Ord for Payload<C> where C: Array<Item = u8>
 {
-  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+  fn cmp(&self, other: &Self) -> Ordering {
     self.0.iter().cmp(other.0.iter())
   }
 }
@@ -201,8 +201,8 @@ impl<C, O> PartialOrd for Message<C, O>
   where O: OptionMap + PartialOrd,
         C: Array<Item = u8>
 {
-  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-    Some(self.cmp(&other))
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
   }
 }
 impl<C, O> PartialEq for Message<C, O>
@@ -222,7 +222,7 @@ impl<C, O> Ord for Message<C, O>
   where O: OptionMap + PartialOrd,
         C: Array<Item = u8>
 {
-  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+  fn cmp(&self, other: &Self) -> Ordering {
     self.id
         .cmp(&other.id)
         .then(self.ver.cmp(&other.ver))

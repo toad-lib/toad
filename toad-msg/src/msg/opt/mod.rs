@@ -234,7 +234,7 @@ pub struct Opt<C> {
 impl<C> PartialOrd for Opt<C> where C: Array<Item = u8>
 {
   fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-    Some(self.cmp(&other))
+    Some(self.cmp(other))
   }
 }
 
@@ -267,14 +267,14 @@ pub struct OptRef<'a, C> {
 impl<'a, C> PartialOrd for OptRef<'a, C> where C: Array<Item = u8>
 {
   fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-    Some(self.cmp(&other))
+    Some(self.cmp(other))
   }
 }
 
 impl<'a, C> PartialEq for OptRef<'a, C> where C: Array<Item = u8>
 {
   fn eq(&self, other: &Self) -> bool {
-    self.delta.eq(&other.delta) && self.value.eq(&other.value)
+    self.delta.eq(&other.delta) && self.value.eq(other.value)
   }
 }
 
@@ -283,7 +283,7 @@ impl<'a, C> Ord for OptRef<'a, C> where C: Array<Item = u8>
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
     self.delta
         .cmp(&other.delta)
-        .then_with(|| self.value.cmp(&other.value))
+        .then_with(|| self.value.cmp(other.value))
   }
 }
 
