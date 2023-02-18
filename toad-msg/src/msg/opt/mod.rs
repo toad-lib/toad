@@ -1,3 +1,4 @@
+use core::hash::Hash;
 use core::iter::FromIterator;
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
@@ -236,12 +237,14 @@ impl<C> PartialOrd for Opt<C> where C: Array<Item = u8>
     Some(self.cmp(&other))
   }
 }
+
 impl<C> PartialEq for Opt<C> where C: Array<Item = u8>
 {
   fn eq(&self, other: &Self) -> bool {
     self.delta.eq(&other.delta) && self.value.eq(&other.value)
   }
 }
+
 impl<C> Ord for Opt<C> where C: Array<Item = u8>
 {
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
@@ -250,6 +253,7 @@ impl<C> Ord for Opt<C> where C: Array<Item = u8>
         .then_with(|| self.value.cmp(&other.value))
   }
 }
+
 impl<C> Eq for Opt<C> where C: Array<Item = u8> {}
 
 /// A low-cost copyable [`Opt`] that stores a reference to the value
@@ -266,12 +270,14 @@ impl<'a, C> PartialOrd for OptRef<'a, C> where C: Array<Item = u8>
     Some(self.cmp(&other))
   }
 }
+
 impl<'a, C> PartialEq for OptRef<'a, C> where C: Array<Item = u8>
 {
   fn eq(&self, other: &Self) -> bool {
     self.delta.eq(&other.delta) && self.value.eq(&other.value)
   }
 }
+
 impl<'a, C> Ord for OptRef<'a, C> where C: Array<Item = u8>
 {
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
@@ -280,6 +286,7 @@ impl<'a, C> Ord for OptRef<'a, C> where C: Array<Item = u8>
         .then_with(|| self.value.cmp(&other.value))
   }
 }
+
 impl<'a, C> Eq for OptRef<'a, C> where C: Array<Item = u8> {}
 
 impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
@@ -462,7 +469,7 @@ impl OptNumber {
 }
 
 #[doc = rfc_7252_doc!("3.2")]
-#[derive(Default, Clone, Hash, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct OptValue<C>(pub C);
 
 impl<C> PartialOrd for OptValue<C> where C: Array<Item = u8>
@@ -471,19 +478,29 @@ impl<C> PartialOrd for OptValue<C> where C: Array<Item = u8>
     self.0.iter().partial_cmp(other.0.iter())
   }
 }
+
 impl<C> PartialEq for OptValue<C> where C: Array<Item = u8>
 {
   fn eq(&self, other: &Self) -> bool {
     self.0.iter().eq(other.0.iter())
   }
 }
+
 impl<C> Ord for OptValue<C> where C: Array<Item = u8>
 {
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
     self.0.iter().cmp(other.0.iter())
   }
 }
+
 impl<C> Eq for OptValue<C> where C: Array<Item = u8> {}
+
+impl<C> Hash for OptValue<C> where C: Array<Item = u8>
+{
+  fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+    state.write(&self.0)
+  }
+}
 
 impl<C> OptValue<C> where C: Array<Item = u8>
 {

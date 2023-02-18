@@ -1,4 +1,5 @@
 use core::cmp::Ordering;
+use core::hash::Hash;
 use core::str::{from_utf8, Utf8Error};
 
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
@@ -40,7 +41,7 @@ use crate::from_bytes::TryConsumeBytes;
 use crate::TryFromBytes;
 
 #[doc = rfc_7252_doc!("5.5")]
-#[derive(Default, Clone, Debug, Hash)]
+#[derive(Default, Clone, Debug)]
 pub struct Payload<C>(pub C);
 
 impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
@@ -49,19 +50,29 @@ impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
     self.0.iter().partial_cmp(other.0.iter())
   }
 }
+
 impl<C> PartialEq for Payload<C> where C: Array<Item = u8>
 {
   fn eq(&self, other: &Self) -> bool {
     self.0.iter().eq(other.0.iter())
   }
 }
+
 impl<C> Ord for Payload<C> where C: Array<Item = u8>
 {
   fn cmp(&self, other: &Self) -> core::cmp::Ordering {
     self.0.iter().cmp(other.0.iter())
   }
 }
+
 impl<C> Eq for Payload<C> where C: Array<Item = u8> {}
+
+impl<C> Hash for Payload<C> where C: Array<Item = u8>
+{
+  fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+    state.write(&self.0)
+  }
+}
 
 impl<C> Payload<C> where C: Array<Item = u8>
 {
@@ -168,7 +179,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
 #[doc = concat!("\n\n#", rfc_7252_doc!("2.1"))]
 #[doc = concat!("\n\n#", rfc_7252_doc!("3"))]
 /// </details>
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct Message<PayloadBytes, Options> {
   /// see [`Id`] for details
   pub id: Id,
@@ -227,6 +238,21 @@ impl<C, O> Eq for Message<C, O>
   where O: OptionMap + PartialEq,
         C: Array<Item = u8>
 {
+}
+
+impl<C, O> Hash for Message<C, O>
+  where O: OptionMap + PartialEq + Hash,
+        C: Array<Item = u8>
+{
+  fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+    self.id.hash(state);
+    self.code.hash(state);
+    self.token.hash(state);
+    self.ver.hash(state);
+    self.ty.hash(state);
+    self.opts.hash(state);
+    self.payload.hash(state);
+  }
 }
 
 /// An error occurred during a call to [`Message::set`]
