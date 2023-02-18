@@ -22,4 +22,9 @@ impl Token {
     digest.update(data);
     Token(Into::<[u8; 8]>::into(digest.finalize()).into())
   }
+
+  /// Convert a reference to a Token to a byte slice
+  pub fn as_bytes(&self) -> &[u8] {
+    &self.0
+  }
 }
