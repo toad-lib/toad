@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.14.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.13.0...toad-msg-v0.14.0) (2023-02-18)
+
+
+### Features
+
+* **msg:** as_bytes for structs cont. slices + manual eq ord hash ([#221](https://github.com/toad-lib/toad/issues/221)) ([fc8a527](https://github.com/toad-lib/toad/commit/fc8a5276baac709429b1262f6001822ee83f6415))
+
 ## [0.13.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.12.3...toad-msg-v0.13.0) (2023-02-11)
 
 
