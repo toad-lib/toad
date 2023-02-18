@@ -1,3 +1,4 @@
+use core::cmp::Ordering;
 use core::str::{from_utf8, Utf8Error};
 
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
@@ -39,8 +40,36 @@ use crate::from_bytes::TryConsumeBytes;
 use crate::TryFromBytes;
 
 #[doc = rfc_7252_doc!("5.5")]
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Clone, Debug, Hash)]
 pub struct Payload<C>(pub C);
+
+impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    self.0.iter().partial_cmp(other.0.iter())
+  }
+}
+impl<C> PartialEq for Payload<C> where C: Array<Item = u8>
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.0.iter().eq(other.0.iter())
+  }
+}
+impl<C> Ord for Payload<C> where C: Array<Item = u8>
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.0.iter().cmp(other.0.iter())
+  }
+}
+impl<C> Eq for Payload<C> where C: Array<Item = u8> {}
+
+impl<C> Payload<C> where C: Array<Item = u8>
+{
+  /// Convert a reference to a Payload to a byte slice
+  pub fn as_bytes(&self) -> &[u8] {
+    &self.0
+  }
+}
 
 /// Struct representing the first byte of a message.
 ///
@@ -139,7 +168,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
 #[doc = concat!("\n\n#", rfc_7252_doc!("2.1"))]
 #[doc = concat!("\n\n#", rfc_7252_doc!("3"))]
 /// </details>
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Message<PayloadBytes, Options> {
   /// see [`Id`] for details
   pub id: Id,
@@ -155,6 +184,49 @@ pub struct Message<PayloadBytes, Options> {
   pub opts: Options,
   /// see [`Payload`]
   pub payload: Payload<PayloadBytes>,
+}
+
+impl<C, O> PartialOrd for Message<C, O>
+  where O: OptionMap + PartialOrd,
+        C: Array<Item = u8>
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    Some(self.cmp(&other))
+  }
+}
+impl<C, O> PartialEq for Message<C, O>
+  where O: OptionMap + PartialEq,
+        C: Array<Item = u8>
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+    && self.ver == other.ver
+    && self.code == other.code
+    && self.token == other.token
+    && self.payload == other.payload
+    && self.opts == other.opts
+  }
+}
+impl<C, O> Ord for Message<C, O>
+  where O: OptionMap + PartialOrd,
+        C: Array<Item = u8>
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.id
+        .cmp(&other.id)
+        .then(self.ver.cmp(&other.ver))
+        .then(self.code.cmp(&other.code))
+        .then(self.token.cmp(&other.token))
+        .then(self.payload.cmp(&other.payload))
+        .then(self.opts
+                  .partial_cmp(&other.opts)
+                  .unwrap_or(Ordering::Equal))
+  }
+}
+impl<C, O> Eq for Message<C, O>
+  where O: OptionMap + PartialEq,
+        C: Array<Item = u8>
+{
 }
 
 /// An error occurred during a call to [`Message::set`]

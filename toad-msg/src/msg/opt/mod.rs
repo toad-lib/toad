@@ -222,7 +222,7 @@ pub(crate) fn parse_opt_len_or_delta<A: AsRef<[u8]>>(head: u8,
 ///
 /// Notably, this doesn't include the Number (key, e.g. "Content-Format" or "Uri-Path").
 /// To refer to numbers we use implementors of the [`OptionMap`] trait.
-#[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Opt<C> {
   /// See [`OptDelta`]
   pub delta: OptDelta,
@@ -230,13 +230,57 @@ pub struct Opt<C> {
   pub value: OptValue<C>,
 }
 
+impl<C> PartialOrd for Opt<C> where C: Array<Item = u8>
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    Some(self.cmp(&other))
+  }
+}
+impl<C> PartialEq for Opt<C> where C: Array<Item = u8>
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.delta.eq(&other.delta) && self.value.eq(&other.value)
+  }
+}
+impl<C> Ord for Opt<C> where C: Array<Item = u8>
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.delta
+        .cmp(&other.delta)
+        .then_with(|| self.value.cmp(&other.value))
+  }
+}
+impl<C> Eq for Opt<C> where C: Array<Item = u8> {}
+
 /// A low-cost copyable [`Opt`] that stores a reference to the value
-#[derive(Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[allow(missing_docs)]
 pub struct OptRef<'a, C> {
   pub delta: OptDelta,
   pub value: &'a OptValue<C>,
 }
+
+impl<'a, C> PartialOrd for OptRef<'a, C> where C: Array<Item = u8>
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    Some(self.cmp(&other))
+  }
+}
+impl<'a, C> PartialEq for OptRef<'a, C> where C: Array<Item = u8>
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.delta.eq(&other.delta) && self.value.eq(&other.value)
+  }
+}
+impl<'a, C> Ord for OptRef<'a, C> where C: Array<Item = u8>
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.delta
+        .cmp(&other.delta)
+        .then_with(|| self.value.cmp(&other.value))
+  }
+}
+impl<'a, C> Eq for OptRef<'a, C> where C: Array<Item = u8> {}
 
 impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
   const CAPACITY: Option<usize> = None;
@@ -418,8 +462,36 @@ impl OptNumber {
 }
 
 #[doc = rfc_7252_doc!("3.2")]
-#[derive(Default, Clone, Hash, PartialEq, PartialOrd, Debug, Eq, Ord)]
+#[derive(Default, Clone, Hash, Debug)]
 pub struct OptValue<C>(pub C);
+
+impl<C> PartialOrd for OptValue<C> where C: Array<Item = u8>
+{
+  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    self.0.iter().partial_cmp(other.0.iter())
+  }
+}
+impl<C> PartialEq for OptValue<C> where C: Array<Item = u8>
+{
+  fn eq(&self, other: &Self) -> bool {
+    self.0.iter().eq(other.0.iter())
+  }
+}
+impl<C> Ord for OptValue<C> where C: Array<Item = u8>
+{
+  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    self.0.iter().cmp(other.0.iter())
+  }
+}
+impl<C> Eq for OptValue<C> where C: Array<Item = u8> {}
+
+impl<C> OptValue<C> where C: Array<Item = u8>
+{
+  /// Convert a reference to a OptValue to a byte slice
+  pub fn as_bytes(&self) -> &[u8] {
+    &self.0
+  }
+}
 
 impl<C> FromIterator<u8> for OptValue<C> where C: FromIterator<u8>
 {
