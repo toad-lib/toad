@@ -39,7 +39,7 @@ docs = []
 
 [dependencies]
 toad-common = {version = "0.14.0", default_features = false}
-toad-msg = "0.12.3"
+toad-msg = "0.14.0"
 toad-macros = "0.2.0"
 log = "0.4"
 tinyvec = { version = "1.5", default_features = false, features = ["rustc_1_55"] }

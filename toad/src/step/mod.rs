@@ -83,6 +83,42 @@ pub mod runtime {
 /// None
 pub mod retry;
 
+/// # Observe
+///
+/// ## Registration
+/// Clients opt in to receiving future updates when any of the following occurs:
+/// * Client sends GET with [Observe](toad_msg::opt::known::no_repeat::OBSERVE) value of [register](toad_msg::opt::known::observe::Action::Register)
+///
+/// ## Deregistration
+/// Clients opt out of receiving future updates when any of the following occurs:
+/// * Client replies RESET to a notification
+/// * Client sends GET with [Observe](toad_msg::opt::known::no_repeat::OBSERVE) value of [deregister](toad_msg::opt::known::observe::Action::Deregister)
+/// * Server sends an event with a non-success `2.xx` status code (This will trigger all [matching](observe::Observe::cmp_observe_requests) subscribers to be removed)
+///
+/// ## Notifying subscribers
+/// Invoking [`Step::notify`] will cause your application code to receive copies of the original GET requests with updated ETags.
+///
+/// Based on [`cmp_requests`](observe::Observe::cmp_requests), equivalent requests will be combined.
+///
+/// # Example
+/// ### Given
+/// * a resource `<coap://server/temperature>`
+/// * Four clients: A, B, C, and D
+/// * A, B, C sent `GET Observe=1 coap://server/temperature`,
+/// * D sent `GET Observe=1 coap://server/temperature?above=23deg`
+/// * the default [`observe::cmp_requests`](observe::cmp_requests) function (which considers requests with different query parameters to be different subscriptions)
+///
+/// ### When
+/// Your server issues `server.notify("server/temperature", <etag>)`
+///
+/// ### Then
+/// this step will issue 2 requests to your server:
+///  - Request 1 `GET coap://server/temperature`
+///  - Request 2 `GET coap://server/temperature?above=23deg`
+///
+/// The response to request 1 will be sent to clients A, B, and C. The response to request 2 will be sent to client D.
+pub mod observe;
+
 /// # Assign message tokens to those with Token(0)
 /// * Client Flow ✓
 /// * Server Flow ✗
@@ -291,6 +327,18 @@ pub trait Step<P: PlatformTypes>: Default {
                addr: SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error>;
 
+  /// # Update Observers
+  ///
+  /// Notify listeners to `path` that
+  /// there's a new version of the resource available.
+  ///
+  /// See [`observe`] for more info.
+  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+    where Path: AsRef<str>
+  {
+    self.inner().notify(path).map_err(Self::Error::from)
+  }
+
   /// Invoked before messages are sent, allowing for internal state change & modification.
   ///
   /// # Gotchas
@@ -348,6 +396,12 @@ impl<P: PlatformTypes> Step<P> for () {
                _: SocketAddr)
                -> StepOutput<(), ()> {
     None
+  }
+
+  fn notify<Path>(&self, _: Path) -> Result<(), Self::Error>
+    where Path: AsRef<str>
+  {
+    Ok(())
   }
 
   fn before_message_sent(&self,
