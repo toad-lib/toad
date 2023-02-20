@@ -924,17 +924,9 @@ dependencies = [
  "serde_json",
  "simple_logger",
  "tinyvec",
- "toad-common 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-common 0.14.0",
  "toad-macros 0.2.0",
  "toad-msg 0.12.3",
-]
-
-[[package]]
-name = "toad-common"
-version = "0.14.0"
-dependencies = [
- "blake2",
- "tinyvec",
 ]
 
 [[package]]
@@ -943,6 +935,24 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "efbd3d90403d2071751f45a36cc10701d5c114eed49742222420f9e870281999"
 dependencies = [
+ "tinyvec",
+]
+
+[[package]]
+name = "toad-common"
+version = "0.15.0"
+dependencies = [
+ "blake2",
+ "tinyvec",
+]
+
+[[package]]
+name = "toad-common"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea1873eda48d0b101fa937a2dd9a1918f04b279b4822f5496b20248fa0a91fa"
+dependencies = [
+ "blake2",
  "tinyvec",
 ]
 
@@ -974,7 +984,7 @@ checksum = "affa3857361635f2b0a67f460aaa3398ab5bf59c3c73aec261857aed676bd106"
 dependencies = [
  "blake2",
  "tinyvec",
- "toad-common 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-common 0.14.0",
  "toad-macros 0.2.0",
 ]
 
@@ -989,7 +999,7 @@ dependencies = [
  "heapless",
  "itertools",
  "tinyvec",
- "toad-common 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-common 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
 ]
 
