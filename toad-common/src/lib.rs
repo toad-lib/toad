@@ -17,6 +17,9 @@ extern crate alloc as std_alloc;
 pub mod result;
 pub use result::*;
 
+/// Hashing
+pub mod hash;
+
 /// Function utils
 pub mod fns;
 pub use fns::*;
