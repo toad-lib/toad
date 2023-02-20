@@ -1,7 +1,7 @@
 //! Common structs and abstractions used by `toad`
 
 // x-release-please-start-version
-#![doc(html_root_url = "https://docs.rs/toad-common/0.14.0")]
+#![doc(html_root_url = "https://docs.rs/toad-common/0.15.0")]
 // x-release-please-end
 #![cfg_attr(all(not(test), feature = "no_std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]

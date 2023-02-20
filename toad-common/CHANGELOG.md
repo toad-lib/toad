@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.15.0](https://github.com/toad-lib/toad/compare/toad-common-v0.14.0...toad-common-v0.15.0) (2023-02-20)
+
+
+### Features
+
+* **common:** hashing ([#223](https://github.com/toad-lib/toad/issues/223)) ([7c40a08](https://github.com/toad-lib/toad/commit/7c40a08d832cc0298407e2113f1b16cd920d0417))
+
 ## [0.14.0](https://github.com/toad-lib/toad/compare/toad-common-v0.13.0...toad-common-v0.14.0) (2023-02-05)
 
 
