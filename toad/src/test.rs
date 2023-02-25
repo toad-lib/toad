@@ -5,13 +5,13 @@ use ::core::ops::Deref;
 use ::core::time::Duration;
 use ::std::sync::Mutex;
 use ::std::thread;
+use ::toad_msg::{TryFromBytes, TryIntoBytes};
 use embedded_time::rate::Fraction;
 use embedded_time::Instant;
 use net::*;
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std_alloc::sync::Arc;
 use tinyvec::ArrayVec;
-use toad_msg::{TryFromBytes, TryIntoBytes};
 
 use super::*;
 
@@ -49,21 +49,21 @@ macro_rules! msg {
   (NON DELETE x.x.x.x:$port:literal) => { $crate::test::msg!(NON {0 . 4} x.x.x.x:$port) };
 
   (CON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
-    $crate::test::msg!({toad_msg::Type::Con} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+    $crate::test::msg!({::toad_msg::Type::Con} {::toad_msg::Code::new($c, $d)} x.x.x.x:$port)
   }};
   (NON {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
-    $crate::test::msg!({toad_msg::Type::Non} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+    $crate::test::msg!({::toad_msg::Type::Non} {::toad_msg::Code::new($c, $d)} x.x.x.x:$port)
   }};
   (ACK {$c:literal . $d:literal} x.x.x.x:$port:literal) => {{
-    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new($c, $d)} x.x.x.x:$port)
+    $crate::test::msg!({::toad_msg::Type::Ack} {::toad_msg::Code::new($c, $d)} x.x.x.x:$port)
   }};
   (ACK EMPTY x.x.x.x:$port:literal) => {{
-    $crate::test::msg!({toad_msg::Type::Ack} {toad_msg::Code::new(0, 0)} x.x.x.x:$port)
+    $crate::test::msg!({::toad_msg::Type::Ack} {::toad_msg::Code::new(0, 0)} x.x.x.x:$port)
   }};
 
   ({$ty:expr} {$code:expr} x.x.x.x:$port:literal) => {{
     use $crate::net::Addrd;
-    use toad_msg::*;
+    use ::toad_msg::*;
 
     let addr = $crate::test::x.x.x.x($port);
 

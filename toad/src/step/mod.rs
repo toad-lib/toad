@@ -1,14 +1,14 @@
+use ::toad_msg::Token;
 use no_std_net::SocketAddr;
-use toad_msg::Token;
 
 use crate::net::Addrd;
 use crate::platform::{self, PlatformTypes};
 
 /// Standard set of Steps
 pub mod runtime {
+  use ::toad_msg::Token;
   use naan::prelude::{HKT1, HKT2};
   use no_std_net::SocketAddr;
-  use toad_msg::Token;
 
   use super::ack::Ack;
   use super::parse::Parse;
@@ -334,7 +334,7 @@ pub trait Step<P: PlatformTypes>: Default {
   ///
   /// See [`observe`] for more info.
   fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
-    where Path: AsRef<str>
+    where Path: AsRef<str> + Clone
   {
     self.inner().notify(path).map_err(Self::Error::from)
   }
@@ -450,7 +450,7 @@ pub mod test {
       static mut POLL_RESP_MOCK:
         Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
                           &mut <test::Platform as platform::PlatformTypes>::Effects,
-                          toad_msg::Token,
+                          ::toad_msg::Token,
                           no_std_net::SocketAddr)
                           -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
       static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
@@ -487,7 +487,7 @@ pub mod test {
         fn poll_resp(&self,
                      a: &platform::Snapshot<test::Platform>,
                      b: &mut <test::Platform as platform::PlatformTypes>::Effects,
-                     c: toad_msg::Token,
+                     c: ::toad_msg::Token,
                      d: no_std_net::SocketAddr)
                      -> step::StepOutput<Self::PollResp, ()> {
           unsafe { POLL_RESP_MOCK.as_ref().unwrap()(a, b, c, d) }
@@ -513,6 +513,7 @@ pub mod test {
   #[macro_export]
   macro_rules! test_step_when {
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -526,6 +527,7 @@ pub mod test {
       *$poll_req_mock = Some(Box::new($poll_req_fake))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -539,6 +541,7 @@ pub mod test {
       *$poll_req_mock = Some(Box::new(|_, _| $inner_step_returns))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -552,6 +555,7 @@ pub mod test {
       *$effects_mut = $effects
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -565,6 +569,7 @@ pub mod test {
       *$poll_resp_mock = Some(Box::new(|_, _, _, _| $inner_step_returns))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -578,6 +583,7 @@ pub mod test {
       *$poll_resp_mock = Some(Box::new($poll_resp_fake))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -591,6 +597,7 @@ pub mod test {
       *$snapshot_mut = $snapshot
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -604,6 +611,7 @@ pub mod test {
       *$token_mut = $token
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -617,6 +625,7 @@ pub mod test {
       *$addr_mut = $addr
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -630,6 +639,7 @@ pub mod test {
       *$before_message_sent_mock = Some(Box::new($before_message_sent))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -641,6 +651,20 @@ pub mod test {
       when (inner.on_message_sent = {$on_message_sent:expr})
     ) => {
       *$on_message_sent_mock = Some(Box::new($on_message_sent))
+    };
+    (
+      step = $step:expr,
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr_mut:expr,
+      when ({$f:expr})
+    ) => {
+      $f($step)
     };
   }
 
@@ -819,9 +843,12 @@ pub mod test {
           let mut token = ::toad_msg::Token(Default::default());
           let mut addr = test::dummy_addr();
 
+          let mut step = $step::default();
+
           unsafe {
             $(
                 test_step_when!(
+                  step = &step,
                   poll_req_mock = &mut POLL_REQ_MOCK,
                   poll_resp_mock = &mut POLL_RESP_MOCK,
                   before_message_sent_mock = &mut BEFORE_MESSAGE_SENT_MOCK,
@@ -834,8 +861,6 @@ pub mod test {
                 )
             );*
           };
-
-          let mut step = $step::default();
 
           $(
             test_step_expect!(

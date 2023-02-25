@@ -899,18 +899,9 @@ dependencies = [
  "serde_json",
  "simple_logger",
  "tinyvec",
- "toad-common 0.14.0",
+ "toad-common 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
  "toad-msg 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "toad-common"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efbd3d90403d2071751f45a36cc10701d5c114eed49742222420f9e870281999"
-dependencies = [
- "tinyvec",
 ]
 
 [[package]]
