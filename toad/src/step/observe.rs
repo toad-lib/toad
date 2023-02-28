@@ -7,11 +7,11 @@ use toad_common::hash::Blake2Hasher;
 use toad_common::{Array, Stem};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
-use toad_msg::{Id, MessageOptions, OptValue, Token};
+use toad_msg::{Id, MessageOptions, OptValue, Token, CodeKind};
 
 use super::{Step, _try};
 use crate::net::Addrd;
-use crate::platform::{self, PlatformTypes};
+use crate::platform::{self, PlatformTypes, Effect};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -383,21 +383,27 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
 
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effs: &mut P::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
-    // FAN OUT
-    // [0] WAS_CREATED_BY_OBSERVE? if so do NOT process, strip option and continue
-    // [1] is response?
-    // [2] self.has(token)?
-    // [3] self.similar_to <#> copy response (with WAS_CREATED_BY_OBSERVE)
-    // [4] effects.push(<send response>)
-    todo!()
+    self.inner().before_message_sent(snap, effs, msg)?;
+
+    if let Some(_) = msg.data().get(opt::WAS_CREATED_BY_OBSERVE) {
+      msg.as_mut().remove(opt::WAS_CREATED_BY_OBSERVE);
+    } else if msg.data().code.kind() == CodeKind::Response && self.subs.map_ref(|subs| Self::get(subs, msg.data().token).is_some()){
+      self.subs.map_ref(|subs| Self::similar_to(subs, msg.data().token).for_each(|_| {
+        let mut msg = msg.clone();
+        msg.as_mut().set(opt::WAS_CREATED_BY_OBSERVE, Default::default()).ok();
+        effs.push(Effect::Send(msg));
+      }));
+    }
+
+    Ok(())
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use core::mem::MaybeUninit;
   use std::collections::HashMap;
   use std::sync::Mutex;
 
@@ -411,6 +417,7 @@ mod tests {
   use crate::platform::Effect;
   use crate::step::test::test_step;
   use crate::test;
+  use crate::test::ClockMock;
 
   type Snapshot = crate::platform::Snapshot<test::Platform>;
   type Message = toad_msg::Message<test::Platform>;
@@ -467,7 +474,8 @@ mod tests {
 
       if call == 1 {
         let mut msg = test::msg!(CON GET x.x.x.x:80);
-        msg.as_mut().token = Token(array_vec!(1, 2, 3, 4));
+        msg.as_mut().id = Id(test_id as _);
+        msg.as_mut().token = Token(array_vec!(test_id as u8));
         msg.as_mut().set_path("foo/bar").ok();
         msg.as_mut().set_observe(Register).ok();
         Some(Ok(msg.map(Req::from)))
@@ -480,13 +488,13 @@ mod tests {
   test_step!(
       GIVEN Observe::<Dummy> where Dummy: {Step<PollReq = PollReq, PollResp = PollResp, Error = ()>};
       WHEN client_subscribes_and_event_fires [
-        (inner.poll_req = { poll_req_emitting_single_register_request(1) }),
+        (inner.poll_req = { poll_req_emitting_single_register_request(11) }),
         ({|step: &Observe<Dummy>| {
           // Inner will yield a Register request,
           // this should add it to subscribtions list
-          step.poll_req(&Snapshot { time: test::ClockMock::new().try_now().unwrap(),
+          step.poll_req(&Snapshot { time: ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
-                         config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
+                         config: Default::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
         // We have a new version available
         ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()})
@@ -495,7 +503,7 @@ mod tests {
         // A copy of the original request should be emitted
         (poll_req(_, _) should satisfy { |req| {
           let req = req.unwrap().unwrap();
-          assert_eq!(req.data().msg().token, Token(array_vec!(1, 2, 3, 4)));
+          assert_eq!(req.data().msg().token, Token(array_vec!(11)));
         }}),
         (poll_req(_, _) should satisfy { |req| assert!(req.is_none())  })
       ]
@@ -503,8 +511,35 @@ mod tests {
 
   test_step!(
       GIVEN Observe::<Dummy> where Dummy: {Step<PollReq = PollReq, PollResp = PollResp, Error = ()>};
+      WHEN response_to_subscriber_is_sent [
+        // Store 2 subscriptions
+        (inner.poll_req = { poll_req_emitting_single_register_request(21) }),
+        ({|step: &Observe<Dummy>| step.poll_req(&Snapshot { time: ClockMock::new().try_now().unwrap(),
+                         recvd_dgram: None,
+                         config: Default::default() }, &mut Default::default()).unwrap()}),
+        (inner.poll_req = { poll_req_emitting_single_register_request(22) }),
+        ({|step: &Observe<Dummy>| step.poll_req(&Snapshot { time: ClockMock::new().try_now().unwrap(),
+                         recvd_dgram: None,
+                         config: Default::default() }, &mut Default::default()).unwrap()})
+      ]
+      THEN response_is_copied_and_sent_to_subscriber [
+        (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:80 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
+        (effects should satisfy {|effs| {
+          assert_eq!(effs.len(), 1);
+          match effs.get(0).unwrap().clone() {
+            platform::Effect::Send(m) => {
+              assert!(m.data().get(opt::WAS_CREATED_BY_OBSERVE).is_some());
+            },
+            _ => panic!(),
+          }
+        }})
+      ]
+  );
+
+  test_step!(
+      GIVEN Observe::<Dummy> where Dummy: {Step<PollReq = PollReq, PollResp = PollResp, Error = ()>};
       WHEN client_subscribes_and_unrelated_event_fires [
-        (inner.poll_req = { poll_req_emitting_single_register_request(2) }),
+        (inner.poll_req = { poll_req_emitting_single_register_request(3) }),
         ({|step: &Observe<Dummy>| {
           step.poll_req(&Snapshot { time: test::ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
@@ -520,7 +555,7 @@ mod tests {
   test_step!(
       GIVEN Observe::<Dummy> where Dummy: {Step<PollReq = PollReq, PollResp = PollResp, Error = ()>};
       WHEN client_subscribes_and_multiple_events_fire [
-        (inner.poll_req = { poll_req_emitting_single_register_request(3) }),
+        (inner.poll_req = { poll_req_emitting_single_register_request(41) }),
         ({|step: &Observe<Dummy>| {
           step.poll_req(&Snapshot { time: test::ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
@@ -537,7 +572,7 @@ mod tests {
       THEN request_is_duplicated_multiple_times [
         (poll_req(_, _) should satisfy { |req| {
           let req = req.unwrap().unwrap();
-          assert_eq!(req.data().msg().token, Token(array_vec!(1, 2, 3, 4)));
+          assert_eq!(req.data().msg().token, Token(array_vec!(41)));
         }}),
         (poll_req(_, _) should satisfy { |req| assert!(req.is_none())  })
       ]

@@ -159,11 +159,16 @@ pub trait Platform<Steps>
               -> nb::Result<(Id, Token), Self::Error> {
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
+    let mut effs = <Self::Types as PlatformTypes>::Effects::default();
+
     self.snapshot()
         .try_perform(|snapshot| {
           self.steps()
-              .before_message_sent(snapshot, &mut addrd_msg)
+              .before_message_sent(snapshot, &mut effs, &mut addrd_msg)
               .map_err(Self::Error::step)
+        })
+        .try_perform(|_| {
+          self.exec_many(effs).map_err(|(_, e)| e)
         })
         .and_then(|snapshot| {
           addrd_msg.clone().fold(|msg, addr| {

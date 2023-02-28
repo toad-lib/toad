@@ -348,10 +348,11 @@ pub trait Step<P: PlatformTypes>: Default {
   /// The default implementation will invoke `self.inner().before_message_sent`
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effects: &mut <P as PlatformTypes>::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     self.inner()
-        .before_message_sent(snap, msg)
+        .before_message_sent(snap, effects, msg)
         .map_err(Self::Error::from)
   }
 
@@ -406,6 +407,7 @@ impl<P: PlatformTypes> Step<P> for () {
 
   fn before_message_sent(&self,
                          _: &platform::Snapshot<P>,
+                         _: &mut P::Effects,
                          _: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     Ok(())
@@ -457,14 +459,14 @@ pub mod test {
                                                            &Addrd<test::Message>)
                                                            -> Result<(), $error_ty>>> = None;
       static mut BEFORE_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>, &mut <test::Platform as $crate::platform::PlatformTypes>::Effects,
                           &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
         POLL_REQ_MOCK = Some(Box::new(|_, _| None));
         POLL_RESP_MOCK = Some(Box::new(|_, _, _, _| None));
         ON_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
-        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
+        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _, _| Ok(())));
       }
 
       impl Step<test::Platform> for Dummy {
@@ -495,9 +497,10 @@ pub mod test {
 
         fn before_message_sent(&self,
                                snap: &platform::Snapshot<test::Platform>,
+                               effs: &mut <test::Platform as $crate::platform::PlatformTypes>::Effects,
                                msg: &mut Addrd<test::Message>)
                                -> Result<(), Self::Error> {
-          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
+          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, effs, msg) }
         }
 
         fn on_message_sent(&self,
@@ -676,7 +679,7 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (before_message_sent($snap:expr, $msg:expr) should satisfy {$assert_fn:expr})
+      expect (before_message_sent($snap:expr, _, $msg:expr) should satisfy {$assert_fn:expr})
     ) => {{
       use $crate::net::Addrd;
       use $crate::step::Step;
@@ -684,7 +687,7 @@ pub mod test {
 
       let mut msg = $msg;
       let assert_fn: Box<dyn Fn(Addrd<test::Message>)> = Box::new($assert_fn);
-      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg).unwrap();
       assert_fn(msg)
     }};
     (
@@ -793,7 +796,7 @@ pub mod test {
     ) => {
       assert_eq!($effects, &$expect)
     };
-    (
+   (
       step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
@@ -810,10 +813,10 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (before_message_sent(_, $msg:expr) should be ok with {$f:expr})
+      expect (before_message_sent(_, _, $msg:expr) should be ok with {$f:expr})
     ) => {{
       let mut msg = $msg;
-      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg).unwrap();
       let f: Box<dyn Fn($crate::net::Addrd<$crate::test::Message>)> = Box::new($f);
       f(msg)
     }};
