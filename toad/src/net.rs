@@ -16,6 +16,12 @@ impl<T> Addrd<T> {
     self.0
   }
 
+  /// Change address associated with the data
+  pub fn with_addr(mut self, addr: SocketAddr) -> Self {
+    self.1 = addr;
+    self
+  }
+
   /// Map the data contained in this Addressed
   pub fn map<R>(self, f: impl FnOnce(T) -> R) -> Addrd<R> {
     Addrd(f(self.0), self.1)

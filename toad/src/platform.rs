@@ -167,9 +167,7 @@ pub trait Platform<Steps>
               .before_message_sent(snapshot, &mut effs, &mut addrd_msg)
               .map_err(Self::Error::step)
         })
-        .try_perform(|_| {
-          self.exec_many(effs).map_err(|(_, e)| e)
-        })
+        .try_perform(|_| self.exec_many(effs).map_err(|(_, e)| e))
         .and_then(|snapshot| {
           addrd_msg.clone().fold(|msg, addr| {
                              let (id, token) = (msg.id, msg.token);

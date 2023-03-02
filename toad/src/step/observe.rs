@@ -3,15 +3,16 @@ use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
 use naan::prelude::{Apply, F2Once};
+use no_std_net::SocketAddr;
 use toad_common::hash::Blake2Hasher;
 use toad_common::{Array, Stem};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
-use toad_msg::{Id, MessageOptions, OptValue, Token, CodeKind};
+use toad_msg::{CodeKind, Id, MessageOptions, OptValue, Token};
 
 use super::{Step, _try};
 use crate::net::Addrd;
-use crate::platform::{self, PlatformTypes, Effect};
+use crate::platform::{self, Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 
@@ -136,6 +137,11 @@ impl<P> Sub<P> where P: PlatformTypes
   }
 
   #[allow(missing_docs)]
+  pub fn addr(&self) -> SocketAddr {
+    self.req.addr()
+  }
+
+  #[allow(missing_docs)]
   pub fn unwrap(self) -> Addrd<Req<P>> {
     self.req
   }
@@ -196,11 +202,11 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
   }
 
   /// TODO
-  pub fn get<'a, P>(subs: &'a Subs, t: Token) -> Option<&'a Sub<P>>
+  pub fn get<'a, P>(subs: &'a Subs, addr: SocketAddr, t: Token) -> Option<&'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes
   {
-    subs.iter().find(|s| s.token() == t)
+    subs.iter().find(|s| s.token() == t && s.addr() == addr)
   }
 
   /// TODO
@@ -215,14 +221,19 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
   }
 
   /// TODO
-  pub fn similar_to<'a, P>(subs: &'a Subs, t: Token) -> impl 'a + Iterator<Item = &'a Sub<P>>
+  pub fn similar_to<'a, P>(subs: &'a Subs,
+                           addr: SocketAddr,
+                           t: Token)
+                           -> impl 'a + Iterator<Item = &'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes,
           Hasher: SubscriptionHash<P> + Default
   {
     subs.iter()
-        .filter(move |s| match Self::get(subs, t).map(Self::hash) {
-          | Some((sub, h)) => s.id() != sub.id() && Self::hash(sub).1 == h,
+        .filter(move |s| match Self::get(subs, addr, t).map(Self::hash) {
+          | Some((sub, h)) => {
+            s.addr() != sub.addr() && s.token() != sub.token() && Self::hash(sub).1 == h
+          },
           | None => false,
         })
   }
@@ -390,12 +401,19 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
 
     if let Some(_) = msg.data().get(opt::WAS_CREATED_BY_OBSERVE) {
       msg.as_mut().remove(opt::WAS_CREATED_BY_OBSERVE);
-    } else if msg.data().code.kind() == CodeKind::Response && self.subs.map_ref(|subs| Self::get(subs, msg.data().token).is_some()){
-      self.subs.map_ref(|subs| Self::similar_to(subs, msg.data().token).for_each(|_| {
-        let mut msg = msg.clone();
-        msg.as_mut().set(opt::WAS_CREATED_BY_OBSERVE, Default::default()).ok();
-        effs.push(Effect::Send(msg));
-      }));
+    } else if msg.data().code.kind() == CodeKind::Response
+              && self.subs
+                     .map_ref(|subs| Self::get(subs, msg.addr(), msg.data().token).is_some())
+    {
+      self.subs.map_ref(|subs| {
+                 Self::similar_to(subs, msg.addr(), msg.data().token).for_each(|sub| {
+                   let mut msg = msg.clone();
+                   msg.as_mut()
+                      .set(opt::WAS_CREATED_BY_OBSERVE, Default::default())
+                      .ok();
+                   effs.push(Effect::Send(msg.with_addr(sub.addr())));
+                 })
+               });
     }
 
     Ok(())
@@ -409,7 +427,7 @@ mod tests {
 
   use ::toad_msg::{Code, ContentFormat, Id, Token, Type};
   use embedded_time::Clock;
-  use lazycell::{AtomicLazyCell, LazyCell};
+  use lazycell::AtomicLazyCell;
   use platform::toad_msg;
   use tinyvec::array_vec;
 
@@ -453,7 +471,7 @@ mod tests {
   );
 
   fn poll_req_emitting_single_register_request(
-    test_id: usize)
+    num: usize)
     -> impl Fn(&Snapshot,
           &mut Vec<Effect<test::Platform>>)
           -> Option<nb::Result<Addrd<Req<test::Platform>>, ()>> {
@@ -469,16 +487,16 @@ mod tests {
     move |_, _| {
       let mut inv_lock = INVOCATIONS.lock().unwrap();
       let mut map = inv_lock.replace(Default::default()).unwrap();
-      let call = *map.entry(test_id).and_modify(|n| *n += 1).or_insert(1);
+      let call = *map.entry(num).and_modify(|n| *n += 1).or_insert(1);
       inv_lock.replace(map).unwrap();
 
       if call == 1 {
-        let mut msg = test::msg!(CON GET x.x.x.x:80);
-        msg.as_mut().id = Id(test_id as _);
-        msg.as_mut().token = Token(array_vec!(test_id as u8));
-        msg.as_mut().set_path("foo/bar").ok();
-        msg.as_mut().set_observe(Register).ok();
-        Some(Ok(msg.map(Req::from)))
+        let mut msg = test::msg!(CON GET x.x.x.x:80).unwrap();
+        msg.id = Id(num as u16);
+        msg.token = Token(array_vec!(num as u8));
+        msg.set_path("foo/bar").ok();
+        msg.set_observe(Register).ok();
+        Some(Ok(Addrd(Req::from(msg), test::x.x.x.x(num as u16))))
       } else {
         None
       }
@@ -523,11 +541,12 @@ mod tests {
                          config: Default::default() }, &mut Default::default()).unwrap()})
       ]
       THEN response_is_copied_and_sent_to_subscriber [
-        (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:80 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
+        (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:21 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
         (effects should satisfy {|effs| {
           assert_eq!(effs.len(), 1);
           match effs.get(0).unwrap().clone() {
             platform::Effect::Send(m) => {
+              assert_eq!(m.addr(), test::x.x.x.x(22));
               assert!(m.data().get(opt::WAS_CREATED_BY_OBSERVE).is_some());
             },
             _ => panic!(),

@@ -14,9 +14,10 @@ pub mod runtime {
   use super::parse::Parse;
   use super::provision_ids::{self, IdWithDefault, SocketAddrWithDefault};
   use super::provision_tokens::ProvisionTokens;
-  use super::{buffer_responses, handle_acks, retry};
+  use super::{buffer_responses, handle_acks, observe, retry};
   use crate::net::Addrd;
   use crate::platform::{Message, PlatformTypes};
+  use crate::req::Req;
   use crate::resp::Resp;
   use crate::time::Stamped;
 
@@ -38,16 +39,24 @@ pub mod runtime {
                                 Map<M,
                                     SocketAddrWithDefault,
                                     Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
+  type Observe<P, A, S> = observe::Observe<S,
+                                           Array<A, observe::Sub<P>>,
+                                           Array<A, Addrd<Req<P>>>,
+                                           observe::SubHash_TypePathQueryAccept<P>>;
 
-  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens
+  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens -> Observe
   pub type Runtime<P, Array, Map> =
-    ProvisionTokens<ProvisionIds<P,
-                                 Map,
-                                 Array,
-                                 BufferResponses<P,
-                                                 Map,
-                                                 HandleAcks<Map,
-                                                            Retry<P, Array, Ack<Parse<()>>>>>>>;
+    Observe<P,
+            Array,
+            ProvisionTokens<ProvisionIds<P,
+                                         Map,
+                                         Array,
+                                         BufferResponses<P,
+                                                         Map,
+                                                         HandleAcks<Map,
+                                                                    Retry<P,
+                                                                          Array,
+                                                                          Ack<Parse<()>>>>>>>>;
 
   /// TODO
   #[cfg(feature = "std")]
@@ -687,7 +696,8 @@ pub mod test {
 
       let mut msg = $msg;
       let assert_fn: Box<dyn Fn(Addrd<test::Message>)> = Box::new($assert_fn);
-      $step.before_message_sent(&$snap, &mut $effects, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg)
+           .unwrap();
       assert_fn(msg)
     }};
     (
@@ -796,7 +806,7 @@ pub mod test {
     ) => {
       assert_eq!($effects, &$expect)
     };
-   (
+    (
       step: $step_ty:ty = $step:expr,
       snap = $snap:expr,
       effects = $effects:expr,
@@ -816,7 +826,8 @@ pub mod test {
       expect (before_message_sent(_, _, $msg:expr) should be ok with {$f:expr})
     ) => {{
       let mut msg = $msg;
-      $step.before_message_sent(&$snap, &mut $effects, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg)
+           .unwrap();
       let f: Box<dyn Fn($crate::net::Addrd<$crate::test::Message>)> = Box::new($f);
       f(msg)
     }};
