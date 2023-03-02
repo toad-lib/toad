@@ -49,7 +49,7 @@ pub mod repeat {
   opt!(rfc7252("5.10.8.1") IF_MATCH = 1);
   opt!(rfc7252("5.10.7") LOCATION_PATH = 8);
   opt!(#[doc = "See [`super::no_repeat::HOST`]"]
-       QUERY = 11);
+       QUERY = 15);
   opt!(#[doc = "See [`LOCATION_PATH`]"]
        LOCATION_QUERY = 20);
   opt!(#[doc = concat!(
