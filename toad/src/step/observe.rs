@@ -60,16 +60,15 @@ impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: Platform
     &mut self.0
   }
 
-  fn subscription_hash(&mut self, sub: &Sub<P>) {
-    let h = SubscriptionHash::<P>::hasher(self);
-    let msg = sub.req().data().msg();
+  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>) {
+    let msg = sub.data().msg();
 
-    msg.ty.hash(h);
+    msg.ty.hash(&mut self.0);
     msg.get(QUERY).into_iter().for_each(|v| {
-                                v.hash(h);
+                                v.hash(&mut self.0);
                               });
-    msg.accept().hash(h);
-    msg.path().ok().hash(h);
+    msg.accept().hash(&mut self.0);
+    msg.path().ok().hash(&mut self.0);
   }
 }
 
@@ -97,7 +96,7 @@ pub trait SubscriptionHash<P>
   fn hasher(&mut self) -> &mut Self::Hasher;
 
   #[allow(missing_docs)]
-  fn subscription_hash(&mut self, sub: &Sub<P>);
+  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>);
 }
 
 impl<P, T> SubscriptionHash<P> for &mut T
@@ -110,7 +109,7 @@ impl<P, T> SubscriptionHash<P> for &mut T
     <T as SubscriptionHash<P>>::hasher(self)
   }
 
-  fn subscription_hash(&mut self, sub: &Sub<P>) {
+  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>) {
     <T as SubscriptionHash<P>>::subscription_hash(self, sub)
   }
 }
@@ -191,26 +190,30 @@ impl<I, S, RQ, H> Default for Observe<I, S, RQ, H>
 }
 
 impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
-  /// TODO
-  pub fn hash<'a, P>(sub: &'a Sub<P>) -> (&'a Sub<P>, u64)
+  fn hash<'a, P>(sub: &'a Sub<P>) -> (&'a Sub<P>, u64)
+    where P: PlatformTypes,
+          Hasher: SubscriptionHash<P> + Default
+  {
+    (sub, Self::hash_req(sub.req()))
+  }
+
+  fn hash_req<'a, P>(sub: &'a Addrd<Req<P>>) -> u64
     where P: PlatformTypes,
           Hasher: SubscriptionHash<P> + Default
   {
     let mut h = Hasher::default();
     h.subscription_hash(sub);
-    (sub, h.hasher().finish())
+    h.hasher().finish()
   }
 
-  /// TODO
-  pub fn get<'a, P>(subs: &'a Subs, addr: SocketAddr, t: Token) -> Option<&'a Sub<P>>
+  fn get<'a, P>(subs: &'a Subs, addr: SocketAddr, t: Token) -> Option<&'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes
   {
     subs.iter().find(|s| s.token() == t && s.addr() == addr)
   }
 
-  /// TODO
-  pub fn get_index<'a, P>(subs: &'a Subs, t: Token) -> Option<usize>
+  fn get_index<'a, P>(subs: &'a Subs, t: Token) -> Option<usize>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes
   {
@@ -220,11 +223,10 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
         .map(|(ix, _)| ix)
   }
 
-  /// TODO
-  pub fn similar_to<'a, P>(subs: &'a Subs,
-                           addr: SocketAddr,
-                           t: Token)
-                           -> impl 'a + Iterator<Item = &'a Sub<P>>
+  fn similar_to<'a, P>(subs: &'a Subs,
+                       addr: SocketAddr,
+                       t: Token)
+                       -> impl 'a + Iterator<Item = &'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes,
           Hasher: SubscriptionHash<P> + Default
@@ -238,10 +240,9 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
         })
   }
 
-  /// TODO
-  pub fn subs_matching_path<'a, 'b, P>(subs: &'a Subs,
-                                       p: &'b str)
-                                       -> impl 'a + Iterator<Item = &'a Sub<P>>
+  fn subs_matching_path<'a, 'b, P>(subs: &'a Subs,
+                                   p: &'b str)
+                                   -> impl 'a + Iterator<Item = &'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes,
           'b: 'a
@@ -322,7 +323,8 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
   fn clone_and_enqueue_sub_requests<P>(subs: &Subs, rq: &mut RequestQueue, path: &str)
     where P: PlatformTypes,
           Subs: Array<Item = Sub<P>>,
-          RequestQueue: Array<Item = Addrd<Req<P>>>
+          RequestQueue: Array<Item = Addrd<Req<P>>>,
+          Hasher: SubscriptionHash<P> + Default
   {
     Self::subs_matching_path(subs, path).for_each(|sub| {
                                           // TODO: handle option capacity
@@ -331,7 +333,13 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
                                              .msg_mut()
                                              .set(opt::WAS_CREATED_BY_OBSERVE, Default::default())
                                              .ok();
-                                          rq.push(req);
+
+                                          if rq.iter().all(|req2| {
+                                                        Self::hash_req(&req) != Self::hash_req(req2)
+                                                      })
+                                          {
+                                            rq.push(req);
+                                          }
                                         });
   }
 }
@@ -386,7 +394,6 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
                         self.subs.map_ref(|subs| {
                                    Self::clone_and_enqueue_sub_requests(subs, rq, path.as_ref())
                                  });
-                        // TODO: dedup request_queue using hash
                       });
 
     Ok(())
@@ -607,7 +614,7 @@ mod tests {
       let sub = Sub::new(Addrd(Req::from(req), test::x.x.x.x(0)));
 
       let mut h = SubHash_TypePathQueryAccept::new();
-      h.subscription_hash(&sub);
+      h.subscription_hash(sub.req());
       h.hasher().finish()
     }
 
