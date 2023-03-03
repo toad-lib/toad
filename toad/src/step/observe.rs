@@ -72,9 +72,12 @@ impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: Platform
   }
 }
 
-/// Get a hash used to determine whether similar subscriptions
-/// may be grouped together.
+/// Extends [`core::hash::Hash`] with "subscription similarity"
+/// used to determine whether similar subscriptions may be grouped together.
 ///
+/// A default implementation is provided by [`SubHash_TypePathQueryAccept`].
+///
+/// ## Why?
 /// When your server [`notify`](super::Step::notify)s the toad runtime
 /// that there is a new version of a resource available, all
 /// subscriptions matching the path passed to `notify` will be
@@ -84,7 +87,7 @@ impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: Platform
 /// so that your server only sees 1 request, and the response
 /// will be fanned back out to the subscribers.
 ///
-/// A default implementation is provided by [`SubHash_TypePathQueryAccept`].
+/// For a more concrete example, see the [module documentation](self).
 pub trait SubscriptionHash<P>
   where Self: Sized + Debug,
         P: PlatformTypes
@@ -95,7 +98,36 @@ pub trait SubscriptionHash<P>
   #[allow(missing_docs)]
   fn hasher(&mut self) -> &mut Self::Hasher;
 
-  #[allow(missing_docs)]
+  /// Mutate the hasher instance with a subscription
+  ///
+  /// To obtain the [`u64`] hash, use [`Hasher::finish`] on [`sub_hash.hasher()`](SubscriptionHash::hasher)
+  ///
+  /// ```
+  /// use core::hash::Hasher;
+  ///
+  /// use toad::net::{ipv4_socketaddr, Addrd};
+  /// use toad::platform::toad_msg::Message;
+  /// use toad::req::Req;
+  /// use toad::step::observe::{SubHash_TypePathQueryAccept, SubscriptionHash};
+  /// use toad_msg::Type::Con;
+  /// use toad_msg::{Code, Id, Token};
+  ///
+  /// type Std = toad::std::PlatformTypes<toad::std::dtls::N>;
+  ///
+  /// let msg_a = Message::<Std>::new(Con, Code::GET, Id(1), Token(Default::default()));
+  /// let req_a = Addrd(Req::<Std>::from(msg_a),
+  ///                   ipv4_socketaddr([127, 0, 0, 1], 1234));
+  /// let mut ha = SubHash_TypePathQueryAccept::new();
+  /// ha.subscription_hash(&req_a);
+  ///
+  /// let msg_b = Message::<Std>::new(Con, Code::GET, Id(2), Token(Default::default()));
+  /// let req_b = Addrd(Req::<Std>::from(msg_b),
+  ///                   ipv4_socketaddr([127, 0, 0, 1], 2345));
+  /// let mut hb = SubHash_TypePathQueryAccept::new();
+  /// hb.subscription_hash(&req_a);
+  ///
+  /// assert_eq!(ha.hasher().finish(), hb.hasher().finish());
+  /// ```
   fn subscription_hash(&mut self, sub: &Addrd<Req<P>>);
 }
 
@@ -541,11 +573,11 @@ mod tests {
         (inner.poll_req = { poll_req_emitting_single_register_request(21) }),
         ({|step: &Observe<Dummy>| step.poll_req(&Snapshot { time: ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
-                         config: Default::default() }, &mut Default::default()).unwrap()}),
+                         config: Default::default() }, &mut Default::default()).unwrap().unwrap()}),
         (inner.poll_req = { poll_req_emitting_single_register_request(22) }),
         ({|step: &Observe<Dummy>| step.poll_req(&Snapshot { time: ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
-                         config: Default::default() }, &mut Default::default()).unwrap()})
+                         config: Default::default() }, &mut Default::default()).unwrap().unwrap()})
       ]
       THEN response_is_copied_and_sent_to_subscriber [
         (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:21 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
