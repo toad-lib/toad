@@ -1,5 +1,6 @@
 use core::cmp::Ordering;
 use core::hash::Hash;
+use core::iter::FromIterator;
 use core::str::{from_utf8, Utf8Error};
 
 use toad_common::{AppendCopy, Array, Cursor, GetSize};
@@ -451,19 +452,38 @@ pub trait MessageOptions {
   /// msg.set_path("cheese/havarti/suggestions").unwrap();
   /// assert_eq!(msg.host(), Ok(Some("cheese.com")));
   /// assert_eq!(msg.port(), Some(1234));
-  /// assert_eq!(msg.path(), Ok(Some("cheese/havarti/suggestions")));
+  /// assert_eq!(msg.path_string(),
+  ///            Ok("cheese/havarti/suggestions".to_string()));
   /// ```
   fn set_path<S>(&mut self, path: S) -> Result<(), Self::SetError>
     where S: AsRef<str>
   {
-    self.set(opt::known::no_repeat::PATH,
-             path.as_ref().as_bytes().iter().copied().collect())
+    path.as_ref()
+        .split('/')
+        .try_for_each(|segment| {
+          self.add(opt::known::repeat::PATH,
+                   segment.as_bytes().iter().copied().collect())
+        })
         .map(|_| ())
   }
 
-  /// Get the value for the [Uri-Path](opt::known::no_repeat::PATH) option
-  fn path(&self) -> Result<Option<&str>, Utf8Error> {
-    self.get_str(opt::known::no_repeat::PATH)
+  /// Get an iterator over the [Uri-Path](opt::known::repeat::PATH) segments
+  fn path<'a, F>(&'a self) -> Result<F, Utf8Error>
+    where F: FromIterator<&'a str>
+  {
+    self.get_strs(opt::known::repeat::PATH)
+  }
+
+  /// Get the fully built path, joining segments with '/'.
+  #[cfg(feature = "std")]
+  fn path_string<'a>(&'a self) -> Result<String, Utf8Error> {
+    self.get_strs::<Vec<_>>(opt::known::repeat::PATH)
+        .map(|segs| {
+          let mut s = segs.into_iter()
+                          .fold(String::new(), |s, seg| format!("{s}{seg}/"));
+          s.pop();
+          s
+        })
   }
 
   /// Insert a new value for the [Uri-Query](opt::known::repeat::QUERY) option,
