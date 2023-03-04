@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.16.0](https://github.com/toad-lib/toad/compare/toad-v0.15.0...toad-v0.16.0) (2023-03-04)
+
+
+### Features
+
+* **toad:** runtime should support pubsub via observe ([#229](https://github.com/toad-lib/toad/issues/229)) ([a33cb3c](https://github.com/toad-lib/toad/commit/a33cb3c573b525f3785442be44daf6bcd14f78ef))
+
 ## [0.15.0](https://github.com/toad-lib/toad/compare/toad-v0.14.0...toad-v0.15.0) (2023-02-07)
 
 
