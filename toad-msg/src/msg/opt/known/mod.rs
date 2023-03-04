@@ -31,8 +31,6 @@ pub mod no_repeat {
        OBSERVE = 6);
   opt!(#[doc = "See [`HOST`]"]
        PORT = 7);
-  opt!(#[doc = "See [`HOST`]"]
-       PATH = 11);
   opt!(rfc7252("5.10.3") CONTENT_FORMAT = 12);
   opt!(rfc7252("5.10.5") MAX_AGE = 14);
   opt!(rfc7252("5.10.4") ACCEPT = 17);
@@ -48,6 +46,8 @@ pub mod repeat {
 
   opt!(rfc7252("5.10.8.1") IF_MATCH = 1);
   opt!(rfc7252("5.10.7") LOCATION_PATH = 8);
+  opt!(#[doc = "See [`super::no_repeat::HOST`]"]
+       PATH = 11);
   opt!(#[doc = "See [`super::no_repeat::HOST`]"]
        QUERY = 15);
   opt!(#[doc = "See [`LOCATION_PATH`]"]
