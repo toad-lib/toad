@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.15.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.14.2...toad-msg-v0.15.0) (2023-03-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **msg:** Path option is repeated segments, not one string with slashes ([#231](https://github.com/toad-lib/toad/issues/231))
+
+### Bug Fixes
+
+* **msg:** Path option is repeated segments, not one string with slashes ([#231](https://github.com/toad-lib/toad/issues/231)) ([37f83d8](https://github.com/toad-lib/toad/commit/37f83d88bbee6fa1f03a670c84bad54b751a789a))
+
 ## [0.14.2](https://github.com/toad-lib/toad/compare/toad-msg-v0.14.1...toad-msg-v0.14.2) (2023-03-02)
 
 
