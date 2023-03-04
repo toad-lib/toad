@@ -306,9 +306,10 @@ impl<P, E: super::Error, Inner, Ids> Step<P> for ProvisionIds<P, Inner, Ids>
 
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effs: &mut P::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
-    self.inner.before_message_sent(snap, msg)?;
+    self.inner.before_message_sent(snap, effs, msg)?;
 
     if msg.data().id == Id(0) {
       let id = self.seen
@@ -379,7 +380,7 @@ mod test {
     GIVEN ProvisionIds::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN message_sent_with_id_zero []
     THEN this_should_assign_nonzero_id [
-      (before_message_sent(_, test_msg(Id(0))) should be ok with { |msg| assert!(matches!(msg.data().id, Id(n) if n > 0)) })
+      (before_message_sent(_, _, test_msg(Id(0))) should be ok with { |msg| assert!(matches!(msg.data().id, Id(n) if n > 0)) })
     ]
   );
 

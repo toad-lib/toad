@@ -60,9 +60,10 @@ impl<P, E, S> Step<P> for SetStandardOptions<S>
 
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effs: &mut P::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
-    self.0.before_message_sent(snap, msg)?;
+    self.0.before_message_sent(snap, effs, msg)?;
 
     let (host, port) = (msg.addr().ip(), msg.addr().port());
 

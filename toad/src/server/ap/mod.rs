@@ -288,6 +288,21 @@ impl<T, P, E> Ap<Hydrated, P, T, E>
   where P: PlatformTypes,
         E: core::fmt::Debug
 {
+  /// Use a function `F` (`T -> Ap<B, E>`) to transform the data contained in `Ap`
+  /// and combine the result with self.
+  ///
+  /// The function will only be called if this is [`Ap::ok`] or [`Ap::ok_hydrated`].
+  pub fn bind_hydrated<F, S2, B>(self, f: F) -> Ap<<Hydrated as state::Combine<S2>>::Out, P, B, E>
+    where F: FnOnce(T, &Addrd<Req<P>>) -> Ap<S2, P, B, E>,
+          S2: ApState,
+          Hydrated: state::Combine<S2>
+  {
+    match self.try_unwrap_ok_hydrated() {
+      | Ok((t, Hydrate { req, .. })) => f(t, &req).hydrate(req).coerce_state(),
+      | Err(other) => other.bind(|_| unreachable!("what")).coerce_state(),
+    }
+  }
+
   /// [`Ap::ok`] with a [`Hydrate`] request context
   pub fn ok_hydrated(t: T, hy: Hydrate<P>) -> Ap<Hydrated, P, T, E> {
     Ap(ApInner::OkHydrated(t, hy))
@@ -355,7 +370,7 @@ impl<S, P, T, E> Ap<S, P, T, E>
       | ApInner::Ok(t) => Ap::ok_hydrated(t, Hydrate::from_request(req)).coerce_state(),
       | ApInner::OkHydrated(t, _) => Ap::ok_hydrated(t, Hydrate::from_request(req)).coerce_state(),
       | ApInner::Reject => Ap::reject().coerce_state(),
-      | ApInner::Respond(r) => Ap::respond(r).coerce_state(),
+      | ApInner::Respond(r) => Ap::respond_hydrated(req, r).coerce_state(),
       | ApInner::Err(e) => Ap::err(e).coerce_state(),
       | ApInner::RejectHydrated(r) => Ap::reject_hydrated(r).coerce_state(),
       | ApInner::RespondHydrated(rep, req) => Ap::respond_hydrated(req, rep).coerce_state(),

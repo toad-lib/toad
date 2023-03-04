@@ -1,5 +1,10 @@
-use no_std_net::{SocketAddr, ToSocketAddrs};
+use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs};
 use toad_common::*;
+
+/// Creates a [`SocketAddr::V4`] from an ipv4 address and port
+pub fn ipv4_socketaddr([a, b, c, d]: [u8; 4], port: u16) -> SocketAddr {
+  SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), port))
+}
 
 /// Data that came from a network socket
 #[derive(PartialEq, PartialOrd, Eq, Ord, Hash, Debug, Clone, Copy)]
@@ -14,6 +19,12 @@ impl<T> Addrd<T> {
   /// Discard the socket and get the data in this Addressed
   pub fn unwrap(self) -> T {
     self.0
+  }
+
+  /// Change address associated with the data
+  pub fn with_addr(mut self, addr: SocketAddr) -> Self {
+    self.1 = addr;
+    self
   }
 
   /// Map the data contained in this Addressed

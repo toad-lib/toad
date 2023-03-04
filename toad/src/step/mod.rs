@@ -1,22 +1,23 @@
+use ::toad_msg::Token;
 use no_std_net::SocketAddr;
-use toad_msg::Token;
 
 use crate::net::Addrd;
 use crate::platform::{self, PlatformTypes};
 
 /// Standard set of Steps
 pub mod runtime {
+  use ::toad_msg::Token;
   use naan::prelude::{HKT1, HKT2};
   use no_std_net::SocketAddr;
-  use toad_msg::Token;
 
   use super::ack::Ack;
   use super::parse::Parse;
   use super::provision_ids::{self, IdWithDefault, SocketAddrWithDefault};
   use super::provision_tokens::ProvisionTokens;
-  use super::{buffer_responses, handle_acks, retry};
+  use super::{buffer_responses, handle_acks, observe, retry};
   use crate::net::Addrd;
   use crate::platform::{Message, PlatformTypes};
+  use crate::req::Req;
   use crate::resp::Resp;
   use crate::time::Stamped;
 
@@ -38,16 +39,24 @@ pub mod runtime {
                                 Map<M,
                                     SocketAddrWithDefault,
                                     Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
+  type Observe<P, A, S> = observe::Observe<S,
+                                           Array<A, observe::Sub<P>>,
+                                           Array<A, Addrd<Req<P>>>,
+                                           observe::SubHash_TypePathQueryAccept<P>>;
 
-  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens
+  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens -> Observe
   pub type Runtime<P, Array, Map> =
-    ProvisionTokens<ProvisionIds<P,
-                                 Map,
-                                 Array,
-                                 BufferResponses<P,
-                                                 Map,
-                                                 HandleAcks<Map,
-                                                            Retry<P, Array, Ack<Parse<()>>>>>>>;
+    Observe<P,
+            Array,
+            ProvisionTokens<ProvisionIds<P,
+                                         Map,
+                                         Array,
+                                         BufferResponses<P,
+                                                         Map,
+                                                         HandleAcks<Map,
+                                                                    Retry<P,
+                                                                          Array,
+                                                                          Ack<Parse<()>>>>>>>>;
 
   /// TODO
   #[cfg(feature = "std")]
@@ -82,6 +91,42 @@ pub mod runtime {
 /// ## Transformation
 /// None
 pub mod retry;
+
+/// # Observe
+///
+/// ## Registration
+/// Clients opt in to receiving future updates when any of the following occurs:
+/// * Client sends GET with [Observe](toad_msg::opt::known::no_repeat::OBSERVE) value of [register](toad_msg::opt::known::observe::Action::Register)
+///
+/// ## Deregistration
+/// Clients opt out of receiving future updates when any of the following occurs:
+/// * Client replies RESET to a notification
+/// * Client sends GET with [Observe](toad_msg::opt::known::no_repeat::OBSERVE) value of [deregister](toad_msg::opt::known::observe::Action::Deregister)
+/// * Server sends an event with a non-success `2.xx` status code (This will trigger all [matching](observe::Observe::cmp_observe_requests) subscribers to be removed)
+///
+/// ## Notifying subscribers
+/// Invoking [`Step::notify`] will cause your application code to receive copies of the original GET requests with updated ETags.
+///
+/// Based on [`cmp_requests`](observe::Observe::cmp_requests), equivalent requests will be combined.
+///
+/// # Example
+/// ### Given
+/// * a resource `<coap://server/temperature>`
+/// * Four clients: A, B, C, and D
+/// * A, B, C sent `GET Observe=1 coap://server/temperature`,
+/// * D sent `GET Observe=1 coap://server/temperature?above=23deg`
+/// * the default [`observe::cmp_requests`](observe::cmp_requests) function (which considers requests with different query parameters to be different subscriptions)
+///
+/// ### When
+/// Your server issues `server.notify("server/temperature", <etag>)`
+///
+/// ### Then
+/// this step will issue 2 requests to your server:
+///  - Request 1 `GET coap://server/temperature`
+///  - Request 2 `GET coap://server/temperature?above=23deg`
+///
+/// The response to request 1 will be sent to clients A, B, and C. The response to request 2 will be sent to client D.
+pub mod observe;
 
 /// # Assign message tokens to those with Token(0)
 /// * Client Flow ✓
@@ -291,6 +336,18 @@ pub trait Step<P: PlatformTypes>: Default {
                addr: SocketAddr)
                -> StepOutput<Self::PollResp, Self::Error>;
 
+  /// # Update Observers
+  ///
+  /// Notify listeners to `path` that
+  /// there's a new version of the resource available.
+  ///
+  /// See [`observe`] for more info.
+  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+    where Path: AsRef<str> + Clone
+  {
+    self.inner().notify(path).map_err(Self::Error::from)
+  }
+
   /// Invoked before messages are sent, allowing for internal state change & modification.
   ///
   /// # Gotchas
@@ -300,10 +357,11 @@ pub trait Step<P: PlatformTypes>: Default {
   /// The default implementation will invoke `self.inner().before_message_sent`
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effects: &mut <P as PlatformTypes>::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     self.inner()
-        .before_message_sent(snap, msg)
+        .before_message_sent(snap, effects, msg)
         .map_err(Self::Error::from)
   }
 
@@ -350,8 +408,15 @@ impl<P: PlatformTypes> Step<P> for () {
     None
   }
 
+  fn notify<Path>(&self, _: Path) -> Result<(), Self::Error>
+    where Path: AsRef<str>
+  {
+    Ok(())
+  }
+
   fn before_message_sent(&self,
                          _: &platform::Snapshot<P>,
+                         _: &mut P::Effects,
                          _: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
     Ok(())
@@ -396,21 +461,21 @@ pub mod test {
       static mut POLL_RESP_MOCK:
         Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
                           &mut <test::Platform as platform::PlatformTypes>::Effects,
-                          toad_msg::Token,
+                          ::toad_msg::Token,
                           no_std_net::SocketAddr)
                           -> Option<::nb::Result<$poll_resp_ty, $error_ty>>>> = None;
       static mut ON_MESSAGE_SENT_MOCK: Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
                                                            &Addrd<test::Message>)
                                                            -> Result<(), $error_ty>>> = None;
       static mut BEFORE_MESSAGE_SENT_MOCK:
-        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>,
+        Option<Box<dyn Fn(&platform::Snapshot<test::Platform>, &mut <test::Platform as $crate::platform::PlatformTypes>::Effects,
                           &mut Addrd<test::Message>) -> Result<(), $error_ty>>> = None;
 
       unsafe {
         POLL_REQ_MOCK = Some(Box::new(|_, _| None));
         POLL_RESP_MOCK = Some(Box::new(|_, _, _, _| None));
         ON_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
-        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _| Ok(())));
+        BEFORE_MESSAGE_SENT_MOCK = Some(Box::new(|_, _, _| Ok(())));
       }
 
       impl Step<test::Platform> for Dummy {
@@ -433,7 +498,7 @@ pub mod test {
         fn poll_resp(&self,
                      a: &platform::Snapshot<test::Platform>,
                      b: &mut <test::Platform as platform::PlatformTypes>::Effects,
-                     c: toad_msg::Token,
+                     c: ::toad_msg::Token,
                      d: no_std_net::SocketAddr)
                      -> step::StepOutput<Self::PollResp, ()> {
           unsafe { POLL_RESP_MOCK.as_ref().unwrap()(a, b, c, d) }
@@ -441,9 +506,10 @@ pub mod test {
 
         fn before_message_sent(&self,
                                snap: &platform::Snapshot<test::Platform>,
+                               effs: &mut <test::Platform as $crate::platform::PlatformTypes>::Effects,
                                msg: &mut Addrd<test::Message>)
                                -> Result<(), Self::Error> {
-          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
+          unsafe { BEFORE_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, effs, msg) }
         }
 
         fn on_message_sent(&self,
@@ -459,6 +525,7 @@ pub mod test {
   #[macro_export]
   macro_rules! test_step_when {
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -472,6 +539,7 @@ pub mod test {
       *$poll_req_mock = Some(Box::new($poll_req_fake))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -485,6 +553,7 @@ pub mod test {
       *$poll_req_mock = Some(Box::new(|_, _| $inner_step_returns))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -498,6 +567,7 @@ pub mod test {
       *$effects_mut = $effects
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -511,6 +581,7 @@ pub mod test {
       *$poll_resp_mock = Some(Box::new(|_, _, _, _| $inner_step_returns))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -524,6 +595,7 @@ pub mod test {
       *$poll_resp_mock = Some(Box::new($poll_resp_fake))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -537,6 +609,7 @@ pub mod test {
       *$snapshot_mut = $snapshot
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -550,6 +623,7 @@ pub mod test {
       *$token_mut = $token
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -563,6 +637,7 @@ pub mod test {
       *$addr_mut = $addr
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -576,6 +651,7 @@ pub mod test {
       *$before_message_sent_mock = Some(Box::new($before_message_sent))
     };
     (
+      step = $step:expr,
       poll_req_mock = $poll_req_mock:expr,
       poll_resp_mock = $poll_resp_mock:expr,
       before_message_sent_mock = $before_message_sent_mock:expr,
@@ -588,6 +664,20 @@ pub mod test {
     ) => {
       *$on_message_sent_mock = Some(Box::new($on_message_sent))
     };
+    (
+      step = $step:expr,
+      poll_req_mock = $poll_req_mock:expr,
+      poll_resp_mock = $poll_resp_mock:expr,
+      before_message_sent_mock = $before_message_sent_mock:expr,
+      on_message_sent_mock = $on_message_sent_mock:expr,
+      effects = $effects:expr,
+      snapshot = $snapshot_mut:expr,
+      token = $token:expr,
+      addr = $addr_mut:expr,
+      when ({$f:expr})
+    ) => {
+      $f($step)
+    };
   }
 
   #[macro_export]
@@ -598,7 +688,7 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (before_message_sent($snap:expr, $msg:expr) should satisfy {$assert_fn:expr})
+      expect (before_message_sent($snap:expr, _, $msg:expr) should satisfy {$assert_fn:expr})
     ) => {{
       use $crate::net::Addrd;
       use $crate::step::Step;
@@ -606,7 +696,8 @@ pub mod test {
 
       let mut msg = $msg;
       let assert_fn: Box<dyn Fn(Addrd<test::Message>)> = Box::new($assert_fn);
-      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg)
+           .unwrap();
       assert_fn(msg)
     }};
     (
@@ -732,10 +823,11 @@ pub mod test {
       effects = $effects:expr,
       token = $token:expr,
       addr = $addr:expr,
-      expect (before_message_sent(_, $msg:expr) should be ok with {$f:expr})
+      expect (before_message_sent(_, _, $msg:expr) should be ok with {$f:expr})
     ) => {{
       let mut msg = $msg;
-      $step.before_message_sent(&$snap, &mut msg).unwrap();
+      $step.before_message_sent(&$snap, &mut $effects, &mut msg)
+           .unwrap();
       let f: Box<dyn Fn($crate::net::Addrd<$crate::test::Message>)> = Box::new($f);
       f(msg)
     }};
@@ -765,9 +857,12 @@ pub mod test {
           let mut token = ::toad_msg::Token(Default::default());
           let mut addr = test::dummy_addr();
 
+          let mut step = $step::default();
+
           unsafe {
             $(
                 test_step_when!(
+                  step = &step,
                   poll_req_mock = &mut POLL_REQ_MOCK,
                   poll_resp_mock = &mut POLL_RESP_MOCK,
                   before_message_sent_mock = &mut BEFORE_MESSAGE_SENT_MOCK,
@@ -780,8 +875,6 @@ pub mod test {
                 )
             );*
           };
-
-          let mut step = $step::default();
 
           $(
             test_step_expect!(

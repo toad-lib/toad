@@ -102,9 +102,10 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
   fn before_message_sent(&self,
                          snap: &platform::Snapshot<P>,
+                         effs: &mut P::Effects,
                          msg: &mut Addrd<platform::Message<P>>)
                          -> Result<(), Self::Error> {
-    self.inner.before_message_sent(snap, msg)?;
+    self.inner.before_message_sent(snap, effs, msg)?;
 
     let token = match (msg.data().code.kind(), msg.data().token) {
       | (CodeKind::Request, t) if t == Token(Default::default()) => {
@@ -175,13 +176,14 @@ mod test {
   test_step!(
     GIVEN ProvisionTokens::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN we_boutta_send_a_request [
-      (inner.before_message_sent = { |_, _| Ok(()) })
+      (inner.before_message_sent = { |_, _, _| Ok(()) })
     ]
     THEN this_should_make_sure_it_has_a_token [
       (before_message_sent(
           Snapshot { time: ClockMock::instant(0),
                      recvd_dgram: Some(Addrd(Default::default(), crate::test::dummy_addr())),
                      config: Config::default() },
+                     _,
           crate::test::msg!(CON GET x.x.x.x:80)
       ) should satisfy { |m| assert_ne!(m.data().token, Token(Default::default())) })
     ]
@@ -190,13 +192,14 @@ mod test {
   test_step!(
     GIVEN ProvisionTokens::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN we_boutta_send_a_response [
-      (inner.before_message_sent = { |_, _| Ok(()) })
+      (inner.before_message_sent = { |_, _, _| Ok(()) })
     ]
     THEN this_should_make_sure_it_has_a_token [
       (before_message_sent(
           Snapshot { time: ClockMock::instant(0),
                      recvd_dgram: Some(Addrd(Default::default(), crate::test::dummy_addr())),
                      config: Config::default() },
+                     _,
           crate::test::msg!(CON {2 . 04} x.x.x.x:80)
       ) should satisfy { |m| assert_eq!(m.data().token, Token(Default::default())) })
     ]
