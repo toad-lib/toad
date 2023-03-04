@@ -1,6 +1,7 @@
 use state::{ApState, Combine, Complete, CompleteWhenHydrated, Hydrated, Unhydrated};
 use toad_common::Cursor;
-use toad_msg::Code;
+use toad_msg::repeat::PATH;
+use toad_msg::{Code, MessageOptions, OptionMap};
 
 use crate::net::Addrd;
 use crate::platform::PlatformTypes;
@@ -58,14 +59,15 @@ pub struct Hydrate<P>
   where P: PlatformTypes
 {
   pub req: Addrd<Req<P>>,
-  pub path: Cursor<String1Kb>,
+  pub path: <P as PlatformTypes>::MessageOptionMapOptionValues,
+  pub path_ix: usize,
 }
 
 impl<P> Hydrate<P> where P: PlatformTypes
 {
   /// Construct a [`Hydrate`] from [`Addrd`]`<`[`Req`]`>`
   pub fn from_request(req: Addrd<Req<P>>) -> Self {
-    Self { path: Cursor::new(req.data().path().ok().flatten().unwrap_or("").into()),
+    Self { path: req.data().msg().get(PATH).cloned().unwrap_or_default(), path_ix: 0,
            req }
   }
 }
@@ -73,7 +75,7 @@ impl<P> Hydrate<P> where P: PlatformTypes
 impl<P> Clone for Hydrate<P> where P: PlatformTypes
 {
   fn clone(&self) -> Self {
-    Hydrate { req: self.req.clone(),
+    Hydrate { req: self.req.clone(), path_ix: self.path_ix,
               path: self.path.clone() }
   }
 }
@@ -623,7 +625,7 @@ mod tests {
     let ok_hy = || {
       Ap::ok_hydrated((),
                       Hydrate { req: Addrd(req(), addr),
-                                path: Cursor::new("".into()) })
+                                path: Default::default(), path_ix: 0 })
     };
     let reject = || Ap::reject();
     let respond = || {

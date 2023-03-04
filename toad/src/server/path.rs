@@ -41,19 +41,15 @@ pub mod segment {
   {
     |ap| {
       match ap.try_unwrap_ok_hydrated() {
-        | Ok((t, Hydrate { mut path, req })) => {
-          if path.is_exhausted() {
-            Ap::ok_hydrated(t, Hydrate { req, path }).bind(|t| f(t, None))
+        | Ok((t, Hydrate { mut path, path_ix, req })) => {
+          if path_ix >= path.len() {
+            Ap::ok_hydrated(t, Hydrate { req, path_ix, path }).bind(|t| f(t, None))
           } else {
-            let seg = Cursor::take_while(&mut path, |b: u8| (b as char) != '/');
-            let seg_str = core::str::from_utf8(seg).unwrap();
+            let seg_str = path.get(path_ix).map(|seg| core::str::from_utf8(&seg.0).unwrap()).unwrap_or("");
 
             let ap_r = f(t, Some(seg_str));
 
-            // skip the slash
-            Cursor::skip(&mut path, 1);
-
-            Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
+            Ap::ok_hydrated((), Hydrate { req, path_ix, path }).bind(|_| ap_r)
           }
         },
         | Err(other) => other.bind(|_| unreachable!()).coerce_state(),

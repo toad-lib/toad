@@ -8,6 +8,7 @@ use toad_common::hash::Blake2Hasher;
 use toad_common::{Array, Stem};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
+use toad_msg::repeat::PATH;
 use toad_msg::{CodeKind, Id, MessageOptions, OptValue, Token};
 
 use super::{Step, _try};
@@ -68,7 +69,9 @@ impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: Platform
                                 v.hash(&mut self.0);
                               });
     msg.accept().hash(&mut self.0);
-    msg.path().ok().hash(&mut self.0);
+    msg.get(PATH).into_iter().for_each(|v| {
+                                v.hash(&mut self.0);
+                              });
   }
 }
 
@@ -280,25 +283,25 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
           'b: 'a
   {
     subs.iter()
-        .filter(move |s| s.msg().path().ok().flatten().unwrap_or("") == p)
+        .filter(move |s| s.msg().get(PATH).map(|segs| segs.iter().map(|val| -> &[u8] { &val.0 }).eq(p.split("/").map(|s| s.as_bytes()))).unwrap_or_else(|| p.is_empty()))
   }
 
   fn remove_queued_requests_matching_path<P>(rq: &mut RequestQueue, path: &str) -> ()
     where P: PlatformTypes,
           RequestQueue: Array<Item = Addrd<Req<P>>>
   {
-    fn go<P, RQ>(rq: &mut RQ, path: &str) -> ()
+    fn go<P, RQ>(rq: &mut RQ, p: &str) -> ()
       where P: PlatformTypes,
             RQ: Array<Item = Addrd<Req<P>>>
     {
       match rq.iter()
               .enumerate()
-              .find(|(_, req)| req.data().msg().path().ok().flatten() == Some(path))
+              .find(|(_, req)| req.data().msg().get(PATH).map(|segs| segs.iter().map(|val| -> &[u8] { &val.0 }).eq(p.split("/").map(|s| s.as_bytes()))).unwrap_or_else(|| p.is_empty()))
               .map(|(ix, _)| ix)
       {
         | Some(ix) => {
           rq.remove(ix);
-          go(rq, path);
+          go(rq, p);
         },
         | None => (),
       }
