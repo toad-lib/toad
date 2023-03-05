@@ -2,16 +2,15 @@ use core::fmt::Debug;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
-use naan::prelude::{Apply, F2Once};
 use no_std_net::SocketAddr;
 use toad_common::hash::Blake2Hasher;
 use toad_common::{Array, Stem};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
 use toad_msg::repeat::PATH;
-use toad_msg::{CodeKind, Id, MessageOptions, OptValue, Token};
+use toad_msg::{CodeKind, Id, MessageOptions, Token};
 
-use super::{Step, _try};
+use super::Step;
 use crate::net::Addrd;
 use crate::platform::{self, Effect, PlatformTypes};
 use crate::req::Req;
@@ -70,8 +69,8 @@ impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: Platform
                               });
     msg.accept().hash(&mut self.0);
     msg.get(PATH).into_iter().for_each(|v| {
-                                v.hash(&mut self.0);
-                              });
+                               v.hash(&mut self.0);
+                             });
   }
 }
 
@@ -282,8 +281,16 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
           P: PlatformTypes,
           'b: 'a
   {
-    subs.iter()
-        .filter(move |s| s.msg().get(PATH).map(|segs| segs.iter().map(|val| -> &[u8] { &val.0 }).eq(p.split("/").map(|s| s.as_bytes()))).unwrap_or_else(|| p.is_empty()))
+    subs.iter().filter(move |s| {
+                 s.msg()
+                  .get(PATH)
+                  .map(|segs| {
+                    segs.iter()
+                        .map(|val| -> &[u8] { &val.0 })
+                        .eq(p.split("/").map(|s| s.as_bytes()))
+                  })
+                  .unwrap_or_else(|| p.is_empty())
+               })
   }
 
   fn remove_queued_requests_matching_path<P>(rq: &mut RequestQueue, path: &str) -> ()
@@ -296,7 +303,17 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
     {
       match rq.iter()
               .enumerate()
-              .find(|(_, req)| req.data().msg().get(PATH).map(|segs| segs.iter().map(|val| -> &[u8] { &val.0 }).eq(p.split("/").map(|s| s.as_bytes()))).unwrap_or_else(|| p.is_empty()))
+              .find(|(_, req)| {
+                req.data()
+                   .msg()
+                   .get(PATH)
+                   .map(|segs| {
+                     segs.iter()
+                         .map(|val| -> &[u8] { &val.0 })
+                         .eq(p.split("/").map(|s| s.as_bytes()))
+                   })
+                   .unwrap_or_else(|| p.is_empty())
+              })
               .map(|(ix, _)| ix)
       {
         | Some(ix) => {

@@ -42,6 +42,10 @@ impl String1Kb {
   pub fn as_bytes(&self) -> &[u8] {
     self.as_ref()
   }
+
+  pub fn as_writable(&mut self) -> &mut Writable<ArrayVec<[u8; 1024]>> {
+    &mut self.0
+  }
 }
 
 impl PartialEq for String1Kb {

@@ -1,5 +1,5 @@
 use std::io;
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::Barrier;
 
 use lazycell::AtomicLazyCell;
 use toad::config::Config;
@@ -74,19 +74,6 @@ mod route {
 
 mod test {
   use super::*;
-
-  pub fn not_found(client: &P, addr: &str) {
-    let (_, token) = client.send_msg(Addrd(Req::<T<dtls::N>>::get("foobar").into(),
-                                           addr.parse().unwrap()))
-                           .unwrap();
-    log::info!("[4] GET /foobar sent");
-
-    // UX: why do i have to nb::block?
-    let resp = nb::block!(client.poll_resp(token, addr.parse().unwrap())).unwrap();
-    assert_eq!(resp.data().payload_string().unwrap(),
-               "resource foobar not found".to_string());
-    log::info!("[5] got 'resource foobar not found'");
-  }
 
   pub fn hello(client: &P, name: &str, addr: &str) {
     let (_, token) =

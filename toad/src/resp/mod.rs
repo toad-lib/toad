@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 use std_alloc::string::{FromUtf8Error, String};
 use toad_common::Array;
-use toad_msg::{Id, Message, MessageOptions, OptNumber, OptValue, Payload, TryIntoBytes, Type};
+use toad_msg::{Id, Message, Payload, TryIntoBytes, Type};
 
 use crate::platform::{self, PlatformTypes};
 use crate::req::Req;
