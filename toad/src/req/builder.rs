@@ -1,6 +1,5 @@
-use no_std_net::SocketAddr;
 use toad_common::*;
-use toad_msg::{MessageOptions, OptNumber, OptValue, OptionMap, SetOptionError};
+use toad_msg::{MessageOptions, OptNumber, OptValue};
 
 use super::{Method, Req};
 use crate::option::common_options;

@@ -882,7 +882,7 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "toad"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "embedded-time",
  "lazycell",
@@ -901,7 +901,7 @@ dependencies = [
  "tinyvec",
  "toad-common 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
- "toad-msg 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-msg 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -944,7 +944,7 @@ dependencies = [
 
 [[package]]
 name = "toad-msg"
-version = "0.14.2"
+version = "0.15.0"
 dependencies = [
  "arrayvec",
  "blake2",
@@ -959,9 +959,9 @@ dependencies = [
 
 [[package]]
 name = "toad-msg"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "445cfaa1f34d7cd0f55dc8a0c88290b14a15e90b2cd83bf62230ca2975cdac10"
+checksum = "00b4a170259e84cb6c473848848aea8f2f0d02d85d4029f04137179dd7b61afe"
 dependencies = [
  "blake2",
  "tinyvec",

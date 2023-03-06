@@ -1,8 +1,9 @@
-use toad_common::Cursor;
+use core::fmt::Write;
 
 use crate::platform::PlatformTypes;
 use crate::server::ap::state::{ApState, Combine, Hydrated};
 use crate::server::ap::{Ap, Hydrate};
+use crate::todo::String1Kb;
 
 /// Manipulate & match against path segments
 pub mod segment {
@@ -39,25 +40,24 @@ pub mod segment {
           SOut: ApState,
           Hydrated: Combine<SOut>
   {
-    |ap| {
-      match ap.try_unwrap_ok_hydrated() {
-        | Ok((t, Hydrate { mut path, req })) => {
-          if path.is_exhausted() {
-            Ap::ok_hydrated(t, Hydrate { req, path }).bind(|t| f(t, None))
-          } else {
-            let seg = Cursor::take_while(&mut path, |b: u8| (b as char) != '/');
-            let seg_str = core::str::from_utf8(seg).unwrap();
+    |ap| match ap.try_unwrap_ok_hydrated() {
+      | Ok((t, Hydrate { path, path_ix, req })) => {
+        if path_ix >= path.len() {
+          Ap::ok_hydrated(t, Hydrate { req, path_ix, path }).bind(|t| f(t, None))
+        } else {
+          let seg_str = path.get(path_ix)
+                            .map(|seg| core::str::from_utf8(&seg.0).unwrap())
+                            .unwrap_or("");
 
-            let ap_r = f(t, Some(seg_str));
+          let ap_r = f(t, Some(seg_str));
 
-            // skip the slash
-            Cursor::skip(&mut path, 1);
-
-            Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
-          }
-        },
-        | Err(other) => other.bind(|_| unreachable!()).coerce_state(),
-      }
+          Ap::ok_hydrated((),
+                          Hydrate { req,
+                                    path_ix: path_ix + 1,
+                                    path }).bind(|_| ap_r)
+        }
+      },
+      | Err(other) => other.bind(|_| unreachable!()).coerce_state(),
     }
   }
 
@@ -184,12 +184,24 @@ pub fn rest<T, SOut, R, F, P, E>(
         Hydrated: Combine<SOut>
 {
   |ap| match ap.try_unwrap_ok_hydrated() {
-    | Ok((t, Hydrate { mut path, req })) => {
-      let seg = Cursor::take_until_end(&mut path);
-      let seg_str = core::str::from_utf8(seg).unwrap();
+    | Ok((t, Hydrate { path, req, path_ix })) => {
+      let mut s = match path.get(path_ix..) {
+        | Some(segs) => segs.iter().fold(String1Kb::default(), |mut s, seg| {
+                                     if let Ok(seg) = core::str::from_utf8(seg.as_bytes()) {
+                                       write!(&mut s, "{seg}/").ok();
+                                     }
+                                     s
+                                   }),
+        | None => String1Kb::default(),
+      };
 
-      let ap_r = f(t, seg_str);
-      Ap::ok_hydrated((), Hydrate { req, path }).bind(|_| ap_r)
+      s.as_writable().pop();
+
+      let ap_r = f(t, s.as_str());
+      Ap::ok_hydrated((),
+                      Hydrate { req,
+                                path_ix: path.len(),
+                                path }).bind(|_| ap_r)
     },
     | Err(other) => other.bind(|_| unreachable!()).coerce_state(),
   }
@@ -234,6 +246,8 @@ pub mod check {
 
 #[cfg(test)]
 mod tests {
+  use toad_msg::MessageOptions;
+
   use super::*;
   use crate::req::Req;
   use crate::server::path;
@@ -242,11 +256,13 @@ mod tests {
 
   #[test]
   fn rest() {
-    let req = || crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
-    let foobar = || Cursor::new("foo/bar".into());
-    let ap = Ap::<_, (), ()>::ok_hydrated((),
-                                          Hydrate { req: req(),
-                                                    path: foobar() });
+    let req = || {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path("foo/bar").unwrap();
+      r
+    };
+
+    let ap = Ap::<_, (), ()>::ok_hydrated((), Hydrate::from_request(req()));
     let ap_path = ap.pipe(path::rest(|(), s| Ap::ok(s.to_string())));
 
     assert_eq!(ap_path.clone().try_unwrap_ok(), Ok("foo/bar".to_string()));
@@ -258,13 +274,14 @@ mod tests {
 
   #[test]
   fn rest_is() {
-    let req = || crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+    let req = |p| {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path(p).unwrap();
+      r
+    };
 
-    let pass = Hydrate { req: req(),
-                         path: Cursor::new("foo/bar".into()) };
-
-    let fail = Hydrate { req: req(),
-                         path: Cursor::new("foot/bart".into()) };
+    let pass = Hydrate::from_request(req("foo/bar"));
+    let fail = Hydrate::from_request(req("foot/bart"));
 
     let check = |hy| {
       Ap::<_, (), ()>::ok_hydrated((), hy).pipe(path::check::rest_is(|p| p == "foo/bar"))
@@ -277,13 +294,14 @@ mod tests {
 
   #[test]
   fn rest_equals() {
-    let req = || crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+    let req = |p| {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path(p).unwrap();
+      r
+    };
 
-    let pass = Hydrate { req: req(),
-                         path: Cursor::new("foo/bar".into()) };
-
-    let fail = Hydrate { req: req(),
-                         path: Cursor::new("foot/bart".into()) };
+    let pass = Hydrate::from_request(req("foo/bar"));
+    let fail = Hydrate::from_request(req("foot/bart"));
 
     let check = |hy| {
       Ap::<_, (), ()>::ok_hydrated((), hy).pipe(path::check::rest_equals("foo/bar"))
@@ -296,13 +314,14 @@ mod tests {
 
   #[test]
   fn ends_with() {
-    let req = || crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+    let req = |p| {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path(p).unwrap();
+      r
+    };
 
-    let pass = Hydrate { req: req(),
-                         path: Cursor::new("foo/bar".into()) };
-
-    let fail = Hydrate { req: req(),
-                         path: Cursor::new("foot/bart".into()) };
+    let pass = Hydrate::from_request(req("foo/bar"));
+    let fail = Hydrate::from_request(req("foot/bart"));
 
     let check = |hy| {
       Ap::<_, (), ()>::ok_hydrated((), hy).pipe(path::check::ends_with("bar"))
@@ -315,8 +334,13 @@ mod tests {
 
   #[test]
   fn next_segment() {
-    let hy = Hydrate { req: crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from),
-                       path: Cursor::new("foot/bart".into()) };
+    let req = |p| {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path(p).unwrap();
+      r
+    };
+
+    let hy = Hydrate::from_request(req("foot/bart"));
 
     let ap = Ap::<_, (), ()>::ok_hydrated((), hy).pipe(path::segment::next(|_, s| {
                                                          Ap::ok(s.unwrap().to_string())
@@ -331,8 +355,13 @@ mod tests {
 
   #[test]
   fn segment_param() {
-    let hy = Hydrate { req: crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from),
-                       path: Cursor::new("users/123".into()) };
+    let req = |p| {
+      let mut r = crate::test::msg!(CON GET x.x.x.x:1111).map(Req::from);
+      r.as_mut().msg_mut().set_path(p).unwrap();
+      r
+    };
+
+    let hy = Hydrate::from_request(req("users/123"));
 
     let ap = Ap::<_, (), ()>::ok_hydrated((), hy).pipe(path::segment::check::next_equals("users"))
                                                  .pipe(path::segment::param::u32)

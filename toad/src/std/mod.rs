@@ -11,7 +11,7 @@ use std::io;
 
 use dtls::sealed::Security;
 pub use net::*;
-use toad_msg::{Opt, OptNumber, OptValue};
+use toad_msg::{OptNumber, OptValue};
 
 use crate::net::{Addrd, Socket};
 use crate::platform::{Effect, PlatformError};
@@ -65,6 +65,7 @@ impl<Sec> crate::platform::PlatformTypes for PlatformTypes<Sec> where Sec: Secur
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
   type MessageOptions = BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
+  type MessageOptionMapOptionValues = Vec<OptValue<Vec<u8>>>;
   type Clock = Clock;
   type Socket = Sec::Socket;
   type Effects = Vec<Effect<Self>>;

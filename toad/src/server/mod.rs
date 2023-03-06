@@ -1,8 +1,7 @@
 use core::fmt::Write;
 
 pub use ap::Ap;
-use toad_common::Cursor;
-use toad_msg::{MessageOptions, OptNumber, OptValue};
+use toad_msg::MessageOptions;
 
 use self::ap::state::{Complete, Hydrated};
 use self::ap::{ApInner, Hydrate, Respond};
@@ -136,18 +135,7 @@ impl<P, E> Run<P, E>
     match self {
       | Run::Matched(m) => Run::Matched(m),
       | Run::Error(e) => Run::Error(e),
-      | Run::Unmatched(req) => {
-        req.data()
-           .path()
-           .map(|o| o.map(String1Kb::from).unwrap_or_default())
-           .map(|path| {
-             Self::handle(f(Ap::ok_hydrated((),
-                                            Hydrate { req,
-                                                      path: Cursor::new(path) })))
-           })
-           .map_err(|e| Self::Error(Error::PathDecodeError(e)))
-           .unwrap_or_else(|e| e)
-      },
+      | Run::Unmatched(req) => Self::handle(f(Ap::ok_hydrated((), Hydrate::from_request(req)))),
     }
   }
 }

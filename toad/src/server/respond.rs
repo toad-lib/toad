@@ -169,8 +169,8 @@ pub mod json {
     impl PlatformTypes for P {
       type MessagePayload = ArrayVec<[u8; 512]>;
       type MessageOptionBytes = ArrayVec<[u8; 128]>;
-      type MessageOptions =
-        ArrayVec<[(OptNumber, ArrayVec<[OptValue<Self::MessageOptionBytes>; 4]>); 4]>;
+      type MessageOptionMapOptionValues = ArrayVec<[OptValue<Self::MessageOptionBytes>; 4]>;
+      type MessageOptions = ArrayVec<[(OptNumber, Self::MessageOptionMapOptionValues); 4]>;
       type Clock = crate::test::ClockMock;
       type Socket = crate::test::SockMock;
       type Effects = ArrayVec<[Effect<Self>; 4]>;

@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use ::toad_msg::{Id, Opt, OptNumber, OptValue, OptionMap, Token, TryIntoBytes};
+use ::toad_msg::{Id, OptNumber, OptValue, OptionMap, Token, TryIntoBytes};
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
@@ -255,8 +255,17 @@ pub trait PlatformTypes: Sized + 'static + core::fmt::Debug {
   /// What type should we use to store the option values?
   type MessageOptionBytes: Array<Item = u8> + 'static + Clone + Debug + PartialEq + AppendCopy<u8>;
 
+  /// `OptionMap::OptValues`
+  type MessageOptionMapOptionValues: Array<Item = OptValue<Self::MessageOptionBytes>>
+    + Clone
+    + PartialEq
+    + Debug;
+
   /// What type should we use to store the options?
-  type MessageOptions: OptionMap + Clone + Debug + PartialEq;
+  type MessageOptions: OptionMap<OptValues = Self::MessageOptionMapOptionValues, OptValue = Self::MessageOptionBytes>
+    + Clone
+    + Debug
+    + PartialEq;
 
   /// What should we use to keep track of time?
   type Clock: Clock;
@@ -388,6 +397,7 @@ impl<Clk: Clock + 'static, Sock: Socket + 'static> Clone for Alloc<Clk, Sock> {
 impl<Clk: Clock + Debug + 'static, Sock: Socket + 'static> PlatformTypes for Alloc<Clk, Sock> {
   type MessagePayload = Vec<u8>;
   type MessageOptionBytes = Vec<u8>;
+  type MessageOptionMapOptionValues = Vec<OptValue<Vec<u8>>>;
   type MessageOptions = std_alloc::collections::BTreeMap<OptNumber, Vec<OptValue<Vec<u8>>>>;
   type Clock = Clk;
   type Socket = Sock;

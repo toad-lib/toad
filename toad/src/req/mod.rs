@@ -1,18 +1,10 @@
-use core::fmt::Write;
-
-use no_std_net::SocketAddr;
-use tinyvec::ArrayVec;
 use toad_common::*;
 use toad_msg::{Id,
                Message,
                MessageOptions,
-               Opt,
-               OptDelta,
                OptNumber,
-               OptValue,
                OptionMap,
                Payload,
-               SetOptionError,
                Token,
                TryIntoBytes,
                Type};
@@ -120,7 +112,7 @@ impl<P: PlatformTypes> Req<P> {
 
   /// Get the request path (Uri-Path option)
   pub fn path(&self) -> Result<Option<&str>, core::str::Utf8Error> {
-    self.get_option(toad_msg::opt::known::no_repeat::PATH)
+    self.get_option(toad_msg::opt::known::repeat::PATH)
         .and_then(|o| o.get(0))
         .map(|o| core::str::from_utf8(&o.0).map(Some))
         .unwrap_or(Ok(None))

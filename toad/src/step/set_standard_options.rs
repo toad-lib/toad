@@ -1,18 +1,15 @@
-use core::convert::identity;
 use core::fmt::Write;
 
 use tinyvec::ArrayVec;
-use toad_common::{Array, GetSize, InsertError, Map, ResultExt, Stem, Writable};
-use toad_msg::opt::known as option;
-use toad_msg::{CodeKind, MessageOptions, OptValue, Token, Type};
+use toad_common::Writable;
+use toad_msg::MessageOptions;
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
-use crate::platform::{Effect, PlatformTypes};
+use crate::platform;
+use crate::platform::PlatformTypes;
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::todo::String1Kb;
-use crate::{exec_inner_step, platform};
 
 /// Struct responsible for buffering and yielding responses to the request
 /// we're polling for.
@@ -78,12 +75,10 @@ impl<P, E, S> Step<P> for SetStandardOptions<S>
 
 #[cfg(test)]
 mod test {
-  use std::collections::BTreeMap;
-
   use tinyvec::array_vec;
+  use toad_msg::Type;
 
   use super::*;
-  use crate::platform::Effect;
   use crate::step::test::test_step;
 
   type InnerPollReq = Addrd<Req<crate::test::Platform>>;

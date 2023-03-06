@@ -1,10 +1,8 @@
-use std::convert::TryFrom;
 use std::io;
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::Barrier;
 use std::time::Duration;
 
 use lazycell::AtomicLazyCell;
-use openssl::conf::Conf;
 use toad::config::Config;
 use toad::net::Addrd;
 use toad::platform::Platform as _;
@@ -55,7 +53,6 @@ fn start_server(addr: &'static str) {
 mod route {
   use std::time::{SystemTime, UNIX_EPOCH};
 
-  use toad::time::Millis;
   use toad_msg::MessageOptions;
 
   use super::*;
