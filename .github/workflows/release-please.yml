@@ -56,3 +56,52 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
         run: 'cargo publish'
         working-directory: 'toad-common'
+
+      - name: 'publish toad-array'
+        if: ${{ steps.release.outputs['toad-array--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-array'
+
+      - name: 'publish toad-hash'
+        if: ${{ steps.release.outputs['toad-hash--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-hash'
+
+      - name: 'publish toad-map'
+        if: ${{ steps.release.outputs['toad-map--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-map'
+
+      - name: 'publish toad-writable'
+        if: ${{ steps.release.outputs['toad-writable--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-writable'
+
+      - name: 'publish toad-stem'
+        if: ${{ steps.release.outputs['toad-stem--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-stem'
+
+      - name: 'publish toad-cursor'
+        if: ${{ steps.release.outputs['toad-cursor--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-cursor'
+
+      - name: 'publish toad-result-ext'
+        if: ${{ steps.release.outputs['toad-result-ext--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-result-ext'
