@@ -37,7 +37,7 @@ use blake2::{Blake2b, Digest};
 /// ```
 /// use core::hash::{Hash, Hasher};
 ///
-/// use toad_common::hash::Blake2Hasher;
+/// use toad_hash::Blake2Hasher;
 ///
 /// let mut hasher_a = Blake2Hasher::new();
 /// let mut hasher_b = Blake2Hasher::new();
