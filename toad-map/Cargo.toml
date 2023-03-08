@@ -1,0 +1,26 @@
+[package]
+name = "toad-map"
+version = "0.0.0"
+edition = "2021"
+description = "Map / Dictionary trait that is no_std and heap-allocator-optional"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/toad/toad"
+repository = "https://github.com/clov-coffee/toad/toad"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std"]
+std = ["alloc", "toad-len/std"]
+alloc = ["toad-len/alloc"]
+test = []
+docs = []
+
+[dependencies]
+tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
+toad-len = {version = "0.1.1", default_features = false}
