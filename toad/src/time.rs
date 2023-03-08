@@ -1,7 +1,7 @@
 use embedded_time::clock::Error;
 use embedded_time::Instant;
 
-use crate::todo::String1Kb;
+use crate::todo::String;
 
 /// A duration, in milliseconds
 pub type Millis = embedded_time::duration::Milliseconds<u64>;
@@ -27,7 +27,7 @@ impl<C: Clock, T: core::fmt::Debug> core::fmt::Debug for Stamped<C, T> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     use core::fmt::Write;
 
-    let mut instant = String1Kb::default();
+    let mut instant = String::<100>::default();
     write!(instant,
            "<{}ms since epoch>",
            Millis::try_from(self.1.duration_since_epoch()).unwrap())?;

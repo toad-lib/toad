@@ -28,14 +28,24 @@ pub mod hkt {
 /// A [`Map`](toad_common::Map) stored completely on the stack
 pub type StackMap<K, V, const N: usize> = ArrayVec<[(K, V); N]>;
 
-/// String with capacity of 1KB
+/// Stack-allocated mutable string with capacity of 1KB
 #[derive(Debug, Copy, Clone, Default)]
-pub struct String1Kb(Writable<ArrayVec<[u8; 1024]>>);
+pub struct String<const N: usize>(Writable<ArrayVec<[u8; N]>>);
 
-impl String1Kb {
+impl<const N: usize> String<N> {
   /// Alias for [`AsRef`]
   pub fn as_str(&self) -> &str {
     self.as_ref()
+  }
+
+  /// Resize the String to a new length
+  ///
+  /// If `M` is less than `N`, the extra bytes are
+  /// discarded.
+  pub fn resize<const M: usize>(&mut self) -> String<M> {
+    let mut bytes = self.0.unwrap();
+    bytes.truncate(M);
+    String(Writable::from(self.as_writable().drain(..).collect::<ArrayVec<[u8; M]>>()))
   }
 
   /// Alias for [`AsRef`]
@@ -43,26 +53,27 @@ impl String1Kb {
     self.as_ref()
   }
 
-  pub fn as_writable(&mut self) -> &mut Writable<ArrayVec<[u8; 1024]>> {
+  /// Get a mutable reference to the inner writable buffer
+  pub fn as_writable(&mut self) -> &mut Writable<ArrayVec<[u8; N]>> {
     &mut self.0
   }
 }
 
-impl PartialEq for String1Kb {
+impl<const N: usize> PartialEq for String<N> {
   fn eq(&self, other: &Self) -> bool {
     self.0.as_str() == other.0.as_str()
   }
 }
 
-impl Eq for String1Kb {}
+impl<const N: usize> Eq for String<N> {}
 
-impl core::fmt::Write for String1Kb {
+impl<const N: usize> core::fmt::Write for String<N> {
   fn write_str(&mut self, s: &str) -> core::fmt::Result {
     self.0.write_str(s)
   }
 }
 
-impl<'a> From<&'a str> for String1Kb {
+impl<'a, const N: usize> From<&'a str> for String<N> {
   fn from(s: &'a str) -> Self {
     let mut arr = Writable::default();
     ArrayVec::extend_from_slice(&mut arr, s.as_bytes());
@@ -71,13 +82,13 @@ impl<'a> From<&'a str> for String1Kb {
   }
 }
 
-impl AsRef<str> for String1Kb {
+impl<const N: usize> AsRef<str> for String<N> {
   fn as_ref(&self) -> &str {
     self.0.as_str()
   }
 }
 
-impl AsRef<[u8]> for String1Kb {
+impl<const N: usize> AsRef<[u8]> for String<N> {
   fn as_ref(&self) -> &[u8] {
     self.0.as_str().as_bytes()
   }

@@ -10,7 +10,7 @@ use crate::platform::{Message, Platform, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::step::Step;
-use crate::todo::String1Kb;
+use crate::todo::String;
 
 /// Server flow applicative
 pub mod ap;
@@ -167,7 +167,7 @@ pub trait BlockingServer<S>: Sized + Platform<S>
     where I: FnMut(),
           R: FnMut(Run<Self::Types, Self::Error>) -> Run<Self::Types, Self::Error>
   {
-    let mut startup_msg = String1Kb::default();
+    let mut startup_msg = String::<1000>::default();
     write!(
            &mut startup_msg,
            r#"
@@ -198,13 +198,13 @@ pub trait BlockingServer<S>: Sized + Platform<S>
       let req = nb::block!(self.poll_req()).map_err(Error::Other)?;
       match handle_request(Run::Unmatched(req)) {
         | Run::Unmatched(req) => {
-          let mut msg = String1Kb::default();
+          let mut msg = String::<1000>::default();
           write!(&mut msg,
                  "IGNORING Request, not handled by any routes! {:?}",
                  req).ok();
           self.log(log::Level::Error, msg).map_err(Error::Other)?;
 
-          let mut msg = String1Kb::default();
+          let mut msg = String::<1000>::default();
           write!(
                  &mut msg,
                  r#"

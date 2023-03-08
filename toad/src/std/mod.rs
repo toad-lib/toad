@@ -18,6 +18,7 @@ use crate::platform::{Effect, PlatformError};
 use crate::req::Req;
 use crate::resp::Resp;
 use crate::step::Step;
+use crate::todo::String;
 
 /// Enable / Disable DTLS with types
 pub mod dtls {
@@ -149,7 +150,7 @@ impl<Sec, Steps> crate::platform::Platform<Steps> for Platform<Sec, Steps>
   type Types = PlatformTypes<Sec>;
   type Error = io::Error;
 
-  fn log(&self, level: log::Level, msg: crate::todo::String1Kb) -> Result<(), Self::Error> {
+  fn log(&self, level: log::Level, msg: String<1000>) -> Result<(), Self::Error> {
     log::log!(target: "toad", level, "{}", msg.as_str());
     Ok(())
   }

@@ -8,7 +8,7 @@ use crate::net::Addrd;
 use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::todo::String1Kb;
+use crate::todo::String;
 use crate::{exec_inner_step, platform};
 
 /// Struct responsible for buffering and yielding responses to the request
@@ -22,8 +22,8 @@ pub struct HandleAcks<S, B> {
 }
 
 impl<S, B> HandleAcks<S, B> {
-  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
-    let mut string = String1Kb::default();
+  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
+    let mut string = String::<1000>::default();
     write!(string,
            "IGNORING {}b ACK from {} {:?}",
            msg.data().get_size(),
@@ -32,8 +32,8 @@ impl<S, B> HandleAcks<S, B> {
     string
   }
 
-  fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String1Kb {
-    let mut string = String1Kb::default();
+  fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
+    let mut string = String::<1000>::default();
     write!(string,
            "Got {}b ACK from {} for {:?}",
            msg.data().get_size(),

@@ -3,7 +3,7 @@ use core::fmt::Write;
 use crate::platform::PlatformTypes;
 use crate::server::ap::state::{ApState, Combine, Hydrated};
 use crate::server::ap::{Ap, Hydrate};
-use crate::todo::String1Kb;
+use crate::todo::String;
 
 /// Manipulate & match against path segments
 pub mod segment {
@@ -186,13 +186,13 @@ pub fn rest<T, SOut, R, F, P, E>(
   |ap| match ap.try_unwrap_ok_hydrated() {
     | Ok((t, Hydrate { path, req, path_ix })) => {
       let mut s = match path.get(path_ix..) {
-        | Some(segs) => segs.iter().fold(String1Kb::default(), |mut s, seg| {
+        | Some(segs) => segs.iter().fold(String::<1000>::default(), |mut s, seg| {
                                      if let Ok(seg) = core::str::from_utf8(seg.as_bytes()) {
                                        write!(&mut s, "{seg}/").ok();
                                      }
                                      s
                                    }),
-        | None => String1Kb::default(),
+        | None => String::<1000>::default(),
       };
 
       s.as_writable().pop();

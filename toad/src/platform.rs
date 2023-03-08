@@ -13,7 +13,7 @@ use crate::req::Req;
 use crate::resp::Resp;
 use crate::step::Step;
 use crate::time::Clock;
-use crate::todo::String1Kb;
+use crate::todo::String;
 
 /// Default [`PlatformError`] implementation
 #[derive(Debug)]
@@ -151,7 +151,7 @@ pub trait Platform<Steps>
   /// `toad` may occasionally emit tracing and logs by invoking this method.
   ///
   /// It's completely up to the Platform to handle them meaningfully (e.g. `println!`)
-  fn log(&self, level: log::Level, msg: String1Kb) -> Result<(), Self::Error>;
+  fn log(&self, level: log::Level, msg: String<1000>) -> Result<(), Self::Error>;
 
   /// Send a [`toad_msg::Message`]
   fn send_msg(&self,
@@ -311,7 +311,7 @@ pub enum Effect<P>
   where P: PlatformTypes
 {
   Send(Addrd<self::toad_msg::Message<P>>),
-  Log(log::Level, String1Kb),
+  Log(log::Level, String<1000>),
   Nop,
 }
 

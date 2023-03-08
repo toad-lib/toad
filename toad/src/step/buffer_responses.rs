@@ -10,7 +10,7 @@ use crate::net::Addrd;
 use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
-use crate::todo::String1Kb;
+use crate::todo::String;
 
 /// Struct responsible for buffering and yielding responses to the request
 /// we're polling for.
@@ -123,7 +123,7 @@ impl<P: PlatformTypes,
     match resp {
       | Some(resp) if is_what_we_polled_for(&resp) => Some(Ok(resp)),
       | Some(resp) => {
-        let mut msg = String1Kb::default();
+        let mut msg = String::<1000>::default();
         write!(&mut msg,
                "polled for response to {:?}, got response with token {:?}",
                token,
