@@ -937,6 +937,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "toad-len"
+version = "0.1.0"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "toad-macros"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -954,13 +961,6 @@ dependencies = [
  "quote",
  "regex",
  "syn",
-]
-
-[[package]]
-name = "toad-map"
-version = "0.0.0"
-dependencies = [
- "tinyvec",
 ]
 
 [[package]]
