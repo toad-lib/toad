@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/toad-lib/toad/compare/toad-array-v0.2.1...toad-array-v0.2.2) (2023-03-08)
+
+
+### Bug Fixes
+
+* **array:** update len ([#244](https://github.com/toad-lib/toad/issues/244)) ([0eee50f](https://github.com/toad-lib/toad/commit/0eee50f1fca7bd8c931ebeea5b41194a7fc8b70e))
+
 ## [0.2.1](https://github.com/toad-lib/toad/compare/toad-array-v0.2.0...toad-array-v0.2.1) (2023-03-08)
 
 
