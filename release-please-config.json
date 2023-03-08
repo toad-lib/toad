@@ -40,6 +40,16 @@
       "extra-files": ["src/lib.rs"],
       "prerelease": true
     },
+    "toad-hash": {
+      "package-name": "toad-hash",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
     "toad-array": {
       "package-name": "toad-array",
       "changelog-path": "CHANGELOG.md",
