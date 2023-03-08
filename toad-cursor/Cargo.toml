@@ -1,0 +1,24 @@
+[package]
+name = "toad-cursor"
+version = "0.0.0"
+edition = "2021"
+description = "no_std Cursor struct"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/toad/toad"
+repository = "https://github.com/clov-coffee/toad/toad"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+test = []
+docs = []
+
+[dependencies]
