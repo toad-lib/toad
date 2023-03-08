@@ -905,6 +905,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "toad-array"
+version = "0.0.0"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "toad-common"
 version = "0.15.0"
 dependencies = [
