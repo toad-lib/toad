@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "toad-array"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "tinyvec",
  "toad-len 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

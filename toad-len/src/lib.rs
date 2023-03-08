@@ -23,6 +23,14 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
+use core::hash::Hash;
+
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+
+#[cfg(feature = "alloc")]
+use std_alloc::collections::BTreeMap;
+
 /// Get the runtime size of some data structure
 pub trait Len {
   /// The maximum number of elements that this data structure can acommodate.
@@ -84,5 +92,31 @@ impl<A: tinyvec::Array> Len for tinyvec::ArrayVec<A> {
 
   fn is_full(&self) -> bool {
     self.len() >= self.capacity()
+  }
+}
+
+#[cfg(feature = "std")]
+impl<K: Eq + Hash, V> Len for HashMap<K, V> {
+  const CAPACITY: Option<usize> = None;
+
+  fn len(&self) -> usize {
+    self.len()
+  }
+
+  fn is_full(&self) -> bool {
+    false
+  }
+}
+
+#[cfg(feature = "alloc")]
+impl<K, V> Len for BTreeMap<K, V> {
+  const CAPACITY: Option<usize> = None;
+
+  fn len(&self) -> usize {
+    self.len()
+  }
+
+  fn is_full(&self) -> bool {
+    false
   }
 }
