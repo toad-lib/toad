@@ -40,6 +40,66 @@
       "extra-files": ["src/lib.rs"],
       "prerelease": true
     },
+    "toad-writable": {
+      "package-name": "toad-writable",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
+    "toad-hash": {
+      "package-name": "toad-hash",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
+    "toad-cursor": {
+      "package-name": "toad-cursor",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
+    "toad-stem": {
+      "package-name": "toad-stem",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
+    "toad-result-ext": {
+      "package-name": "toad-result-ext",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
+    "toad-map": {
+      "package-name": "toad-map",
+      "changelog-path": "CHANGELOG.md",
+      "release-type": "rust",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "extra-files": ["src/lib.rs"],
+      "prerelease": true
+    },
     "toad-array": {
       "package-name": "toad-array",
       "changelog-path": "CHANGELOG.md",

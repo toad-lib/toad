@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "toad-array"
-version = "0.0.0"
+version = "0.2.0"
 dependencies = [
  "tinyvec",
 ]
@@ -927,6 +927,13 @@ checksum = "3ea1873eda48d0b101fa937a2dd9a1918f04b279b4822f5496b20248fa0a91fa"
 dependencies = [
  "blake2",
  "tinyvec",
+]
+
+[[package]]
+name = "toad-hash"
+version = "0.1.0"
+dependencies = [
+ "blake2",
 ]
 
 [[package]]
