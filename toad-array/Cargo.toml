@@ -1,6 +1,6 @@
 [package]
 name = "toad-array"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Array trait used by the toad ecosystem to abstract over heap or heapless collections"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
