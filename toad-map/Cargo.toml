@@ -1,6 +1,6 @@
 [package]
 name = "toad-map"
-version = "0.0.0"
+version = "0.2.0"
 edition = "2021"
 description = "Map / Dictionary trait that is no_std and heap-allocator-optional"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
