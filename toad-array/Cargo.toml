@@ -16,10 +16,11 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std"]
-std = ["alloc"]
-alloc = []
+std = ["alloc", "toad-len/std"]
+alloc = ["toad-len/alloc"]
 test = []
 docs = []
 
 [dependencies]
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
+toad-len = {version = "0.1.0", default_features = false}
