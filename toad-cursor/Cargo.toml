@@ -1,6 +1,6 @@
 [package]
 name = "toad-cursor"
-version = "0.0.0"
+version = "0.2.0"
 edition = "2021"
 description = "no_std Cursor struct"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
