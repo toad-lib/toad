@@ -41,18 +41,18 @@ pub trait Len {
   /// For collections this is always equivalent to calling an inherent `len` method.
   ///
   /// ```
-  /// use toad_common::GetSize;
+  /// use toad_len::Len;
   ///
-  /// assert_eq!(vec![1u8, 2].get_size(), 2)
+  /// assert_eq!(Len::len(&vec![1u8, 2]), 2)
   /// ```
   fn len(&self) -> usize;
 
   /// Check if the runtime size is zero
   ///
   /// ```
-  /// use toad_common::GetSize;
+  /// use toad_len::Len;
   ///
-  /// assert!(Vec::<u8>::new().size_is_zero())
+  /// assert!(Len::is_empty(&Vec::<u8>::new()))
   /// ```
   fn is_empty(&self) -> bool {
     self.len() == 0
@@ -61,11 +61,11 @@ pub trait Len {
   /// Is there no room left in this collection?
   ///
   /// ```
-  /// use toad_common::GetSize;
+  /// use toad_len::Len;
   ///
   /// let array = tinyvec::ArrayVec::<[u8; 2]>::from([1, 2]);
   ///
-  /// assert!(array.is_full())
+  /// assert!(Len::is_full(&array))
   /// ```
   fn is_full(&self) -> bool;
 }
