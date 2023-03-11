@@ -913,6 +913,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "toad-array"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b40e21a6886f7986d16e184c1b71777b4961d391985952edda27ffe54e262a37"
+dependencies = [
+ "tinyvec",
+ "toad-len 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "toad-common"
 version = "0.15.0"
 dependencies = [
@@ -932,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "toad-cursor"
-version = "0.0.0"
+version = "0.2.0"
 
 [[package]]
 name = "toad-hash"
@@ -1010,6 +1020,13 @@ dependencies = [
  "tinyvec",
  "toad-common 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
+]
+
+[[package]]
+name = "toad-writable"
+version = "0.0.0"
+dependencies = [
+ "toad-array 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
