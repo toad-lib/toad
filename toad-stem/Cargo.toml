@@ -1,6 +1,6 @@
 [package]
 name = "toad-stem"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 description = "This microcrate provides a mutable memory wrapper that is thread-safe and usable on `no_std` platforms."
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
