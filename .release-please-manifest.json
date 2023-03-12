@@ -6,9 +6,9 @@
   "toad-hash": "0.3.0",
   "toad-len": "0.1.2",
   "toad-macros": "0.2.1",
-  "toad-map": "0.2.0",
+  "toad-map": "0.2.1",
   "toad-msg": "0.15.0",
   "toad-result-ext": "0.0.0",
   "toad-stem": "0.1.0",
-  "toad-writable": "0.1.0"
+  "toad-writable": "0.1.1"
 }

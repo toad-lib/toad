@@ -1,6 +1,6 @@
 [package]
 name = "toad-writable"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "This microcrate provides a struct implementing [`core::fmt::Write`] for all [`toad_array::Array`]s"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
