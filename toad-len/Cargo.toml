@@ -1,6 +1,6 @@
 [package]
 name = "toad-len"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "a `Len` trait that provides capacity and runtime length for collections"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
