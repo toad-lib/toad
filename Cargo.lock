@@ -882,7 +882,7 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "toad"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "embedded-time",
  "lazycell",
@@ -909,7 +909,7 @@ name = "toad-array"
 version = "0.2.2"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-len 0.1.1",
 ]
 
 [[package]]
@@ -919,7 +919,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b40e21a6886f7986d16e184c1b71777b4961d391985952edda27ffe54e262a37"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-len 0.1.1",
 ]
 
 [[package]]
@@ -954,15 +954,15 @@ dependencies = [
 [[package]]
 name = "toad-len"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d2e764f56d94a164a36a5fdd4743f9a5b2bdd19bdf896aa5ef7ad89a42491ff"
 dependencies = [
  "tinyvec",
 ]
 
 [[package]]
 name = "toad-len"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d2e764f56d94a164a36a5fdd4743f9a5b2bdd19bdf896aa5ef7ad89a42491ff"
+version = "0.1.2"
 dependencies = [
  "tinyvec",
 ]
@@ -992,7 +992,7 @@ name = "toad-map"
 version = "0.2.0"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-len 0.1.1",
 ]
 
 [[package]]
