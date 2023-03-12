@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/toad-lib/toad/compare/toad-map-v0.2.1...toad-map-v0.2.2) (2023-03-12)
+
+
+### Bug Fixes
+
+* update toad-len ([3c27a4d](https://github.com/toad-lib/toad/commit/3c27a4d909f29aecb1ab7fcbf878bd8947b4d527))
+
 ## [0.2.1](https://github.com/toad-lib/toad/compare/toad-map-v0.2.0...toad-map-v0.2.1) (2023-03-12)
 
 
