@@ -19,7 +19,7 @@ command = "cargo"
 args = ["check", "--no-default-features", "--features", "alloc"]
 
 [tasks.ci]
-dependencies = ["test", "fmt-check", "clippy-check", "check-no-std", "check-alloc"]
+dependencies = ["test-quiet", "fmt-check", "clippy-check", "check-no-std", "check-alloc"]
 
 [tasks.tdd]
 install_crate = "cargo-watch"
