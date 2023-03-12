@@ -24,7 +24,6 @@
 extern crate alloc as std_alloc;
 
 use core::hash::Hash;
-
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 

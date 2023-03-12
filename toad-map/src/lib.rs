@@ -32,7 +32,6 @@ use std::collections::{hash_map, HashMap};
 
 #[cfg(feature = "alloc")]
 use std_alloc::collections::{btree_map, BTreeMap};
-
 use toad_len::Len;
 
 /// Things that can go unhappily when trying to insert into a map
@@ -65,7 +64,8 @@ pub trait Map<K: Ord + Eq + Hash, V>:
 
   /// See [`HashMap.remove`]
   fn remove<Q>(&mut self, key: &Q) -> Option<V>
-    where K: Borrow<Q>, Q: Hash + Eq + Ord;
+    where K: Borrow<Q>,
+          Q: Hash + Eq + Ord;
 
   /// See [`HashMap.get`]
   fn get<'a, Q: Hash + Eq + Ord>(&'a self, key: &Q) -> Option<&'a V>
@@ -92,12 +92,10 @@ pub trait Map<K: Ord + Eq + Hash, V>:
 #[cfg(feature = "alloc")]
 impl<K: Eq + Hash + Ord, V> Map<K, V> for BTreeMap<K, V> {
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
-    match self.insert(key, val)
-        .map(InsertError::Exists)
-        .ok_or(()) {
-          Ok(e) => Err(e),
-          Err(()) => Ok(())
-        }
+    match self.insert(key, val).map(InsertError::Exists).ok_or(()) {
+      | Ok(e) => Err(e),
+      | Err(()) => Ok(()),
+    }
   }
 
   fn remove<Q: Ord>(&mut self, key: &Q) -> Option<V>
@@ -160,12 +158,10 @@ impl<K: Eq + Hash + Ord, V> Map<K, V> for HashMap<K, V> {
   }
 
   fn insert(&mut self, key: K, val: V) -> Result<(), InsertError<V>> {
-    match self.insert(key, val)
-        .map(InsertError::Exists)
-        .ok_or(()) {
-          Ok(e) => Err(e),
-              Err(()) => Ok(()),
-       }
+    match self.insert(key, val).map(InsertError::Exists).ok_or(()) {
+      | Ok(e) => Err(e),
+      | Err(()) => Ok(()),
+    }
   }
 
   fn remove<Q: Hash + Eq + Ord>(&mut self, key: &Q) -> Option<V>
@@ -242,7 +238,8 @@ impl<A: tinyvec::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for tiny
 }
 
 #[cfg(feature = "alloc")]
-impl<K, V> Map<K, V> for Vec<(K, V)> where K: Ord + Hash {
+impl<K, V> Map<K, V> for Vec<(K, V)> where K: Ord + Hash
+{
   fn insert(&mut self, key: K, mut val: V) -> Result<(), InsertError<V>> {
     match self.iter_mut().find(|(k, _)| k == &&key) {
       | Some((_, exist)) => {
@@ -260,7 +257,8 @@ impl<K, V> Map<K, V> for Vec<(K, V)> where K: Ord + Hash {
   }
 
   fn remove<Q>(&mut self, key: &Q) -> Option<V>
-    where K: Borrow<Q>, Q: Hash + Eq + Ord
+    where K: Borrow<Q>,
+          Q: Hash + Eq + Ord
   {
     match self.iter()
               .enumerate()
