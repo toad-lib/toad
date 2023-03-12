@@ -238,7 +238,7 @@ impl<A: tinyvec::Array<Item = (K, V)>, K: Eq + Hash + Ord, V> Map<K, V> for tiny
 }
 
 #[cfg(feature = "alloc")]
-impl<K, V> Map<K, V> for Vec<(K, V)> where K: Ord + Hash
+impl<K, V> Map<K, V> for std_alloc::vec::Vec<(K, V)> where K: Ord + Hash
 {
   fn insert(&mut self, key: K, mut val: V) -> Result<(), InsertError<V>> {
     match self.iter_mut().find(|(k, _)| k == &&key) {
