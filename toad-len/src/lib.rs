@@ -71,7 +71,7 @@ pub trait Len {
 }
 
 #[cfg(feature = "alloc")]
-impl<T> Len for Vec<T> {
+impl<T> Len for std_alloc::vec::Vec<T> {
   const CAPACITY: Option<usize> = None;
 
   fn len(&self) -> usize {

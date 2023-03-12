@@ -104,9 +104,9 @@ pub mod json {
   /// # impl Topping {
   /// #   fn to_json(&self) -> serde_json::Value {
   /// #     serde_json::Value::String(match self {
-  /// #       Pepperoni => "Pepperoni",
-  /// #       RedOnion => "RedOnion",
-  /// #       Pineapple => "Pineapple",
+  /// #       Topping::Pepperoni => "Pepperoni",
+  /// #       Topping::RedOnion => "RedOnion",
+  /// #       Topping::Pineapple => "Pineapple",
   /// #     }.to_string())
   /// #   }
   /// # }

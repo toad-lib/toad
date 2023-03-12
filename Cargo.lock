@@ -1024,11 +1024,11 @@ dependencies = [
 
 [[package]]
 name = "toad-stem"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "toad-writable"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "toad-array 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
