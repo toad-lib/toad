@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/toad-lib/toad/compare/toad-len-v0.1.1...toad-len-v0.1.2) (2023-03-12)
+
+
+### Bug Fixes
+
+* ci ([3e3af9d](https://github.com/toad-lib/toad/commit/3e3af9dff55d20f3f69de4dfd696f4c52e20b3d2))
+
 ## [0.1.1](https://github.com/toad-lib/toad/compare/toad-len-v0.1.0...toad-len-v0.1.1) (2023-03-08)
 
 

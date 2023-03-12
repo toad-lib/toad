@@ -1,6 +1,6 @@
 [package]
 name = "toad"
-version = "0.17.0"
+version = "0.17.1"
 edition = "2021"
 description = "Universal implementation of the CoAP networking protocol"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
