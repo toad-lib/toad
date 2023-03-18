@@ -1,7 +1,8 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
-use toad_common::{Array, Stem};
+use toad_array::Array;
 use toad_msg::{CodeKind, Token, Type};
+use toad_stem::Stem;
 
 use super::{Step, StepOutput, _try};
 use crate::config::Config;

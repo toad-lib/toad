@@ -4,8 +4,11 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_common::{Array, GetSize, InsertError, Map, Stem};
+use toad_array::Array;
+use toad_len::Len;
+use toad_map::{InsertError, Map};
 use toad_msg::Id;
+use toad_stem::Stem;
 
 use super::{Step, _try};
 use crate::config::Config;
@@ -145,7 +148,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
           }
 
           ids.sort_by_key(|t| t.time());
-          let newest_id_time = ids[ids.get_size() - 1].time();
+          let newest_id_time = ids[ids.len() - 1].time();
           ids.sort();
 
           // is the newest id for this addr older than the newest id for `to_remove`?
@@ -179,7 +182,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
         ids.sort_unstable();
 
         let smallest = || ids[0].data().0 .0;
-        let biggest = || ids[ids.get_size() - 1].data().0 .0;
+        let biggest = || ids[ids.len() - 1].data().0 .0;
 
         let next = if ids.is_empty() {
           Id(1)
@@ -326,7 +329,6 @@ mod test {
   use std::collections::BTreeMap;
 
   use embedded_time::duration::Microseconds;
-  use toad_common::Map;
 
   use super::*;
   use crate::step::test::test_step;

@@ -1,5 +1,6 @@
+use naan::prelude::MonadOnce;
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs};
-use toad_common::*;
+use toad_array::Array;
 
 /// Creates a [`SocketAddr::V4`] from an ipv4 address and port
 pub fn ipv4_socketaddr([a, b, c, d]: [u8; 4], port: u16) -> SocketAddr {
@@ -107,7 +108,7 @@ pub trait Socket: Sized {
   fn bind<A: ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
     let addr = addr.to_socket_addrs().unwrap().next().unwrap();
 
-    Self::bind_raw(addr).try_perform(|sock| match addr.ip() {
+    Self::bind_raw(addr).discard(|sock: &Self| match addr.ip() {
                           | ip if ip.is_multicast() => sock.join_multicast(ip),
                           | _ => Ok(()),
                         })

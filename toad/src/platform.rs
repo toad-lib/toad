@@ -2,10 +2,11 @@ use core::fmt::Debug;
 
 use ::toad_msg::{Id, OptNumber, OptValue, OptionMap, Token, TryIntoBytes};
 use embedded_time::Instant;
+use naan::prelude::MonadOnce;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
-use toad_common::*;
+use toad_array::{AppendCopy, Array};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
@@ -162,12 +163,12 @@ pub trait Platform<Steps>
     let mut effs = <Self::Types as PlatformTypes>::Effects::default();
 
     self.snapshot()
-        .try_perform(|snapshot| {
+        .discard(|snapshot: &Snapshot<Self::Types>| {
           self.steps()
               .before_message_sent(snapshot, &mut effs, &mut addrd_msg)
               .map_err(Self::Error::step)
         })
-        .try_perform(|_| self.exec_many(effs).map_err(|(_, e)| e))
+        .discard(|_: &Snapshot<Self::Types>| self.exec_many(effs).map_err(|(_, e)| e))
         .and_then(|snapshot| {
           addrd_msg.clone().fold(|msg, addr| {
                              let (id, token) = (msg.id, msg.token);
@@ -177,12 +178,12 @@ pub trait Platform<Steps>
                            })
         })
         .map_err(nb::Error::Other)
-        .try_perform(|(_, _, _, addrd_bytes)| {
+        .discard(|(_, _, _, addrd_bytes): &(_, _, _, Addrd<<<Self::Types as PlatformTypes>::Socket as Socket>::Dgram>)| {
           self.socket()
               .send(addrd_bytes.as_ref().map(|s| s.as_ref()))
               .map_err(|e: nb::Error<_>| e.map(Self::Error::socket))
         })
-        .try_perform(|(_, _, snapshot, _)| {
+        .discard(|(_, _, snapshot, _): &(_, _, Snapshot<<Self as Platform<Steps>>::Types>, _)| {
           self.steps()
               .on_message_sent(snapshot, &addrd_msg)
               .map_err(Self::Error::step)

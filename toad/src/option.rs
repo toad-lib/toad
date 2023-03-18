@@ -1,4 +1,4 @@
-use toad_common::Array;
+use toad_array::Array;
 
 /// Content-Format
 #[non_exhaustive]

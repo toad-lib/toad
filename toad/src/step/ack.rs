@@ -1,4 +1,4 @@
-use toad_common::Array;
+use toad_array::Array;
 use toad_msg::{CodeKind, Type};
 
 use super::{exec_inner_step, Step, StepOutput};

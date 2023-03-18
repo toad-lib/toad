@@ -1,12 +1,14 @@
 //! Future inherent methods on structs in other crates
 use core::ops::{Div, Mul};
 
+use naan::prelude::ResultExt;
 use tinyvec::ArrayVec;
-use toad_common::*;
+use toad_len::Len;
+use toad_writable::Writable;
 
 pub mod hkt {
   pub trait Array {
-    type Of<T: Default>: toad_common::Array<Item = T>;
+    type Of<T: Default>: toad_array::Array<Item = T>;
   }
 
   #[cfg(feature = "alloc")]
@@ -94,9 +96,9 @@ impl<const N: usize> AsRef<[u8]> for String<N> {
   }
 }
 
-pub(crate) trait Capacity: GetSize {
+pub(crate) trait Capacity: Len {
   fn capacity(&self) -> Option<f32> {
-    Self::CAPACITY.map(|max| self.get_size() as f32 / max as f32)
+    Self::CAPACITY.map(|max| self.len() as f32 / max as f32)
   }
 
   fn capacity_pct(&self) -> Option<f32> {
@@ -104,7 +106,7 @@ pub(crate) trait Capacity: GetSize {
   }
 }
 
-impl<T: GetSize> Capacity for T {}
+impl<T: Len> Capacity for T {}
 
 pub(crate) trait ResultExt2<T, E> {
   fn unwrap_err_or(self, f: impl FnOnce(T) -> E) -> E;
@@ -135,9 +137,9 @@ pub(crate) trait NbResultExt<T, E> {
 
 impl<T, E> NbResultExt<T, E> for ::nb::Result<T, E> {
   fn perform_nb_err(self, f: impl FnOnce(&E) -> ()) -> ::nb::Result<T, E> {
-    self.perform_err(|e| match e {
-          | ::nb::Error::Other(e) => f(e),
-          | ::nb::Error::WouldBlock => (),
+    self.discard_err(|e: &::nb::Error<E>| match e {
+          | &::nb::Error::Other(ref e) => f(e),
+          | &::nb::Error::WouldBlock => (),
         })
   }
 

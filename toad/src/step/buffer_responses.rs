@@ -1,8 +1,11 @@
 use core::fmt::Write;
 
 use no_std_net::SocketAddr;
-use toad_common::{Array, GetSize, Map, Stem};
+use toad_array::Array;
+use toad_len::Len;
+use toad_map::Map;
 use toad_msg::{Token, Type};
+use toad_stem::Stem;
 
 use super::{Step, StepOutput};
 use crate::exec_inner_step;
@@ -110,7 +113,7 @@ impl<P: PlatformTypes,
     let resp = exec_inner_step!(self.inner.poll_resp(snap, effects, token, addr),
                                 Error::Inner);
 
-    if self.buffer.map_ref(GetSize::is_full) {
+    if self.buffer.map_ref(Len::is_full) {
       return Some(Err(nb::Error::Other(Error::BufferResponsesFull)));
     }
 
