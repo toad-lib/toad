@@ -1,8 +1,8 @@
 use std::io;
 use std::net::UdpSocket;
 
+use naan::prelude::{Monad, MonadOnce};
 use tinyvec::ArrayVec;
-use toad_common::*;
 
 use crate::net::{Addrd, Socket};
 
@@ -44,7 +44,7 @@ impl Socket for UdpSocket {
                     .map(|no_std| convert::no_std::SockAddr(no_std).into())
                     .collect::<Vec<std::net::SocketAddr>>();
 
-    UdpSocket::bind(addrs.as_slice()).perform(|s| s.set_nonblocking(true).unwrap())
+    UdpSocket::bind(addrs.as_slice()).discard(|s: &UdpSocket| Ok(s.set_nonblocking(true).unwrap()))
   }
 
   fn join_multicast(&self, addr: no_std_net::IpAddr) -> Result<(), Self::Error> {

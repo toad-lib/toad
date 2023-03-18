@@ -67,8 +67,7 @@ pub mod json {
     where P: PlatformTypes,
           T: Serialize
   {
-    use toad_common::{Filled, Trunc};
-
+    use toad_array::{Filled, Trunc};
     let mut p = P::MessagePayload::filled(0u8).expect("cannot combine dynamically allocated collections with no_std crate feature `unstable_serde_json`. Use `std_serde_json` instead.");
     serde_json_core::to_slice(&t, &mut p).map(|ct| {
                                            p.trunc(ct);

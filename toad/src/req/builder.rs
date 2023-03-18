@@ -1,4 +1,5 @@
-use toad_common::*;
+use naan::prelude::MonadOnce;
+use toad_array::Array;
 use toad_msg::{MessageOptions, OptNumber, OptValue};
 
 use super::{Method, Req};
@@ -132,7 +133,7 @@ impl<P> ReqBuilder<P>
   pub fn payload<V: ToCoapValue>(mut self, value: V) -> Self {
     self.inner
         .as_mut()
-        .perform_mut(|i| i.set_payload(value))
+        .discard_mut(|i: &mut &mut Req<P>| Ok(i.set_payload(value)))
         .ok();
     self
   }

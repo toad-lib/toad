@@ -6,16 +6,20 @@ use std::net::UdpSocket;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 
-use openssl::ssl::{MidHandshakeSslStream,
+use naan::prelude::{Monad, MonadOnce, ResultExt};
+use openssl::ssl::{ConnectConfiguration,
+                   MidHandshakeSslStream,
                    Ssl,
                    SslAcceptor,
+                   SslAcceptorBuilder,
                    SslConnector,
                    SslContext,
                    SslMethod,
                    SslMode};
 use tinyvec::ArrayVec;
-use toad_common::*;
+use toad_array::Array;
 
+use self::conn::{SecureUdpConn, SslStream};
 use super::convert::nb_to_io;
 use super::{convert, Addrd, Socket};
 use crate::todo::{self, NbResultExt, ResultExt2};
@@ -116,6 +120,9 @@ mod error {
 /// You probably don't need to refer to these directly, but you can
 /// if you've walked yourself into a deep hole
 pub mod conn {
+  use naan::prelude::{Monad, MonadOnce};
+  use no_std_net::SocketAddr;
+
   use super::*;
 
   pub(in crate::std) type SslStream = openssl::ssl::SslStream<UdpConn>;
@@ -188,7 +195,7 @@ pub mod conn {
     fn flush(&mut self) -> io::Result<()> {
       let tx = Addrd(self.tx_buf.as_slice(), self.addr);
       Socket::send(self.sock.as_ref(), tx).perform_nb_err(|_| self.tx_buf.clear())
-                                          .perform(|_| self.tx_buf.clear())
+                                          .discard(|_: &()| Ok(self.tx_buf.clear()))
                                           .map_err(nb_to_io)
     }
   }
@@ -196,7 +203,7 @@ pub mod conn {
   impl io::Read for UdpConn {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
       self.peek()
-          .bind(|rx_addr| {
+          .bind1(|rx_addr: SocketAddr| {
             if rx_addr == self.addr {
               let recv = Socket::recv(self.sock.as_ref(), buf);
               recv.expect_nonblocking("toad::std::net::UdpConn::peek lied!")
@@ -244,13 +251,13 @@ impl SecureUdpSocket {
                   -> Result<SslAcceptor> {
     let builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::dtls());
 
-    builder.perform(|_| log::trace!("set private key"))
+    builder.discard(|_: &SslAcceptorBuilder| Ok(log::trace!("set private key")))
            .try_perform_mut(|builder| builder.set_private_key(&private_key))
-           .perform(|_| log::trace!("set cert"))
+           .discard(|_: &SslAcceptorBuilder| Ok(log::trace!("set cert")))
            .try_perform_mut(|builder| builder.set_certificate(&cert))
            .map(|builder| builder.build())
            .map_err(Into::into)
-           .perform(|_| log::trace!("new acceptor created"))
+           .discard(|_: &SslAcceptor| Ok(log::trace!("new acceptor created")))
   }
 
   fn new_connector() -> Result<SslConnector> {
@@ -263,7 +270,7 @@ impl SecureUdpSocket {
              builder.build()
            })
            .map_err(Into::into)
-           .perform(|_| log::trace!("new connector created"))
+           .discard(|_: &SslConnector| Ok(log::trace!("new connector created")))
   }
 
   /// Create a new secure socket for a server
@@ -332,14 +339,14 @@ impl SecureUdpSocket {
                  .map_err(Error::from)
                  .map_err(Error::into_nb)
                  .perform_nb_err(|e| log::error!("configure connector failed: {:?}", e))
-                 .bind(|conf| {
+                 .bind1(|conf: ConnectConfiguration| {
                    // TODO: can these be enabled?
                    conf.verify_hostname(false)
                        .use_server_name_indication(false)
                        .into_ssl("")
                        .map_err(Error::from)
-                       .bind(|ssl| ssl.connect(conn).map_err(Error::from))
-                       .perform_mut(|stream| stream.get_mut().handshake_done())
+                       .bind1(|ssl: Ssl| ssl.connect(conn).map_err(Error::from))
+                       .discard_mut(|stream: &mut SslStream| Ok(stream.get_mut().handshake_done()))
                        .map_err(Error::into_nb)
                  })
                  .perform_nb_err(|e| log::error!("connect failed: {:?}", e))
@@ -362,8 +369,9 @@ impl SecureUdpSocket {
      })
      .map(Mutex::new)
      .map(Arc::new)
-     .perform(|conn| {
+     .discard(|conn: &Arc<Mutex<SecureUdpConn>>| {
        conns.insert(addr, conn.clone());
+       Ok(())
      })
   }
 
@@ -386,7 +394,7 @@ impl SecureUdpSocket {
 
     let try_accept = |ctx| {
       Ssl::new(ctx).map_err(Error::from)
-                   .bind(|ssl| ssl.accept(conn).map_err(Error::from))
+                   .bind1(|ssl: Ssl| ssl.accept(conn).map_err(Error::from))
                    .map_err(Error::into_nb)
                    .perform_nb_err(|e| log::error!("accept failed: {:?}", e))
     };
@@ -403,8 +411,9 @@ impl SecureUdpSocket {
      })
      .map(Mutex::new)
      .map(Arc::new)
-     .perform(|conn| {
+     .discard(|conn: &Arc<Mutex<SecureUdpConn>>| {
        conns.insert(addr, conn.clone());
+       Ok(())
      })
   }
 
@@ -497,13 +506,13 @@ impl Socket for SecureUdpSocket {
 
   fn send(&self, msg: Addrd<&[u8]>) -> nb::Result<(), Self::Error> {
     self.get_conn_or_connect(msg.addr())
-        .bind(|stream| {
+        .bind(|stream: Arc<Mutex<SecureUdpConn>>| {
           let mut lock = stream.lock().unwrap();
           match DerefMut::deref_mut(&mut lock) {
             | conn::SecureUdpConn::Established(stream) => {
               stream.ssl_write(msg.data())
                     .map_err(Error::from)
-                    .bind(|_| stream.flush().map_err(Error::from))
+                    .bind1(|_: usize| stream.flush().map_err(Error::from))
             },
             | conn::SecureUdpConn::Establishing(_) => Err(self.restart_handshake(msg.addr())),
           }
@@ -522,8 +531,8 @@ impl Socket for SecureUdpSocket {
         .peek_addr()
         .map_err(convert::nb_to_io)
         .map_err(Error::from)
-        .bind(|addr| self.get_conn_or_accept(addr).map(|conn| Addrd(conn, addr)))
-        .bind(|Addrd(conn, addr)| {
+        .bind1(|addr| self.get_conn_or_accept(addr).map(|conn| Addrd(conn, addr)))
+        .bind1(|Addrd(conn, addr): Addrd<Arc<Mutex<SecureUdpConn>>>| {
           let mut lock = conn.lock().unwrap();
           match DerefMut::deref_mut(&mut lock) {
             | conn::SecureUdpConn::Established(conn) => conn.ssl_read(buffer)
@@ -560,6 +569,8 @@ impl Socket for SecureUdpSocket {
 
   /// Multicast and SSL are incompatible, so this always returns `Err(io::ErrorKind::Unsupported)`.
   fn join_multicast(&self, _: no_std_net::IpAddr) -> Result<()> {
-    Err(io::Error::from(io::ErrorKind::Unsupported).into()).perform_err(|e| log::error!("{:?}", e))
+    Err(io::Error::from(io::ErrorKind::Unsupported).into()).discard_err(|e: &Error| {
+                                                             log::error!("{:?}", e)
+                                                           })
   }
 }

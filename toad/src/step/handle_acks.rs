@@ -1,7 +1,11 @@
 use core::fmt::Write;
 
-use toad_common::{Array, GetSize, InsertError, Map, ResultExt, Stem};
+use naan::prelude::ResultExt;
+use toad_array::Array;
+use toad_len::Len;
+use toad_map::{InsertError, Map};
 use toad_msg::{Token, Type};
+use toad_stem::Stem;
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;
@@ -26,7 +30,7 @@ impl<S, B> HandleAcks<S, B> {
     let mut string = String::<1000>::default();
     write!(string,
            "IGNORING {}b ACK from {} {:?}",
-           msg.data().get_size(),
+           msg.data().len(),
            msg.addr(),
            msg.data().token).ok();
     string
@@ -36,7 +40,7 @@ impl<S, B> HandleAcks<S, B> {
     let mut string = String::<1000>::default();
     write!(string,
            "Got {}b ACK from {} for {:?}",
-           msg.data().get_size(),
+           msg.data().len(),
            msg.addr(),
            (msg.data().id, msg.data().token)).ok();
     string

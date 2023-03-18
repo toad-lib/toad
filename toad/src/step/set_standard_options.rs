@@ -1,8 +1,8 @@
 use core::fmt::Write;
 
 use tinyvec::ArrayVec;
-use toad_common::Writable;
 use toad_msg::MessageOptions;
+use toad_writable::Writable;
 
 use super::{Step, StepOutput};
 use crate::net::Addrd;

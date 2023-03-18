@@ -3,12 +3,13 @@ use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
 use no_std_net::SocketAddr;
-use toad_common::hash::Blake2Hasher;
-use toad_common::{Array, Stem};
+use toad_array::Array;
+use toad_hash::Blake2Hasher;
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
 use toad_msg::repeat::PATH;
 use toad_msg::{CodeKind, Id, MessageOptions, Token};
+use toad_stem::Stem;
 
 use super::Step;
 use crate::net::Addrd;

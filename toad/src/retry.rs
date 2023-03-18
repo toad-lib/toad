@@ -2,8 +2,8 @@ use core::ops::{Add, Mul, RangeInclusive, Sub};
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
+use naan::prelude::Monad;
 use rand::{Rng, SeedableRng};
-use toad_common::*;
 
 use crate::time::{Clock, Millis};
 
