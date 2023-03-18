@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.15.1](https://github.com/toad-lib/toad/compare/toad-msg-v0.15.0...toad-msg-v0.15.1) (2023-03-18)
+
+
+### Bug Fixes
+
+* **msg:** use new crates ([#258](https://github.com/toad-lib/toad/issues/258)) ([aa170a2](https://github.com/toad-lib/toad/commit/aa170a23fa90bdcd6853d5f06e191651d9d692d0))
+
 ## [0.15.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.14.2...toad-msg-v0.15.0) (2023-03-04)
 
 
