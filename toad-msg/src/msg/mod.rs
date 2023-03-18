@@ -3,7 +3,9 @@ use core::hash::Hash;
 use core::iter::FromIterator;
 use core::str::{from_utf8, Utf8Error};
 
-use toad_common::{AppendCopy, Array, Cursor, GetSize};
+use toad_array::{AppendCopy, Array};
+use toad_cursor::Cursor;
+use toad_len::Len;
 use toad_macros::rfc_7252_doc;
 
 #[allow(unused_imports)]
@@ -116,17 +118,15 @@ impl TryFrom<u8> for Byte1 {
   }
 }
 
-impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> GetSize
-  for Message<PayloadBytes, Options>
-{
+impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> Len for Message<PayloadBytes, Options> {
   const CAPACITY: Option<usize> = None;
 
-  fn get_size(&self) -> usize {
+  fn len(&self) -> usize {
     let header_size = 4;
     let payload_marker_size = 1;
-    let payload_size = self.payload.0.get_size();
+    let payload_size = self.payload.0.len();
     let token_size = self.token.0.len();
-    let opts_size: usize = self.opts.opt_refs().map(|o| o.get_size()).sum();
+    let opts_size: usize = self.opts.opt_refs().map(|o| o.len()).sum();
 
     header_size + payload_marker_size + payload_size + token_size + opts_size
   }
@@ -670,7 +670,7 @@ pub trait MessageOptions {
   {
     if let Some(others) = self.remove(opt::known::repeat::IF_MATCH) {
       others.into_iter()
-            .filter(|v| v.0.get_size() > 0)
+            .filter(|v| v.0.len() > 0)
             .map(|v| self.add(opt::known::repeat::IF_MATCH, v))
             .collect::<Result<(), _>>()?;
     }
@@ -834,7 +834,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   }
 
   fn count(&self, n: OptNumber) -> usize {
-    self.get(n).map(|a| a.get_size()).unwrap_or(0)
+    self.get(n).map(|a| a.len()).unwrap_or(0)
   }
 
   fn get(&self, n: OptNumber) -> Option<&Options::OptValues> {
@@ -856,7 +856,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
     where F: FromIterator<&'a str>
   {
     match self.get(n) {
-      | Some(vs) if vs.get_size() >= 1 => vs.iter().map(|s| from_utf8(&s.0)).collect(),
+      | Some(vs) if vs.len() >= 1 => vs.iter().map(|s| from_utf8(&s.0)).collect(),
       | _ => Ok(core::iter::empty().collect()),
     }
   }

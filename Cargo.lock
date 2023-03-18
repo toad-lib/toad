@@ -528,9 +528,9 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 
 [[package]]
 name = "openssl"
-version = "0.10.45"
+version = "0.10.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b102428fd03bc5edf97f62620f7298614c45cedf287c271e7ed450bbaf83f2e1"
+checksum = "fd2523381e46256e40930512c7fd25562b9eae4812cb52078f155e87217c9d1e"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -554,9 +554,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.80"
+version = "0.9.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23bbbf7854cd45b83958ebe919f0e8e516793727652e27fda10a8384cfc790b7"
+checksum = "176be2629957c157240f68f61f2d0053ad3a4ecfdd9ebf1e6521d18d9635cf67"
 dependencies = [
  "autocfg",
  "cc",
@@ -613,18 +613,18 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.51"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d727cae5b39d21da60fa540906919ad737832fe0b1c165da3a34d6548c849d6"
+checksum = "1d0e1ae9e836cc3beddd63db0df682593d7e2d3d891ae8c9083d2113e1744224"
 dependencies = [
  "unicode-ident",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.23"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8856d8364d252a14d474036ea1358d63c9e6965c8e5c1885c18f73d70bff9c7b"
+checksum = "4424af4bf778aae2051a77b60283332f386554255d722233d09fbfc7e30da2fc"
 dependencies = [
  "proc-macro2",
 ]
@@ -731,9 +731,9 @@ checksum = "bebd363326d05ec3e2f532ab7660680f3b02130d780c299bca73469d521bc0ed"
 
 [[package]]
 name = "serde"
-version = "1.0.155"
+version = "1.0.156"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71f2b4817415c6d4210bfe1c7bfcf4801b2d904cb4d0e1a8fdb651013c9e86b8"
+checksum = "314b5b092c0ade17c00142951e50ced110ec27cea304b1037c6969246c2469a4"
 dependencies = [
  "serde_derive",
 ]
@@ -761,9 +761,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.155"
+version = "1.0.156"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d071a94a3fac4aff69d023a7f411e33f40f3483f8c5190b1953822b6b76d7630"
+checksum = "d7e29c4601e36bcec74a223228dce795f4cd3616341a4af93520ca1a837c087d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -796,9 +796,9 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dccf47db1b41fa1573ed27ccf5e08e3ca771cb994f776668c5ebda893b248fc"
+checksum = "b5d6e0250b93c8427a177b849d144a96d5acc57006149479403d7861ab721e34"
 dependencies = [
  "lock_api",
 ]
@@ -906,20 +906,20 @@ dependencies = [
 
 [[package]]
 name = "toad-array"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b40e21a6886f7986d16e184c1b71777b4961d391985952edda27ffe54e262a37"
+version = "0.2.3"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.2",
+ "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "toad-array"
 version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc3f25d13b8cbfe71fe854ff3c9a8f3f9729a5bd008089bb8dc8378b4ef3578f"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.2",
+ "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -945,6 +945,12 @@ name = "toad-cursor"
 version = "0.2.0"
 
 [[package]]
+name = "toad-cursor"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dee8dde5a719faedaf8509f68a8ae1b72e6f0d96bcdbcd59b92de074fe7c33e"
+
+[[package]]
 name = "toad-hash"
 version = "0.3.0"
 dependencies = [
@@ -953,9 +959,7 @@ dependencies = [
 
 [[package]]
 name = "toad-len"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61683efdbf9725f8b461203345e4633a6b02f2e3e9c70c3552e49651675e091b"
+version = "0.1.3"
 dependencies = [
  "tinyvec",
 ]
@@ -963,6 +967,8 @@ dependencies = [
 [[package]]
 name = "toad-len"
 version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "819ba7124b9324c03a7043145430b0df5b10374543785d3cc5f773b9c0e36b37"
 dependencies = [
  "tinyvec",
 ]
@@ -989,10 +995,20 @@ dependencies = [
 
 [[package]]
 name = "toad-map"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "tinyvec",
- "toad-len 0.1.2",
+ "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "toad-map"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "423d547a014a817ea38dc677ca5e8488edf6aeeda36d69bdfcce5adf7b2a0918"
+dependencies = [
+ "tinyvec",
+ "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1006,8 +1022,11 @@ dependencies = [
  "heapless",
  "itertools",
  "tinyvec",
- "toad-common 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-array 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-cursor 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
+ "toad-map 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1030,7 +1049,7 @@ version = "0.1.0"
 name = "toad-writable"
 version = "0.1.1"
 dependencies = [
- "toad-array 0.2.2",
+ "toad-array 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1065,12 +1084,11 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "walkdir"
-version = "2.3.2"
+version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
+checksum = "36df944cda56c7d8d8b7496af378e6b16de9284591917d307c9b4d313c44e698"
 dependencies = [
  "same-file",
- "winapi",
  "winapi-util",
 ]
 

@@ -1,4 +1,4 @@
-use toad_common::Cursor;
+use toad_cursor::Cursor;
 
 use super::MessageParseError;
 use crate::from_bytes::TryConsumeBytes;

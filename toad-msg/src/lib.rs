@@ -96,7 +96,7 @@ pub use from_bytes::TryFromBytes;
 pub use msg::*;
 #[doc(inline)]
 pub use to_bytes::TryIntoBytes;
-use toad_common::Array;
+use toad_array::Array;
 
 /// Type aliases for std or alloc platforms
 #[cfg(feature = "alloc")]
