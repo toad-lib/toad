@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.17.2](https://github.com/toad-lib/toad/compare/toad-v0.17.1...toad-v0.17.2) (2023-03-18)
+
+
+### Bug Fixes
+
+* **toad:** use microcrates ([#260](https://github.com/toad-lib/toad/issues/260)) ([7770654](https://github.com/toad-lib/toad/commit/7770654943a9c3f5e32065c952103e52c62cdcd7))
+
 ## [0.17.1](https://github.com/toad-lib/toad/compare/toad-v0.17.0...toad-v0.17.1) (2023-03-12)
 
 
