@@ -6,8 +6,11 @@ use core::ops::{Add, Sub};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
-use toad_common::{map, AppendCopy, Array, Cursor, GetSize, Map};
+use toad_array::{AppendCopy, Array};
+use toad_cursor::Cursor;
+use toad_len::Len;
 use toad_macros::rfc_7252_doc;
+use toad_map::Map;
 
 use crate::from_bytes::*;
 
@@ -137,7 +140,7 @@ pub trait OptionMap
   }
 
   /// Iterate over the map, yielding raw option structures
-  fn opt_refs(&self) -> OptRefIter<'_, Self, map::Iter<'_, OptNumber, Self::OptValues>> {
+  fn opt_refs(&self) -> OptRefIter<'_, Self, toad_map::Iter<'_, OptNumber, Self::OptValues>> {
     OptRefIter { iter: self.iter(),
                  last_seen_num: OptNumber(0),
                  __p: PhantomData,
@@ -175,7 +178,7 @@ impl<B: AsRef<[u8]>, M: OptionMap> TryConsumeBytes<B> for M {
       match Opt::try_consume_bytes(bytes) {
         | Ok(opt) => {
           if map.is_full() {
-            break Err(Self::Error::TooManyOptions(map.get_size()));
+            break Err(Self::Error::TooManyOptions(map.len()));
           }
 
           let OptDelta(d) = opt.delta;
@@ -289,10 +292,10 @@ impl<'a, C> Ord for OptRef<'a, C> where C: Array<Item = u8>
 
 impl<'a, C> Eq for OptRef<'a, C> where C: Array<Item = u8> {}
 
-impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
+impl<'a, C: Array<Item = u8>> Len for OptRef<'a, C> {
   const CAPACITY: Option<usize> = None;
 
-  fn get_size(&self) -> usize {
+  fn len(&self) -> usize {
     let header_size = 1;
     let delta_size = match self.delta.0 {
       | n if n >= 269 => 2,
@@ -300,13 +303,13 @@ impl<'a, C: Array<Item = u8>> GetSize for OptRef<'a, C> {
       | _ => 0,
     };
 
-    let value_len_size = match self.value.0.get_size() {
+    let value_len_size = match self.value.0.len() {
       | n if n >= 269 => 2,
       | n if n >= 13 => 1,
       | _ => 0,
     };
 
-    header_size + delta_size + value_len_size + self.value.0.get_size()
+    header_size + delta_size + value_len_size + self.value.0.len()
   }
 
   fn is_full(&self) -> bool {
@@ -325,7 +328,7 @@ impl<C: Array<Item = u8>> Opt<C> {
   /// Given a collection to [`Extend`] and an Opt, add that Opt's bytes to the collection.
   pub fn extend_bytes(self, bytes: &mut impl Extend<u8>) {
     let (del, del_bytes) = crate::to_bytes::opt_len_or_delta(self.delta.0);
-    let (len, len_bytes) = crate::to_bytes::opt_len_or_delta(self.value.0.get_size() as u16);
+    let (len, len_bytes) = crate::to_bytes::opt_len_or_delta(self.value.0.len() as u16);
     let del = del << 4;
 
     let header = del | len;
@@ -545,7 +548,7 @@ impl<Bytes: AsRef<[u8]>, V: Array<Item = u8> + AppendCopy<u8>> TryConsumeBytes<B
     let mut value = V::reserve(len);
     value.append_copy(bytes.take(len));
 
-    if value.get_size() < len {
+    if value.len() < len {
       return Err(Self::Error::UnexpectedEndOfStream);
     }
 

@@ -1,5 +1,5 @@
 use tinyvec::ArrayVec;
-use toad_common::GetSize;
+use toad_len::Len;
 
 use crate::*;
 
@@ -60,8 +60,8 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> TryIntoBytes
   type Error = MessageToBytesError;
 
   fn try_into_bytes<C: Array<Item = u8>>(self) -> Result<C, Self::Error> {
-    let mut bytes = C::reserve(self.get_size());
-    let size: usize = self.get_size();
+    let mut bytes = C::reserve(self.len());
+    let size: usize = self.len();
 
     if let Some(max) = C::CAPACITY {
       if max < size {
@@ -87,7 +87,7 @@ impl<PayloadBytes: Array<Item = u8>, Options: OptionMap> TryIntoBytes
       opt.extend_bytes(&mut bytes);
     }
 
-    if !self.payload.0.size_is_zero() {
+    if !self.payload.0.is_empty() {
       bytes.extend(Some(0b11111111));
       bytes.extend(self.payload.0);
     }

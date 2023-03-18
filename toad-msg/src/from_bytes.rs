@@ -1,4 +1,4 @@
-use toad_common::Cursor;
+use toad_cursor::Cursor;
 
 /// Trait for converting a sequence of bytes into some data structure
 pub trait TryFromBytes<A: AsRef<[u8]>>: Sized {
