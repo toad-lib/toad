@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.16.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.15.1...toad-msg-v0.16.0) (2023-03-19)
+
+
+### Features
+
+* **msg:** block ([#262](https://github.com/toad-lib/toad/issues/262)) ([fb02b62](https://github.com/toad-lib/toad/commit/fb02b6266c4b33b5550e89f8c3835c8b0591f9fc))
+
 ## [0.15.1](https://github.com/toad-lib/toad/compare/toad-msg-v0.15.0...toad-msg-v0.15.1) (2023-03-18)
 
 
