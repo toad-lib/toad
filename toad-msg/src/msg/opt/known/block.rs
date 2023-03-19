@@ -11,7 +11,7 @@ impl Block {
   pub fn new(size: u16, num: u32, more: bool) -> Self {
     let num = num << 4;
     let more = u32::from(more) << 3;
-    let size = f32::from(size).log2() as u32 - 4;
+    let size = f32::from(size.max(16).min(1024)).log2() as u32 - 4;
 
     Self(num | more | size)
   }
@@ -63,5 +63,17 @@ mod test {
 
     assert_eq!(Block::new(32, 2, false), Block(33));
     assert_eq!(Block::new(128, 3, true), Block(59));
+  }
+
+  #[test]
+  fn size_rounds_down_to_nearest_power_of_two() {
+    assert_eq!(Block::new(0, 1, false).size(), 16);
+    assert_eq!(Block::new(10, 1, false).size(), 16);
+    assert_eq!(Block::new(17, 1, false).size(), 16);
+    assert_eq!(Block::new(31, 1, false).size(), 16);
+    assert_eq!(Block::new(33, 1, false).size(), 32);
+    assert_eq!(Block::new(64, 1, false).size(), 64);
+    assert_eq!(Block::new(1024, 1, false).size(), 1024);
+    assert_eq!(Block::new(2048, 1, false).size(), 1024);
   }
 }
