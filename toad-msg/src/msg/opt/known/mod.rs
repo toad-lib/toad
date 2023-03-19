@@ -6,6 +6,10 @@ pub use content_format::*;
 pub mod observe;
 pub use observe::*;
 
+/// Block
+pub mod block;
+pub use block::*;
+
 macro_rules! opt {
   (rfc7252($section:literal) $name:ident = $n:literal) => {
     #[doc = ::toad_macros::rfc_7252_doc!($section)]
@@ -34,6 +38,10 @@ pub mod no_repeat {
   opt!(rfc7252("5.10.3") CONTENT_FORMAT = 12);
   opt!(rfc7252("5.10.5") MAX_AGE = 14);
   opt!(rfc7252("5.10.4") ACCEPT = 17);
+  opt!(#[doc = include_str!("../../../../docs/Block2.md")]
+       BLOCK2 = 23);
+  opt!(#[doc = include_str!("../../../../docs/Block1.md")]
+       BLOCK1 = 27);
   opt!(rfc7252("5.10.2") PROXY_URI = 35);
   opt!(#[doc = "See [`PROXY_URI`]"]
        PROXY_SCHEME = 39);
