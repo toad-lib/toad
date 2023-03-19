@@ -409,11 +409,23 @@ pub trait MessageOptions {
   }
 
   /// [`opt::known::no_repeat::BLOCK1`]
+  fn block1(&self) -> Option<block::Block> {
+    self.get_u32(opt::known::no_repeat::BLOCK1)
+        .map(block::Block::from)
+  }
+
+  /// [`opt::known::no_repeat::BLOCK1`]
   fn set_block1(&mut self, size: u16, num: u32, more: bool) -> Result<(), Self::SetError> {
     let block = block::Block::new(size, num, more);
     self.set(opt::known::no_repeat::BLOCK1,
              OptValue(u32::from(block).to_be_bytes().iter().copied().collect()))
         .map(|_| ())
+  }
+
+  /// [`opt::known::no_repeat::BLOCK2`]
+  fn block2(&self) -> Option<block::Block> {
+    self.get_u32(opt::known::no_repeat::BLOCK2)
+        .map(block::Block::from)
   }
 
   /// [`opt::known::no_repeat::BLOCK2`]

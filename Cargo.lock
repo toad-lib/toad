@@ -904,7 +904,7 @@ dependencies = [
  "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-macros 0.2.0",
  "toad-map 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-msg 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-msg 0.15.1",
  "toad-stem 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-writable 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1018,13 +1018,10 @@ dependencies = [
 [[package]]
 name = "toad-msg"
 version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "172e73f5ce192a45314eef776dd7e1e3cbde1c51ea021d79ac3630549925fbe5"
 dependencies = [
- "arrayvec",
  "blake2",
- "coap-lite",
- "criterion",
- "heapless",
- "itertools",
  "tinyvec",
  "toad-array 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-cursor 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1035,11 +1032,14 @@ dependencies = [
 
 [[package]]
 name = "toad-msg"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "172e73f5ce192a45314eef776dd7e1e3cbde1c51ea021d79ac3630549925fbe5"
+version = "0.16.0"
 dependencies = [
+ "arrayvec",
  "blake2",
+ "coap-lite",
+ "criterion",
+ "heapless",
+ "itertools",
  "tinyvec",
  "toad-array 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-cursor 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",

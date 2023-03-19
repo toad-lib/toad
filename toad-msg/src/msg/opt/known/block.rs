@@ -39,6 +39,12 @@ impl From<Block> for u32 {
   }
 }
 
+impl From<u32> for Block {
+  fn from(n: u32) -> Self {
+    Block(n)
+  }
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
