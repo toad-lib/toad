@@ -1,6 +1,6 @@
 [package]
 name = "toad-msg"
-version = "0.15.1"
+version = "0.16.0"
 edition = "2021"
 description = "Low-level CoAP message parsing & serialization"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
