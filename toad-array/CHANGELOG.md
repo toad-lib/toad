@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/toad-lib/toad/compare/toad-array-v0.2.3...toad-array-v0.3.0) (2023-03-20)
+
+
+### Features
+
+* init toad-string ([23660e0](https://github.com/toad-lib/toad/commit/23660e0ef865615669b64e66f496a4585cbde16a))
+
 ## [0.2.3](https://github.com/toad-lib/toad/compare/toad-array-v0.2.2...toad-array-v0.2.3) (2023-03-12)
 
 
