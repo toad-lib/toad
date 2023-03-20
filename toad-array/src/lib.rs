@@ -1,5 +1,3 @@
-//! # toad-array
-//!
 //! This microcrate contains the `Array` trait used by the
 //! [`toad`](https://github.com/toad-lib/toad) CoAP runtime / ecosystem.
 //!

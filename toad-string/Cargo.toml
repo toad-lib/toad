@@ -1,0 +1,27 @@
+[package]
+name = "toad-string"
+version = "0.0.0"
+edition = "2021"
+description = "Stack-allocated string"
+authors = ["Orion Kindel <cakekindel@gmail.com>"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/clov-coffee/toad/toad"
+repository = "https://github.com/clov-coffee/toad/toad"
+readme = "README.md"
+keywords = ["coap", "iot", "networking", "no_std", "wasm"]
+categories = ["network-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std"]
+std = ["alloc", "toad-array/std", "toad-writable/std"]
+alloc = ["toad-array/alloc", "toad-writable/alloc"]
+test = []
+docs = []
+
+[dependencies]
+toad-array = { version = "0.2.3", default_features = false }
+toad-writable = { version = "0.1.1", default_features = false }
+tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}

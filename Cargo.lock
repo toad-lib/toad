@@ -1032,7 +1032,7 @@ dependencies = [
 
 [[package]]
 name = "toad-msg"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "arrayvec",
  "blake2",
@@ -1057,6 +1057,15 @@ name = "toad-stem"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "834a7cc46ed626b24dfb861d3de19cdd666fa945f5bd1b4d2d675551afef927c"
+
+[[package]]
+name = "toad-string"
+version = "0.0.0"
+dependencies = [
+ "tinyvec",
+ "toad-array 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toad-writable 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "toad-writable"
