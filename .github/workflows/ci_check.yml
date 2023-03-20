@@ -93,3 +93,8 @@ jobs:
       run: 'cargo make ci'
       if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-map== 'true'
       working-directory: 'toad-map'
+
+    - name: 'check toad-string'
+      run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-string== 'true'
+      working-directory: 'toad-map'

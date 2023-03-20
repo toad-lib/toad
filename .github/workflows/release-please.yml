@@ -78,6 +78,13 @@ jobs:
         run: 'cargo publish'
         working-directory: 'toad-map'
 
+      - name: 'publish toad-string'
+        if: ${{ steps.release.outputs['toad-string--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-string'
+
       - name: 'publish toad-writable'
         if: ${{ steps.release.outputs['toad-writable--release_created'] }}
         env:
