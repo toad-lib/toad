@@ -68,6 +68,11 @@ impl<P, E, S> Step<P> for SetStandardOptions<S>
     write!(bytes, "{}", host).ok();
     msg.as_mut().set_host(bytes.as_str()).ok();
     msg.as_mut().set_port(port).ok();
+    match msg.data().code.kind() {
+        toad_msg::CodeKind::Request => toad_msg::opt::known::no_repeat::SIZE1,
+        toad_msg::CodeKind::Response => toad_msg::opt::known::no_repeat::SIZE2,
+        toad_msg::CodeKind::Empty => (),
+    }
 
     Ok(())
   }

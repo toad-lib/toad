@@ -75,6 +75,29 @@ pub mod runtime {
   }
 }
 
+/// # Block-wise transfer
+/// * Client Flow ✓
+/// * Server Flow ✓
+///
+/// ## Internal State
+/// Stores all messages sent, removing them when they will
+/// not need to be resent
+///
+/// ## Behavior
+/// For outbound confirmable requests & responses, uses the params in [`Config.msg.con`](crate::config::Con).
+///
+/// For outbound non-confirmable requests, uses the params in [`Config.msg.non`](crate::config::Non).
+///
+/// Outbound non-confirmable responses and ACKs will never be retried.
+///
+/// Note that the bandwidth used for retrying will never significantly exceed
+/// [`probing_rate`](crate::config::Config.probing_rate), so retries may be delayed
+/// by a small amount to respect this parameter.
+///
+/// ## Transformation
+/// None
+pub mod block;
+
 /// # Buffer & resend messages until they get a sufficient response
 /// * Client Flow ✓
 /// * Server Flow ✓
