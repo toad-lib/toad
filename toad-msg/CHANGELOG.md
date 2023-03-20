@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.17.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.16.0...toad-msg-v0.17.0) (2023-03-20)
+
+
+### Features
+
+* add block getters ([#264](https://github.com/toad-lib/toad/issues/264)) ([6dc24f3](https://github.com/toad-lib/toad/commit/6dc24f3abc7ec955651a66f3765b0f6127a48c64))
+
 ## [0.16.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.15.1...toad-msg-v0.16.0) (2023-03-19)
 
 
