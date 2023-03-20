@@ -42,10 +42,13 @@ pub mod no_repeat {
        BLOCK2 = 23);
   opt!(#[doc = include_str!("../../../../docs/Block1.md")]
        BLOCK1 = 27);
+  opt!(#[doc = concat!(toad_macros::rfc_7252_doc!("5.10.9"), include_str!("../../../../docs/Size.md"))]
+       SIZE2 = 28);
   opt!(rfc7252("5.10.2") PROXY_URI = 35);
   opt!(#[doc = "See [`PROXY_URI`]"]
        PROXY_SCHEME = 39);
-  opt!(rfc7252("5.10.9") SIZE1 = 60);
+  opt!(#[doc = concat!(toad_macros::rfc_7252_doc!("5.10.9"), include_str!("../../../../docs/Size.md"))]
+       SIZE1 = 60);
 }
 
 /// Repeatable options
