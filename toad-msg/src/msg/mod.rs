@@ -610,6 +610,19 @@ pub trait MessageOptions {
     self.get_u64(opt::known::no_repeat::SIZE1)
   }
 
+  /// Update the value for the [Size2](opt::known::no_repeat::SIZE2) option,
+  /// discarding any existing values.
+  fn set_size2(&mut self, size_bytes: u64) -> Result<(), Self::SetError> {
+    self.set(opt::known::no_repeat::SIZE2,
+             size_bytes.to_be_bytes().into_iter().collect())
+        .map(|_| ())
+  }
+
+  /// Get the value for the [Size2](opt::known::no_repeat::SIZE2) option
+  fn size2(&self) -> Option<u64> {
+    self.get_u64(opt::known::no_repeat::SIZE2)
+  }
+
   /// Discard all values for [If-Match](opt::known::repeat::IF_MATCH), and replace them with
   /// an empty value.
   ///
