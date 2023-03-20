@@ -70,7 +70,7 @@
 //! </details>
 
 // x-release-please-start-version
-#![doc(html_root_url = "https://docs.rs/toad-msg/0.17.0")]
+#![doc(html_root_url = "https://docs.rs/toad-msg/0.17.1")]
 // x-release-please-end
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(test), forbid(missing_debug_implementations, unreachable_pub))]
