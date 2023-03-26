@@ -84,12 +84,17 @@ extern crate alloc as std_alloc;
 #[doc(hidden)]
 pub mod from_bytes;
 
+#[allow(missing_docs)]
+pub mod cache_key;
+
 /// Message structs
 pub mod msg;
 
 #[doc(hidden)]
 pub mod to_bytes;
 
+#[doc(inline)]
+pub use cache_key::*;
 #[doc(inline)]
 pub use from_bytes::TryFromBytes;
 #[doc(inline)]

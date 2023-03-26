@@ -16,8 +16,8 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std"]
-std = ["alloc", "toad-cursor/std", "toad-array/std", "toad-len/std", "toad-map/std"]
-alloc = ["toad-cursor/alloc", "toad-array/alloc", "toad-len/alloc", "toad-map/alloc"]
+std = ["alloc", "toad-hash/std", "toad-cursor/std", "toad-array/std", "toad-len/std", "toad-map/std"]
+alloc = ["toad-cursor/alloc", "toad-hash/alloc", "toad-array/alloc", "toad-len/alloc", "toad-map/alloc"]
 test = []
 docs = []
 
@@ -53,6 +53,7 @@ toad-map = {version = "0.2.3", default_features = false}
 toad-len = {version = "0.1.3", default_features = false}
 toad-array = {version = "0.2.3", default_features = false}
 toad-cursor = {version = "0.2.0", default_features = false}
+toad-hash = {version = "0.3.0", default_features = false}
 
 [dev-dependencies]
 itertools = "0.10"
