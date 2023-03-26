@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.18.0](https://github.com/toad-lib/toad/compare/toad-msg-v0.17.1...toad-msg-v0.18.0) (2023-03-26)
+
+
+### Features
+
+* add CacheKey capability to toad-msg ([#270](https://github.com/toad-lib/toad/issues/270)) ([c4cd9c9](https://github.com/toad-lib/toad/commit/c4cd9c9a3afa672341f588eef1c957b231d8579d))
+
 ## [0.17.1](https://github.com/toad-lib/toad/compare/toad-msg-v0.17.0...toad-msg-v0.17.1) (2023-03-20)
 
 
