@@ -41,7 +41,7 @@ pub use ty::*;
 pub use ver::*;
 
 use crate::from_bytes::TryConsumeBytes;
-use crate::TryFromBytes;
+use crate::{CacheKey, DefaultCacheKey, TryFromBytes};
 
 #[doc = rfc_7252_doc!("5.5")]
 #[derive(Default, Clone, Debug)]
@@ -264,11 +264,12 @@ pub enum SetOptionError<OV, OVs> {
   TooManyOptions(OptNumber, OVs),
 }
 
-impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap> MessageOptions
-  for Message<PayloadBytes, Options>
+impl<P, O> MessageOptions for Message<P, O>
+  where P: Array<Item = u8> + AppendCopy<u8>,
+        O: OptionMap
 {
-  type OptValues = Options::OptValues;
-  type OptValueBytes = Options::OptValue;
+  type OptValues = O::OptValues;
+  type OptValueBytes = O::OptValue;
   type SetError = SetOptionError<OptValue<Self::OptValueBytes>, Self::OptValues>;
 
   fn add(&mut self, n: OptNumber, v: OptValue<Self::OptValueBytes>) -> Result<(), Self::SetError> {
@@ -787,6 +788,17 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
            ver: Version::default(),
            payload: Payload(PayloadBytes::default()),
            opts: Options::default() }
+  }
+
+  /// Using [`DefaultCacheKey`], get the cache key for
+  /// this request.
+  ///
+  /// The cache key can be used to compare messages for representing
+  /// the same action against the same resource; requests with different
+  /// IDs but the same method and cache-key affecting options
+  /// (ex. path, query parameters) will yield the same cache-key.
+  pub fn cache_key(&self) -> u64 {
+    DefaultCacheKey::default().cache_key(self)
   }
 
   /// Get the payload

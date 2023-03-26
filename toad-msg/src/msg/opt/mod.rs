@@ -469,6 +469,11 @@ impl OptNumber {
       | _ => WhenOptionChanges::ResponseChanges,
     }
   }
+
+  /// Whether this option should be included in the [`Message::cache_key`]
+  pub fn include_in_cache_key(&self) -> bool {
+    self.when_option_changes() == WhenOptionChanges::ResponseChanges
+  }
 }
 
 #[doc = rfc_7252_doc!("3.2")]
