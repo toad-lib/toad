@@ -22,6 +22,8 @@ pub use parse_error::*;
 pub mod known;
 pub use known::*;
 
+use self::no_repeat::{BLOCK1, BLOCK2};
+
 /// An iterator over owned [`Opt`]s
 #[derive(Debug, Clone)]
 pub struct OptIter<M, I>
@@ -473,6 +475,8 @@ impl OptNumber {
   /// Whether this option should be included in the [`Message::cache_key`]
   pub fn include_in_cache_key(&self) -> bool {
     self.when_option_changes() == WhenOptionChanges::ResponseChanges
+    && self != &BLOCK1
+    && self != &BLOCK2
   }
 }
 
