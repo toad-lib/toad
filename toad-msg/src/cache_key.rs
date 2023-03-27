@@ -78,15 +78,19 @@ pub trait CacheKey
   ///
   /// use toad_msg::alloc::Message;
   /// use toad_msg::Type::Con;
-  /// use toad_msg::{CacheKey, Code, DefaultCacheKey, Id, Token};
+  /// use toad_msg::{CacheKey, Code, ContentFormat, DefaultCacheKey, Id, MessageOptions, Token};
   ///
-  /// let msg_a = Message::new(Con, Code::GET, Id(1), Token(Default::default()));
+  /// let mut msg_a = Message::new(Con, Code::GET, Id(1), Token(Default::default()));
+  /// msg_a.set_path("foo/bar");
+  /// msg_a.set_accept(ContentFormat::Text);
   /// let mut ha = DefaultCacheKey::new();
   /// ha.cache_key(&msg_a);
   ///
-  /// let msg_b = Message::new(Con, Code::GET, Id(2), Token(Default::default()));
+  /// let mut msg_b = Message::new(Con, Code::GET, Id(2), Token(Default::default()));
+  /// msg_b.set_accept(ContentFormat::Text);
+  /// msg_b.set_path("foo/bar");
   /// let mut hb = DefaultCacheKey::new();
-  /// hb.cache_key(&msg_a);
+  /// hb.cache_key(&msg_b);
   ///
   /// assert_eq!(ha.hasher().finish(), hb.hasher().finish());
   /// ```
@@ -112,5 +116,65 @@ impl<T> CacheKey for &mut T where T: CacheKey
           O: OptionMap
   {
     <T as CacheKey>::add_cache_key(self, msg)
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use core::hash::Hasher;
+
+  use crate::alloc::Message;
+  use crate::{CacheKey, Code, ContentFormat, DefaultCacheKey, Id, MessageOptions, Token, Type};
+
+  #[test]
+  pub fn cache_key() {
+    fn req<F>(stuff: F) -> u64
+      where F: FnOnce(&mut Message)
+    {
+      let mut req = Message::new(Type::Con, Code::GET, Id(1), Token(Default::default()));
+      stuff(&mut req);
+
+      let mut h = DefaultCacheKey::new();
+      h.cache_key(&req);
+      h.hasher().finish()
+    }
+
+    assert_ne!(req(|r| {
+                 r.set_path("a/b/c").ok();
+               }),
+               req(|_| {}));
+    assert_eq!(req(|r| {
+                 r.set_path("a/b/c").ok();
+               }),
+               req(|r| {
+                 r.set_path("a/b/c").ok();
+               }));
+    assert_ne!(req(|r| {
+                 r.set_path("a/b/c").ok();
+                 r.add_query("filter[temp](less_than)=123").ok();
+               }),
+               req(|r| {
+                 r.set_path("a/b/c").ok();
+               }));
+    assert_ne!(req(|r| {
+                 r.set_path("a/b/c").ok();
+                 r.add_query("filter[temp](less_than)=123").ok();
+                 r.set_accept(ContentFormat::Json).ok();
+               }),
+               req(|r| {
+                 r.set_path("a/b/c").ok();
+                 r.add_query("filter[temp](less_than)=123").ok();
+                 r.set_accept(ContentFormat::Text).ok();
+               }));
+    assert_eq!(req(|r| {
+                 r.set_path("a/b/c").ok();
+                 r.add_query("filter[temp](less_than)=123").ok();
+                 r.set_accept(ContentFormat::Json).ok();
+               }),
+               req(|r| {
+                 r.set_path("a/b/c").ok();
+                 r.add_query("filter[temp](less_than)=123").ok();
+                 r.set_accept(ContentFormat::Json).ok();
+               }));
   }
 }
