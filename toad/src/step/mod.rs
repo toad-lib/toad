@@ -6,7 +6,7 @@ use crate::platform::{self, PlatformTypes};
 
 /// Standard set of Steps
 pub mod runtime {
-  use ::toad_msg::Token;
+  use ::toad_msg::{DefaultCacheKey, Token};
   use naan::prelude::{HKT1, HKT2};
   use no_std_net::SocketAddr;
 
@@ -80,19 +80,38 @@ pub mod runtime {
 /// * Server Flow ✓
 ///
 /// ## Internal State
-/// Stores all messages sent, removing them when they will
-/// not need to be resent
+/// * Stores inbound chunked messages for reassembly on final piece
 ///
 /// ## Behavior
-/// For outbound confirmable requests & responses, uses the params in [`Config.msg.con`](crate::config::Con).
+/// ### Inbound Response
+/// * response had `Block1 {num: 0, size: <size>, more: true}`?
+///    * incr num by 1 and send a duplicate of the original request (stripped of any Block1 options)
+/// * response had `Block1 {num: <num>, size: <size>, more: false}`?
+///    * yield assembled response to client
 ///
-/// For outbound non-confirmable requests, uses the params in [`Config.msg.non`](crate::config::Non).
+/// ### Inbound Request
+/// _NOTE: this covers entire request-response flow; requestors have to ask for each block from the server._
+/// * request has `Block1 {num: 0, size: <size>, more: true}`?
+///    * store first block
+/// * request has `Block1 {num: <num>, size: <size>, more: true}`?
+///    * if we have not seen `num - 1`, respond `4.08 REQUEST ENTITY INCOMPLETE`
+///    * if we have seen `num - 1`, respond `2.31 CONTINUE Block1 {num: <num>, size: <size>, more: true}`
+/// * request has `Block1 {num: <num>, size: <rem>, more: false}`?
+///    * same checks as `more: true`
+///    * let server see assembled request
+/// * request has `Block2 {num: 0, size: <desired_size>, more: false}`?
+///    * response should be blocked into this size, else `1024`
+/// * request has `Block2 {num: <num>, size: <desired_size>, more: false}`?
+///    * send requested block
 ///
-/// Outbound non-confirmable responses and ACKs will never be retried.
-///
-/// Note that the bandwidth used for retrying will never significantly exceed
-/// [`probing_rate`](crate::config::Config.probing_rate), so retries may be delayed
-/// by a small amount to respect this parameter.
+/// ### Outbound Request
+/// * outbound requests are automatically broken into blocks, default block size 1024
+/// * when server responds with `2.31 CONTINUE Block1 {num: 0, size: <new_size>, more: true}`, break the remainder of the payload into block size `<new_size>` and restart the process for each block
+/// * when server responds with `4.08 REQUEST ENTITY INCOMPLETE` restart from block 0
+/// * when server responds with `4.13 REQUEST ENTITY TOO LARGE Block1 {num: 0, size: <new_size>, more: false}`, restart from block 0 with size `<new_size>`
+/// * when server responds with any other status code and `Block1 {num: <acked_num>, size: <size>, more: <more>}`, treat this response as the final response to the original request
+///    * if `more` was false and we have more blocks to send, store the response and pretend we didn't receive it until all blocks sent
+///    * if at any time we receive `4.08 REQUEST ENTITY INCOMPLETE` discard the stored response
 ///
 /// ## Transformation
 /// None
@@ -151,8 +170,8 @@ pub mod retry;
 ///
 /// ### Then
 /// this step will issue 2 requests to your server:
-///  - Request 1 `GET coap://server/temperature`
-///  - Request 2 `GET coap://server/temperature?above=23deg`
+///  * Request 1 `GET coap://server/temperature`
+///  * Request 2 `GET coap://server/temperature?above=23deg`
 ///
 /// The response to request 1 will be sent to clients A, B, and C. The response to request 2 will be sent to client D.
 pub mod observe;

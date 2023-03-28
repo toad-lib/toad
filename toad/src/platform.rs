@@ -341,6 +341,22 @@ pub enum Effect<P>
   Nop,
 }
 
+impl<P> Effect<P> where P: PlatformTypes
+{
+  /// Is this [`Effect::Send`]?
+  pub fn is_send(&self) -> bool {
+    self.get_send().is_some()
+  }
+
+  /// If this is [`Effect::Send`], yields a reference to the message
+  pub fn get_send(&self) -> Option<&Addrd<self::toad_msg::Message<P>>> {
+    match self {
+      | Self::Send(r) => Some(r),
+      | _ => None,
+    }
+  }
+}
+
 impl<P> Default for Effect<P> where P: PlatformTypes
 {
   fn default() -> Self {
