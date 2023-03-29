@@ -11,7 +11,9 @@ use super::{Step, _try};
 use crate::net::Addrd;
 use crate::platform::{self, Effect, PlatformTypes, Snapshot};
 use crate::req::Req;
+use crate::resp::code::{CONTINUE, REQUEST_ENTITY_INCOMPLETE};
 use crate::resp::Resp;
+use crate::server::ap::state::Complete;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum Piece<M> {
@@ -160,8 +162,92 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
               snap: &crate::platform::Snapshot<P>,
               effects: &mut P::Effects)
               -> super::StepOutput<Self::PollReq, Self::Error> {
-    _try!(Option<nb::Result>; self.inner().poll_req(snap, effects));
-    None
+    let mut req = _try!(Option<nb::Result>; self.inner().poll_req(snap, effects));
+
+    match req.data().msg().block2() {
+      | None => Some(Ok(req)),
+      | Some(block) => {
+        let block_state_ix = self.block_states.map_ref(|block_states| {
+                                                block_states.iter()
+                                                            .enumerate()
+                                                            .find(|(_, bs)| match bs.pcs.get(&0) {
+                                                              | Some(Piece::Have(m)) => {
+                                                                m.token == req.data().msg().token
+                                                              },
+                                                              | _ => false,
+                                                            })
+                                                            .map(|(ix, _)| ix)
+                                              });
+
+        macro_rules! respond {
+          ($code:expr) => {{
+            let rep_ty = if req.data().msg().ty == Type::Con {
+              Type::Ack
+            } else {
+              Type::Non
+            };
+
+            let rep =
+              platform::toad_msg::Message::<P>::new(rep_ty, $code, Id(0), req.data().msg().token);
+            effects.push(Effect::Send(Addrd(rep, req.addr())));
+          }};
+        }
+
+        match block_state_ix {
+          | None if block.num() > 0 => {
+            respond!(REQUEST_ENTITY_INCOMPLETE);
+
+            Some(Err(nb::Error::WouldBlock))
+          },
+          | Some(ix)
+            if self.block_states.map_ref(|block_states| {
+                                  block_states[ix].biggest.map(|n| n + 1).unwrap_or(0) < block.num()
+                                }) =>
+          {
+            self.block_states
+                .map_mut(|block_states| block_states.remove(ix));
+            respond!(REQUEST_ENTITY_INCOMPLETE);
+
+            Some(Err(nb::Error::WouldBlock))
+          },
+          | None if block.more() => {
+            let mut block_state = BlockState { biggest: Some(0),
+                                               original: None,
+                                               pcs: Default::default() };
+            block_state.have(0, req.data().msg().clone());
+
+            let mut block_state = Some(block_state);
+            self.block_states
+                .map_mut(|block_states| block_states.push(Option::take(&mut block_state).unwrap()));
+            respond!(CONTINUE);
+
+            Some(Err(nb::Error::WouldBlock))
+          },
+          | None => {
+            // this is block 0 and there are no more blocks,
+            // simply yield the request
+            Some(Ok(req))
+          },
+          | Some(ix) => {
+            self.block_states.map_mut(|block_states| {
+                               block_states[ix].have(block.num(), req.data().msg().clone())
+                             });
+
+            if block.more() {
+              respond!(CONTINUE);
+              Some(Err(nb::Error::WouldBlock))
+            } else {
+              let p = self.block_states
+                          .map_ref(|block_states| block_states[ix].assembled());
+              req.as_mut().msg_mut().payload = p;
+              self.block_states
+                  .map_mut(|block_states| block_states.remove(ix));
+              Some(Ok(req))
+            }
+          },
+        }
+      },
+    }
   }
 
   fn poll_resp(&self,
@@ -360,6 +446,14 @@ mod tests {
       last_request_at: Instant,
     }
 
+    struct Addrs {
+      server: SocketAddr,
+      client: SocketAddr,
+    }
+
+    let addrs = Addrs { server: test::x.x.x.x(80),
+                        client: test::x.x.x.x(10) };
+
     type S = test::MockStep<TestState, Addrd<test::Req>, Addrd<test::Resp>, ()>;
     let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
 
@@ -369,7 +463,7 @@ mod tests {
 
     let cache_key = orig_req.cache_key();
 
-    b.on_message_sent(&test::snapshot(), &Addrd(orig_req, test::x.x.x.x(80)))
+    b.on_message_sent(&test::snapshot(), &Addrd(orig_req, addrs.client))
      .unwrap();
 
     let mut effects: Vec<test::Effect> = vec![];
@@ -441,7 +535,7 @@ mod tests {
          },
        }
 
-       Some(Ok(Addrd(resp, test::x.x.x.x(80))))
+       Some(Ok(Addrd(resp, addrs.server)))
      }));
 
     let rep = loop {
@@ -475,7 +569,7 @@ mod tests {
       match b.poll_resp(&test::snapshot(),
                         &mut effects,
                         Token(array_vec! {1}),
-                        test::x.x.x.x(40))
+                        addrs.server)
       {
         | Some(Err(nb::Error::WouldBlock)) => continue,
         | Some(Err(nb::Error::Other(e))) => panic!("{e:?}"),
@@ -486,5 +580,128 @@ mod tests {
 
     assert_eq!(rep.data().payload().copied().collect::<Vec<u8>>(),
                payload.bytes().collect::<Vec<u8>>());
+  }
+
+  #[test]
+  fn when_recv_request_without_block2_this_should_do_nothing() {
+    #[derive(Clone, Copy)]
+    struct Addrs {
+      server: SocketAddr,
+      client: SocketAddr,
+    }
+
+    let addrs = Addrs { server: test::x.x.x.x(80),
+                        client: test::x.x.x.x(10) };
+    let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
+
+    type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
+    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+
+    b.inner().set_poll_req(Box::new(|_, _, _| {
+                             let req = test::Message::new(Type::Con,
+                                                          Code::POST,
+                                                          Id(0),
+                                                          Token(Default::default()));
+                             Some(Ok(Addrd(Req::from(req), addrs.client)))
+                           }));
+
+    let mut effects = vec![];
+    b.poll_req(&test::snapshot(), &mut effects)
+     .unwrap()
+     .unwrap();
+
+    assert!(effects.is_empty());
+  }
+
+  #[test]
+  fn when_recv_request_with_block2_and_recognized_number_this_should_respond_2_31() {
+    struct TestState {
+      next_block: u32,
+    }
+
+    #[derive(Clone, Copy)]
+    struct Addrs {
+      server: SocketAddr,
+      client: SocketAddr,
+    }
+
+    let addrs = Addrs { server: test::x.x.x.x(80),
+                        client: test::x.x.x.x(10) };
+    let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
+
+    type S = test::MockStep<TestState, Addrd<test::Req>, Addrd<test::Resp>, ()>;
+    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+
+    b.inner()
+     .init(TestState { next_block: 0 })
+     .set_poll_req(Box::new(|mock, _, _| {
+                     let mut req =
+                       test::Message::new(Type::Con, Code::POST, Id(0), Token(Default::default()));
+                     let num = mock.state.map_ref(|s| s.as_ref().unwrap().next_block);
+                     req.set_block2(128, num, num < 2).ok();
+                     req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
+
+                     mock.state.map_mut(|s| s.as_mut().unwrap().next_block += 1);
+                     Some(Ok(Addrd(Req::from(req), addrs.client)))
+                   }));
+
+    let mut effects = vec![];
+
+    // get block 0
+    assert_eq!(b.poll_req(&test::snapshot(), &mut effects),
+               Some(Err(nb::Error::WouldBlock)));
+
+    let resp = effects[0].get_send().unwrap();
+    assert_eq!(resp.data().code, Code::new(2, 31));
+    effects.clear();
+
+    // get block 1
+    assert_eq!(b.poll_req(&test::snapshot(), &mut effects),
+               Some(Err(nb::Error::WouldBlock)));
+
+    let resp = effects[0].get_send().unwrap();
+    assert_eq!(resp.data().code, Code::new(2, 31));
+    effects.clear();
+
+    // get block 2
+    let assembled = b.poll_req(&test::snapshot(), &mut effects);
+    assert!(matches!(assembled, Some(Ok(_))));
+    assert_eq!(assembled.unwrap().unwrap().data().payload().len(), 128 * 3);
+    assert!(effects.is_empty());
+  }
+
+  #[test]
+  fn when_recv_request_with_block2_and_unrecognized_number_this_should_respond_4_08() {
+    #[derive(Clone, Copy)]
+    struct Addrs {
+      server: SocketAddr,
+      client: SocketAddr,
+    }
+
+    let addrs = Addrs { server: test::x.x.x.x(80),
+                        client: test::x.x.x.x(10) };
+    let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
+
+    type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
+    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+
+    b.inner().set_poll_req(Box::new(|_, _, _| {
+                             let mut req = test::Message::new(Type::Con,
+                                                              Code::POST,
+                                                              Id(0),
+                                                              Token(Default::default()));
+                             req.set_block2(128, 1, true).ok();
+                             req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
+                             Some(Ok(Addrd(Req::from(req), addrs.client)))
+                           }));
+
+    let mut effects = vec![];
+    assert_eq!(b.poll_req(&test::snapshot(), &mut effects),
+               Some(Err(nb::Error::WouldBlock)));
+
+    assert!(!effects.is_empty());
+
+    let resp = effects[0].get_send().unwrap();
+    assert_eq!(resp.data().code, Code::new(4, 08));
   }
 }

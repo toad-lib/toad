@@ -155,15 +155,20 @@ pub mod multicast {
 }
 
 macro_rules! code {
-  (rfc7252($section:literal) $name:ident = $c:literal.$d:literal) => {
+  (rfc7252($section:literal) $name:ident = $c:literal*$d:literal) => {
     #[doc = toad_macros::rfc_7252_doc!($section)]
     #[allow(clippy::zero_prefixed_literal)]
     pub const $name: toad_msg::Code = toad_msg::Code::new($c, $d);
   };
-  (rfc7252($section:literal) $name:ident = $newtype:tt($c:literal.$d:literal)) => {
+  (rfc7252($section:literal) $name:ident = $newtype:tt($c:literal*$d:literal)) => {
     #[doc = toad_macros::rfc_7252_doc!($section)]
     #[allow(clippy::zero_prefixed_literal)]
     pub const $name: $newtype = $newtype(toad_msg::Code::new($c, $d));
+  };
+  (#[doc = $docstr:expr] $name:ident = $c:literal*$d:literal) => {
+    #[doc = $docstr]
+    #[allow(clippy::zero_prefixed_literal)]
+    pub const $name: toad_msg::Code = toad_msg::Code::new($c, $d);
   };
 }
 

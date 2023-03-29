@@ -45,9 +45,9 @@ impl core::fmt::Display for Method {
 }
 
 impl Method {
-  code!(rfc7252("4.1")   EMPTY  = Method(0 . 00));
-  code!(rfc7252("5.8.1") GET    = Method(0 . 01));
-  code!(rfc7252("5.8.2") POST   = Method(0 . 02));
-  code!(rfc7252("5.8.3") PUT    = Method(0 . 03));
-  code!(rfc7252("5.8.4") DELETE = Method(0 . 04));
+  code!(rfc7252("4.1")   EMPTY  = Method(0*00));
+  code!(rfc7252("5.8.1") GET    = Method(0*01));
+  code!(rfc7252("5.8.2") POST   = Method(0*02));
+  code!(rfc7252("5.8.3") PUT    = Method(0*03));
+  code!(rfc7252("5.8.4") DELETE = Method(0*04));
 }
