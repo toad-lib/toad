@@ -28,6 +28,8 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
+use core::ops::{Deref, DerefMut};
+
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_len::Len;
@@ -36,11 +38,21 @@ use toad_len::Len;
 pub trait Indexed<T>
   where Self: Len
 {
+  /// TODO
+  type Ref<'a>: Deref<Target = T>
+    where Self: 'a,
+          T: 'a;
+
+  /// TODO
+  type RefMut<'a>: Deref<Target = T> + DerefMut
+    where Self: 'a,
+          T: 'a;
+
   /// Get an immutable reference to element at `ix`
-  fn get(&self, ix: usize) -> Option<&T>;
+  fn get<'a>(&'a self, ix: usize) -> Option<Self::Ref<'a>>;
 
   /// Get a mutable reference to element at `ix`
-  fn get_mut(&mut self, ix: usize) -> Option<&mut T>;
+  fn get_mut<'a>(&'a mut self, ix: usize) -> Option<Self::RefMut<'a>>;
 
   /// Insert a new element at `ix`, shifting all other elements to the right.
   ///
@@ -187,12 +199,14 @@ pub trait Indexed<T>
   fn drop_while<F>(&mut self, f: F)
     where F: for<'a> Fn(&'a T) -> bool
   {
-    if let Some(t) = self.get(0) {
-      if f(t) {
-        self.remove(0);
-        self.drop_while(f);
-      }
-    }
+    match self.get(0) {
+      | Some(t) if !f(&t) => return,
+      | None => return,
+      | _ => (),
+    };
+
+    self.remove(0);
+    self.drop_while(f);
   }
 }
 
@@ -373,6 +387,9 @@ impl<T> Array for Vec<T> {
 
 #[cfg(feature = "alloc")]
 impl<T> Indexed<T> for Vec<T> {
+  type Ref<'a> = &'a T where T: 'a;
+  type RefMut<'a> = &'a mut T where T: 'a;
+
   fn get(&self, ix: usize) -> Option<&T> {
     <[T]>::get(self, ix)
   }
@@ -399,14 +416,17 @@ impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: 
   type Item = T;
 }
 
-impl<A: tinyvec::Array<Item = T>, T> Indexed<A::Item> for tinyvec::ArrayVec<A>
-  where Self: Filled<T> + Trunc
+impl<A: tinyvec::Array> Indexed<A::Item> for tinyvec::ArrayVec<A>
+  where Self: Filled<A::Item> + Trunc
 {
+  type Ref<'a> = &'a A::Item where A::Item: 'a, Self: 'a;
+  type RefMut<'a> = &'a mut A::Item where A::Item: 'a, Self: 'a;
+
   fn get(&self, ix: usize) -> Option<&A::Item> {
     <[A::Item]>::get(&self, ix)
   }
 
-  fn get_mut(&mut self, ix: usize) -> Option<&mut T> {
+  fn get_mut(&mut self, ix: usize) -> Option<&mut A::Item> {
     <[A::Item]>::get_mut(self, ix)
   }
 
@@ -414,7 +434,7 @@ impl<A: tinyvec::Array<Item = T>, T> Indexed<A::Item> for tinyvec::ArrayVec<A>
     tinyvec::ArrayVec::insert(self, ix, t)
   }
 
-  fn remove(&mut self, ix: usize) -> Option<T> {
+  fn remove(&mut self, ix: usize) -> Option<A::Item> {
     if ix < self.len() {
       Some(tinyvec::ArrayVec::remove(self, ix))
     } else {
