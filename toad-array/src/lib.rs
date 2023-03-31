@@ -28,18 +28,182 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-use core::ops::{Deref, DerefMut};
-
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_len::Len;
+
+/// Operations on ordered indexed collections
+pub trait Indexed<T>
+  where Self: Len
+{
+  /// Get an immutable reference to element at `ix`
+  fn get(&self, ix: usize) -> Option<&T>;
+
+  /// Get a mutable reference to element at `ix`
+  fn get_mut(&mut self, ix: usize) -> Option<&mut T>;
+
+  /// Insert a new element at `ix`, shifting all other elements to the right.
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// fn do_stuff<I: Indexed<u32> + AsRef<Vec<u32>>>(mut i: I) {
+  ///   i.insert(0, 2);
+  ///   assert_eq!(i.as_ref(), &vec![2]);
+  ///
+  ///   i.insert(0, 1);
+  ///   assert_eq!(i.as_ref(), &vec![1, 2]);
+  ///
+  ///   i.insert(2, 3);
+  ///   assert_eq!(i.as_ref(), &vec![1, 2, 3]);
+  /// }
+  ///
+  /// do_stuff(vec![]);
+  /// ```
+  fn insert(&mut self, ix: usize, t: T);
+
+  /// Remove element at `ix`, shifting all other elements to the left.
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// fn do_stuff<I: Indexed<u32> + AsRef<Vec<u32>>>(mut i: I) {
+  ///   i.remove(1);
+  ///   assert_eq!(i.as_ref(), &vec![1]);
+  ///
+  ///   i.remove(0);
+  ///   assert_eq!(i.as_ref(), &vec![]);
+  ///
+  ///   i.remove(0);
+  ///   assert_eq!(i.as_ref(), &vec![]);
+  /// }
+  ///
+  /// do_stuff(vec![1, 2]);
+  /// ```
+  fn remove(&mut self, ix: usize) -> Option<T>;
+
+  /// Insert an element at the front of the collection
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// fn do_stuff<I: Indexed<u32> + AsRef<Vec<u32>>>(mut i: I) {
+  ///   i.push(3);
+  ///   assert_eq!(i.as_ref(), &vec![3]);
+  ///
+  ///   i.push(2);
+  ///   assert_eq!(i.as_ref(), &vec![2, 3]);
+  ///
+  ///   i.push(1);
+  ///   assert_eq!(i.as_ref(), &vec![1, 2, 3]);
+  /// }
+  ///
+  /// do_stuff(vec![]);
+  /// ```
+  fn push(&mut self, t: T) {
+    self.insert(0, t)
+  }
+
+  /// Insert an element at the end of the collection
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// fn do_stuff<I: Indexed<u32> + AsRef<Vec<u32>>>(mut i: I) {
+  ///   i.append(3);
+  ///   assert_eq!(i.as_ref(), &vec![3]);
+  ///
+  ///   i.append(2);
+  ///   assert_eq!(i.as_ref(), &vec![3, 2]);
+  ///
+  ///   i.append(1);
+  ///   assert_eq!(i.as_ref(), &vec![3, 2, 1]);
+  /// }
+  ///
+  /// do_stuff(vec![]);
+  /// ```
+  fn append(&mut self, t: T) {
+    self.insert(self.len(), t)
+  }
+
+  /// Drop `ct` elements from the front of the collection
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// let mut v: Vec<u32> = vec![1, 2, 3, 4];
+  ///
+  /// v.drop_front(2);
+  /// assert_eq!(v, vec![3, 4]);
+  ///
+  /// v.drop_front(3);
+  /// assert_eq!(v, vec![]);
+  ///
+  /// v.drop_front(1);
+  /// assert_eq!(v, vec![]);
+  /// ```
+  fn drop_front(&mut self, ct: usize) {
+    if !self.is_empty() && ct > 0 {
+      self.remove(0);
+      self.drop_front(ct - 1);
+    }
+  }
+
+  /// Drop `ct` elements from the back of the collection
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// let mut v: Vec<u32> = vec![1, 2, 3, 4];
+  ///
+  /// v.drop_back(2);
+  /// assert_eq!(v, vec![1, 2]);
+  ///
+  /// v.drop_back(2);
+  /// assert_eq!(v, vec![]);
+  ///
+  /// v.drop_back(1);
+  /// assert_eq!(v, vec![]);
+  /// ```
+  fn drop_back(&mut self, ct: usize) {
+    if !self.is_empty() && ct > 0 {
+      self.remove(self.len() - 1);
+      self.drop_back(ct - 1);
+    }
+  }
+
+  /// Drop elements from the front of the collection until
+  /// the collection is emptied or the predicate returns
+  /// false.
+  ///
+  /// ```
+  /// use toad_array::Indexed;
+  ///
+  /// let mut v: Vec<u32> = vec![2, 4, 6, 5];
+  ///
+  /// v.drop_while(|n| n % 2 == 0);
+  /// assert_eq!(v, vec![5]);
+  /// ```
+  fn drop_while<F>(&mut self, f: F)
+    where F: for<'a> Fn(&'a T) -> bool
+  {
+    if let Some(t) = self.get(0) {
+      if f(t) {
+        self.remove(0);
+        self.drop_while(f);
+      }
+    }
+  }
+}
 
 /// Create a data structure and reserve some amount of space for it to grow into
 ///
 /// # Examples
 /// - `Vec` is `Reserve`, and invokes `Vec::with_capacity`
 /// - `tinyvec::ArrayVec` is `Reserve` and invokes `Default::default()` because creating an `ArrayVec` automatically allocates the required space on the stack.
-pub trait Reserve: Default {
+pub trait Reserve
+  where Self: Default
+{
   /// Create an instance of the collection with a given capacity.
   ///
   /// Used to reserve some contiguous space, e.g. [`Vec::with_capacity`]
@@ -168,25 +332,13 @@ pub trait Array:
   + Reserve
   + Filled<<Self as Array>::Item>
   + Trunc
-  + Deref<Target = [<Self as Array>::Item]>
-  + DerefMut
+  + Indexed<<Self as Array>::Item>
   + Extend<<Self as Array>::Item>
   + FromIterator<<Self as Array>::Item>
   + IntoIterator<Item = <Self as Array>::Item>
 {
   /// The type of item contained in the collection
   type Item;
-
-  /// Insert a value at a particular index of a collection.
-  fn insert_at(&mut self, index: usize, value: <Self as Array>::Item);
-
-  /// Try to remove an entry from the collection.
-  ///
-  /// Returns `Some(Self::Item)` if `index` was in-bounds, `None` if `index` is out of bounds.
-  fn remove(&mut self, index: usize) -> Option<<Self as Array>::Item>;
-
-  /// Add a value to the end of a collection.
-  fn push(&mut self, value: <Self as Array>::Item);
 }
 
 /// Collections that support extending themselves mutably from copyable slices
@@ -217,8 +369,19 @@ impl<T: Copy, A: tinyvec::Array<Item = T>> AppendCopy<T> for tinyvec::ArrayVec<A
 #[cfg(feature = "alloc")]
 impl<T> Array for Vec<T> {
   type Item = T;
+}
 
-  fn insert_at(&mut self, index: usize, value: T) {
+#[cfg(feature = "alloc")]
+impl<T> Indexed<T> for Vec<T> {
+  fn get(&self, ix: usize) -> Option<&T> {
+    <[T]>::get(self, ix)
+  }
+
+  fn get_mut(&mut self, ix: usize) -> Option<&mut T> {
+    <[T]>::get_mut(self, ix)
+  }
+
+  fn insert(&mut self, index: usize, value: T) {
     self.insert(index, value);
   }
 
@@ -229,29 +392,33 @@ impl<T> Array for Vec<T> {
       None
     }
   }
-
-  fn push(&mut self, value: T) {
-    self.push(value)
-  }
 }
 
 impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T> + Trunc
 {
   type Item = T;
+}
 
-  fn insert_at(&mut self, index: usize, value: A::Item) {
-    self.insert(index, value);
+impl<A: tinyvec::Array<Item = T>, T> Indexed<A::Item> for tinyvec::ArrayVec<A>
+  where Self: Filled<T> + Trunc
+{
+  fn get(&self, ix: usize) -> Option<&A::Item> {
+    <[A::Item]>::get(&self, ix)
   }
 
-  fn remove(&mut self, index: usize) -> Option<T> {
-    if index < self.len() {
-      Some(tinyvec::ArrayVec::remove(self, index))
+  fn get_mut(&mut self, ix: usize) -> Option<&mut T> {
+    <[A::Item]>::get_mut(self, ix)
+  }
+
+  fn insert(&mut self, ix: usize, t: A::Item) {
+    tinyvec::ArrayVec::insert(self, ix, t)
+  }
+
+  fn remove(&mut self, ix: usize) -> Option<T> {
+    if ix < self.len() {
+      Some(tinyvec::ArrayVec::remove(self, ix))
     } else {
       None
     }
-  }
-
-  fn push(&mut self, value: A::Item) {
-    self.push(value)
   }
 }

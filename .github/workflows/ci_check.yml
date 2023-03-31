@@ -26,9 +26,17 @@ jobs:
       id: package_changed
       with:
         filters: |
-          toad-msg: ['toad-msg/**']
-          toad-macros: ['toad-macros/**']
+          toad-array: ['toad-array/**']
           toad-common: ['toad-common/**']
+          toad-cursor: ['toad-cursor/**']
+          toad-hash: ['toad-hash/**']
+          toad-len: ['toad-len/**']
+          toad-macros: ['toad-macros/**']
+          toad-map: ['toad-map/**']
+          toad-msg: ['toad-msg/**']
+          toad-stem: ['toad-stem/**']
+          toad-string: ['toad-string/**']
+          toad-writable: ['toad-writable/**']
           toad: ['toad/**']
 
     - run: |
@@ -66,35 +74,35 @@ jobs:
 
     - name: 'check toad-array'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-array== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-array == 'true'
       working-directory: 'toad-array'
 
     - name: 'check toad-len'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-len== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-len == 'true'
       working-directory: 'toad-len'
 
     - name: 'check toad-hash'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-hash== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-hash == 'true'
       working-directory: 'toad-hash'
 
     - name: 'check toad-stem'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-stem== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-stem == 'true'
       working-directory: 'toad-stem'
 
     - name: 'check toad-cursor'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-cursor== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-cursor == 'true'
       working-directory: 'toad-cursor'
 
     - name: 'check toad-map'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-map== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-map == 'true'
       working-directory: 'toad-map'
 
     - name: 'check toad-string'
       run: 'cargo make ci'
-      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-string== 'true'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-string == 'true'
       working-directory: 'toad-map'
