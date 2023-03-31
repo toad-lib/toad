@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/toad-lib/toad/compare/toad-array-v0.4.0...toad-array-v0.5.0) (2023-03-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* array should use indirect Ref(Mut) types ([#277](https://github.com/toad-lib/toad/issues/277))
+
+### Features
+
+* array should use indirect Ref(Mut) types ([#277](https://github.com/toad-lib/toad/issues/277)) ([654e442](https://github.com/toad-lib/toad/commit/654e44237bece1c6f4267f8819dd77a80c8dce2c))
+
 ## [0.4.0](https://github.com/toad-lib/toad/compare/toad-array-v0.3.0...toad-array-v0.4.0) (2023-03-31)
 
 
