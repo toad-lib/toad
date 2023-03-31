@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/toad-lib/toad/compare/toad-array-v0.3.0...toad-array-v0.4.0) (2023-03-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove deref slice requirement on array, replace with trait ([#275](https://github.com/toad-lib/toad/issues/275))
+
+### Features
+
+* remove deref slice requirement on array, replace with trait ([#275](https://github.com/toad-lib/toad/issues/275)) ([1614cfe](https://github.com/toad-lib/toad/commit/1614cfe7a0ce1c12f095e5f1d3ec20347dff653e))
+
 ## [0.3.0](https://github.com/toad-lib/toad/compare/toad-array-v0.2.3...toad-array-v0.3.0) (2023-03-20)
 
 
