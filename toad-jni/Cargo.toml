@@ -1,6 +1,6 @@
 [package]
 name = "toad-jni"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 description = "JNI abstractions and bindings used by the toad ecosystem"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
