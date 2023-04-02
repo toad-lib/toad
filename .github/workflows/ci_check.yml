@@ -30,6 +30,7 @@ jobs:
           toad-common: ['toad-common/**']
           toad-cursor: ['toad-cursor/**']
           toad-hash: ['toad-hash/**']
+          toad-jni: ['toad-jni/**']
           toad-len: ['toad-len/**']
           toad-macros: ['toad-macros/**']
           toad-map: ['toad-map/**']
@@ -76,6 +77,11 @@ jobs:
       run: 'cargo make ci'
       if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-array == 'true'
       working-directory: 'toad-array'
+
+    - name: 'check toad-jni'
+      run: 'cargo make ci'
+      if: github.ref == 'refs/heads/main' || steps.package_changed.outputs.toad-jni == 'true'
+      working-directory: 'toad-jni'
 
     - name: 'check toad-len'
       run: 'cargo make ci'
