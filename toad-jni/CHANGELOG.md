@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.1.0...toad-jni-v0.2.0) (2023-04-04)
+
+
+### Features
+
+* add java.util.Optional support ([#281](https://github.com/toad-lib/toad/issues/281)) ([f0727b1](https://github.com/toad-lib/toad/commit/f0727b1d552fbb320e64a7f483a6f3b2a1901b18))
+* java.time.Duration ([#283](https://github.com/toad-lib/toad/issues/283)) ([55fa83c](https://github.com/toad-lib/toad/commit/55fa83ce9aec93558e8cdefc0accabb783c87eaa))
+
 ## 0.1.0 (2023-04-02)
 
 
@@ -7,5 +15,3 @@
 
 * initial commit on toad-jni ([#279](https://github.com/toad-lib/toad/issues/279)) ([96cd758](https://github.com/toad-lib/toad/commit/96cd758621128d0085d9d22281b4b2d355e7bd64))
 * **kwap:** add support for coap runtime config ([c082f06](https://github.com/toad-lib/toad/commit/c082f0696a288d2a2db9b986c3e3eaf2e7a4e8f4))
-
-
