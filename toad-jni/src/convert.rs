@@ -159,10 +159,10 @@ impl FromJValueRef for i32 {
 }
 
 impl Primitive for i32 {
-  type Wrapped = java::lang::Int;
+  type Wrapped = java::lang::Integer;
 
   fn wrap(&self) -> Self::Wrapped {
-    java::lang::Int::new(*self)
+    java::lang::Integer::new(*self)
   }
 
   fn dewrap(w: Self::Wrapped) -> Self {

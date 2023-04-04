@@ -62,6 +62,7 @@ pub mod global {
 
 #[cfg(test)]
 mod test {
+  use toad_jni::cls::java;
   use toad_jni::convert::Primitive;
   use toad_jni::{ArrayList, Sig};
 
@@ -76,15 +77,34 @@ mod test {
                "([B)Ljava/lang/Byte;");
   }
 
-  #[test]
-  fn tests() {
-    toad_jni::global::init();
-
+  fn test_prim_wrappers() {
     assert_eq!(i8::dewrap((32i8).wrap()), 32i8);
+  }
+
+  fn test_arraylist() {
     assert_eq!(vec![1i8, 2, 3, 4].into_iter()
                                  .collect::<ArrayList<i8>>()
                                  .into_iter()
                                  .collect::<Vec<i8>>(),
                vec![1, 2, 3, 4])
+  }
+
+  fn test_optional() {
+    let mut e = toad_jni::global::env();
+
+    let o = java::util::Optional::of(&mut e, 12i32);
+    assert_eq!(o.to_option(&mut e).unwrap(), 12);
+
+    let o = java::util::Optional::<i32>::empty(&mut e);
+    assert!(o.is_empty(&mut e));
+  }
+
+  #[test]
+  fn tests() {
+    toad_jni::global::init();
+
+    test_prim_wrappers();
+    test_arraylist();
+    test_optional();
   }
 }

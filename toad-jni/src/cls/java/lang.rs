@@ -13,15 +13,15 @@ macro_rules! wrapper {
     #[doc = $doc]
     pub struct $cls(GlobalRef);
     impl $cls {
-      const ID: &'static str = concat!("java/lang/", stringify!($cls));
+      const PATH: &'static str = concat!("java/lang/", stringify!($cls));
 
       #[doc = concat!("Construct a new ", stringify!($cls))]
       pub fn new(b: $inner_ty) -> Self {
         let mut e = global::env();
-        let cls = e.find_class(Self::ID).unwrap();
+        let cls = e.find_class(Self::PATH).unwrap();
         let obj = e.call_static_method(cls,
                                        "valueOf",
-                                       Sig::new().arg($inner_sig).returning(Sig::class(Self::ID)),
+                                       Sig::new().arg($inner_sig).returning(Sig::class(Self::PATH)),
                                        &[b.into()])
                    .unwrap()
                    .l()
@@ -71,9 +71,9 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Int"]
-  class Int {
-    static Int valueOf(Sig::INT);
+  #[doc = "java/lang/Integer"]
+  class Integer {
+    static Integer valueOf(Sig::INT);
     (i32) intValue();
   }
 }
