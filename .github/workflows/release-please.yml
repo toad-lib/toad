@@ -119,3 +119,10 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
         run: 'cargo publish'
         working-directory: 'toad-len'
+
+      - name: 'publish toad-jni'
+        if: ${{ steps.release.outputs['toad-jni--release_created'] }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: 'cargo publish'
+        working-directory: 'toad-jni'
