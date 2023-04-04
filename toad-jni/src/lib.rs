@@ -99,6 +99,13 @@ mod test {
     assert!(o.is_empty(&mut e));
   }
 
+  fn test_time() {
+    let mut e = toad_jni::global::env();
+
+    let o = java::time::Duration::of_millis(&mut e, 1000);
+    assert_eq!(o.to_millis(&mut e), 1000);
+  }
+
   #[test]
   fn tests() {
     toad_jni::global::init();
@@ -106,5 +113,6 @@ mod test {
     test_prim_wrappers();
     test_arraylist();
     test_optional();
+    test_time();
   }
 }
