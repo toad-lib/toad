@@ -120,6 +120,11 @@ impl BigInteger {
     // if `bytes: VecDeque` is shorter than `N`,
     // this will ensure that `byte_array` is zero-padded,
     // and panic if there are more bytes than `N`
+
+    if let Some((first_nonzero_ix, _)) = bytes.iter().enumerate().find(|(_, b)| **b > 0) {
+      bytes.drain(0..first_nonzero_ix).for_each(|_| ());
+    }
+
     bytes.iter()
          .map(|i| {
            // https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/math/BigInteger.html#toByteArray()
