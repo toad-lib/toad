@@ -125,6 +125,13 @@ mod test {
 
     let bi = BigInt::from_be_bytes(e, &(-1i8).to_be_bytes());
     assert_eq!(bi.to_i8(e), -1);
+
+    let bi = BigInt::from_be_bytes(e, &0i128.to_be_bytes());
+    assert_eq!(bi.to_i8(e), 0);
+    assert_eq!(bi.to_i16(e), 0);
+    assert_eq!(bi.to_i32(e), 0);
+    assert_eq!(bi.to_i64(e), 0);
+    assert_eq!(bi.to_i128(e), 0);
   }
 
   #[test]
