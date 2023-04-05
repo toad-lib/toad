@@ -115,30 +115,34 @@ impl BigInteger {
     e.get_byte_array_region(&jbyte_array, 0, bytes.make_contiguous())
      .unwrap();
 
-    // https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/math/BigInteger.html#toByteArray()
-    //
-    // BigInt.toByteArray actually returns the raw byte representation of the integer, NOT
-    // two's complement `byte`s as the type signature would lead you to believe.
-    //
-    // To interpret these bytes as i8 is incorrect.
-    //
-    // In order to get around pesky length issues I zero-pad the beginning by
-    // copying the vec's contents into the beginning of the array reversed,
-    // then reverse the array.
-    let mut arr = [0u8; N];
+    let mut byte_array = [0u8; N];
+
+    // if `bytes: VecDeque` is shorter than `N`,
+    // this will ensure that `byte_array` is zero-padded,
+    // and panic if there are more bytes than `N`
     bytes.iter()
-         .map(|i| i8::to_be_bytes(*i)[0])
-         .rev()
-         .enumerate()
-         .for_each(|(ix, b)| arr[ix] = b);
-    arr.reverse();
-    arr
+         .map(|i| {
+           // https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/math/BigInteger.html#toByteArray()
+           //
+           // toByteArray returns the raw byte representation
+           // of the integer, NOT i8s which are the normal
+           // interpretation for a java `byte` primitive.
+           i8::to_be_bytes(*i)[0]
+         })
+         .rfold(N - 1, |ix, b| {
+           byte_array[ix] = b;
+           ix.checked_sub(1).unwrap_or(0)
+         });
+
+    byte_array
   }
 
-  /// Create a `java.math.BigInteger` from raw big-endian two's complement bytes
+  /// Create a BigInteger from some bytes, easily gotten
+  /// for any signed rust integer (`i8`, `i16`, ..) via `.to_be_bytes()`.
   ///
-  /// `to_be_bytes` may be invoked on any signed rust integer (`i8`, `i16`, ..)
-  /// and passed directly as an argument to this function.
+  /// Technically, this uses `java.math.BigInteger(byte[] bytes)` to
+  /// create a `java.math.BigInteger` from an array of bytes that
+  /// must represent a signed two's complement integer, in big-endian order.
   pub fn from_be_bytes<'a>(e: &mut JNIEnv<'a>, bytes: &[u8]) -> Self {
     let byte_array = e.byte_array_from_slice(bytes).unwrap();
     let obj = e.new_object(Self::PATH, Self::CTOR_BYTE_ARRAY, &[(&byte_array).into()])
