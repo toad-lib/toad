@@ -15,7 +15,6 @@
 #![cfg_attr(not(test), warn(unreachable_pub))]
 // -
 // features
-#![cfg_attr(not(test), no_std)]
 
 pub mod convert;
 pub mod sig;
@@ -62,11 +61,14 @@ pub mod global {
 
 #[cfg(test)]
 mod test {
+  use jni::objects::{JString, JThrowable};
+  use jni::strings::JNIStr;
   use toad_jni::cls::java;
   use toad_jni::convert::Primitive;
   use toad_jni::{ArrayList, Sig};
 
   pub use crate as toad_jni;
+  use crate::convert::Object;
 
   #[test]
   fn sig() {
@@ -106,6 +108,19 @@ mod test {
     assert_eq!(o.to_millis(&mut e), 1000);
   }
 
+  fn test_bigint() {
+    let mut e = toad_jni::global::env();
+    let e = &mut e;
+
+    type BigInt = java::math::BigInteger;
+
+    let bi = BigInt::from_be_bytes(e, &i128::MAX.to_be_bytes());
+    assert_eq!(bi.to_i128(e), i128::MAX);
+
+    let bi = BigInt::from_be_bytes(e, &i8::MAX.to_be_bytes());
+    assert_eq!(bi.to_i128(e), i8::MAX.into());
+  }
+
   #[test]
   fn tests() {
     toad_jni::global::init();
@@ -114,5 +129,6 @@ mod test {
     test_arraylist();
     test_optional();
     test_time();
+    test_bigint();
   }
 }
