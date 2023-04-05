@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.3.0...toad-jni-v0.4.0) (2023-04-05)
+
+
+### Features
+
+* java.math.BigInteger ([#285](https://github.com/toad-lib/toad/issues/285)) ([6b6bd17](https://github.com/toad-lib/toad/commit/6b6bd1730aa8825dcc947eab0d3dc9996a485932))
+
 ## [0.3.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.2.0...toad-jni-v0.3.0) (2023-04-04)
 
 
