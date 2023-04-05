@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.4.0...toad-jni-v0.4.1) (2023-04-05)
+
+
+### Bug Fixes
+
+* BigInteger should support narrowing if there are lots of leading zeroes ([#287](https://github.com/toad-lib/toad/issues/287)) ([c72dbdf](https://github.com/toad-lib/toad/commit/c72dbdfb0cd486fded8b33e0ca6f73ad7136f0fc))
+
 ## [0.4.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.3.0...toad-jni-v0.4.0) (2023-04-05)
 
 
