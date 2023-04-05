@@ -119,6 +119,12 @@ mod test {
 
     let bi = BigInt::from_be_bytes(e, &i8::MAX.to_be_bytes());
     assert_eq!(bi.to_i128(e), i8::MAX.into());
+
+    let bi = BigInt::from_be_bytes(e, &1i8.to_be_bytes());
+    assert_eq!(bi.to_i8(e), 1);
+
+    let bi = BigInt::from_be_bytes(e, &(-1i8).to_be_bytes());
+    assert_eq!(bi.to_i8(e), -1);
   }
 
   #[test]
