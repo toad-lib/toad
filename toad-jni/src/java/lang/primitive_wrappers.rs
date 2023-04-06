@@ -1,54 +1,55 @@
-use jni::objects::GlobalRef;
-
-use crate::{global, Sig};
-
 macro_rules! wrapper {
   (
     #[doc = $doc:expr]
     class $cls:ident {
-      static $cls_:ident valueOf($inner_sig:expr);
-      ($inner_ty:ty) $inner_id:ident();
+      static $cls_:ident valueOf($inner_ty:ty);
+      ($inner_ty2:ty) $inner_id:ident();
     }
   ) => {
     #[doc = $doc]
-    pub struct $cls(GlobalRef);
+    pub struct $cls($crate::java::lang::Object);
     impl $cls {
-      const PATH: &'static str = concat!("java/lang/", stringify!($cls));
-
       #[doc = concat!("Construct a new ", stringify!($cls))]
-      pub fn new(b: $inner_ty) -> Self {
-        let mut e = global::env();
+      pub fn new<'local>(e: &mut $crate::java::Env<'local>, b: $inner_ty) -> Self {
+        use $crate::java::Class;
+
         let cls = e.find_class(Self::PATH).unwrap();
         let obj = e.call_static_method(cls,
                                        "valueOf",
-                                       Sig::new().arg($inner_sig).returning(Sig::class(Self::PATH)),
+                                       $crate::java::Signature::of::<fn($inner_ty) -> Self>(),
                                        &[b.into()])
                    .unwrap()
                    .l()
                    .unwrap();
-        let obj = e.new_global_ref(obj).unwrap();
-        Self(obj)
+        Self($crate::java::lang::Object::from_local(e, obj))
       }
 
       #[doc = concat!("yield the [`", stringify!($inner_ty), "`] value contained in this `", stringify!($cls), "` by invoking `", stringify!($cls), "#", stringify!($inner_id), "`")]
-      pub fn inner(&self) -> $inner_ty {
-        let mut e = global::env();
+      pub fn inner<'local>(&self, e: &mut $crate::java::Env<'local>) -> $inner_ty {
         let jv = e.call_method(&self.0,
                                stringify!($inner_id),
-                               Sig::new().returning($inner_sig),
+                               $crate::java::Signature::of::<fn() -> $inner_ty>(),
                                &[])
                   .unwrap();
-        <$inner_ty as $crate::convert::Primitive>::from_jvalue(jv)
+        <$inner_ty as $crate::java::Primitive>::from_jvalue(jv)
       }
     }
 
-    impl<'local> $crate::convert::Object for $cls {
-      fn from_java(jobj: jni::objects::GlobalRef) -> Self {
+    impl $crate::java::Class for $cls {
+      const PATH: &'static str = concat!("java/lang/", stringify!($cls));
+    }
+
+    impl $crate::java::Object for $cls {
+      fn upcast<'a, 'e>(_: &'a mut $crate::java::Env<'e>, jobj: $crate::java::lang::Object) -> Self {
         Self(jobj)
       }
 
-      fn to_java(self) -> jni::objects::GlobalRef {
+      fn downcast<'a, 'e>(self, _: &'a mut $crate::java::Env<'e>) -> $crate::java::lang::Object {
         self.0
+      }
+
+      fn downcast_ref<'a, 'e>(&'a self, e: &'a mut $crate::java::Env<'e>) -> $crate::java::lang::Object {
+        (&self.0).downcast_ref(e)
       }
     }
   };
@@ -57,7 +58,7 @@ macro_rules! wrapper {
 wrapper! {
   #[doc = "java/lang/Byte"]
   class Byte {
-    static Byte valueOf(Sig::BYTE);
+    static Byte valueOf(i8);
     (i8) byteValue();
   }
 }
@@ -65,7 +66,7 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Short"]
   class Short {
-    static Short valueOf(Sig::SHORT);
+    static Short valueOf(i16);
     (i16) shortValue();
   }
 }
@@ -73,7 +74,7 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Integer"]
   class Integer {
-    static Integer valueOf(Sig::INT);
+    static Integer valueOf(i32);
     (i32) intValue();
   }
 }
@@ -81,7 +82,7 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Long"]
   class Long {
-    static Long valueOf(Sig::LONG);
+    static Long valueOf(i64);
     (i64) longValue();
   }
 }
@@ -89,7 +90,7 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Float"]
   class Float {
-    static Float valueOf(Sig::FLOAT);
+    static Float valueOf(f32);
     (f32) floatValue();
   }
 }
@@ -97,7 +98,7 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Double"]
   class Double {
-    static Double valueOf(Sig::DOUBLE);
+    static Double valueOf(f64);
     (f64) doubleValue();
   }
 }
@@ -105,7 +106,15 @@ wrapper! {
 wrapper! {
   #[doc = "java/lang/Bool"]
   class Bool {
-    static Bool valueOf(Sig::BOOL);
+    static Bool valueOf(bool);
     (bool) boolValue();
+  }
+}
+
+wrapper! {
+  #[doc = "java/lang/Char"]
+  class Char {
+    static Char valueOf(u16);
+    (u16) boolValue();
   }
 }

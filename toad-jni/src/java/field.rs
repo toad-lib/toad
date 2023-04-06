@@ -1,0 +1,57 @@
+use core::marker::PhantomData;
+
+use crate::java;
+
+/// A high-level lens into a Java object field
+pub struct Field<C, T> {
+  name: &'static str,
+  _t: PhantomData<(C, T)>,
+}
+
+impl<C, T> Field<C, T>
+  where C: java::Class,
+        T: java::Object
+{
+  /// Creates a new field lens
+  pub const fn new(name: &'static str) -> Self {
+    Self { name,
+           _t: PhantomData }
+  }
+
+  /// Get the value of this field
+  pub fn get<'local>(&self, e: &mut java::Env<'local>, inst: &C) -> T {
+    let inst = inst.downcast_ref(e);
+    let val = e.get_field(inst, self.name, T::SIG).unwrap();
+    T::upcast_value(e, val)
+  }
+
+  /// Set the value of this field
+  pub fn set<'local>(&self, e: &mut java::Env<'local>, inst: &C, t: T) {
+    let inst = inst.downcast_ref(e);
+    let t = t.downcast_value(e);
+    e.set_field(inst, self.name, T::SIG, (&t).into()).unwrap();
+  }
+}
+
+/// A high-level lens into a static Java object field
+pub struct StaticField<C, T> {
+  name: &'static str,
+  _t: PhantomData<(C, T)>,
+}
+
+impl<C, T> StaticField<C, T>
+  where C: java::Class,
+        T: java::Object
+{
+  /// Creates a new static field lens
+  pub const fn new(name: &'static str) -> Self {
+    Self { name,
+           _t: PhantomData }
+  }
+
+  /// Get the static field value
+  pub fn get<'local>(&self, e: &mut java::Env<'local>) -> T {
+    let val = e.get_static_field(C::PATH, self.name, T::SIG).unwrap();
+    T::upcast_value(e, val)
+  }
+}

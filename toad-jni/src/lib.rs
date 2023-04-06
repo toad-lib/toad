@@ -1,4 +1,9 @@
 //! JNI abstractions and bindings used by the toad ecosystem
+//!
+//! ## class bindings
+//!
+//! ## class shims
+//! the `cls` module
 
 // docs
 #![doc(html_root_url = "https://docs.rs/toad-jni/0.0.0")]
@@ -16,18 +21,12 @@
 // -
 // features
 
-pub mod convert;
-pub mod sig;
-
-pub use cls::java::util::ArrayList;
-pub use sig::Sig;
-
-/// java class shims
-pub mod cls;
+/// java language features and class shims
+pub mod java;
 
 /// Global JVM handles
 pub mod global {
-  use jni::{InitArgsBuilder, JNIEnv, JavaVM};
+  use jni::{InitArgsBuilder, JavaVM};
 
   static mut JVM: Option<JavaVM> = None;
 
@@ -40,8 +39,8 @@ pub mod global {
 
   /// Initialize the global jvm handle by creating a new handle
   pub fn init() {
-    let args = InitArgsBuilder::new().build().unwrap();
     unsafe {
+      let args = InitArgsBuilder::new().build().unwrap();
       JVM = Some(JavaVM::new(args).unwrap());
     }
 
@@ -52,47 +51,57 @@ pub mod global {
   pub fn jvm() -> &'static mut JavaVM {
     unsafe { JVM.as_mut().unwrap() }
   }
-
-  /// Create a new local frame from the global jvm handle
-  pub fn env<'a>() -> JNIEnv<'a> {
-    unsafe { JVM.as_mut().unwrap().get_env().unwrap() }
-  }
 }
 
 #[cfg(test)]
 mod test {
-  use jni::objects::{JString, JThrowable};
-  use jni::strings::JNIStr;
-  use toad_jni::cls::java;
-  use toad_jni::convert::Primitive;
-  use toad_jni::{ArrayList, Sig};
+  use std::sync::Once;
+
+  use java::Primitive;
+  use toad_jni::java;
 
   pub use crate as toad_jni;
-  use crate::convert::Object;
+
+  static INIT: Once = Once::new();
+  pub fn init() {
+    INIT.call_once(|| {
+          toad_jni::global::init();
+        });
+
+    toad_jni::global::jvm().attach_current_thread_permanently()
+                           .unwrap();
+  }
 
   #[test]
-  fn sig() {
-    assert_eq!(Sig::new().returning(Sig::VOID).as_str(), "()V");
-    assert_eq!(Sig::new().arg(Sig::array_of(Sig::BYTE))
-                         .returning(Sig::class("java/lang/Byte"))
-                         .as_str(),
-               "([B)Ljava/lang/Byte;");
+  fn init_works() {
+    init();
   }
 
-  fn test_prim_wrappers() {
-    assert_eq!(i8::dewrap((32i8).wrap()), 32i8);
+  #[test]
+  fn prim_wrappers() {
+    init();
+    let mut e = java::env();
+    let e = &mut e;
+
+    let i = (32i8).to_primitive_wrapper(e);
+    assert_eq!(i8::from_primitive_wrapper(e, i), 32i8);
   }
 
+  #[test]
   fn test_arraylist() {
+    init();
     assert_eq!(vec![1i8, 2, 3, 4].into_iter()
-                                 .collect::<ArrayList<i8>>()
+                                 .collect::<java::util::ArrayList<i8>>()
                                  .into_iter()
                                  .collect::<Vec<i8>>(),
                vec![1, 2, 3, 4])
   }
 
+  #[test]
   fn test_optional() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
 
     let o = java::util::Optional::of(&mut e, 12i32);
     assert_eq!(o.to_option(&mut e).unwrap(), 12);
@@ -101,15 +110,21 @@ mod test {
     assert!(o.is_empty(&mut e));
   }
 
+  #[test]
   fn test_time() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
 
     let o = java::time::Duration::of_millis(&mut e, 1000);
     assert_eq!(o.to_millis(&mut e), 1000);
   }
 
+  #[test]
   fn test_bigint() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
     let e = &mut e;
 
     type BigInt = java::math::BigInteger;
@@ -132,16 +147,5 @@ mod test {
     assert_eq!(bi.to_i32(e), 0);
     assert_eq!(bi.to_i64(e), 0);
     assert_eq!(bi.to_i128(e), 0);
-  }
-
-  #[test]
-  fn tests() {
-    toad_jni::global::init();
-
-    test_prim_wrappers();
-    test_arraylist();
-    test_optional();
-    test_time();
-    test_bigint();
   }
 }
