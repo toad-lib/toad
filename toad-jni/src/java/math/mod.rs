@@ -1,3 +1,3 @@
-/// java/math/BigInteger
-pub mod bigint;
+mod bigint;
+#[doc(inline)]
 pub use bigint::BigInteger;

@@ -1,7 +1,9 @@
 /// java/util/ArrayList
-pub mod list;
+mod list;
+#[doc(inline)]
 pub use list::{ArrayList, ArrayListIter};
 
 /// java/util/Optional
-pub mod optional;
+mod optional;
+#[doc(inline)]
 pub use optional::Optional;

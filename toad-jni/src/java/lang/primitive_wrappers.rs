@@ -56,7 +56,7 @@ macro_rules! wrapper {
 }
 
 wrapper! {
-  #[doc = "java/lang/Byte"]
+  #[doc = "`java.lang.Byte`"]
   class Byte {
     static Byte valueOf(i8);
     (i8) byteValue();
@@ -64,7 +64,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Short"]
+  #[doc = "`java.lang.Short`"]
   class Short {
     static Short valueOf(i16);
     (i16) shortValue();
@@ -72,7 +72,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Integer"]
+  #[doc = "`java.lang.Integer`"]
   class Integer {
     static Integer valueOf(i32);
     (i32) intValue();
@@ -80,7 +80,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Long"]
+  #[doc = "`java.lang.Long`"]
   class Long {
     static Long valueOf(i64);
     (i64) longValue();
@@ -88,7 +88,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Float"]
+  #[doc = "`java.lang.Float`"]
   class Float {
     static Float valueOf(f32);
     (f32) floatValue();
@@ -96,7 +96,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Double"]
+  #[doc = "`java.lang.Double`"]
   class Double {
     static Double valueOf(f64);
     (f64) doubleValue();
@@ -104,7 +104,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Bool"]
+  #[doc = "`java.lang.Bool`"]
   class Bool {
     static Bool valueOf(bool);
     (bool) boolValue();
@@ -112,7 +112,7 @@ wrapper! {
 }
 
 wrapper! {
-  #[doc = "java/lang/Char"]
+  #[doc = "`java.lang.Char`"]
   class Char {
     static Char valueOf(u16);
     (u16) boolValue();

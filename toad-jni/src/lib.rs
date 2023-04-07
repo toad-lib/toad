@@ -1,30 +1,30 @@
 //! High-level wrapper of [`jni`], making Java & Rust FFI easy & fun
 //!
 //! ## Globals
-//! [`crate::global`] offers the option to use a global JVM handle ([`crate::global::jvm()`] set with [`crate::global::init()`]).
+//! [`toad_jni::global`](https://docs.rs/toad-jni/latest/toad_jni/global/index.html) offers the option to use a global JVM handle ([`toad_jni::global::jvm()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.jvm.html) set with [`toad_jni::global::init()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.init.html)).
 //!
 //! Using the JVM global is completely optional, **unless** you plan to use Rust trait impls such as [`IntoIterator`]
-//! on [`crate::java::util::ArrayList`].
+//! on [`toad_jni::java::util::ArrayList`](https://docs.rs/toad-jni/latest/toad_jni/java/util/struct.ArrayList.html).
 //!
 //! ## Types
 //! All java type signatures can be represented by rust types
-//! that implement the [`crate::java::Type`] trait, which is automatically
-//! implemented for all [`crate::java::Class`]es.
+//! that implement the [`toad_jni::java::Type`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Type.html) trait, which is automatically
+//! implemented for all [`toad_jni::java::Class`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Class.html)es.
 //!
 //! ## Classes
 //! Classes are represented in `toad_jni` by implementing 2 traits:
-//! * [`crate::java::Class`]
-//! * [`crate::java::Object`] (see also [`crate::java::object_newtype`])
+//! * [`toad_jni::java::Class`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Class.html)
+//! * [`toad_jni::java::Object`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Object.html) (see also [`toad_jni::java::object_newtype`](https://docs.rs/toad-jni/latest/toad_jni/java/macro.object_newtype.html))
 //!
 //! ### Fields and Methods
 //! There are several high-level lens-style structs for interacting with fields, methods and constructors:
-//! * [`crate::java::Constructor`]
-//! * [`crate::java::StaticField`]
-//! * [`crate::java::StaticMethod`]
-//! * [`crate::java::Field`]
-//! * [`crate::java::Method`]
+//! * [`toad_jni::java::Constructor`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Constructor.html)
+//! * [`toad_jni::java::StaticField`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.StaticField.html)
+//! * [`toad_jni::java::StaticMethod`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.StaticMethod.html)
+//! * [`toad_jni::java::Field`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Field.html)
+//! * [`toad_jni::java::Method`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Method.html)
 //!
-//! All of these types use [`crate::java::Type`] to transform nice Rust types into the corresponding
+//! All of these types use [`toad_jni::java::Type`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Type.html) to transform nice Rust types into the corresponding
 //! JVM type signatures.
 //!
 //! For example, the `StaticMethod` representation of [`java.lang.String.format(String, ..Object)`](https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/lang/String.html#format(java.lang.String,java.lang.Object...))
@@ -102,7 +102,7 @@
 //! ```
 
 // docs
-#![doc(html_root_url = "https://docs.rs/toad-jni/0.0.0")]
+#![doc(html_root_url = "https://docs.rs/toad-jni/0.4.1")]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 // -
 // style

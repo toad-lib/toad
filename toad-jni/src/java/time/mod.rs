@@ -1,3 +1,3 @@
-/// java/time/Duration
-pub mod duration;
+mod duration;
+#[doc(inline)]
 pub use duration::Duration;
