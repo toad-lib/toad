@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use std::str::FromStr;
 use std::sync::RwLock;
 
 use jni::objects::{JFieldID, JStaticFieldID};
@@ -28,13 +29,19 @@ impl<C, T> Field<C, T>
     let id = self.id.read().unwrap();
     if id.is_none() {
       drop(id);
+
       let mut id = self.id.write().unwrap();
       *id = Some(e.get_field_id(C::PATH, self.name, T::SIG).unwrap());
+      drop(id);
+
       self.get(e, inst)
     } else {
       let inst = inst.downcast_ref(e);
-      let val = e.get_field_unchecked(&inst, id.unwrap(), T::SIG.return_type())
-                 .unwrap();
+      let val =
+        e.get_field_unchecked(&inst,
+                              id.unwrap(),
+                              jni::signature::ReturnType::from_str(T::SIG.as_str()).unwrap())
+         .unwrap();
       T::upcast_value(e, val)
     }
   }
@@ -70,8 +77,11 @@ impl<C, T> StaticField<C, T>
     let id = self.id.read().unwrap();
     if id.is_none() {
       drop(id);
+
       let mut id = self.id.write().unwrap();
       *id = Some(e.get_static_field_id(C::PATH, self.name, T::SIG).unwrap());
+      drop(id);
+
       self.get(e)
     } else {
       let val = e.get_static_field_unchecked(C::PATH, id.unwrap(), T::jni())
