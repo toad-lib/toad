@@ -12,21 +12,21 @@ pub struct Object(GlobalRef);
 
 impl Object {
   /// Is this object `instanceof C`?
-  pub fn is_instance_of<'a, T>(&self, e: &mut java::Env<'a>) -> bool
+  pub fn is_instance_of<T>(&self, e: &mut java::Env) -> bool
     where T: java::Type
   {
-    T::is_type_of(e, &self)
+    T::is_type_of(e, self)
   }
 
   /// Shorthand for `T::upcast(e, jobj)`
-  pub fn upcast_to<'a, T>(self, e: &mut java::Env<'a>) -> T
+  pub fn upcast_to<T>(self, e: &mut java::Env) -> T
     where T: java::Object
   {
     T::upcast(e, self)
   }
 
   /// Invoke `String toString()`
-  pub fn to_string<'a>(&self, e: &mut java::Env<'a>) -> String {
+  pub fn to_string(&self, e: &mut java::Env) -> String {
     static TO_STRING: java::Method<Object, fn() -> String> = java::Method::new("toString");
     TO_STRING.invoke(e, self)
   }
@@ -95,33 +95,31 @@ impl java::Class for Object {
 }
 
 impl java::Object for Object {
-  fn upcast<'a, 'e>(_: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(_: &mut java::Env, jobj: java::lang::Object) -> Self {
     jobj
   }
 
-  fn downcast<'a, 'e>(self, _: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, _: &mut java::Env) -> java::lang::Object {
     self
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     Self::from_local(e, self.as_local())
   }
 
-  fn upcast_value_ref<'a, 'e, 'v>(e: &'a mut java::Env<'e>,
-                                  jv: jni::objects::JValue<'e, 'v>)
-                                  -> Self
+  fn upcast_value_ref<'e>(e: &mut java::Env<'e>, jv: jni::objects::JValue<'e, '_>) -> Self
     where Self: Sized
   {
     Self::from_value_ref(e, jv)
   }
 
-  fn upcast_value<'a, 'e, 'v>(e: &'a mut java::Env<'e>, jv: jni::objects::JValueOwned<'e>) -> Self
+  fn upcast_value<'e>(e: &mut java::Env<'e>, jv: jni::objects::JValueOwned<'e>) -> Self
     where Self: Sized
   {
     Self::from_value(e, jv)
   }
 
-  fn downcast_value<'a, 'e>(self, e: &'a mut java::Env<'e>) -> jni::objects::JValueOwned<'e>
+  fn downcast_value<'e>(self, e: &mut java::Env<'e>) -> jni::objects::JValueOwned<'e>
     where Self: Sized
   {
     self.to_value(e)

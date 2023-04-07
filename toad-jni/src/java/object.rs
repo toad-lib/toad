@@ -24,30 +24,30 @@ pub trait Object
   where Self: java::Type
 {
   /// Try to interpret an object as `Self`
-  fn upcast<'a, 'e>(e: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self;
+  fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self;
 
   /// Create an object reference from `self`
-  fn downcast<'a, 'e>(self, e: &'a mut java::Env<'e>) -> java::lang::Object;
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object;
 
   /// Create an object reference from `&self`
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object;
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object;
 
   /// Try to interpret a `JValue` as `Self`
-  fn upcast_value_ref<'a, 'e, 'v>(e: &'a mut java::Env<'e>, jv: JValue<'e, 'v>) -> Self
+  fn upcast_value_ref<'e>(e: &mut java::Env<'e>, jv: JValue<'e, '_>) -> Self
     where Self: Sized
   {
     java::lang::Object::upcast_value_ref(e, jv).upcast_to::<Self>(e)
   }
 
   /// Try to interpret a `JValueOwned` as `Self`
-  fn upcast_value<'a, 'e, 'v>(e: &'a mut java::Env<'e>, jv: JValueOwned<'e>) -> Self
+  fn upcast_value<'e>(e: &mut java::Env<'e>, jv: JValueOwned<'e>) -> Self
     where Self: Sized
   {
     Self::upcast_value_ref(e, (&jv).into())
   }
 
   /// Create a `JValueOwned` from `self`
-  fn downcast_value<'a, 'e>(self, e: &'a mut java::Env<'e>) -> JValueOwned<'e>
+  fn downcast_value<'e>(self, e: &mut java::Env<'e>) -> JValueOwned<'e>
     where Self: Sized
   {
     self.downcast(e).downcast_value(e)
@@ -55,22 +55,22 @@ pub trait Object
 }
 
 impl Object for GlobalRef {
-  fn upcast<'a, 'e>(_: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(_: &mut java::Env, jobj: java::lang::Object) -> Self {
     jobj.into()
   }
 
-  fn downcast<'a, 'e>(self, _: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, _: &mut java::Env) -> java::lang::Object {
     self.into()
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     e.new_global_ref(self).unwrap().into()
   }
 }
 
 impl<T> Object for Vec<T> where T: java::Object
 {
-  fn upcast<'a, 'e>(e: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
     let arr = <&JObjectArray>::from(jobj.as_local());
     let len = e.get_array_length(arr).unwrap() as usize;
 
@@ -101,7 +101,7 @@ impl<T> Object for Vec<T> where T: java::Object
         let arr = <&JBooleanArray>::from(jobj.as_local());
         let mut els = Vec::new();
         els.resize(len, 0u8);
-        e.get_boolean_array_region(&arr, 0, &mut els).unwrap();
+        e.get_boolean_array_region(arr, 0, &mut els).unwrap();
         els.into_iter()
            .map(|b| {
              let val = (b == jni::sys::JNI_TRUE).downcast_value(e);
@@ -112,10 +112,10 @@ impl<T> Object for Vec<T> where T: java::Object
       | _ if jobj.is_instance_of::<Vec<java::lang::Object>>(e) => {
         let mut vec = Vec::new();
 
-        (0..len).into_iter().for_each(|ix| {
-                              let obj = e.get_object_array_element(arr, ix as i32).unwrap();
-                              vec.push(java::lang::Object::from_local(e, obj).upcast_to::<T>(e));
-                            });
+        (0..len).for_each(|ix| {
+                  let obj = e.get_object_array_element(arr, ix as i32).unwrap();
+                  vec.push(java::lang::Object::from_local(e, obj).upcast_to::<T>(e));
+                });
 
         vec
       },
@@ -127,11 +127,11 @@ impl<T> Object for Vec<T> where T: java::Object
     }
   }
 
-  fn downcast<'a, 'e>(self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object {
     self.downcast_ref(e)
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     macro_rules! go {
       ($new_array:ident, $set_region:ident) => {{
         let slice = self.as_slice();
@@ -180,32 +180,32 @@ impl<T> Object for Vec<T> where T: java::Object
 
 impl<T> Object for T where T: java::Primitive
 {
-  fn upcast<'a, 'e>(e: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
     let w = <T as java::Primitive>::PrimitiveWrapper::upcast(e, jobj);
     T::from_primitive_wrapper(e, w)
   }
 
-  fn downcast<'a, 'e>(self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object {
     self.to_primitive_wrapper(e).downcast(e)
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     self.to_primitive_wrapper(e).downcast(e)
   }
 
-  fn upcast_value_ref<'a, 'e, 'v>(_: &'a mut java::Env<'e>, jv: JValue<'e, 'v>) -> Self
+  fn upcast_value_ref<'e>(_: &mut java::Env<'e>, jv: JValue<'e, '_>) -> Self
     where Self: Sized
   {
     T::from_jvalue_ref(jv)
   }
 
-  fn upcast_value<'a, 'e, 'v>(_: &'a mut java::Env<'e>, jv: JValueOwned<'e>) -> Self
+  fn upcast_value(_: &mut java::Env, jv: JValueOwned) -> Self
     where Self: Sized
   {
     T::from_jvalue(jv)
   }
 
-  fn downcast_value<'a, 'e>(self, _: &'a mut java::Env<'e>) -> JValueOwned<'e>
+  fn downcast_value<'e>(self, _: &mut java::Env<'e>) -> JValueOwned<'e>
     where Self: Sized
   {
     self.into_jvalue()
@@ -213,15 +213,15 @@ impl<T> Object for T where T: java::Primitive
 }
 
 impl Object for () {
-  fn upcast<'a, 'e>(_: &'a mut java::Env<'e>, _: java::lang::Object) -> Self {
+  fn upcast(_: &mut java::Env, _: java::lang::Object) -> Self {
     ()
   }
 
-  fn downcast<'a, 'e>(self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object {
     java::lang::Object::from_local(e, JObject::null())
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     ().downcast(e)
   }
 }

@@ -11,16 +11,16 @@ pub trait Primitive
   type PrimitiveWrapper: java::Class;
 
   /// Create a new instance of [`Self::PrimitiveWrapper`] from a copy of `self`
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper;
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper;
 
   /// Perform the inverse conversion, yielding `Self` from `Self::PrimitiveWrapper`
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self;
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self;
 
   /// Convert a local JValue reference to `Self`
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> Self;
+  fn from_jvalue_ref(jv: JValue) -> Self;
 
   /// Convert an owned local JValue to Self
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self;
+  fn from_jvalue(jv: JValueOwned) -> Self;
 
   /// Convert self to a JValue
   fn into_jvalue<'local>(self) -> JValueOwned<'local>;
@@ -29,19 +29,19 @@ pub trait Primitive
 impl Primitive for i8 {
   type PrimitiveWrapper = java::lang::Byte;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Byte::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> i8 {
+  fn from_jvalue_ref(jv: JValue) -> i8 {
     jv.b().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     jv.b().unwrap()
   }
 
@@ -53,19 +53,19 @@ impl Primitive for i8 {
 impl Primitive for u16 {
   type PrimitiveWrapper = java::lang::Char;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Char::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> u16 {
+  fn from_jvalue_ref(jv: JValue) -> u16 {
     jv.c().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -77,19 +77,19 @@ impl Primitive for u16 {
 impl Primitive for i16 {
   type PrimitiveWrapper = java::lang::Short;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Short::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> i16 {
+  fn from_jvalue_ref(jv: JValue) -> i16 {
     jv.s().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -101,19 +101,19 @@ impl Primitive for i16 {
 impl Primitive for i32 {
   type PrimitiveWrapper = java::lang::Integer;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Integer::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> i32 {
+  fn from_jvalue_ref(jv: JValue) -> i32 {
     jv.i().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -125,19 +125,19 @@ impl Primitive for i32 {
 impl Primitive for i64 {
   type PrimitiveWrapper = java::lang::Long;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Long::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> i64 {
+  fn from_jvalue_ref(jv: JValue) -> i64 {
     jv.j().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -149,19 +149,19 @@ impl Primitive for i64 {
 impl Primitive for f32 {
   type PrimitiveWrapper = java::lang::Float;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Float::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> f32 {
+  fn from_jvalue_ref(jv: JValue) -> f32 {
     jv.f().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -173,19 +173,19 @@ impl Primitive for f32 {
 impl Primitive for f64 {
   type PrimitiveWrapper = java::lang::Double;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Double::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> f64 {
+  fn from_jvalue_ref(jv: JValue) -> f64 {
     jv.d().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 
@@ -197,19 +197,19 @@ impl Primitive for f64 {
 impl Primitive for bool {
   type PrimitiveWrapper = java::lang::Bool;
 
-  fn to_primitive_wrapper<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> Self::PrimitiveWrapper {
+  fn to_primitive_wrapper(&self, e: &mut java::Env) -> Self::PrimitiveWrapper {
     java::lang::Bool::new(e, *self)
   }
 
-  fn from_primitive_wrapper<'a, 'e>(e: &'a mut java::Env<'e>, w: Self::PrimitiveWrapper) -> Self {
+  fn from_primitive_wrapper(e: &mut java::Env, w: Self::PrimitiveWrapper) -> Self {
     w.inner(e)
   }
 
-  fn from_jvalue_ref<'local, 'a>(jv: JValue<'local, 'a>) -> bool {
+  fn from_jvalue_ref(jv: JValue) -> bool {
     jv.z().unwrap()
   }
 
-  fn from_jvalue<'local>(jv: JValueOwned<'local>) -> Self {
+  fn from_jvalue(jv: JValueOwned) -> Self {
     Self::from_jvalue_ref((&jv).into())
   }
 

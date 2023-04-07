@@ -45,10 +45,9 @@ impl Signature {
     use jni::signature::ReturnType::*;
 
     let ret = self.as_str();
-    let ret = ret.split(")")
-                 .skip(1)
-                 .next()
-                 .expect(&format!("{:?} is not a function signature", self));
+    let ret = ret.split(')')
+                 .nth(1)
+                 .unwrap_or_else(|| panic!("{:?} is not a function signature", self));
 
     if ret.starts_with(Self::ARRAY_OF.as_str()) {
       Array
@@ -149,7 +148,7 @@ impl Signature {
 }
 
 impl Display for Signature {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     write!(f, "{}", self.as_str())
   }
 }
@@ -214,7 +213,7 @@ pub trait Type: type_sealed::TypeSealed {
   const SIG: Signature;
 
   /// Determines whether an object is an instance of this type
-  fn is_type_of<'a, 'b>(e: &mut java::Env<'a>, o: &JObject<'b>) -> bool {
+  fn is_type_of(e: &mut java::Env, o: &JObject) -> bool {
     e.is_instance_of(o, Self::SIG).unwrap()
   }
 

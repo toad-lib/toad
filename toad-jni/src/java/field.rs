@@ -24,7 +24,7 @@ impl<C, T> Field<C, T>
   }
 
   /// Get the value of this field
-  pub fn get<'local>(&self, e: &mut java::Env<'local>, inst: &C) -> T {
+  pub fn get(&self, e: &mut java::Env, inst: &C) -> T {
     let id = self.id.read().unwrap();
     if id.is_none() {
       drop(id);
@@ -40,7 +40,7 @@ impl<C, T> Field<C, T>
   }
 
   /// Set the value of this field
-  pub fn set<'local>(&self, e: &mut java::Env<'local>, inst: &C, t: T) {
+  pub fn set(&self, e: &mut java::Env, inst: &C, t: T) {
     let inst = inst.downcast_ref(e);
     let t = t.downcast_value(e);
     e.set_field(inst, self.name, T::SIG, (&t).into()).unwrap();
@@ -66,7 +66,7 @@ impl<C, T> StaticField<C, T>
   }
 
   /// Get the static field value
-  pub fn get<'local>(&self, e: &mut java::Env<'local>) -> T {
+  pub fn get(&self, e: &mut java::Env) -> T {
     let id = self.id.read().unwrap();
     if id.is_none() {
       drop(id);

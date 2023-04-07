@@ -15,16 +15,16 @@ impl<T> java::Class for ArrayList<T> where T: java::Object
 
 impl<T> java::Object for ArrayList<T> where T: java::Object
 {
-  fn upcast<'a, 'e>(_e: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(_e: &mut java::Env, jobj: java::lang::Object) -> Self {
     Self(jobj, PhantomData)
   }
 
-  fn downcast<'a, 'e>(self, _e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, _e: &mut java::Env) -> java::lang::Object {
     self.0
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
-    (&self.0).downcast_ref(e)
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
+    self.0.downcast_ref(e)
   }
 }
 
@@ -86,7 +86,7 @@ impl<T> ArrayList<T> where T: java::Object
   }
 
   /// Create a new [`ArrayList`]
-  pub fn new<'local>(e: &mut java::Env<'local>) -> Self {
+  pub fn new(e: &mut java::Env) -> Self {
     static CTOR: java::Constructor<ArrayList<java::lang::Object>, fn()> = java::Constructor::new();
     CTOR.invoke(e).cast()
   }
@@ -157,9 +157,9 @@ impl<T> FromIterator<T> for ArrayList<T> where T: java::Object
     let mut e = java::env();
     let e = &mut e;
 
-    let mut iter = iter.into_iter();
+    let iter = iter.into_iter();
     let list = ArrayList::<T>::new(e);
-    while let Some(t) = iter.next() {
+    for t in iter {
       list.append(e, t);
     }
 

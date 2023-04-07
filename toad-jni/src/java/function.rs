@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 use core::marker::PhantomData;
 use std::sync::RwLock;
 
@@ -27,7 +29,7 @@ impl<C, F> Method<C, F>
   }
 
   /// Get & cache the method ID for this method
-  fn find<'a>(&self, e: &mut java::Env<'a>) -> JMethodID {
+  fn find(&self, e: &mut java::Env) -> JMethodID {
     let mid = self.mid.read().unwrap();
 
     if mid.is_none() {
@@ -47,7 +49,7 @@ impl<C, FR> Method<C, fn() -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, inst: &C) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C) -> FR {
     let inst = inst.downcast_ref(e);
     let mid = self.find(e);
     let jv = unsafe {
@@ -65,7 +67,7 @@ impl<C, FA, FR> Method<C, fn(FA) -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, inst: &C, fa: FA) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA) -> FR {
     let inst = inst.downcast_ref(e);
     let fa = fa.downcast_value(e);
     let mid = self.find(e);
@@ -87,7 +89,7 @@ impl<C, FA, FB, FR> Method<C, fn(FA, FB) -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, inst: &C, fa: FA, fb: FB) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
     let mid = self.find(e);
@@ -110,7 +112,7 @@ impl<C, FA, FB, FC, FR> Method<C, fn(FA, FB, FC) -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, inst: &C, fa: FA, fb: FB, fc: FC) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB, fc: FC) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
     let mid = self.find(e);
@@ -134,14 +136,7 @@ impl<C, FA, FB, FC, FD, FR> Method<C, fn(FA, FB, FC, FD) -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self,
-                        e: &mut java::Env<'a>,
-                        inst: &C,
-                        fa: FA,
-                        fb: FB,
-                        fc: FC,
-                        fd: FD)
-                        -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB, fc: FC, fd: FD) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc, fd) =
       (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
@@ -167,15 +162,7 @@ impl<C, FA, FB, FC, FD, FE, FR> Method<C, fn(FA, FB, FC, FD, FE) -> FR>
         FR: Object
 {
   /// Call the method
-  pub fn invoke<'a, 'b>(&self,
-                        e: &mut java::Env<'a>,
-                        inst: &C,
-                        fa: FA,
-                        fb: FB,
-                        fc: FC,
-                        fd: FD,
-                        fe: FE)
-                        -> FR {
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB, fc: FC, fd: FD, fe: FE) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc, fd, fe) = (fa.downcast_value(e),
                                 fb.downcast_value(e),
@@ -219,7 +206,7 @@ impl<C, F> StaticMethod<C, F>
   }
 
   /// Get & cache the method ID for this method
-  fn find<'a>(&self, e: &mut java::Env<'a>) -> (JClass<'static>, JStaticMethodID) {
+  fn find(&self, e: &mut java::Env) -> (JClass, JStaticMethodID) {
     let ids = self.ids.read().unwrap();
 
     if ids.is_none() {
@@ -248,7 +235,7 @@ impl<C, FR> StaticMethod<C, fn() -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>) -> FR {
+  pub fn invoke(&self, e: &mut java::Env) -> FR {
     let (class, mid) = self.find(e);
     let jv = unsafe {
       e.call_static_method_unchecked(class, mid, Signature::of::<fn() -> FR>().return_type(), &[])
@@ -264,7 +251,7 @@ impl<C, FA, FR> StaticMethod<C, fn(FA) -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA) -> FR {
     let fa = fa.downcast_value(e);
     let (class, mid) = self.find(e);
     let jv = unsafe {
@@ -285,7 +272,7 @@ impl<C, FA, FB, FR> StaticMethod<C, fn(FA, FB) -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB) -> FR {
     let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
     let (class, mid) = self.find(e);
     let jv = unsafe {
@@ -307,7 +294,7 @@ impl<C, FA, FB, FC, FR> StaticMethod<C, fn(FA, FB, FC) -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB, fc: FC) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC) -> FR {
     let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
     let (class, mid) = self.find(e);
     let jv = unsafe {
@@ -330,7 +317,7 @@ impl<C, FA, FB, FC, FD, FR> StaticMethod<C, fn(FA, FB, FC, FD) -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB, fc: FC, fd: FD) -> FR {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC, fd: FD) -> FR {
     let (fa, fb, fc, fd) =
       (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
     let (class, mid) = self.find(e);
@@ -355,14 +342,7 @@ impl<C, FA, FB, FC, FD, FE, FR> StaticMethod<C, fn(FA, FB, FC, FD, FE) -> FR>
         FR: Object
 {
   /// Invoke the static method
-  pub fn invoke<'a, 'b>(&self,
-                        e: &mut java::Env<'a>,
-                        fa: FA,
-                        fb: FB,
-                        fc: FC,
-                        fd: FD,
-                        fe: FE)
-                        -> FR {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC, fd: FD, fe: FE) -> FR {
     let (fa, fb, fc, fd, fe) = (fa.downcast_value(e),
                                 fb.downcast_value(e),
                                 fc.downcast_value(e),
@@ -404,7 +384,7 @@ impl<C, F> Constructor<C, F>
   }
 
   /// Get & cache the method ID for this constructor
-  fn find<'a>(&self, e: &mut java::Env<'a>) -> JMethodID {
+  fn find(&self, e: &mut java::Env) -> JMethodID {
     let mid = self.id.read().unwrap();
 
     if mid.is_none() {
@@ -422,7 +402,7 @@ impl<C, F> Constructor<C, F>
 impl<C> Constructor<C, fn()> where C: Class
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>) -> C {
+  pub fn invoke(&self, e: &mut java::Env) -> C {
     let jobj = e.new_object(C::PATH, Signature::of::<fn()>(), &[]).unwrap();
     java::lang::Object::from_local(e, jobj).upcast_to::<C>(e)
   }
@@ -433,7 +413,7 @@ impl<C, FA> Constructor<C, fn(FA)>
         FA: Object
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA) -> C {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA) -> C {
     let fa = fa.downcast_value(e);
     let mid = self.find(e);
     let jv = unsafe {
@@ -451,7 +431,7 @@ impl<C, FA, FB> Constructor<C, fn(FA, FB)>
         FB: Object
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB) -> C {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB) -> C {
     let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
     let mid = self.find(e);
     let jv = unsafe {
@@ -469,7 +449,7 @@ impl<C, FA, FB, FC> Constructor<C, fn(FA, FB, FC)>
         FC: Object
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB, fc: FC) -> C {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC) -> C {
     let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
     let mid = self.find(e);
     let jv = unsafe {
@@ -488,7 +468,7 @@ impl<C, FA, FB, FC, FD> Constructor<C, fn(FA, FB, FC, FD)>
         FD: Object
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB, fc: FC, fd: FD) -> C {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC, fd: FD) -> C {
     let (fa, fb, fc, fd) =
       (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
     let mid = self.find(e);
@@ -511,7 +491,7 @@ impl<C, FA, FB, FC, FD, FE> Constructor<C, fn(FA, FB, FC, FD, FE)>
         FE: Object
 {
   /// Invoke the constructor
-  pub fn invoke<'a, 'b>(&self, e: &mut java::Env<'a>, fa: FA, fb: FB, fc: FC, fd: FD, fe: FE) -> C {
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB, fc: FC, fd: FD, fe: FE) -> C {
     let (fa, fb, fc, fd, fe) = (fa.downcast_value(e),
                                 fb.downcast_value(e),
                                 fc.downcast_value(e),

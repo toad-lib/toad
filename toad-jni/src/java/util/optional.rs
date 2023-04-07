@@ -21,6 +21,7 @@ impl<T> Optional<T> where T: java::Object
 
   /// java.util.Optional$of
   pub fn of(e: &mut java::Env, t: T) -> Self {
+    #[allow(clippy::type_complexity)]
     static OF: java::StaticMethod<Optional<java::lang::Object>,
                                     fn(java::lang::Object) -> Optional<java::lang::Object>> =
       java::StaticMethod::new("of");
@@ -29,7 +30,7 @@ impl<T> Optional<T> where T: java::Object
   }
 
   /// Create an empty instance of `Optional<T>`
-  pub fn empty<'a>(e: &mut java::Env<'a>) -> Self {
+  pub fn empty(e: &mut java::Env) -> Self {
     static EMPTY: java::StaticMethod<Optional<java::lang::Object>,
                                        fn() -> Optional<java::lang::Object>> =
       java::StaticMethod::new("empty");
@@ -37,7 +38,7 @@ impl<T> Optional<T> where T: java::Object
   }
 
   /// Is this Optional empty? (equivalent to [`Option.is_none`])
-  pub fn is_empty<'a>(&self, e: &mut java::Env<'a>) -> bool {
+  pub fn is_empty(&self, e: &mut java::Env) -> bool {
     static IS_EMPTY: java::Method<Optional<java::lang::Object>, fn() -> bool> =
       java::Method::new("isEmpty");
     IS_EMPTY.invoke(e, self.cast_ref())
@@ -46,14 +47,14 @@ impl<T> Optional<T> where T: java::Object
   /// Extract the value from the optional, throwing a Java exception if it was empty.
   ///
   /// (equivalent to [`Option.unwrap`])
-  pub fn get<'a>(&self, e: &mut java::Env<'a>) -> T {
+  pub fn get(&self, e: &mut java::Env) -> T {
     static GET: java::Method<Optional<java::lang::Object>, fn() -> java::lang::Object> =
       java::Method::new("get");
     GET.invoke(e, self.cast_ref()).upcast_to::<T>(e)
   }
 
   /// Infallibly convert this java `Optional<T>` to a rust `Option<T>`.
-  pub fn to_option<'a>(self, e: &mut java::Env<'a>) -> Option<T> {
+  pub fn to_option(self, e: &mut java::Env) -> Option<T> {
     if self.is_empty(e) {
       None
     } else {
@@ -62,7 +63,7 @@ impl<T> Optional<T> where T: java::Object
   }
 
   /// Infallibly convert create a java `Optional<T>` from a rust `Option<T>`.
-  pub fn from_option<'a>(o: Option<T>, e: &mut java::Env<'a>) -> Self {
+  pub fn from_option(o: Option<T>, e: &mut java::Env) -> Self {
     o.map(|t| Self::of(e, t)).unwrap_or_else(|| Self::empty(e))
   }
 }
@@ -74,15 +75,15 @@ impl<T> java::Class for Optional<T> where T: java::Object
 
 impl<T> java::Object for Optional<T> where T: java::Object
 {
-  fn upcast<'a, 'e>(_e: &'a mut java::Env<'e>, jobj: java::lang::Object) -> Self {
+  fn upcast(_e: &mut java::Env, jobj: java::lang::Object) -> Self {
     Self(jobj, PhantomData)
   }
 
-  fn downcast<'a, 'e>(self, _e: &'a mut java::Env<'e>) -> java::lang::Object {
+  fn downcast(self, _e: &mut java::Env) -> java::lang::Object {
     self.0
   }
 
-  fn downcast_ref<'a, 'e>(&'a self, e: &'a mut java::Env<'e>) -> java::lang::Object {
-    (&self.0).downcast_ref(e)
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
+    self.0.downcast_ref(e)
   }
 }
