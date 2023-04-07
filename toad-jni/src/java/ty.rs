@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use jni::objects::{GlobalRef, JObject};
 
+use super::Class;
 use crate::java;
 
 /// Provides strongly-typed JVM type signature strings at compile-time
@@ -38,7 +39,8 @@ impl Signature {
     T::SIG
   }
 
-  pub(crate) fn return_type(self) -> jni::signature::ReturnType {
+  /// Get the [`jni::signature::ReturnType`] of a function [`Signature`]
+  pub fn return_type(self) -> jni::signature::ReturnType {
     use jni::signature::Primitive::*;
     use jni::signature::ReturnType::*;
 
@@ -184,61 +186,103 @@ pub trait Type {
   fn is_type_of<'a, 'b>(e: &mut java::Env<'a>, o: &JObject<'b>) -> bool {
     e.is_instance_of(o, Self::SIG).unwrap()
   }
+
+  /// Get the [`jni`] rep of this type
+  fn jni() -> jni::signature::JavaType;
 }
 
 impl<T> Type for T where T: java::Class
 {
   const SIG: Signature = Signature::class(T::PATH);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Object(T::PATH.into())
+  }
 }
 
 impl Type for GlobalRef {
   const SIG: Signature = java::lang::Object::SIG;
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Object(java::lang::Object::PATH.into())
+  }
 }
 
 impl Type for () {
   const SIG: Signature = Signature::empty().push_str("V");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Void)
+  }
 }
 
 impl Type for u16 {
   const SIG: Signature = Signature::empty().push_str("C");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Char)
+  }
 }
 
 impl Type for i8 {
   const SIG: Signature = Signature::empty().push_str("B");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Byte)
+  }
 }
 
 impl Type for i16 {
   const SIG: Signature = Signature::empty().push_str("S");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Short)
+  }
 }
 
 impl Type for i32 {
   const SIG: Signature = Signature::empty().push_str("I");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Int)
+  }
 }
 
 impl Type for i64 {
   const SIG: Signature = Signature::empty().push_str("J");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Long)
+  }
 }
 
 impl Type for f32 {
   const SIG: Signature = Signature::empty().push_str("F");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Float)
+  }
 }
 
 impl Type for f64 {
   const SIG: Signature = Signature::empty().push_str("D");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Double)
+  }
 }
 
 impl Type for bool {
   const SIG: Signature = Signature::empty().push_str("Z");
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Primitive(jni::signature::Primitive::Boolean)
+  }
 }
 
 impl<T> Type for Vec<T> where T: Type
 {
   const SIG: Signature = Signature::array_of(T::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Array(Box::new(T::jni()))
+  }
 }
 
 impl<R> Type for fn() -> R where R: Type
 {
   const SIG: Signature = Signature::function().ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![], ret: Self::SIG.return_type() }))
+  }
 }
 
 impl<R, A> Type for fn(A) -> R
@@ -246,6 +290,9 @@ impl<R, A> Type for fn(A) -> R
         A: Type
 {
   const SIG: Signature = Signature::function().concat(A::SIG).ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![A::jni()], ret: Self::SIG.return_type() }))
+  }
 }
 
 impl<R, A, B> Type for fn(A, B) -> R
@@ -256,6 +303,9 @@ impl<R, A, B> Type for fn(A, B) -> R
   const SIG: Signature = Signature::function().concat(A::SIG)
                                               .concat(B::SIG)
                                               .ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![A::jni(), B::jni()], ret: Self::SIG.return_type() }))
+  }
 }
 
 impl<R, A, B, C> Type for fn(A, B, C) -> R
@@ -268,6 +318,9 @@ impl<R, A, B, C> Type for fn(A, B, C) -> R
                                               .concat(B::SIG)
                                               .concat(C::SIG)
                                               .ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![A::jni(), B::jni(), C::jni()], ret: Self::SIG.return_type() }))
+  }
 }
 
 impl<R, A, B, C, D> Type for fn(A, B, C, D) -> R
@@ -282,6 +335,9 @@ impl<R, A, B, C, D> Type for fn(A, B, C, D) -> R
                                               .concat(C::SIG)
                                               .concat(D::SIG)
                                               .ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![A::jni(), B::jni(), C::jni(), D::jni()], ret: Self::SIG.return_type() }))
+  }
 }
 
 impl<R, A, B, C, D, E> Type for fn(A, B, C, D, E) -> R
@@ -298,6 +354,9 @@ impl<R, A, B, C, D, E> Type for fn(A, B, C, D, E) -> R
                                               .concat(D::SIG)
                                               .concat(E::SIG)
                                               .ret(R::SIG);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Method(Box::new(jni::signature::TypeSignature { args: vec![A::jni(), B::jni(), C::jni(), D::jni(), E::jni()], ret: Self::SIG.return_type() }))
+  }
 }
 
 #[cfg(test)]
