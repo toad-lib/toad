@@ -161,8 +161,9 @@ impl AsRef<str> for Signature {
 }
 
 mod type_sealed {
-    use jni::objects::GlobalRef;
-    use crate::java;
+  use jni::objects::GlobalRef;
+
+  use crate::java;
 
   #[allow(unreachable_pub)]
   pub trait TypeSealed {}
