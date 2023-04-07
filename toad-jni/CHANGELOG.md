@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.5.0...toad-jni-v0.5.1) (2023-04-07)
+
+
+### Bug Fixes
+
+* field deadlock + panic ([#291](https://github.com/toad-lib/toad/issues/291)) ([3325fe1](https://github.com/toad-lib/toad/commit/3325fe123ffb58353479753187acba67fa8200a8))
+
 ## [0.5.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.4.1...toad-jni-v0.5.0) (2023-04-07)
 
 
