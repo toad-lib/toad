@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.4.1...toad-jni-v0.5.0) (2023-04-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* rework toad_jni type system ([#289](https://github.com/toad-lib/toad/issues/289))
+
+### Features
+
+* rework toad_jni type system ([#289](https://github.com/toad-lib/toad/issues/289)) ([9b20ce7](https://github.com/toad-lib/toad/commit/9b20ce7b441e195e03768dbb0621f20e75ae7353))
+
 ## [0.4.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.4.0...toad-jni-v0.4.1) (2023-04-05)
 
 
