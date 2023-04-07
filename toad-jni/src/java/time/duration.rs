@@ -4,21 +4,17 @@ use crate::java;
 pub struct Duration(java::lang::Object);
 
 impl Duration {
-  /// java.time.Duration$ofMillis
-  pub const OF_MILLIS: java::StaticMethod<Self, fn(i64) -> Self> =
-    java::StaticMethod::new("ofMillis");
-
-  /// java.time.Duration$toMillis
-  pub const TO_MILLIS: java::Method<Self, fn() -> i64> = java::Method::new("toMillis");
-
-  /// java.time.Duration$ofMillis
+  /// java.time.Duration.ofMillis(long)
   pub fn of_millis<'a>(e: &mut java::Env<'a>, millis: i64) -> Self {
-    Self::OF_MILLIS.invoke(e, millis)
+    static OF_MILLIS: java::StaticMethod<Duration, fn(i64) -> Duration> =
+      java::StaticMethod::new("ofMillis");
+    OF_MILLIS.invoke(e, millis)
   }
 
-  /// java.time.Duration$ofMillis
+  /// java.time.Duration.toMillis()
   pub fn to_millis<'a>(&self, e: &mut java::Env<'a>) -> i64 {
-    Self::TO_MILLIS.invoke(e, self)
+    static TO_MILLIS: java::Method<Duration, fn() -> i64> = java::Method::new("toMillis");
+    TO_MILLIS.invoke(e, self)
   }
 }
 

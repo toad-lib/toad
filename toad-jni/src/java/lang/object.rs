@@ -11,9 +11,6 @@ use crate::java;
 pub struct Object(GlobalRef);
 
 impl Object {
-  /// String toString()
-  pub const TO_STRING: java::Method<Self, fn() -> String> = java::Method::new("toString");
-
   /// Is this object `instanceof C`?
   pub fn is_instance_of<'a, T>(&self, e: &mut java::Env<'a>) -> bool
     where T: java::Type
@@ -30,7 +27,8 @@ impl Object {
 
   /// Invoke `String toString()`
   pub fn to_string<'a>(&self, e: &mut java::Env<'a>) -> String {
-    Self::TO_STRING.invoke(e, self)
+    static TO_STRING: java::Method<Object, fn() -> String> = java::Method::new("toString");
+    TO_STRING.invoke(e, self)
   }
 
   /// Convert an object reference to an owned local jvalue

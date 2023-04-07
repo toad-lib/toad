@@ -30,30 +30,65 @@ impl<T> java::Object for ArrayList<T> where T: java::Object
 
 impl<T> ArrayList<T> where T: java::Object
 {
-  /// java ArrayList constructor signature
-  pub const CTOR: java::Constructor<Self, fn()> = java::Constructor::new();
+  /// java.util.ArrayList.get(int)
+  pub fn get(&self, e: &mut java::Env, ix: i32) -> T {
+    static GET: java::Method<ArrayList<java::lang::Object>, fn(i32) -> java::lang::Object> =
+      java::Method::new("get");
+    GET.invoke(e, self.cast_ref(), ix).upcast_to::<T>(e)
+  }
 
-  /// ArrayList.get
-  pub const GET: java::Method<Self, fn(i32) -> java::lang::Object> = java::Method::new("get");
+  /// java.util.ArrayList.remove(int)
+  pub fn remove(&self, e: &mut java::Env, ix: i32) {
+    static REMOVE: java::Method<ArrayList<java::lang::Object>, fn(i32) -> java::lang::Object> =
+      java::Method::new("remove");
+    REMOVE.invoke(e, self.cast_ref(), ix);
+  }
 
-  /// Object remove(int)
-  pub const REMOVE: java::Method<Self, fn(i32) -> java::lang::Object> = java::Method::new("remove");
+  /// java.util.ArrayList.clear()
+  pub fn clear(&self, e: &mut java::Env) {
+    static CLEAR: java::Method<ArrayList<java::lang::Object>, fn()> = java::Method::new("clear");
+    CLEAR.invoke(e, self.cast_ref())
+  }
 
-  /// void clear()
-  pub const CLEAR: java::Method<Self, fn()> = java::Method::new("clear");
+  /// java.util.ArrayList.add(Object)
+  pub fn append(&self, e: &mut java::Env, val: T) {
+    static ADD: java::Method<ArrayList<java::lang::Object>, fn(java::lang::Object) -> bool> =
+      java::Method::new("add");
+    let val = val.downcast(e);
+    ADD.invoke(e, self.cast_ref(), val);
+  }
 
-  /// boolean add(Object)
-  pub const ADD: java::Method<Self, fn(java::lang::Object) -> bool> = java::Method::new("add");
+  /// java.util.ArrayList.add(int, Object)
+  pub fn insert(&self, e: &mut java::Env, ix: i32, val: T) {
+    static INSERT: java::Method<ArrayList<java::lang::Object>, fn(i32, java::lang::Object)> =
+      java::Method::new("add");
+    let val = val.downcast(e);
+    INSERT.invoke(e, self.cast_ref(), ix, val)
+  }
 
-  /// void add(int, Object)
-  pub const INSERT: java::Method<Self, fn(i32, java::lang::Object)> = java::Method::new("add");
+  /// java.util.ArrayList.size()
+  pub fn size(&self, e: &mut java::Env) -> i32 {
+    static SIZE: java::Method<ArrayList<java::lang::Object>, fn() -> i32> =
+      java::Method::new("size");
+    SIZE.invoke(e, self.cast_ref())
+  }
 
-  /// int size()
-  pub const SIZE: java::Method<Self, fn() -> i32> = java::Method::new("size");
+  fn cast_ref<R>(&self) -> &ArrayList<R> {
+    // SAFETY:
+    // this is safe because there are no values of type `T`
+    // stored in this struct; simply just casting the PhantomData
+    // to a different PhantomData.
+    unsafe { core::mem::transmute(self) }
+  }
+
+  fn cast<R>(self) -> ArrayList<R> {
+    ArrayList(self.0, PhantomData)
+  }
 
   /// Create a new [`ArrayList`]
   pub fn new<'local>(e: &mut java::Env<'local>) -> Self {
-    Self::CTOR.invoke(e)
+    static CTOR: java::Constructor<ArrayList<java::lang::Object>, fn()> = java::Constructor::new();
+    CTOR.invoke(e).cast()
   }
 }
 
@@ -63,8 +98,7 @@ impl<T> Extend<T> for ArrayList<T> where T: java::Object
     let mut e = java::env();
     let e = &mut e;
     iter.into_iter().for_each(|t| {
-                      let t = t.downcast(e);
-                      Self::ADD.invoke(e, self, t);
+                      self.append(e, t);
                     })
   }
 }
@@ -74,7 +108,7 @@ impl<T> Len for ArrayList<T> where T: java::Object
   const CAPACITY: Option<usize> = None;
 
   fn len(&self) -> usize {
-    Self::SIZE.invoke(&mut java::env(), self) as usize
+    self.size(&mut java::env()) as usize
   }
 
   fn is_full(&self) -> bool {
@@ -88,10 +122,10 @@ impl<T> Trunc for ArrayList<T> where T: java::Object
     let mut e = java::env();
     let e = &mut e;
 
-    let len = Self::SIZE.invoke(e, self) as usize;
+    let len = self.size(e) as usize;
 
     if desired_len == 0 {
-      Self::CLEAR.invoke(e, self);
+      ArrayList::clear(self, e);
     }
 
     if len == 0 || desired_len >= len {
@@ -99,8 +133,8 @@ impl<T> Trunc for ArrayList<T> where T: java::Object
     }
 
     while self.len() < desired_len {
-      let new_len = Self::SIZE.invoke(e, self) as usize;
-      Self::REMOVE.invoke(e, self, (new_len - 1) as i32);
+      let new_len = self.size(e) as usize;
+      self.remove(e, (new_len - 1) as i32);
     }
   }
 }
@@ -124,10 +158,9 @@ impl<T> FromIterator<T> for ArrayList<T> where T: java::Object
     let e = &mut e;
 
     let mut iter = iter.into_iter();
-    let list = ArrayList::new(e);
+    let list = ArrayList::<T>::new(e);
     while let Some(t) = iter.next() {
-      let t = t.downcast(e);
-      Self::ADD.invoke(e, &list, t);
+      list.append(e, t);
     }
 
     list
@@ -170,9 +203,9 @@ impl<T> Iterator for ArrayListIter<T> where T: java::Object
     if self.ix == self.len {
       None
     } else {
-      let o = ArrayList::GET.invoke(e, &self.list, self.ix as i32);
+      let o = self.list.get(e, self.ix as i32);
       self.ix += 1;
-      Some(o.upcast_to::<T>(e))
+      Some(o)
     }
   }
 }

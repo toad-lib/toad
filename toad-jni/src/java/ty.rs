@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use jni::objects::{GlobalRef, JObject};
 
 use crate::java;
@@ -34,6 +36,36 @@ impl Signature {
     where T: Type
   {
     T::SIG
+  }
+
+  pub(crate) fn return_type(self) -> jni::signature::ReturnType {
+    use jni::signature::Primitive::*;
+    use jni::signature::ReturnType::*;
+
+    let ret = self.as_str();
+    let ret = ret.split(")")
+                 .skip(1)
+                 .next()
+                 .expect(&format!("{:?} is not a function signature", self));
+
+    if ret.starts_with(Self::ARRAY_OF.as_str()) {
+      Array
+    } else if ret.starts_with(Self::CLASS_PATH_OPEN.as_str()) {
+      Object
+    } else {
+      Primitive(match Signature::empty().push_str(ret) {
+                  | <()>::SIG => Void,
+                  | bool::SIG => Boolean,
+                  | u16::SIG => Char,
+                  | i8::SIG => Byte,
+                  | i16::SIG => Short,
+                  | i32::SIG => Int,
+                  | i64::SIG => Long,
+                  | f32::SIG => Float,
+                  | f64::SIG => Double,
+                  | _ => unreachable!(),
+                })
+    }
   }
 
   const fn empty() -> Self {
@@ -83,7 +115,7 @@ impl Signature {
     self
   }
 
-  const fn push_str(mut self, s: &'static str) -> Self {
+  const fn push_str(mut self, s: &str) -> Self {
     let mut i = 0;
     loop {
       if i == s.len() {
@@ -105,12 +137,18 @@ impl Signature {
     self
   }
 
-  /// Convert a [`Sig`] reference to [`str`]
+  /// Convert a [`Signature`] reference to [`str`]
   pub fn as_str(&self) -> &str {
     match core::str::from_utf8(&self.bytes[0..self.len]) {
       | Ok(s) => s,
       | _ => unreachable!(),
     }
+  }
+}
+
+impl Display for Signature {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.as_str())
   }
 }
 
@@ -128,6 +166,7 @@ impl AsRef<str> for Signature {
 /// |`T where T: `[`java::Class`]|fully qualified class path||
 /// |[`java::lang::Object`]|`java.lang.Object`||
 /// |[`Vec`]`<T>`|`T[]`|`T` must be [`java::Type`]|
+/// |[`String`]|`java.lang.String`|[`java::Class`] and [`java::Object`] implemented for [`String`]|
 /// |`()`|`void`||
 /// |`u16`|`char`||
 /// |`i8`|`byte`||
@@ -259,4 +298,35 @@ impl<R, A, B, C, D, E> Type for fn(A, B, C, D, E) -> R
                                               .concat(D::SIG)
                                               .concat(E::SIG)
                                               .ret(R::SIG);
+}
+
+#[cfg(test)]
+pub mod test {
+  use crate::java::Signature;
+
+  #[test]
+  fn return_type() {
+    use jni::signature::Primitive::*;
+    use jni::signature::ReturnType::*;
+
+    assert_eq!(Signature::of::<fn()>().return_type(), Primitive(Void));
+    assert_eq!(Signature::of::<fn(String) -> String>().return_type(),
+               Object);
+    assert_eq!(Signature::of::<fn(String) -> Vec<String>>().return_type(),
+               Array);
+    assert_eq!(Signature::of::<fn() -> u16>().return_type(),
+               Primitive(Char));
+    assert_eq!(Signature::of::<fn() -> bool>().return_type(),
+               Primitive(Boolean));
+    assert_eq!(Signature::of::<fn() -> i8>().return_type(), Primitive(Byte));
+    assert_eq!(Signature::of::<fn() -> i16>().return_type(),
+               Primitive(Short));
+    assert_eq!(Signature::of::<fn() -> i32>().return_type(), Primitive(Int));
+    assert_eq!(Signature::of::<fn() -> i64>().return_type(),
+               Primitive(Long));
+    assert_eq!(Signature::of::<fn() -> f32>().return_type(),
+               Primitive(Float));
+    assert_eq!(Signature::of::<fn() -> f64>().return_type(),
+               Primitive(Double));
+  }
 }

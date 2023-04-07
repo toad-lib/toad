@@ -7,43 +7,49 @@ pub struct Optional<T>(java::lang::Object, PhantomData<T>);
 
 impl<T> Optional<T> where T: java::Object
 {
-  /// Fully qualified class path
+  fn cast<R>(self) -> Optional<R> {
+    Optional(self.0, PhantomData)
+  }
+
+  fn cast_ref<R>(&self) -> &Optional<R> {
+    // SAFETY:
+    // this is safe because there are no values of type `T`
+    // stored in this struct; simply just casting the PhantomData
+    // to a different PhantomData.
+    unsafe { core::mem::transmute(self) }
+  }
 
   /// java.util.Optional$of
-  pub const OF: java::StaticMethod<Self, fn(java::lang::Object) -> Self> =
-    java::StaticMethod::new("of");
-
-  /// java.util.Optional$empty
-  pub const EMPTY: java::StaticMethod<Self, fn() -> Self> = java::StaticMethod::new("empty");
-
-  /// java.util.Optional$get
-  pub const GET: java::Method<Self, fn() -> java::lang::Object> = java::Method::new("get");
-
-  /// java.util.Optional$isEmpty
-  pub const IS_EMPTY: java::Method<Self, fn() -> bool> = java::Method::new("isEmpty");
-
-  /// Given a value of type `T`, wrap it in `Optional`.
-  pub fn of<'a>(e: &mut java::Env<'a>, t: T) -> Self {
-    let o = t.downcast(e);
-    Self::OF.invoke(e, o)
+  pub fn of(e: &mut java::Env, t: T) -> Self {
+    static OF: java::StaticMethod<Optional<java::lang::Object>,
+                                    fn(java::lang::Object) -> Optional<java::lang::Object>> =
+      java::StaticMethod::new("of");
+    let t = t.downcast(e);
+    OF.invoke(e, t).cast()
   }
 
   /// Create an empty instance of `Optional<T>`
   pub fn empty<'a>(e: &mut java::Env<'a>) -> Self {
-    Self::EMPTY.invoke(e)
+    static EMPTY: java::StaticMethod<Optional<java::lang::Object>,
+                                       fn() -> Optional<java::lang::Object>> =
+      java::StaticMethod::new("empty");
+    EMPTY.invoke(e).cast()
   }
 
   /// Is this Optional empty? (equivalent to [`Option.is_none`])
   pub fn is_empty<'a>(&self, e: &mut java::Env<'a>) -> bool {
-    Self::IS_EMPTY.invoke(e, self)
+    static IS_EMPTY: java::Method<Optional<java::lang::Object>, fn() -> bool> =
+      java::Method::new("isEmpty");
+    IS_EMPTY.invoke(e, self.cast_ref())
   }
 
   /// Extract the value from the optional, throwing a Java exception if it was empty.
   ///
   /// (equivalent to [`Option.unwrap`])
   pub fn get<'a>(&self, e: &mut java::Env<'a>) -> T {
-    let got = Self::GET.invoke(e, self);
-    got.upcast_to::<T>(e)
+    static GET: java::Method<Optional<java::lang::Object>, fn() -> java::lang::Object> =
+      java::Method::new("get");
+    GET.invoke(e, self.cast_ref()).upcast_to::<T>(e)
   }
 
   /// Infallibly convert this java `Optional<T>` to a rust `Option<T>`.

@@ -6,42 +6,28 @@ use crate::java;
 pub struct BigInteger(java::lang::Object);
 
 impl BigInteger {
-  /// java/math/BigInteger.toByteArray
-  pub const TO_BYTE_ARRAY: java::Method<Self, fn() -> Vec<i8>> = java::Method::new("toByteArray");
-
-  /// java/math/BigInteger(byte[])
-  pub const CTOR_BYTE_ARRAY: java::Constructor<Self, fn(Vec<i8>)> = java::Constructor::new();
-
-  /// java/math/BigInteger.ONE
-  pub const ONE: java::StaticField<Self, Self> = java::StaticField::new("ONE");
-
-  /// java/math/BigInteger.TWO
-  pub const TWO: java::StaticField<Self, Self> = java::StaticField::new("TWO");
-
-  /// java/math/BigInteger.TEN
-  pub const TEN: java::StaticField<Self, Self> = java::StaticField::new("TEN");
-
-  /// java/math/BigInteger.ZERO
-  pub const ZERO: java::StaticField<Self, Self> = java::StaticField::new("ZERO");
-
   /// java.math.BigInteger.ONE
   pub fn one<'a>(e: &mut java::Env<'a>) -> Self {
-    Self::ONE.get(e)
+    static ONE: java::StaticField<BigInteger, BigInteger> = java::StaticField::new("ONE");
+    ONE.get(e)
   }
 
   /// java.math.BigInteger.TWO
   pub fn two<'a>(e: &mut java::Env<'a>) -> Self {
-    Self::TWO.get(e)
+    static TWO: java::StaticField<BigInteger, BigInteger> = java::StaticField::new("TWO");
+    TWO.get(e)
   }
 
   /// java.math.BigInteger.TEN
   pub fn ten<'a>(e: &mut java::Env<'a>) -> Self {
-    Self::TEN.get(e)
+    static TEN: java::StaticField<BigInteger, BigInteger> = java::StaticField::new("TEN");
+    TEN.get(e)
   }
 
   /// java.math.BigInteger.ZERO
   pub fn zero<'a>(e: &mut java::Env<'a>) -> Self {
-    Self::ZERO.get(e)
+    static ZERO: java::StaticField<BigInteger, BigInteger> = java::StaticField::new("ZERO");
+    ZERO.get(e)
   }
 
   /// Interpret result of [`BigInteger::to_be_bytes`] as a i8
@@ -76,7 +62,10 @@ impl BigInteger {
 
   /// Extract the raw bytes in big-endian order of this BigInteger, panicking if negative or too big
   pub fn to_be_bytes<'a, const N: usize>(&self, e: &mut java::Env<'a>) -> [u8; N] {
-    let mut bytes = VecDeque::from(Self::TO_BYTE_ARRAY.invoke(e, &self));
+    static TO_BYTE_ARRAY: java::Method<BigInteger, fn() -> Vec<i8>> =
+      java::Method::new("toByteArray");
+
+    let mut bytes = VecDeque::from(TO_BYTE_ARRAY.invoke(e, &self));
 
     let mut byte_array = [0u8; N];
 
@@ -112,11 +101,12 @@ impl BigInteger {
   /// create a `java.math.BigInteger` from an array of bytes that
   /// must represent a signed two's complement integer, in big-endian order.
   pub fn from_be_bytes<'a>(e: &mut java::Env<'a>, bytes: &[u8]) -> Self {
-    Self::CTOR_BYTE_ARRAY.invoke(e,
-                                 bytes.iter()
-                                      .copied()
-                                      .map(|u| i8::from_be_bytes(u.to_be_bytes()))
-                                      .collect())
+    static CTOR_BYTE_ARRAY: java::Constructor<BigInteger, fn(Vec<i8>)> = java::Constructor::new();
+    CTOR_BYTE_ARRAY.invoke(e,
+                           bytes.iter()
+                                .copied()
+                                .map(|u| i8::from_be_bytes(u.to_be_bytes()))
+                                .collect())
   }
 }
 
