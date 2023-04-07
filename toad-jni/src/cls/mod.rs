@@ -1,2 +1,0 @@
-/// java/*
-pub mod java;

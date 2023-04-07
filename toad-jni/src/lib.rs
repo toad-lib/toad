@@ -1,7 +1,108 @@
-//! JNI abstractions and bindings used by the toad ecosystem
+//! High-level wrapper of [`jni`], making Java & Rust FFI easy & fun
+//!
+//! ## Globals
+//! [`toad_jni::global`](https://docs.rs/toad-jni/latest/toad_jni/global/index.html) offers the option to use a global JVM handle ([`toad_jni::global::jvm()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.jvm.html) set with [`toad_jni::global::init()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.init.html)).
+//!
+//! Using the JVM global is completely optional, **unless** you plan to use Rust trait impls such as [`IntoIterator`]
+//! on [`toad_jni::java::util::ArrayList`](https://docs.rs/toad-jni/latest/toad_jni/java/util/struct.ArrayList.html).
+//!
+//! ## Types
+//! All java type signatures can be represented by rust types
+//! that implement the [`toad_jni::java::Type`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Type.html) trait, which is automatically
+//! implemented for all [`toad_jni::java::Class`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Class.html)es.
+//!
+//! ## Classes
+//! Classes are represented in `toad_jni` by implementing 2 traits:
+//! * [`toad_jni::java::Class`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Class.html)
+//! * [`toad_jni::java::Object`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Object.html) (see also [`toad_jni::java::object_newtype`](https://docs.rs/toad-jni/latest/toad_jni/java/macro.object_newtype.html))
+//!
+//! ### Fields and Methods
+//! There are several high-level lens-style structs for interacting with fields, methods and constructors:
+//! * [`toad_jni::java::Constructor`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Constructor.html)
+//! * [`toad_jni::java::StaticField`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.StaticField.html)
+//! * [`toad_jni::java::StaticMethod`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.StaticMethod.html)
+//! * [`toad_jni::java::Field`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Field.html)
+//! * [`toad_jni::java::Method`](https://docs.rs/toad-jni/latest/toad_jni/java/struct.Method.html)
+//!
+//! All of these types use [`toad_jni::java::Type`](https://docs.rs/toad-jni/latest/toad_jni/java/trait.Type.html) to transform nice Rust types into the corresponding
+//! JVM type signatures.
+//!
+//! For example, the `StaticMethod` representation of [`java.lang.String.format(String, ..Object)`](https://docs.oracle.com/en/java/javase/19/docs/api/java.base/java/lang/String.html#format(java.lang.String,java.lang.Object...))
+//! would be:
+//! ```rust,no_run
+//! use toad_jni::java::lang::Object;
+//! use toad_jni::java::StaticMethod;
+//!
+//! static STRING_FORMAT: StaticMethod<String, fn(String, Vec<Object>) -> String> =
+//!   StaticMethod::new("format");
+//! ```
+//!
+//! It is recommended that these structs are stored in local `static` variables so that they can cache
+//! the internal JNI IDs of the class and methods, but this is not required.
+//!
+//! ### Example
+//! Consider the following java class:
+//! ```java
+//! package com.foo.bar;
+//!
+//! public class Foo {
+//!   public final static long NUMBER = 123;
+//!   public String bingus = "bingus";
+//!
+//!   public Foo() { }
+//!
+//!   public static String bar() {
+//!     return "bar";
+//!   }
+//!
+//!   public void setBingus(String newBingus) {
+//!     this.bingus = newBingus;
+//!   }
+//! }
+//! ```
+//!
+//! A Rust API to this class would look like:
+//! ```rust,no_run
+//! use toad_jni::java;
+//!
+//! pub struct Foo(java::lang::Object);
+//!
+//! java::object_newtype!(Foo);
+//!
+//! impl java::Class for Foo {
+//!   const PATH: &'static str = "com/foo/bar/Foo";
+//! }
+//!
+//! impl Foo {
+//!   pub fn new(e: &mut java::Env) -> Self {
+//!     static CTOR: java::Constructor<Foo, fn()> = java::Constructor::new();
+//!     CTOR.invoke(e)
+//!   }
+//!
+//!   pub fn number(e: &mut java::Env) -> i64 {
+//!     static NUMBER: java::StaticField<Foo, i64> = java::StaticField::new("NUMBER");
+//!     NUMBER.get(e)
+//!   }
+//!
+//!   pub fn bar(e: &mut java::Env) -> String {
+//!     static BAR: java::StaticMethod<Foo, fn() -> String> = java::StaticMethod::new("bar");
+//!     BAR.invoke(e)
+//!   }
+//!
+//!   pub fn bingus(&self, e: &mut java::Env) -> String {
+//!     static BINGUS: java::Field<Foo, String> = java::Field::new("bingus");
+//!     BINGUS.get(e, self)
+//!   }
+//!
+//!   pub fn set_bingus(&self, e: &mut java::Env, s: String) {
+//!     static SET_BINGUS: java::Method<Foo, fn(String)> = java::Method::new("setBingus");
+//!     SET_BINGUS.invoke(e, self, s)
+//!   }
+//! }
+//! ```
 
 // docs
-#![doc(html_root_url = "https://docs.rs/toad-jni/0.0.0")]
+#![doc(html_root_url = "https://docs.rs/toad-jni/0.4.1")]
 #![cfg_attr(any(docsrs, feature = "docs"), feature(doc_cfg))]
 // -
 // style
@@ -16,18 +117,12 @@
 // -
 // features
 
-pub mod convert;
-pub mod sig;
-
-pub use cls::java::util::ArrayList;
-pub use sig::Sig;
-
-/// java class shims
-pub mod cls;
+/// java language features and class shims
+pub mod java;
 
 /// Global JVM handles
 pub mod global {
-  use jni::{InitArgsBuilder, JNIEnv, JavaVM};
+  use jni::{InitArgsBuilder, JavaVM};
 
   static mut JVM: Option<JavaVM> = None;
 
@@ -40,8 +135,8 @@ pub mod global {
 
   /// Initialize the global jvm handle by creating a new handle
   pub fn init() {
-    let args = InitArgsBuilder::new().build().unwrap();
     unsafe {
+      let args = InitArgsBuilder::new().build().unwrap();
       JVM = Some(JavaVM::new(args).unwrap());
     }
 
@@ -52,47 +147,57 @@ pub mod global {
   pub fn jvm() -> &'static mut JavaVM {
     unsafe { JVM.as_mut().unwrap() }
   }
-
-  /// Create a new local frame from the global jvm handle
-  pub fn env<'a>() -> JNIEnv<'a> {
-    unsafe { JVM.as_mut().unwrap().get_env().unwrap() }
-  }
 }
 
 #[cfg(test)]
 mod test {
-  use jni::objects::{JString, JThrowable};
-  use jni::strings::JNIStr;
-  use toad_jni::cls::java;
-  use toad_jni::convert::Primitive;
-  use toad_jni::{ArrayList, Sig};
+  use std::sync::Once;
+
+  use java::Primitive;
+  use toad_jni::java;
 
   pub use crate as toad_jni;
-  use crate::convert::Object;
+
+  static INIT: Once = Once::new();
+  pub fn init() {
+    INIT.call_once(|| {
+          toad_jni::global::init();
+        });
+
+    toad_jni::global::jvm().attach_current_thread_permanently()
+                           .unwrap();
+  }
 
   #[test]
-  fn sig() {
-    assert_eq!(Sig::new().returning(Sig::VOID).as_str(), "()V");
-    assert_eq!(Sig::new().arg(Sig::array_of(Sig::BYTE))
-                         .returning(Sig::class("java/lang/Byte"))
-                         .as_str(),
-               "([B)Ljava/lang/Byte;");
+  fn init_works() {
+    init();
   }
 
-  fn test_prim_wrappers() {
-    assert_eq!(i8::dewrap((32i8).wrap()), 32i8);
+  #[test]
+  fn prim_wrappers() {
+    init();
+    let mut e = java::env();
+    let e = &mut e;
+
+    let i = (32i8).to_primitive_wrapper(e);
+    assert_eq!(i8::from_primitive_wrapper(e, i), 32i8);
   }
 
+  #[test]
   fn test_arraylist() {
+    init();
     assert_eq!(vec![1i8, 2, 3, 4].into_iter()
-                                 .collect::<ArrayList<i8>>()
+                                 .collect::<java::util::ArrayList<i8>>()
                                  .into_iter()
                                  .collect::<Vec<i8>>(),
                vec![1, 2, 3, 4])
   }
 
+  #[test]
   fn test_optional() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
 
     let o = java::util::Optional::of(&mut e, 12i32);
     assert_eq!(o.to_option(&mut e).unwrap(), 12);
@@ -101,15 +206,21 @@ mod test {
     assert!(o.is_empty(&mut e));
   }
 
+  #[test]
   fn test_time() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
 
     let o = java::time::Duration::of_millis(&mut e, 1000);
     assert_eq!(o.to_millis(&mut e), 1000);
   }
 
+  #[test]
   fn test_bigint() {
-    let mut e = toad_jni::global::env();
+    init();
+
+    let mut e = java::env();
     let e = &mut e;
 
     type BigInt = java::math::BigInteger;
@@ -132,16 +243,5 @@ mod test {
     assert_eq!(bi.to_i32(e), 0);
     assert_eq!(bi.to_i64(e), 0);
     assert_eq!(bi.to_i128(e), 0);
-  }
-
-  #[test]
-  fn tests() {
-    toad_jni::global::init();
-
-    test_prim_wrappers();
-    test_arraylist();
-    test_optional();
-    test_time();
-    test_bigint();
   }
 }
