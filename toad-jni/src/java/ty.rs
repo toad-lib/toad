@@ -160,7 +160,37 @@ impl AsRef<str> for Signature {
   }
 }
 
-/// A rust type with a corresponding java type
+mod type_sealed {
+    use jni::objects::GlobalRef;
+    use crate::java;
+
+  #[allow(unreachable_pub)]
+  pub trait TypeSealed {}
+  impl<T> TypeSealed for Vec<T> where T: java::Type {}
+  impl<R> TypeSealed for fn() -> R where R: java::Type {}
+  impl<A, R> TypeSealed for fn(A) -> R where R: java::Type {}
+  impl<A, B, R> TypeSealed for fn(A, B) -> R where R: java::Type {}
+  impl<A, B, C, R> TypeSealed for fn(A, B, C) -> R where R: java::Type {}
+  impl<A, B, C, D, R> TypeSealed for fn(A, B, C, D) -> R where R: java::Type {}
+  impl<A, B, C, D, E, R> TypeSealed for fn(A, B, C, D, E) -> R where R: java::Type {}
+  impl<T> TypeSealed for T where T: java::Class {}
+  impl TypeSealed for GlobalRef {}
+  impl TypeSealed for () {}
+  impl TypeSealed for u16 {}
+  impl TypeSealed for bool {}
+  impl TypeSealed for i8 {}
+  impl TypeSealed for i16 {}
+  impl TypeSealed for i32 {}
+  impl TypeSealed for i64 {}
+  impl TypeSealed for f32 {}
+  impl TypeSealed for f64 {}
+}
+
+/// A type that has a corresponding Java type
+///
+/// ## Sealed
+/// You can't implement this trait directly; instead you can define new
+/// [`java::Class`]es, which will then come with [`Type`] implementations for free.
 ///
 /// ## Conversions
 /// |rust type|java type|notes|
@@ -178,7 +208,7 @@ impl AsRef<str> for Signature {
 /// |`f32`|`float`||
 /// |`f64`|`double`||
 /// |`fn(T,*) -> R`|corresponding java type signature|all argument types and return types must be [`java::Type`]|
-pub trait Type {
+pub trait Type: type_sealed::TypeSealed {
   /// The signature for this type
   const SIG: Signature;
 
