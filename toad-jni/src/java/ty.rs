@@ -196,6 +196,8 @@ mod type_sealed {
 /// |rust type|java type|notes|
 /// |--|--|--|
 /// |`T where T: `[`java::Class`]|fully qualified class path||
+/// |[`java::Nullable`]`<T>`|`T::PATH`|[`java::Class`] must be implemented for `T`|
+/// |[`java::NoUpcast`]`<T>`|`java::lang::Object`|[`java::Class`] must be implemented for `T`. Used when a method should have the signature of returning `T`, but you would like the object reference without [`java::Object::upcast`]ing.|
 /// |[`java::lang::Object`]|`java.lang.Object`||
 /// |[`Vec`]`<T>`|`T[]`|`T` must be [`java::Type`]|
 /// |[`String`]|`java.lang.String`|[`java::Class`] and [`java::Object`] implemented for [`String`]|

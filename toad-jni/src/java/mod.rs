@@ -1,6 +1,9 @@
 /// java/lang/*
 pub mod lang;
 
+/// java/io/*
+pub mod io;
+
 /// java/math/*
 pub mod math;
 
@@ -9,6 +12,16 @@ pub mod util;
 
 /// java/time/*
 pub mod time;
+
+mod nullable;
+
+#[doc(inline)]
+pub use nullable::Nullable;
+
+mod no_upcast;
+
+#[doc(inline)]
+pub use no_upcast::NoUpcast;
 
 mod class;
 
@@ -48,7 +61,7 @@ macro_rules! object_newtype {
         Self(jobj)
       }
 
-      fn downcast<'a, 'e>(self, e: &'a mut java::Env<'e>) -> java::lang::Object {
+      fn downcast<'a, 'e>(self, _: &'a mut java::Env<'e>) -> java::lang::Object {
         self.0
       }
 

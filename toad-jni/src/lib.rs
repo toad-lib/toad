@@ -154,18 +154,22 @@ mod test {
   use std::sync::Once;
 
   use java::Primitive;
+  use jni::{InitArgsBuilder, JavaVM};
   use toad_jni::java;
 
   pub use crate as toad_jni;
+  use crate::java::Object;
 
-  static INIT: Once = Once::new();
-  pub fn init() {
+  pub fn init<'a>() -> java::Env<'a> {
+    static INIT: Once = Once::new();
     INIT.call_once(|| {
-          toad_jni::global::init();
+          std::env::set_var("FOO", "bar");
+          let args = InitArgsBuilder::new().build().unwrap();
+          toad_jni::global::init_with(JavaVM::new(args).unwrap());
         });
 
-    toad_jni::global::jvm().attach_current_thread_permanently()
-                           .unwrap();
+    let jvm = toad_jni::global::jvm();
+    jvm.attach_current_thread_permanently().unwrap()
   }
 
   #[test]
@@ -214,6 +218,25 @@ mod test {
 
     let o = java::time::Duration::of_millis(&mut e, 1000);
     assert_eq!(o.to_millis(&mut e), 1000);
+  }
+
+  #[test]
+  fn test_system() {
+    let mut e = init();
+    let e = &mut e;
+
+    type System = java::lang::System;
+    assert_eq!(System::get_env(e, "FOO"), Some("bar".to_string()));
+    assert_eq!(System::get_env(e, "BAR"), None);
+
+    assert_eq!(System::get_property(e, "foo.bar"), None);
+    assert_eq!(System::set_property(e, "foo.bar", "baz"), None);
+    assert_eq!(System::get_property(e, "foo.bar"), Some("baz".to_string()));
+
+    let args = vec![8329i32, 3281, 8329 + 3281].into_iter()
+                                               .map(|i| i.to_primitive_wrapper(e).downcast(e))
+                                               .collect();
+    System::console(e).printf(e, "%d + %d = %d", args);
   }
 
   #[test]

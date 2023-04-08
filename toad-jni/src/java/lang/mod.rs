@@ -8,6 +8,11 @@ mod object;
 #[doc(inline)]
 pub use object::Object;
 
+mod system;
+
+#[doc(inline)]
+pub use system::System;
+
 use crate::java;
 
 impl java::Class for String {
