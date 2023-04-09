@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.5.1...toad-jni-v0.6.0) (2023-04-09)
+
+
+### Features
+
+* java.lang.System, java.io.Console ([#295](https://github.com/toad-lib/toad/issues/295)) ([30ceab3](https://github.com/toad-lib/toad/commit/30ceab3aca138b3a436ce59ada517211b98cbca8))
+
 ## [0.5.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.5.0...toad-jni-v0.5.1) (2023-04-07)
 
 
