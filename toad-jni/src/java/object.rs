@@ -224,4 +224,22 @@ impl Object for () {
   fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     ().downcast(e)
   }
+
+  fn upcast_value_ref<'e>(_: &mut java::Env<'e>, jv: JValue<'e, '_>) -> Self
+    where Self: Sized
+  {
+    jv.v().unwrap()
+  }
+
+  fn upcast_value<'e>(_: &mut java::Env<'e>, jv: JValueOwned<'e>) -> Self
+    where Self: Sized
+  {
+    jv.v().unwrap()
+  }
+
+  fn downcast_value<'e>(self, _: &mut java::Env<'e>) -> JValueOwned<'e>
+    where Self: Sized
+  {
+    JValueOwned::Void
+  }
 }
