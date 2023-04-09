@@ -237,8 +237,10 @@ mod test {
                                                .map(|i| i.to_primitive_wrapper(e).downcast(e))
                                                .collect();
     match System::console(e).into_option(e) {
-      Some(c) => {c.printf(e, "%d + %d = %d", args);},
-      None => println!("no console"),
+      | Some(c) => {
+        c.printf(e, "%d + %d = %d", args);
+      },
+      | None => println!("no console"),
     }
   }
 
