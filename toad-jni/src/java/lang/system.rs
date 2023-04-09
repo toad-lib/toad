@@ -46,8 +46,8 @@ impl System {
   }
 
   /// `java.lang.System.console()`
-  pub fn console(e: &mut java::Env) -> java::io::Console {
-    static CONSOLE: java::StaticMethod<System, fn() -> java::io::Console> =
+  pub fn console(e: &mut java::Env) -> Nullable<java::io::Console> {
+    static CONSOLE: java::StaticMethod<System, fn() -> Nullable<java::io::Console>> =
       java::StaticMethod::new("console");
     CONSOLE.invoke(e)
   }

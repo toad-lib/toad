@@ -236,7 +236,10 @@ mod test {
     let args = vec![8329i32, 3281, 8329 + 3281].into_iter()
                                                .map(|i| i.to_primitive_wrapper(e).downcast(e))
                                                .collect();
-    System::console(e).printf(e, "%d + %d = %d", args);
+    match System::console(e).into_option(e) {
+      Some(c) => {c.printf(e, "%d + %d = %d", args);},
+      None => println!("no console"),
+    }
   }
 
   #[test]
