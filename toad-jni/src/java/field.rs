@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 use std::str::FromStr;
 use std::sync::RwLock;
 
+use java::ResultExt;
 use jni::objects::{JFieldID, JStaticFieldID};
 
 use crate::java;
@@ -31,7 +32,7 @@ impl<C, T> Field<C, T>
       drop(id);
 
       let mut id = self.id.write().unwrap();
-      *id = Some(e.get_field_id(C::PATH, self.name, T::SIG).unwrap());
+      *id = Some(e.get_field_id(C::PATH, self.name, T::SIG).unwrap_java(e));
       drop(id);
 
       self.get(e, inst)
@@ -41,7 +42,7 @@ impl<C, T> Field<C, T>
         e.get_field_unchecked(&inst,
                               id.unwrap(),
                               jni::signature::ReturnType::from_str(T::SIG.as_str()).unwrap())
-         .unwrap();
+         .unwrap_java(e);
       T::upcast_value(e, val)
     }
   }
@@ -50,7 +51,8 @@ impl<C, T> Field<C, T>
   pub fn set(&self, e: &mut java::Env, inst: &C, t: T) {
     let inst = inst.downcast_ref(e);
     let t = t.downcast_value(e);
-    e.set_field(inst, self.name, T::SIG, (&t).into()).unwrap();
+    e.set_field(inst, self.name, T::SIG, (&t).into())
+     .unwrap_java(e);
   }
 }
 
@@ -79,7 +81,8 @@ impl<C, T> StaticField<C, T>
       drop(id);
 
       let mut id = self.id.write().unwrap();
-      *id = Some(e.get_static_field_id(C::PATH, self.name, T::SIG).unwrap());
+      *id = Some(e.get_static_field_id(C::PATH, self.name, T::SIG)
+                  .unwrap_java(e));
       drop(id);
 
       self.get(e)

@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use java::ResultExt;
 use jni::objects::{GlobalRef, JObject, JValueGen};
 
 use crate::java;
@@ -25,6 +26,11 @@ impl Object {
     T::upcast(e, self)
   }
 
+  /// Create a new global reference to the same object
+  pub fn new_reference(&self, e: &mut java::Env) -> Self {
+    Self(e.new_global_ref(self.as_local()).unwrap_java(e))
+  }
+
   /// Invoke `String toString()`
   pub fn to_string(&self, e: &mut java::Env) -> String {
     static TO_STRING: java::Method<Object, fn() -> String> = java::Method::new("toString");
@@ -38,7 +44,7 @@ impl Object {
 
   /// Convert an object reference to an owned local jobject
   pub fn to_local<'a>(&self, e: &mut java::Env<'a>) -> JObject<'a> {
-    e.new_local_ref(&self.0).unwrap()
+    e.new_local_ref(&self.0).unwrap_java(e)
   }
 
   /// Unwrap an object's inner global reference
@@ -66,7 +72,7 @@ impl Object {
     where 'a: 'b,
           T: AsRef<JObject<'b>>
   {
-    Self(e.new_global_ref(t.as_ref()).unwrap())
+    Self(e.new_global_ref(t.as_ref()).unwrap_java(e))
   }
 
   /// Convert a global reference to an object
@@ -123,6 +129,10 @@ impl java::Object for Object {
     where Self: Sized
   {
     self.to_value(e)
+  }
+
+  fn yield_to_java(&self, e: &mut java::Env) -> jni::sys::jobject {
+    self.to_local(e).as_raw()
   }
 }
 

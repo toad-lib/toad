@@ -32,6 +32,12 @@ impl System {
                 .into_option(e)
   }
 
+  /// `java.lang.System.gc()`
+  pub fn gc(e: &mut java::Env) {
+    static GC: java::StaticMethod<System, fn()> = java::StaticMethod::new("gc");
+    GC.invoke(e)
+  }
+
   /// `java.lang.System.load(String)`
   pub fn load_library_file(e: &mut java::Env, filename: impl ToString) {
     static LOAD: java::StaticMethod<System, fn(String)> = java::StaticMethod::new("load");

@@ -18,6 +18,11 @@ mod nullable;
 #[doc(inline)]
 pub use nullable::Nullable;
 
+mod result;
+
+#[doc(inline)]
+pub use result::ResultExt;
+
 mod no_upcast;
 
 #[doc(inline)]
