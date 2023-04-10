@@ -245,6 +245,29 @@ mod test {
   }
 
   #[test]
+  fn test_inet() {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+    use java::net::*;
+
+    let mut env = init();
+    let e = &mut env;
+
+    assert_eq!(InetSocketAddress::new_wildcard_address(e, 1234).to_std(e),
+               "0.0.0.0:1234".parse().unwrap());
+
+    let local = InetAddress::from_std(e, IpAddr::from(Ipv4Addr::LOCALHOST));
+    assert_eq!(local.to_std(e), "127.0.0.1".parse::<IpAddr>().unwrap());
+    assert_eq!(InetSocketAddress::new(e, local, 1234).to_std(e),
+               "127.0.0.1:1234".parse::<SocketAddr>().unwrap());
+
+    let local = InetAddress::from_std(e, IpAddr::from(Ipv6Addr::LOCALHOST));
+    assert_eq!(local.to_std(e), "::1".parse::<IpAddr>().unwrap());
+    assert_eq!(InetSocketAddress::new(e, local, 1234).to_std(e),
+               "[::1]:1234".parse::<SocketAddr>().unwrap());
+  }
+
+  #[test]
   fn test_bigint() {
     init();
 
