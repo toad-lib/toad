@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.6.0...toad-jni-v0.7.0) (2023-04-10)
+
+
+### Features
+
+* java.net InetSocketAddress, Inet4Address, Inet6Address, InetAddress ([#299](https://github.com/toad-lib/toad/issues/299)) ([7861a17](https://github.com/toad-lib/toad/commit/7861a17fdf63c707bd17a47ccbf710331fb02986))
+* yield_to_java + unwrap_java ([#297](https://github.com/toad-lib/toad/issues/297)) ([0f2ae1c](https://github.com/toad-lib/toad/commit/0f2ae1c6f582e6ead1218faf6d91496a29e7e7b5))
+
 ## [0.6.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.5.1...toad-jni-v0.6.0) (2023-04-09)
 
 
