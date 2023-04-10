@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use std::sync::RwLock;
 
-use java::{Class, Object, Signature, Type};
+use java::{Class, Object, ResultExt, Signature, Type};
 use jni::objects::{GlobalRef, JClass, JMethodID, JObject, JStaticMethodID};
 
 use crate::java;
@@ -34,7 +34,7 @@ impl<C, F> Method<C, F>
 
     if mid.is_none() {
       drop(mid);
-      let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap();
+      let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap_java(e);
       let mut field = self.mid.write().unwrap();
       *field = Some(mid);
       mid
@@ -54,7 +54,7 @@ impl<C, FR> Method<C, fn() -> FR>
     let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst, mid, Signature::of::<fn() -> FR>().return_type(), &[])
-       .unwrap()
+       .unwrap_java(e)
     };
 
     FR::upcast_value(e, jv)
@@ -76,7 +76,7 @@ impl<C, FA, FR> Method<C, fn(FA) -> FR>
                               mid,
                               Signature::of::<fn(FA) -> FR>().return_type(),
                               &[fa.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -98,7 +98,7 @@ impl<C, FA, FB, FR> Method<C, fn(FA, FB) -> FR>
                               mid,
                               Signature::of::<fn(FA, FB) -> FR>().return_type(),
                               &[fa.as_jni(), fb.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -121,7 +121,7 @@ impl<C, FA, FB, FC, FR> Method<C, fn(FA, FB, FC) -> FR>
                               mid,
                               Signature::of::<fn(FA, FB, FC) -> FR>().return_type(),
                               &[fa.as_jni(), fb.as_jni(), fc.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -146,7 +146,7 @@ impl<C, FA, FB, FC, FD, FR> Method<C, fn(FA, FB, FC, FD) -> FR>
                               mid,
                               Signature::of::<fn(FA, FB, FC, FD) -> FR>().return_type(),
                               &[fa.as_jni(), fb.as_jni(), fc.as_jni(), fd.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -179,7 +179,7 @@ impl<C, FA, FB, FC, FD, FE, FR> Method<C, fn(FA, FB, FC, FD, FE) -> FR>
                                 fc.as_jni(),
                                 fd.as_jni(),
                                 fe.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -211,9 +211,10 @@ impl<C, F> StaticMethod<C, F>
 
     if ids.is_none() {
       drop(ids);
-      let class = e.find_class(C::PATH).unwrap();
-      let class = e.new_global_ref(class).unwrap();
-      let mid = e.get_static_method_id(C::PATH, self.name, F::SIG).unwrap();
+      let class = e.find_class(C::PATH).unwrap_java(e);
+      let class = e.new_global_ref(class).unwrap_java(e);
+      let mid = e.get_static_method_id(C::PATH, self.name, F::SIG)
+                 .unwrap_java(e);
       let mut field = self.ids.write().unwrap();
       *field = Some((class, mid));
       drop(field);
@@ -239,7 +240,7 @@ impl<C, FR> StaticMethod<C, fn() -> FR>
     let (class, mid) = self.find(e);
     let jv = unsafe {
       e.call_static_method_unchecked(class, mid, Signature::of::<fn() -> FR>().return_type(), &[])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -259,7 +260,7 @@ impl<C, FA, FR> StaticMethod<C, fn(FA) -> FR>
                                      mid,
                                      Signature::of::<fn(FA) -> FR>().return_type(),
                                      &[fa.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -280,7 +281,7 @@ impl<C, FA, FB, FR> StaticMethod<C, fn(FA, FB) -> FR>
                                      mid,
                                      Signature::of::<fn(FA, FB) -> FR>().return_type(),
                                      &[fa.as_jni(), fb.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -302,7 +303,7 @@ impl<C, FA, FB, FC, FR> StaticMethod<C, fn(FA, FB, FC) -> FR>
                                      mid,
                                      Signature::of::<fn(FA, FB, FC) -> FR>().return_type(),
                                      &[fa.as_jni(), fb.as_jni(), fc.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -326,7 +327,7 @@ impl<C, FA, FB, FC, FD, FR> StaticMethod<C, fn(FA, FB, FC, FD) -> FR>
                                      mid,
                                      Signature::of::<fn(FA, FB, FC, FD) -> FR>().return_type(),
                                      &[fa.as_jni(), fb.as_jni(), fc.as_jni(), fd.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -358,7 +359,7 @@ impl<C, FA, FB, FC, FD, FE, FR> StaticMethod<C, fn(FA, FB, FC, FD, FE) -> FR>
                                        fc.as_jni(),
                                        fd.as_jni(),
                                        fe.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
   }
@@ -389,7 +390,7 @@ impl<C, F> Constructor<C, F>
 
     if mid.is_none() {
       drop(mid);
-      let mid = e.get_method_id(C::PATH, "<init>", F::SIG).unwrap();
+      let mid = e.get_method_id(C::PATH, "<init>", F::SIG).unwrap_java(e);
       let mut field = self.id.write().unwrap();
       *field = Some(mid);
       mid
@@ -403,7 +404,8 @@ impl<C> Constructor<C, fn()> where C: Class
 {
   /// Invoke the constructor
   pub fn invoke(&self, e: &mut java::Env) -> C {
-    let jobj = e.new_object(C::PATH, Signature::of::<fn()>(), &[]).unwrap();
+    let jobj = e.new_object(C::PATH, Signature::of::<fn()>(), &[])
+                .unwrap_java(e);
     java::lang::Object::from_local(e, jobj).upcast_to::<C>(e)
   }
 }
@@ -418,7 +420,7 @@ impl<C, FA> Constructor<C, fn(FA)>
     let mid = self.find(e);
     let jv = unsafe {
       e.new_object_unchecked(C::PATH, mid, &[fa.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
 
     java::lang::Object::from_local(e, jv).upcast_to::<C>(e)
@@ -436,7 +438,7 @@ impl<C, FA, FB> Constructor<C, fn(FA, FB)>
     let mid = self.find(e);
     let jv = unsafe {
       e.new_object_unchecked(C::PATH, mid, &[fa.as_jni(), fb.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     java::lang::Object::from_local(e, jv).upcast_to::<C>(e)
   }
@@ -454,7 +456,7 @@ impl<C, FA, FB, FC> Constructor<C, fn(FA, FB, FC)>
     let mid = self.find(e);
     let jv = unsafe {
       e.new_object_unchecked(C::PATH, mid, &[fa.as_jni(), fb.as_jni(), fc.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     java::lang::Object::from_local(e, jv).upcast_to::<C>(e)
   }
@@ -476,7 +478,7 @@ impl<C, FA, FB, FC, FD> Constructor<C, fn(FA, FB, FC, FD)>
       e.new_object_unchecked(C::PATH,
                              mid,
                              &[fa.as_jni(), fb.as_jni(), fc.as_jni(), fd.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     java::lang::Object::from_local(e, jv).upcast_to::<C>(e)
   }
@@ -506,7 +508,7 @@ impl<C, FA, FB, FC, FD, FE> Constructor<C, fn(FA, FB, FC, FD, FE)>
                                fc.as_jni(),
                                fd.as_jni(),
                                fe.as_jni()])
-       .unwrap()
+       .unwrap_java(e)
     };
     java::lang::Object::from_local(e, jv).upcast_to::<C>(e)
   }

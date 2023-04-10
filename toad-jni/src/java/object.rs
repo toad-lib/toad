@@ -1,4 +1,4 @@
-use java::Type;
+use java::{ResultExt, Type};
 use jni::objects::{GlobalRef,
                    JBooleanArray,
                    JByteArray,
@@ -12,6 +12,7 @@ use jni::objects::{GlobalRef,
                    JShortArray,
                    JValue,
                    JValueOwned};
+use jni::sys::jobject;
 
 use crate::java;
 
@@ -52,6 +53,11 @@ pub trait Object
   {
     self.downcast(e).downcast_value(e)
   }
+
+  /// Yield a pointer of this object to the Java runtime
+  fn yield_to_java(&self, e: &mut java::Env) -> jobject {
+    self.downcast_ref(e).yield_to_java(e)
+  }
 }
 
 impl Object for GlobalRef {
@@ -72,14 +78,14 @@ impl<T> Object for Vec<T> where T: java::Object
 {
   fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
     let arr = <&JObjectArray>::from(jobj.as_local());
-    let len = e.get_array_length(arr).unwrap() as usize;
+    let len = e.get_array_length(arr).unwrap_java(e) as usize;
 
     macro_rules! go {
       ($arr:ty => $get_region:ident) => {{
         let arr = <&$arr>::from(jobj.as_local());
         let mut els = Vec::new();
         els.resize(len, Default::default());
-        e.$get_region(&arr, 0, &mut els).unwrap();
+        e.$get_region(&arr, 0, &mut els).unwrap_java(e);
         els.into_iter()
            .map(|b| {
              let val = b.downcast_value(e);
@@ -101,7 +107,7 @@ impl<T> Object for Vec<T> where T: java::Object
         let arr = <&JBooleanArray>::from(jobj.as_local());
         let mut els = Vec::new();
         els.resize(len, 0u8);
-        e.get_boolean_array_region(arr, 0, &mut els).unwrap();
+        e.get_boolean_array_region(arr, 0, &mut els).unwrap_java(e);
         els.into_iter()
            .map(|b| {
              let val = (b == jni::sys::JNI_TRUE).downcast_value(e);
@@ -113,14 +119,14 @@ impl<T> Object for Vec<T> where T: java::Object
         let mut vec = Vec::new();
 
         (0..len).for_each(|ix| {
-                  let obj = e.get_object_array_element(arr, ix as i32).unwrap();
+                  let obj = e.get_object_array_element(arr, ix as i32).unwrap_java(e);
                   vec.push(java::lang::Object::from_local(e, obj).upcast_to::<T>(e));
                 });
 
         vec
       },
       | _ => {
-        let cls = e.get_object_class(&jobj).unwrap();
+        let cls = e.get_object_class(&jobj).unwrap_java(e);
         panic!("unknown array type {}",
                java::lang::Object::from_local(e, cls).to_string(e));
       },
@@ -147,8 +153,8 @@ impl<T> Object for Vec<T> where T: java::Object
         // no public API to declare non-class `Signature`s.
         let slice = unsafe { core::mem::transmute::<_, &[_]>(slice) };
 
-        let arr = e.$new_array(self.len() as i32).unwrap();
-        e.$set_region(&arr, 0, slice).unwrap();
+        let arr = e.$new_array(self.len() as i32).unwrap_java(e);
+        e.$set_region(&arr, 0, slice).unwrap_java(e);
         java::lang::Object::from_local(e, arr)
       }};
     }
@@ -164,12 +170,12 @@ impl<T> Object for Vec<T> where T: java::Object
       | bool::SIG => go!(new_boolean_array, set_boolean_array_region),
       | _ => {
         let arr = e.new_object_array(self.len() as i32, java::lang::Object::SIG, JObject::null())
-                   .unwrap();
+                   .unwrap_java(e);
         let arr_ref = &arr;
         self.iter().enumerate().for_each(|(ix, o)| {
                                  let val = o.downcast_ref(e);
                                  e.set_object_array_element(arr_ref, ix as i32, &val)
-                                  .unwrap();
+                                  .unwrap_java(e);
                                });
 
         java::lang::Object::from_local(e, arr)
