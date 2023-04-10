@@ -58,9 +58,7 @@ impl<T> Optional<T> where T: java::Object
     if self.is_empty(e) {
       None
     } else {
-      let t = self.get(e);
-      drop(self);
-      Some(t)
+      Some(self.get(e))
     }
   }
 

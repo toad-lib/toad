@@ -54,7 +54,9 @@ pub trait Object
     self.downcast(e).downcast_value(e)
   }
 
-  /// Yield a pointer of this object to the Java runtime
+  /// Use this to yield ownership of a [`java::lang::Object`]
+  /// to the JVM, for example when returning a `jobject` from a
+  /// native function.
   fn yield_to_java(&self, e: &mut java::Env) -> jobject {
     self.downcast_ref(e).yield_to_java(e)
   }
