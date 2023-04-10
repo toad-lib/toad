@@ -1,6 +1,9 @@
 /// java/lang/*
 pub mod lang;
 
+/// java/net/*
+pub mod net;
+
 /// java/io/*
 pub mod io;
 
