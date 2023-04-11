@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.7.0...toad-jni-v0.8.0) (2023-04-11)
+
+
+### Features
+
+* java.lang.Throwable ([#300](https://github.com/toad-lib/toad/issues/300)) ([e6dede1](https://github.com/toad-lib/toad/commit/e6dede1a7a85ed6ebd409dc5ddbea056e9e67337))
+
 ## [0.7.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.6.0...toad-jni-v0.7.0) (2023-04-10)
 
 
