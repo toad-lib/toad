@@ -8,6 +8,11 @@ mod object;
 #[doc(inline)]
 pub use object::Object;
 
+mod throwable;
+
+#[doc(inline)]
+pub use throwable::{StackTraceElement, Throwable};
+
 mod system;
 
 #[doc(inline)]

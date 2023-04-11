@@ -13,6 +13,7 @@ use crate::java;
 /// See the [module documentation](crate::java) for examples.
 pub struct Method<C, F> {
   name: &'static str,
+  overrideable: bool,
   mid: RwLock<Option<JMethodID>>,
   _t: PhantomData<(C, F)>,
 }
@@ -21,25 +22,46 @@ impl<C, F> Method<C, F>
   where F: Type,
         C: Class
 {
-  /// Create a new method lens
+  /// Create a new method lens that invokes the method named `name` on class `C`.
+  ///
+  /// If you want to invoke a potentially overridden method definition on the
+  /// object instances, use [`Method::new_overrideable`]
   pub const fn new(name: &'static str) -> Self {
     Self { name,
+           overrideable: false,
+           mid: RwLock::new(None),
+           _t: PhantomData }
+  }
+
+  /// Create a new method lens that invokes the method named `name`
+  /// on the object instance without looking at the class `C`.
+  ///
+  /// This allows you to invoke abstract methods without knowing
+  /// the concrete type of object instances.
+  pub const fn new_overrideable(name: &'static str) -> Self {
+    Self { name,
+           overrideable: true,
            mid: RwLock::new(None),
            _t: PhantomData }
   }
 
   /// Get & cache the method ID for this method
-  fn find(&self, e: &mut java::Env) -> JMethodID {
-    let mid = self.mid.read().unwrap();
-
-    if mid.is_none() {
-      drop(mid);
-      let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap_java(e);
-      let mut field = self.mid.write().unwrap();
-      *field = Some(mid);
-      mid
+  fn find(&self, e: &mut java::Env, inst: &JObject<'_>) -> JMethodID {
+    if self.overrideable {
+      let cls = e.get_object_class(inst).unwrap_java(e);
+      e.get_method_id(cls, self.name, F::SIG).unwrap_java(e)
     } else {
-      mid.unwrap()
+      let mid = self.mid.read().unwrap();
+
+      if mid.is_none() {
+        drop(mid);
+        let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap_java(e);
+        let mut field = self.mid.write().unwrap();
+        *field = Some(mid);
+        mid
+      } else {
+        mid.unwrap()
+      }
     }
   }
 }
@@ -51,7 +73,7 @@ impl<C, FR> Method<C, fn() -> FR>
   /// Call the method
   pub fn invoke(&self, e: &mut java::Env, inst: &C) -> FR {
     let inst = inst.downcast_ref(e);
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst, mid, Signature::of::<fn() -> FR>().return_type(), &[])
        .unwrap_java(e)
@@ -70,7 +92,7 @@ impl<C, FA, FR> Method<C, fn(FA) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA) -> FR {
     let inst = inst.downcast_ref(e);
     let fa = fa.downcast_value(e);
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -92,7 +114,7 @@ impl<C, FA, FB, FR> Method<C, fn(FA, FB) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -115,7 +137,7 @@ impl<C, FA, FB, FC, FR> Method<C, fn(FA, FB, FC) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB, fc: FC) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -140,7 +162,7 @@ impl<C, FA, FB, FC, FD, FR> Method<C, fn(FA, FB, FC, FD) -> FR>
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc, fd) =
       (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -169,7 +191,7 @@ impl<C, FA, FB, FC, FD, FE, FR> Method<C, fn(FA, FB, FC, FD, FE) -> FR>
                                 fc.downcast_value(e),
                                 fd.downcast_value(e),
                                 fe.downcast_value(e));
-    let mid = self.find(e);
+    let mid = self.find(e, inst.as_local());
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
