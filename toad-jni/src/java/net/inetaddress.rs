@@ -27,25 +27,24 @@ static INETADDRESS_GET_BY_ADDRESS: java::StaticMethod<InetAddress, fn(Vec<i8>) -
   java::StaticMethod::new("getByAddress");
 
 macro_rules! to_net_impl {
-  (use $crate_:path; $self_:expr, $e:expr) => {{
-    use $crate_::IpAddr;
+  ($ip_addr:ty, $self_:expr, $e:expr) => {{
     let bytes = $self_.get_address($e);
     match $self_ {
       | Self::V4(_) => {
         let bytes: [u8; 4] = bytes.as_slice().try_into().unwrap();
-        IpAddr::from(bytes)
+        <$ip_addr>::from(bytes)
       },
       | Self::V6(_) => {
         let bytes: [u8; 16] = bytes.as_slice().try_into().unwrap();
-        IpAddr::from(bytes)
+        <$ip_addr>::from(bytes)
       },
     }
   }};
 }
 
 macro_rules! from_net_impl {
-  (use $crate_:path; $e:expr, $addr:expr) => {{
-    use $crate_::IpAddr;
+  ($ip_addr:ty, $e:expr, $addr:expr) => {{
+    type IpAddr = $ip_addr;
     match $addr {
       | IpAddr::V4(ip) => Self::new_ipv4($e, ip.octets()),
       | IpAddr::V6(ip) => Self::new_ipv6($e, ip.octets()),
@@ -85,22 +84,22 @@ impl InetAddress {
 
   /// Convert `InetAddress` to `std::net::IpAddr`
   pub fn to_std(&self, e: &mut java::Env) -> std::net::IpAddr {
-    to_net_impl!(use std::net;, self, e)
+    to_net_impl!(std::net::IpAddr, self, e)
   }
 
   /// Convert `InetAddress` to `no_std_net::IpAddr`
   pub fn to_no_std(&self, e: &mut java::Env) -> no_std_net::IpAddr {
-    to_net_impl!(use no_std_net;, self, e)
+    to_net_impl!(no_std_net::IpAddr, self, e)
   }
 
   /// Convert `std::net::IpAddr` to `InetAddress`
   pub fn from_std(e: &mut java::Env, addr: std::net::IpAddr) -> Self {
-    from_net_impl!(use std::net;, e, addr)
+    from_net_impl!(std::net::IpAddr, e, addr)
   }
 
   /// Convert `no_std_net::IpAddr` to `InetAddress`
   pub fn from_no_std(e: &mut java::Env, addr: no_std_net::IpAddr) -> Self {
-    from_net_impl!(use no_std_net;, e, addr)
+    from_net_impl!(no_std_net::IpAddr, e, addr)
   }
 }
 
