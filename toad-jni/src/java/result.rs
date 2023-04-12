@@ -1,4 +1,4 @@
-use jni::errors::Result;
+use jni::objects::JObject;
 
 use crate::java::{self, Object, Signature};
 
@@ -6,9 +6,12 @@ use crate::java::{self, Object, Signature};
 pub trait ResultExt<T> {
   /// If a java exception occurred, toString it and panic
   fn unwrap_java(self, e: &mut java::Env) -> T;
+
+  /// If a java exception occurred, convert to [`java::lang::Throwable`]
+  fn to_throwable(self, e: &mut java::Env) -> Result<T, java::lang::Throwable>;
 }
 
-impl<T> ResultExt<T> for Result<T> {
+impl<T> ResultExt<T> for jni::errors::Result<T> {
   fn unwrap_java(self, e: &mut java::Env) -> T {
     use jni::errors::Error::*;
 
@@ -18,15 +21,23 @@ impl<T> ResultExt<T> for Result<T> {
         let ex = e.exception_occurred().unwrap();
         let exo = java::lang::Object::from_local(e, ex);
         e.exception_clear().unwrap();
-        let exo = exo.upcast_to::<java::lang::Throwable>(e);
-        let traces = exo.get_stack_trace(e);
-        panic!("{}\ntrace:\n{:#?}",
-               exo.downcast(e).to_string(e),
-               traces.into_iter()
-                     .map(|o| o.downcast(e).to_string(e))
-                     .collect::<Vec<_>>());
+        panic!("{:?}", exo.upcast_to::<java::lang::Throwable>(e));
       },
       | o => o.unwrap(),
+    }
+  }
+
+  fn to_throwable(self, e: &mut java::Env) -> Result<T, java::lang::Throwable> {
+    use jni::errors::Error::*;
+
+    match self {
+      | Err(JavaException) => {
+        let ex = e.exception_occurred().unwrap();
+        e.exception_clear().unwrap();
+        let exo = java::lang::Object::from_local(e, ex);
+        Err(java::lang::Throwable::upcast(e, exo))
+      },
+      | o => Ok(o.unwrap()),
     }
   }
 }

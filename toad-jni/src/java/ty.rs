@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use jni::objects::{GlobalRef, JObject};
 
-use super::Class;
+use super::{Class, NoUpcast};
 use crate::java;
 
 /// Provides strongly-typed JVM type signature strings at compile-time
@@ -166,6 +166,8 @@ mod type_sealed {
 
   #[allow(unreachable_pub)]
   pub trait TypeSealed {}
+  impl<T> TypeSealed for T where T: java::Class {}
+  impl<T> TypeSealed for Result<T, java::lang::Throwable> where T: java::Type {}
   impl<T> TypeSealed for Vec<T> where T: java::Type {}
   impl<R> TypeSealed for fn() -> R where R: java::Type {}
   impl<A, R> TypeSealed for fn(A) -> R where R: java::Type {}
@@ -173,7 +175,6 @@ mod type_sealed {
   impl<A, B, C, R> TypeSealed for fn(A, B, C) -> R where R: java::Type {}
   impl<A, B, C, D, R> TypeSealed for fn(A, B, C, D) -> R where R: java::Type {}
   impl<A, B, C, D, E, R> TypeSealed for fn(A, B, C, D, E) -> R where R: java::Type {}
-  impl<T> TypeSealed for T where T: java::Class {}
   impl TypeSealed for GlobalRef {}
   impl TypeSealed for () {}
   impl TypeSealed for u16 {}
@@ -196,6 +197,7 @@ mod type_sealed {
 /// |rust type|java type|notes|
 /// |--|--|--|
 /// |`T where T: `[`java::Class`]|fully qualified class path||
+/// |[`Result`]`<T, `[`java::lang::Throwable`]`>`|`T::PATH`|[`java::Class`] must be implemented for `T`|
 /// |[`java::Nullable`]`<T>`|`T::PATH`|[`java::Class`] must be implemented for `T`|
 /// |[`java::NoUpcast`]`<T>`|`java::lang::Object`|[`java::Class`] must be implemented for `T`. Used when a method should have the signature of returning `T`, but you would like the object reference without [`java::Object::upcast`]ing.|
 /// |[`java::lang::Object`]|`java.lang.Object`||
@@ -224,6 +226,14 @@ pub trait Type: type_sealed::TypeSealed {
 }
 
 impl<T> Type for T where T: java::Class
+{
+  const SIG: Signature = Signature::class(T::PATH);
+  fn jni() -> jni::signature::JavaType {
+    jni::signature::JavaType::Object(T::PATH.into())
+  }
+}
+
+impl<T> Type for Result<T, java::lang::Throwable> where T: java::Class
 {
   const SIG: Signature = Signature::class(T::PATH);
   fn jni() -> jni::signature::JavaType {

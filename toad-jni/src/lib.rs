@@ -1,10 +1,15 @@
 //! High-level wrapper of [`jni`], making Java & Rust FFI easy & fun
 //!
 //! ## Globals
-//! [`toad_jni::global`](https://docs.rs/toad-jni/latest/toad_jni/global/index.html) offers the option to use a global JVM handle ([`toad_jni::global::jvm()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.jvm.html) set with [`toad_jni::global::init()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.init.html)).
+//! [`toad_jni::global`](https://docs.rs/toad-jni/latest/toad_jni/global/index.html) offers the option to use a global JVM handle .
 //!
-//! Using the JVM global is completely optional, **unless** you plan to use Rust trait impls such as [`IntoIterator`]
-//! on [`toad_jni::java::util::ArrayList`](https://docs.rs/toad-jni/latest/toad_jni/java/util/struct.ArrayList.html).
+//! [`toad_jni::global::jvm()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.jvm.html) must be initialized with
+//! [`toad_jni::global::init()`](https://docs.rs/toad-jni/latest/toad_jni/global/fn.init.html) in order to use Rust trait
+//! impls on java types. Some examples include:
+//!
+//! - [`Iterator`] on [`toad_jni::java::util::ArrayList`](https://docs.rs/toad-jni/latest/toad_jni/java/util/struct.ArrayList.html)
+//! - [`core::fmt::Debug`] on [`toad_jni::java::lang::Throwable`](https://docs.rs/toad-jni/latest/toad_jni/java/lang/struct.Throwable.html)
+//! - [`toad::net::Socket`] on [`toad_jni::java::nio::channels::DatagramChannel`](https://docs.rs/toad-jni/latest/toad_jni/java/nio/channels/struct.DatagramChannel.html)
 //!
 //! ## Types
 //! All java type signatures can be represented by rust types
