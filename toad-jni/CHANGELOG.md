@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.9.0...toad-jni-v0.9.1) (2023-04-13)
+
+
+### Bug Fixes
+
+* PeekableDatagramChannel unreachable  ([#304](https://github.com/toad-lib/toad/issues/304)) ([97988fb](https://github.com/toad-lib/toad/commit/97988fb76c516dd309944f8d1fc0e0a7cb98cda0))
+
 ## [0.9.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.8.0...toad-jni-v0.9.0) (2023-04-13)
 
 
