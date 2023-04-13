@@ -1,2 +1,3 @@
 mod datagram_channel;
-pub use datagram_channel::DatagramChannel;
+#[doc(inline)]
+pub use datagram_channel::{DatagramChannel, PeekableDatagramChannel};
