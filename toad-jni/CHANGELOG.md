@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.8.0...toad-jni-v0.9.0) (2023-04-13)
+
+
+### Features
+
+* add DatagramChannel + impl toad::net::Socket ([#302](https://github.com/toad-lib/toad/issues/302)) ([55230ea](https://github.com/toad-lib/toad/commit/55230eae2e8b9ee8466cec143c3b17e1148a0097))
+
 ## [0.8.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.7.0...toad-jni-v0.8.0) (2023-04-11)
 
 
