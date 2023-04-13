@@ -13,7 +13,6 @@ use crate::java;
 /// See the [module documentation](crate::java) for examples.
 pub struct Method<C, F> {
   name: &'static str,
-  overrideable: bool,
   mid: RwLock<Option<JMethodID>>,
   _t: PhantomData<(C, F)>,
 }
@@ -28,40 +27,22 @@ impl<C, F> Method<C, F>
   /// object instances, use [`Method::new_overrideable`]
   pub const fn new(name: &'static str) -> Self {
     Self { name,
-           overrideable: false,
-           mid: RwLock::new(None),
-           _t: PhantomData }
-  }
-
-  /// Create a new method lens that invokes the method named `name`
-  /// on the object instance without looking at the class `C`.
-  ///
-  /// This allows you to invoke abstract methods without knowing
-  /// the concrete type of object instances.
-  pub const fn new_overrideable(name: &'static str) -> Self {
-    Self { name,
-           overrideable: true,
            mid: RwLock::new(None),
            _t: PhantomData }
   }
 
   /// Get & cache the method ID for this method
-  fn find(&self, e: &mut java::Env, inst: &JObject<'_>) -> JMethodID {
-    if self.overrideable {
-      let cls = e.get_object_class(inst).unwrap_java(e);
-      e.get_method_id(cls, self.name, F::SIG).unwrap_java(e)
-    } else {
-      let mid = self.mid.read().unwrap();
+  fn find(&self, e: &mut java::Env) -> JMethodID {
+    let mid = self.mid.read().unwrap();
 
-      if mid.is_none() {
-        drop(mid);
-        let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap_java(e);
-        let mut field = self.mid.write().unwrap();
-        *field = Some(mid);
-        mid
-      } else {
-        mid.unwrap()
-      }
+    if mid.is_none() {
+      drop(mid);
+      let mid = e.get_method_id(C::PATH, self.name, F::SIG).unwrap_java(e);
+      let mut field = self.mid.write().unwrap();
+      *field = Some(mid);
+      mid
+    } else {
+      mid.unwrap()
     }
   }
 }
@@ -73,7 +54,7 @@ impl<C, FR> Method<C, fn() -> FR>
   /// Call the method
   pub fn invoke(&self, e: &mut java::Env, inst: &C) -> FR {
     let inst = inst.downcast_ref(e);
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst, mid, Signature::of::<fn() -> FR>().return_type(), &[])
        .unwrap_java(e)
@@ -92,7 +73,7 @@ impl<C, FA, FR> Method<C, fn(FA) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA) -> FR {
     let inst = inst.downcast_ref(e);
     let fa = fa.downcast_value(e);
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -114,7 +95,7 @@ impl<C, FA, FB, FR> Method<C, fn(FA, FB) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -137,7 +118,7 @@ impl<C, FA, FB, FC, FR> Method<C, fn(FA, FB, FC) -> FR>
   pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA, fb: FB, fc: FC) -> FR {
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -162,7 +143,7 @@ impl<C, FA, FB, FC, FD, FR> Method<C, fn(FA, FB, FC, FD) -> FR>
     let inst = inst.downcast_ref(e);
     let (fa, fb, fc, fd) =
       (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -191,7 +172,7 @@ impl<C, FA, FB, FC, FD, FE, FR> Method<C, fn(FA, FB, FC, FD, FE) -> FR>
                                 fc.downcast_value(e),
                                 fd.downcast_value(e),
                                 fe.downcast_value(e));
-    let mid = self.find(e, inst.as_local());
+    let mid = self.find(e);
     let jv = unsafe {
       e.call_method_unchecked(&inst,
                               mid,
@@ -204,6 +185,173 @@ impl<C, FA, FB, FC, FD, FE, FR> Method<C, fn(FA, FB, FC, FD, FE) -> FR>
        .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
+  }
+}
+
+impl<C, FR> Method<C, fn() -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self, e: &mut java::Env, inst: &C) -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst, mid, Signature::of::<fn() -> FR>().return_type(), &[])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FR> Method<C, fn(FA) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self, e: &mut java::Env, inst: &C, fa: FA) -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let fa = fa.downcast_value(e);
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst,
+                              mid,
+                              Signature::of::<fn(FA) -> FR>().return_type(),
+                              &[fa.as_jni()])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FR> Method<C, fn(FA, FB) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                inst: &C,
+                fa: FA,
+                fb: FB)
+                -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst,
+                              mid,
+                              Signature::of::<fn(FA, FB) -> FR>().return_type(),
+                              &[fa.as_jni(), fb.as_jni()])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FR> Method<C, fn(FA, FB, FC) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                inst: &C,
+                fa: FA,
+                fb: FB,
+                fc: FC)
+                -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst,
+                              mid,
+                              Signature::of::<fn(FA, FB, FC) -> FR>().return_type(),
+                              &[fa.as_jni(), fb.as_jni(), fc.as_jni()])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FD, FR> Method<C, fn(FA, FB, FC, FD) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FD: Object,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                inst: &C,
+                fa: FA,
+                fb: FB,
+                fc: FC,
+                fd: FD)
+                -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let (fa, fb, fc, fd) =
+      (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst,
+                              mid,
+                              Signature::of::<fn(FA, FB, FC, FD) -> FR>().return_type(),
+                              &[fa.as_jni(), fb.as_jni(), fc.as_jni(), fd.as_jni()])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FD, FE, FR>
+  Method<C, fn(FA, FB, FC, FD, FE) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FD: Object,
+        FE: Object,
+        FR: Class
+{
+  /// Call the method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                inst: &C,
+                fa: FA,
+                fb: FB,
+                fc: FC,
+                fd: FD,
+                fe: FE)
+                -> Result<FR, java::lang::Throwable> {
+    let inst = inst.downcast_ref(e);
+    let (fa, fb, fc, fd, fe) = (fa.downcast_value(e),
+                                fb.downcast_value(e),
+                                fc.downcast_value(e),
+                                fd.downcast_value(e),
+                                fe.downcast_value(e));
+    let mid = self.find(e);
+    unsafe {
+      e.call_method_unchecked(&inst,
+                              mid,
+                              Signature::of::<fn(FA, FB, FC, FD, FE) -> FR>().return_type(),
+                              &[fa.as_jni(),
+                                fb.as_jni(),
+                                fc.as_jni(),
+                                fd.as_jni(),
+                                fe.as_jni()])
+       .to_throwable(e)
+       .map(|jv| FR::upcast_value(e, jv))
+    }
   }
 }
 
@@ -384,6 +532,153 @@ impl<C, FA, FB, FC, FD, FE, FR> StaticMethod<C, fn(FA, FB, FC, FD, FE) -> FR>
        .unwrap_java(e)
     };
     FR::upcast_value(e, jv)
+  }
+}
+
+impl<C, FR> StaticMethod<C, fn() -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self, e: &mut java::Env) -> Result<FR, java::lang::Throwable> {
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class, mid, Signature::of::<fn() -> Result<FR, java::lang::Throwable>>().return_type(), &[])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FR> StaticMethod<C, fn(FA) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self, e: &mut java::Env, fa: FA) -> Result<FR, java::lang::Throwable> {
+    let fa = fa.downcast_value(e);
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class,
+                                     mid,
+                                     Signature::of::<fn(FA) -> Result<FR, java::lang::Throwable>>().return_type(),
+                                     &[fa.as_jni()])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FR> StaticMethod<C, fn(FA, FB) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self, e: &mut java::Env, fa: FA, fb: FB) -> Result<FR, java::lang::Throwable> {
+    let (fa, fb) = (fa.downcast_value(e), fb.downcast_value(e));
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class,
+                                     mid,
+                                     Signature::of::<fn(FA, FB) -> Result<FR, java::lang::Throwable>>().return_type(),
+                                     &[fa.as_jni(), fb.as_jni()])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FR> StaticMethod<C, fn(FA, FB, FC) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                fa: FA,
+                fb: FB,
+                fc: FC)
+                -> Result<FR, java::lang::Throwable> {
+    let (fa, fb, fc) = (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e));
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class,
+                                     mid,
+                                     Signature::of::<fn(FA, FB, FC) -> Result<FR, java::lang::Throwable>>().return_type(),
+                                     &[fa.as_jni(), fb.as_jni(), fc.as_jni()])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FD, FR> StaticMethod<C, fn(FA, FB, FC, FD) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FD: Object,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                fa: FA,
+                fb: FB,
+                fc: FC,
+                fd: FD)
+                -> Result<FR, java::lang::Throwable> {
+    let (fa, fb, fc, fd) =
+      (fa.downcast_value(e), fb.downcast_value(e), fc.downcast_value(e), fd.downcast_value(e));
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class,
+                                     mid,
+                                     Signature::of::<fn(FA, FB, FC, FD) -> Result<FR, java::lang::Throwable>>().return_type(),
+                                     &[fa.as_jni(), fb.as_jni(), fc.as_jni(), fd.as_jni()])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
+  }
+}
+
+impl<C, FA, FB, FC, FD, FE, FR>
+  StaticMethod<C, fn(FA, FB, FC, FD, FE) -> Result<FR, java::lang::Throwable>>
+  where C: Class,
+        FA: Object,
+        FB: Object,
+        FC: Object,
+        FD: Object,
+        FE: Object,
+        FR: Class
+{
+  /// Invoke the static method
+  pub fn invoke(&self,
+                e: &mut java::Env,
+                fa: FA,
+                fb: FB,
+                fc: FC,
+                fd: FD,
+                fe: FE)
+                -> Result<FR, java::lang::Throwable> {
+    let (fa, fb, fc, fd, fe) = (fa.downcast_value(e),
+                                fb.downcast_value(e),
+                                fc.downcast_value(e),
+                                fd.downcast_value(e),
+                                fe.downcast_value(e));
+    let (class, mid) = self.find(e);
+    unsafe {
+      e.call_static_method_unchecked(class,
+                                     mid,
+                                     Signature::of::<fn(FA, FB, FC, FD, FE) -> Result<FR, java::lang::Throwable>>().return_type(),
+                                     &[fa.as_jni(),
+                                       fb.as_jni(),
+                                       fc.as_jni(),
+                                       fd.as_jni(),
+                                       fe.as_jni()])
+       .to_throwable(e).map(|jv| FR::upcast_value(e, jv))
+    }
   }
 }
 

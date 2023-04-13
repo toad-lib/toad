@@ -1,12 +1,22 @@
-use std::net::ToSocketAddrs;
+use java::Object;
 
-use super::InetAddress;
+use super::{InetAddress, SocketAddress};
 use crate::java;
 
 /// `java.net.InetSocketAddress`
 pub struct InetSocketAddress(java::lang::Object);
 
 impl InetSocketAddress {
+  /// Downcast self to [`SocketAddress`]
+  pub fn as_socket_address(&self, e: &mut java::Env) -> SocketAddress {
+    self.downcast_ref(e).upcast_to(e)
+  }
+
+  /// Upcast [`SocketAddress`] to self
+  pub fn from_socket_address(e: &mut java::Env, addr: SocketAddress) -> Self {
+    addr.downcast_ref(e).upcast_to(e)
+  }
+
   /// Create a new socket address, using the local wildcard address
   /// as the IP address
   ///
@@ -52,9 +62,20 @@ impl InetSocketAddress {
     std::net::SocketAddr::new(self.address(e).to_std(e), self.port(e))
   }
 
+  /// Convert `InetSocketAddress` to `no_std_net::SocketAddr`
+  pub fn to_no_std(&self, e: &mut java::Env) -> no_std_net::SocketAddr {
+    no_std_net::SocketAddr::new(self.address(e).to_no_std(e), self.port(e))
+  }
+
   /// Convert `std::net::SocketAddr` to `InetSocketAddress`
   pub fn from_std(e: &mut java::Env, addr: std::net::SocketAddr) -> Self {
     let ip = InetAddress::from_std(e, addr.ip());
+    Self::new(e, ip, addr.port() as i32)
+  }
+
+  /// Convert `std::net::SocketAddr` to `InetSocketAddress`
+  pub fn from_no_std(e: &mut java::Env, addr: no_std_net::SocketAddr) -> Self {
+    let ip = InetAddress::from_no_std(e, addr.ip());
     Self::new(e, ip, addr.port() as i32)
   }
 }

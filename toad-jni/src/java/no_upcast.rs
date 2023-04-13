@@ -13,6 +13,11 @@ impl<T> NoUpcast<T> where T: java::Class
   pub fn object(self) -> java::lang::Object {
     self.0
   }
+
+  /// Wraps an object with `NoUpcast<T>`
+  pub fn from_object(o: java::lang::Object) -> Self {
+    Self(o, PhantomData)
+  }
 }
 
 impl<T> java::Class for NoUpcast<T> where T: java::Class

@@ -37,6 +37,13 @@ impl Object {
     TO_STRING.invoke(e, self)
   }
 
+  /// Invoke `boolean equals(Object o)`
+  pub fn equals(&self, e: &mut java::Env, other: &Object) -> bool {
+    static EQUALS: java::Method<Object, fn(Object) -> bool> = java::Method::new("equals");
+    let other = other.new_reference(e);
+    EQUALS.invoke(e, self, other)
+  }
+
   /// Convert an object reference to an owned local jvalue
   pub fn to_value<'a>(&self, e: &mut java::Env<'a>) -> JValueGen<JObject<'a>> {
     JValueGen::Object(self.to_local(e))
