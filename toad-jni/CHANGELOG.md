@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.9.1...toad-jni-v0.10.0) (2023-04-15)
+
+
+### Features
+
+* Throwable's Debug should include error stack, java.io.IOException ([#306](https://github.com/toad-lib/toad/issues/306)) ([6f47fcb](https://github.com/toad-lib/toad/commit/6f47fcbccee7fe815b577a72490895e805d598d6))
+
 ## [0.9.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.9.0...toad-jni-v0.9.1) (2023-04-13)
 
 
