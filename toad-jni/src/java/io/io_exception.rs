@@ -1,4 +1,5 @@
-use crate::java::{self, lang::Throwable, Object};
+use crate::java::lang::Throwable;
+use crate::java::{self, Object};
 
 /// `java.io.IOException`
 pub struct IOException(java::lang::Object);
@@ -23,9 +24,9 @@ impl IOException {
 }
 
 impl core::fmt::Debug for IOException {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.to_throwable(&mut java::env()))
-    }
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:?}", self.to_throwable(&mut java::env()))
+  }
 }
 
 java::object_newtype!(IOException);
@@ -33,20 +34,22 @@ impl java::Class for IOException {
   const PATH: &'static str = "java/io/IOException";
 }
 
-impl<StepError> toad::platform::PlatformError<StepError, Throwable> for IOException where StepError: core::fmt::Debug {
-    fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
-        Self::new(&mut java::env(), format!("{:?}", e))
-    }
+impl<StepError> toad::platform::PlatformError<StepError, Throwable> for IOException
+  where StepError: core::fmt::Debug
+{
+  fn msg_to_bytes(e: toad_msg::to_bytes::MessageToBytesError) -> Self {
+    Self::new(&mut java::env(), format!("{:?}", e))
+  }
 
-    fn step(e: StepError) -> Self {
-        Self::new(&mut java::env(), format!("{:?}", e))
-    }
+  fn step(e: StepError) -> Self {
+    Self::new(&mut java::env(), format!("{:?}", e))
+  }
 
-    fn socket(e: Throwable) -> Self {
-        Self::new_caused_by(&mut java::env(), "", e)
-    }
+  fn socket(e: Throwable) -> Self {
+    Self::new_caused_by(&mut java::env(), "", e)
+  }
 
-    fn clock(e: embedded_time::clock::Error) -> Self {
-        Self::new(&mut java::env(), format!("{:?}", e))
-    }
+  fn clock(e: embedded_time::clock::Error) -> Self {
+    Self::new(&mut java::env(), format!("{:?}", e))
+  }
 }
