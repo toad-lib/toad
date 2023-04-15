@@ -120,7 +120,7 @@ impl java::Object for PeekableDatagramChannel {
   }
 
   fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
-    self.downcast_ref(e)
+    self.chan.downcast_ref(e)
   }
 }
 
