@@ -110,6 +110,24 @@ pub struct PeekableDatagramChannel {
   peeked: RwLock<Option<(InetSocketAddress, usize, ByteBuffer)>>,
 }
 
+impl java::Object for PeekableDatagramChannel {
+  fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
+    DatagramChannel::upcast(e, jobj).peekable()
+  }
+
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object {
+    self.chan.downcast(e)
+  }
+
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
+    self.downcast_ref(e)
+  }
+}
+
+impl java::Class for PeekableDatagramChannel {
+  const PATH: &'static str = DatagramChannel::PATH;
+}
+
 impl From<DatagramChannel> for PeekableDatagramChannel {
   fn from(chan: DatagramChannel) -> Self {
     Self { chan,
