@@ -110,6 +110,24 @@ pub struct PeekableDatagramChannel {
   peeked: RwLock<Option<(InetSocketAddress, usize, ByteBuffer)>>,
 }
 
+impl java::Object for PeekableDatagramChannel {
+  fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
+    DatagramChannel::upcast(e, jobj).peekable()
+  }
+
+  fn downcast(self, e: &mut java::Env) -> java::lang::Object {
+    self.chan.downcast(e)
+  }
+
+  fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
+    self.chan.downcast_ref(e)
+  }
+}
+
+impl java::Class for PeekableDatagramChannel {
+  const PATH: &'static str = DatagramChannel::PATH;
+}
+
 impl From<DatagramChannel> for PeekableDatagramChannel {
   fn from(chan: DatagramChannel) -> Self {
     Self { chan,
@@ -134,7 +152,7 @@ impl toad::net::Socket for PeekableDatagramChannel {
   }
 
   fn empty_dgram() -> Self::Dgram {
-    ArrayVec::new()
+    ArrayVec::from([0u8; 1152])
   }
 
   fn bind_raw<A: no_std_net::ToSocketAddrs>(addr: A) -> Result<Self, Self::Error> {
@@ -165,12 +183,14 @@ impl toad::net::Socket for PeekableDatagramChannel {
     let mut e = java::env();
     let e = &mut e;
 
-    let out = self.peek(buf)?;
-
-    let mut peeked = self.peeked.write().unwrap();
-    *peeked = None;
-
-    Ok(out)
+    match self.peek(buf) {
+      | Ok(out) => {
+        let mut peeked = self.peeked.write().unwrap();
+        *peeked = None;
+        Ok(out)
+      },
+      | e => e,
+    }
   }
 
   fn peek(&self, buf: &mut [u8]) -> nb::Result<toad::net::Addrd<usize>, Self::Error> {
@@ -192,13 +212,17 @@ impl toad::net::Socket for PeekableDatagramChannel {
 
         let mut javabuf = ByteBuffer::new(e, buf.iter().copied());
         let (n, addr) = self.chan.recv(e, &mut javabuf)?;
-        let addr_no_std = addr.to_no_std(e);
-        let n = javabuf.write_to(e, 0, (n as usize) - 1, buf);
-        javabuf.rewind(e);
+        if n == 0 {
+          Err(nb::Error::WouldBlock)
+        } else {
+          let addr_no_std = addr.to_no_std(e);
+          let n = javabuf.write_to(e, 0, (n as usize) - 1, buf);
+          javabuf.rewind(e);
 
-        *peeked = Some((addr, n, javabuf));
+          *peeked = Some((addr, n, javabuf));
 
-        Ok(Addrd(n, addr_no_std))
+          Ok(Addrd(n, addr_no_std))
+        }
       },
     }
   }
@@ -246,7 +270,7 @@ mod tests {
   }
 
   #[test]
-  fn recv() {
+  fn peek_and_recv() {
     struct Addr {
       java: no_std_net::SocketAddr,
       rust: no_std_net::SocketAddr,
@@ -259,7 +283,7 @@ mod tests {
                       rust: "127.0.0.1:5686".parse().unwrap() };
 
     let rust_sock = <UdpSocket as toad::net::Socket>::bind(addr.rust).unwrap();
-    let java_sock = PeekableDatagramChannel::bind(addr.java).unwrap();
+    let java_sock = <PeekableDatagramChannel as toad::net::Socket>::bind(addr.java).unwrap();
 
     let data = r#"{ "foo": "bar", "number": 123 }"#.as_bytes().to_vec();
 
@@ -286,5 +310,35 @@ mod tests {
     assert_eq!(recvd, data);
 
     assert!(matches!(java_sock.peek(&mut recvd), Err(nb::Error::WouldBlock)));
+  }
+
+  #[test]
+  fn poll() {
+    struct Addr {
+      java: no_std_net::SocketAddr,
+      rust: no_std_net::SocketAddr,
+    }
+
+    let mut e = crate::test::init();
+    let e = &mut e;
+
+    let addr = Addr { java: "127.0.0.1:5688".parse().unwrap(),
+                      rust: "127.0.0.1:5689".parse().unwrap() };
+
+    let rust_sock = <UdpSocket as toad::net::Socket>::bind(addr.rust).unwrap();
+    let java_sock = <PeekableDatagramChannel as toad::net::Socket>::bind(addr.java).unwrap();
+
+    let data = r#"{ "foo": "bar", "number": 123 }"#.as_bytes().to_vec();
+
+    assert!(java_sock.poll().unwrap().is_none());
+    assert!(java_sock.poll().unwrap().is_none());
+
+    rust_sock.send_to(&data, addr.java.to_string()).unwrap();
+    let Addrd(recvd, from) = java_sock.poll().unwrap().unwrap();
+    assert_eq!(recvd.len(), data.len());
+    assert_eq!(from, addr.rust);
+    assert!(recvd.iter().eq(data.iter()));
+
+    assert!(java_sock.poll().unwrap().is_none());
   }
 }
