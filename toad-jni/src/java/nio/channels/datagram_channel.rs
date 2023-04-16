@@ -184,12 +184,12 @@ impl toad::net::Socket for PeekableDatagramChannel {
     let e = &mut e;
 
     match self.peek(buf) {
-      Ok(out) => {
+      | Ok(out) => {
         let mut peeked = self.peeked.write().unwrap();
         *peeked = None;
         Ok(out)
       },
-      e => e,
+      | e => e,
     }
   }
 
@@ -215,13 +215,13 @@ impl toad::net::Socket for PeekableDatagramChannel {
         if n == 0 {
           Err(nb::Error::WouldBlock)
         } else {
-        let addr_no_std = addr.to_no_std(e);
-        let n = javabuf.write_to(e, 0, (n as usize) - 1, buf);
-        javabuf.rewind(e);
+          let addr_no_std = addr.to_no_std(e);
+          let n = javabuf.write_to(e, 0, (n as usize) - 1, buf);
+          javabuf.rewind(e);
 
-        *peeked = Some((addr, n, javabuf));
+          *peeked = Some((addr, n, javabuf));
 
-        Ok(Addrd(n, addr_no_std))
+          Ok(Addrd(n, addr_no_std))
         }
       },
     }
