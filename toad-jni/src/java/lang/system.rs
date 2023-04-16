@@ -1,3 +1,5 @@
+use java::io::PrintStream;
+
 use crate::java::{self, Nullable};
 
 /// `java.lang.System`
@@ -62,6 +64,18 @@ impl System {
   pub fn exit(e: &mut java::Env, status: i32) {
     static EXIT: java::StaticMethod<System, fn(i32)> = java::StaticMethod::new("exit");
     EXIT.invoke(e, status)
+  }
+
+  /// `java.lang.System.out`
+  pub fn out(e: &mut java::Env) -> PrintStream {
+    static OUT: java::StaticField<System, PrintStream> = java::StaticField::new("out");
+    OUT.get(e)
+  }
+
+  /// `java.lang.System.err`
+  pub fn err(e: &mut java::Env) -> PrintStream {
+    static ERR: java::StaticField<System, PrintStream> = java::StaticField::new("err");
+    ERR.get(e)
   }
 }
 
