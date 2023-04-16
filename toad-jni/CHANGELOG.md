@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.10.0...toad-jni-v0.10.1) (2023-04-16)
+
+
+### Bug Fixes
+
+* peekable channel should impl object, class and poll should work ([#308](https://github.com/toad-lib/toad/issues/308)) ([2f1f3b0](https://github.com/toad-lib/toad/commit/2f1f3b0c9d85385bdbb7f912ae9d6f62ba8fd858))
+
 ## [0.10.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.9.1...toad-jni-v0.10.0) (2023-04-15)
 
 
