@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.10.1...toad-jni-v0.11.0) (2023-04-16)
+
+
+### Features
+
+* System.out, System.err ([#310](https://github.com/toad-lib/toad/issues/310)) ([6cbcc87](https://github.com/toad-lib/toad/commit/6cbcc8787fa17ce201efd6b2d121e912a0c6410d))
+
 ## [0.10.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.10.0...toad-jni-v0.10.1) (2023-04-16)
 
 
