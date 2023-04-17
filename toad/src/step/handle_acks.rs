@@ -93,7 +93,7 @@ macro_rules! common {
       },
       Type::Ack if !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token)))
           => {
-        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "message was unexpected; haven't seen token before.")));
+        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "it was addressing a token that we were not expecting an ACK for")));
         None
       },
       Type::Ack => {
