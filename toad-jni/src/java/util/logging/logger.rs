@@ -1,6 +1,5 @@
-use crate::java;
-
 use super::Level;
+use crate::java;
 
 /// `java.util.logging.Logger`
 pub struct Logger(java::lang::Object);
@@ -15,8 +14,7 @@ impl Logger {
 
   /// `java.util.logging.Logger.log`
   pub fn log(&self, e: &mut java::Env, level: Level, msg: impl ToString) {
-    static LOG: java::Method<Logger, fn(Level, String)> =
-      java::Method::new("log");
+    static LOG: java::Method<Logger, fn(Level, String)> = java::Method::new("log");
     LOG.invoke(e, self, level, msg.to_string())
   }
 }
