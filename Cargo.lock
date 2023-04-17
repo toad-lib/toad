@@ -1108,6 +1108,7 @@ version = "0.11.0"
 dependencies = [
  "embedded-time",
  "jni",
+ "log",
  "nb",
  "no-std-net",
  "tinyvec",
