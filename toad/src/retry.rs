@@ -267,6 +267,7 @@ mod test {
 
   use super::*;
 
+  #[derive(Debug)]
   pub struct FakeClock(pub *const u64);
   impl FakeClock {
     pub fn new(time_ptr: *const u64) -> Self {
