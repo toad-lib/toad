@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.17.4](https://github.com/toad-lib/toad/compare/toad-v0.17.3...toad-v0.17.4) (2023-04-17)
+
+
+### Bug Fixes
+
+* HandleAck should support piggyACK, Snapshot should impl Debug ([#312](https://github.com/toad-lib/toad/issues/312)) ([789adaa](https://github.com/toad-lib/toad/commit/789adaa87d8acfd5fe9193c677413812f879f7d1))
+
 ## [0.17.3](https://github.com/toad-lib/toad/compare/toad-v0.17.2...toad-v0.17.3) (2023-04-07)
 
 
