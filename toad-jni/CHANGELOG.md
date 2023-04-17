@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.11.0...toad-jni-v0.12.0) (2023-04-17)
+
+
+### Features
+
+* java.io.logger.Logger ([#314](https://github.com/toad-lib/toad/issues/314)) ([c696d6f](https://github.com/toad-lib/toad/commit/c696d6ffaecd25a802912a3058da7cd2d969060b))
+
 ## [0.11.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.10.1...toad-jni-v0.11.0) (2023-04-16)
 
 
