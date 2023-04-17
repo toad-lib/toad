@@ -26,13 +26,15 @@ pub struct HandleAcks<S, B> {
 }
 
 impl<S, B> HandleAcks<S, B> {
-  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
+  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>, because: impl AsRef<str>) -> String<1000> {
     let mut string = String::<1000>::default();
     write!(string,
-           "IGNORING {}b ACK from {} {:?}",
+           "DISCARDING {}b ACK from {} {:?} because {}",
            msg.data().len(),
            msg.addr(),
-           msg.data().token).ok();
+           msg.data().token,
+           because.as_ref(),
+    ).ok();
     string
   }
 
@@ -91,15 +93,23 @@ macro_rules! common {
   ($in:expr, $msg:expr, $effects:expr, $buffer:expr) => {{
     let msg: Addrd<&platform::Message<P>> = $msg;
 
-    if msg.data().ty == Type::Ack && !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token))) {
-      $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg)));
-      None
-    } else if msg.data().ty == Type::Ack {
-      $effects.push(Effect::Log(log::Level::Trace, Self::info_acked::<P>(msg)));
-      $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
-      Some(Ok($in))
-    } else {
-      Some(Ok($in))
+    match msg.data().ty {
+      Type::Ack if msg.data().code.kind() == toad_msg::CodeKind::Empty
+          => {
+        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "the message was empty (0.00)")));
+        None
+      },
+      Type::Ack if !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token)))
+          => {
+        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "message was unexpected; haven't seen token before.")));
+        None
+      },
+      Type::Ack => {
+        $effects.push(Effect::Log(log::Level::Trace, Self::info_acked::<P>(msg)));
+        $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
+        Some(Ok($in))
+      },
+      _ => Some(Ok($in))
     }
   }};
 }
@@ -181,26 +191,28 @@ mod test {
   use std::collections::BTreeMap;
 
   use tinyvec::array_vec;
+use toad_msg::{Payload, Code};
 
   use super::*;
   use crate::platform::Effect;
   use crate::step::test::test_step;
+  use crate::test;
 
-  type InnerPollReq = Addrd<Req<crate::test::Platform>>;
-  type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type InnerPollReq = Addrd<Req<test::Platform>>;
+  type InnerPollResp = Addrd<Resp<test::Platform>>;
   type HandleAcks<S> = super::HandleAcks<S, BTreeMap<Addrd<Token>, ()>>;
 
-  fn test_message(ty: Type) -> Addrd<crate::test::Message> {
+  fn test_message(ty: Type) -> Addrd<test::Message> {
     use toad_msg::*;
 
-    Addrd(crate::test::Message { ver: Default::default(),
+    Addrd(test::Message { ver: Default::default(),
                                  ty,
                                  id: Id(1),
-                                 code: Code::new(1, 1),
+                                 code: Code::new(0, 1),
                                  token: Token(array_vec!(_ => 1)),
                                  payload: Payload(Default::default()),
                                  opts: Default::default() },
-          crate::test::dummy_addr())
+          test::dummy_addr())
   }
 
   test_step!(
@@ -213,7 +225,7 @@ mod test {
     THEN this_should_error [
       (poll_req(_, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
       (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::Other(Error::Inner(()))))) }),
-      (on_message_sent(_, test_message(Type::Con)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
+      (on_message_sent(_, test::msg!(CON GET x.x.x.x:8080)) should satisfy { |out| assert_eq!(out, Err(Error::Inner(()))) })
     ]
   );
 
@@ -232,8 +244,8 @@ mod test {
   test_step!(
     GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
     WHEN unexpected_ack_received [
-      (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
-      (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
+      (inner.poll_req => { Some(Ok(test::msg!(ACK {0 . 01} x.x.x.x:8080).map(Req::from))) }),
+      (inner.poll_resp => { Some(Ok(test::msg!(ACK {2 . 05} x.x.x.x:8080).map(Resp::from))) }),
       (inner.on_message_sent = { |_, _| Ok(()) })
     ]
     THEN should_ignore [
@@ -257,36 +269,106 @@ mod test {
     ]
   );
 
-  test_step!(
-    GIVEN HandleAcks::<Dummy> where Dummy: {Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>};
-    WHEN expected_ack_received [
-      (inner.poll_req => { Some(Ok(test_message(Type::Ack).map(Req::from))) }),
-      (inner.poll_resp => { Some(Ok(test_message(Type::Ack).map(Resp::from))) }),
-      (inner.on_message_sent = { |_, _| Ok(()) })
-    ]
-    THEN all_good [
-      (on_message_sent(_, test_message(Type::Con)) should satisfy { |_| () }),
-      (
-        on_message_sent(
-          _,
-          {
-            let Addrd(mut msg, addr) = test_message(Type::Con);
-            msg.token = Token(array_vec!(_ => 2));
-            Addrd(msg, addr)
-          }
-        ) should satisfy { |_| () }
-      ),
-      (
-        poll_resp(
-          _,
-          _,
-          test_message(Type::Con).data().token,
-          crate::test::dummy_addr()
-        ) should satisfy {
-          |out| assert!(out.is_none())
-        }
-      ),
-      (effects should satisfy {|eff| assert!(matches!(eff.as_slice(), &[Effect::Log(_, _)]))})
-    ]
-  );
+  #[test]
+  fn when_expected_piggybacked_ack_received_it_should_be_processed_and_returned() {
+    struct TestState {
+      token_last_sent: Option<Token>,
+    }
+
+    type Mock = test::MockStep::<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
+
+    let sut = HandleAcks::<Mock>::default();
+
+    sut
+      .inner()
+      .init(TestState {token_last_sent: None})
+      .set_on_message_sent(Box::new(|mock, _, msg| {
+        mock.state.map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
+        Ok(())
+      }))
+      .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
+        let mut msg = test::msg!(ACK {2 . 05} x.x.x.x:2222);
+
+        let token = mock.state.map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+        Addrd::data_mut(&mut msg).token = token;
+
+        assert_eq!(token, poll_for_token);
+
+        let p = Payload(format!("oink oink!").bytes().collect::<Vec<_>>());
+        Addrd::data_mut(&mut msg).payload = p;
+
+        Some(Ok(msg.map(Resp::from)))
+      }));
+
+      let token = Token(array_vec![1, 2, 3, 4]);
+
+      let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
+      let dest = sent_req.addr();
+      sent_req.as_mut().token = token;
+
+      let snap = test::snapshot();
+      let mut effs = Vec::<test::Effect>::new();
+
+      sut.on_message_sent(&snap, &sent_req).unwrap();
+
+      let res = sut.poll_resp(&snap, &mut effs, token, dest);
+      assert!(!effs.is_empty());
+
+      match &effs[0] {
+        Effect::Log(log::Level::Trace, msg) if msg.as_str().split(" ").next().unwrap() == "Got" => (),
+        e => panic!("{e:?}"),
+      }
+
+      assert_eq!(res.unwrap().unwrap().data().payload_string().unwrap(), format!("oink oink!"));
+  }
+
+  #[test]
+  fn when_expected_empty_ack_received_it_should_be_processed_and_ignored() {
+    struct TestState {
+      token_last_sent: Option<Token>,
+    }
+
+    type Mock = test::MockStep::<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
+
+    let sut = HandleAcks::<Mock>::default();
+
+    sut
+      .inner()
+      .init(TestState {token_last_sent: None})
+      .set_on_message_sent(Box::new(|mock, _, msg| {
+        mock.state.map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
+        Ok(())
+      }))
+      .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
+        let mut msg = test::msg!(ACK {0 . 00} x.x.x.x:2222);
+
+        let token = mock.state.map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+        Addrd::data_mut(&mut msg).token = token;
+
+        assert_eq!(token, poll_for_token);
+
+        Some(Ok(msg.map(Resp::from)))
+      }));
+
+      let token = Token(array_vec![1, 2, 3, 4]);
+
+      let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
+      let dest = sent_req.addr();
+      sent_req.as_mut().token = token;
+
+      let snap = test::snapshot();
+      let mut effs = Vec::<test::Effect>::new();
+
+      sut.on_message_sent(&snap, &sent_req).unwrap();
+
+      let res = sut.poll_resp(&snap, &mut effs, token, dest);
+      assert!(!effs.is_empty());
+
+      match &effs[0] {
+        Effect::Log(log::Level::Warn, msg) if msg.as_str().split(" ").next().unwrap() == "DISCARDING" => (),
+        e => panic!("{e:?}"),
+      }
+
+      assert_eq!(res, None);
+  }
 }

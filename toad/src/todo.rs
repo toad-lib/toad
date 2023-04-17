@@ -1,5 +1,5 @@
 //! Future inherent methods on structs in other crates
-use core::ops::{Div, Mul};
+use core::{ops::{Div, Mul}, fmt::Write};
 
 use naan::prelude::ResultExt;
 use tinyvec::ArrayVec;
@@ -38,6 +38,12 @@ impl<const N: usize> String<N> {
   /// Alias for [`AsRef`]
   pub fn as_str(&self) -> &str {
     self.as_ref()
+  }
+
+  pub fn fmt(args: core::fmt::Arguments) -> Self {
+    let mut s = Self::default();
+    s.write_fmt(args).ok();
+    s
   }
 
   /// Resize the String to a new length

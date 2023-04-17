@@ -3,7 +3,7 @@
 use ::core::cell::Cell;
 use ::core::ops::Deref;
 use ::core::time::Duration;
-use ::std::sync::Mutex;
+use ::std::sync::{Mutex, RwLock};
 use ::std::thread;
 use ::toad_msg::{TryFromBytes, TryIntoBytes};
 use embedded_time::rate::Fraction;
@@ -12,6 +12,8 @@ use net::*;
 use no_std_net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std_alloc::sync::Arc;
 use tinyvec::ArrayVec;
+use toad_msg::Token;
+use toad_stem::Stem;
 
 use super::*;
 
@@ -88,8 +90,15 @@ pub use msg;
 
 pub type Message = crate::platform::Message<Platform>;
 pub type Snapshot = crate::platform::Snapshot<Platform>;
+pub type Effect = crate::platform::Effect<Platform>;
 pub type Req = crate::req::Req<Platform>;
 pub type Resp = crate::resp::Resp<Platform>;
+
+pub fn snapshot() -> Snapshot {
+  Snapshot { config: Default::default(),
+             time: ClockMock::instant(0),
+             recvd_dgram: None }
+}
 
 pub fn dummy_addr() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 1), 8080))
@@ -101,6 +110,147 @@ pub fn dummy_addr_2() -> SocketAddr {
 
 pub fn dummy_addr_3() -> SocketAddr {
   SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(192, 168, 0, 3), 8080))
+}
+
+pub mod stepfn {
+  #![allow(non_camel_case_types)]
+  use super::*;
+
+  pub type poll_req<Self_, Req, E> =
+    dyn for<'a> FnMut(&'a Self_, &'a Snapshot, &'a mut Vec<Effect>) -> Option<nb::Result<Req, E>>;
+  pub type poll_resp<Self_, Resp, E> = dyn for<'a> FnMut(&'a Self_,
+                                                         &'a Snapshot,
+                                                         &'a mut Vec<Effect>,
+                                                         Token,
+                                                         SocketAddr)
+                                                         -> Option<nb::Result<Resp, E>>;
+  pub type notify<Self_, E> = dyn for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>;
+  pub type before_message_sent<Self_, E> = dyn for<'a> FnMut(&'a Self_,
+                                                             &'a Snapshot,
+                                                             &'a mut Vec<Effect>,
+                                                             &'a mut Addrd<Message>)
+                                                             -> Result<(), E>;
+  pub type on_message_sent<Self_, E> =
+    dyn for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>;
+}
+
+pub struct MockStep<State, Req, Resp, E> {
+  pub poll_req: RwLock<Box<stepfn::poll_req<Self, Req, E>>>,
+  pub poll_resp: RwLock<Box<stepfn::poll_resp<Self, Resp, E>>>,
+  pub notify: RwLock<Box<stepfn::notify<Self, E>>>,
+  pub before_message_sent: RwLock<Box<stepfn::before_message_sent<Self, E>>>,
+  pub on_message_sent: RwLock<Box<stepfn::on_message_sent<Self, E>>>,
+  pub state: Stem<Option<State>>,
+}
+
+impl<State, Rq, Rp, E> MockStep<State, Rq, Rp, E> {
+  pub fn init(&self, new: State) -> &Self {
+    let mut new = Some(new);
+    self.state.map_mut(|o| *o = new.take());
+    self
+  }
+
+  pub fn init_default(&self) -> &Self
+    where State: Default
+  {
+    self.init(Default::default())
+  }
+
+  pub fn set_poll_req(&self, f: Box<stepfn::poll_req<Self, Rq, E>>) -> &Self {
+    let mut g = self.poll_req.try_write().unwrap();
+    *g = f;
+    self
+  }
+
+  pub fn set_poll_resp(&self, f: Box<stepfn::poll_resp<Self, Rp, E>>) -> &Self {
+    let mut g = self.poll_resp.try_write().unwrap();
+    *g = f;
+    self
+  }
+
+  pub fn set_notify(&self, f: Box<stepfn::notify<Self, E>>) -> &Self {
+    let mut g = self.notify.try_write().unwrap();
+    *g = f;
+    self
+  }
+
+  pub fn set_before_message_sent(&self, f: Box<stepfn::before_message_sent<Self, E>>) -> &Self {
+    let mut g = self.before_message_sent.try_write().unwrap();
+    *g = f;
+    self
+  }
+
+  pub fn set_on_message_sent(&self, f: Box<stepfn::on_message_sent<Self, E>>) -> &Self {
+    let mut g = self.on_message_sent.try_write().unwrap();
+    *g = f;
+    self
+  }
+}
+
+impl<State, Rq, Rp, E> Default for MockStep<State, Rq, Rp, E> {
+  fn default() -> Self {
+    Self { poll_req: RwLock::new(Box::new(|_, _, _| None)),
+           poll_resp: RwLock::new(Box::new(|_, _, _, _, _| None)),
+           notify: RwLock::new(Box::new(|_, _| Ok(()))),
+           before_message_sent: RwLock::new(Box::new(|_, _, _, _| Ok(()))),
+           on_message_sent: RwLock::new(Box::new(|_, _, _| Ok(()))),
+           state: Stem::new(None) }
+  }
+}
+
+impl<State, Rq, Rp, E> crate::step::Step<Platform> for MockStep<State, Rq, Rp, E>
+  where E: From<()> + crate::step::Error
+{
+  type PollReq = Rq;
+  type PollResp = Rp;
+  type Error = E;
+  type Inner = ();
+
+  fn inner(&self) -> &Self::Inner {
+    &()
+  }
+
+  fn poll_req(&self,
+              snap: &platform::Snapshot<Platform>,
+              effects: &mut <Platform as platform::PlatformTypes>::Effects)
+              -> step::StepOutput<Self::PollReq, Self::Error> {
+    let mut g = self.poll_req.try_write().unwrap();
+    g.as_mut()(self, snap, effects)
+  }
+
+  fn poll_resp(&self,
+               snap: &platform::Snapshot<Platform>,
+               effects: &mut <Platform as platform::PlatformTypes>::Effects,
+               token: Token,
+               addr: SocketAddr)
+               -> step::StepOutput<Self::PollResp, Self::Error> {
+    let mut g = self.poll_resp.try_write().unwrap();
+    g.as_mut()(self, snap, effects, token, addr)
+  }
+
+  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+    where Path: AsRef<str> + Clone
+  {
+    let mut g = self.notify.try_write().unwrap();
+    g.as_mut()(self, path.as_ref())
+  }
+
+  fn before_message_sent(&self,
+                         snap: &platform::Snapshot<Platform>,
+                         effects: &mut <Platform as platform::PlatformTypes>::Effects,
+                         msg: &mut Addrd<platform::Message<Platform>>)
+                         -> Result<(), Self::Error> {
+    let mut g = self.before_message_sent.try_write().unwrap();
+    g.as_mut()(self, snap, effects, msg)
+  }
+
+  fn on_message_sent(&self,
+                     snap: &platform::Snapshot<Platform>,
+                     msg: &Addrd<platform::Message<Platform>>)
+                     -> Result<(), Self::Error> {
+    let mut g = self.on_message_sent.try_write().unwrap();
+    g.as_mut()(self, snap, msg)
+  }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
