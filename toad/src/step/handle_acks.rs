@@ -274,27 +274,25 @@ mod test {
 
     sut.inner()
        .init(TestState { token_last_sent: None })
-       .set_on_message_sent(Box::new(|mock, _, msg| {
-                              mock.state
-                                  .map_mut(|s| {
-                                    s.as_mut().unwrap().token_last_sent = Some(msg.data().token)
-                                  });
-                              Ok(())
-                            }))
-       .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
-                        let mut msg = test::msg!(ACK {2 . 05} x.x.x.x:2222);
+       .set_on_message_sent(|mock, _, msg| {
+         mock.state
+             .map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
+         Ok(())
+       })
+       .set_poll_resp(|mock, _, _, poll_for_token, _| {
+         let mut msg = test::msg!(ACK {2 . 05} x.x.x.x:2222);
 
-                        let token = mock.state
-                                        .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
-                        Addrd::data_mut(&mut msg).token = token;
+         let token = mock.state
+                         .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+         Addrd::data_mut(&mut msg).token = token;
 
-                        assert_eq!(token, poll_for_token);
+         assert_eq!(token, poll_for_token);
 
-                        let p = Payload(format!("oink oink!").bytes().collect::<Vec<_>>());
-                        Addrd::data_mut(&mut msg).payload = p;
+         let p = Payload(format!("oink oink!").bytes().collect::<Vec<_>>());
+         Addrd::data_mut(&mut msg).payload = p;
 
-                        Some(Ok(msg.map(Resp::from)))
-                      }));
+         Some(Ok(msg.map(Resp::from)))
+       });
 
     let token = Token(array_vec![1, 2, 3, 4]);
 
@@ -334,24 +332,22 @@ mod test {
 
     sut.inner()
        .init(TestState { token_last_sent: None })
-       .set_on_message_sent(Box::new(|mock, _, msg| {
-                              mock.state
-                                  .map_mut(|s| {
-                                    s.as_mut().unwrap().token_last_sent = Some(msg.data().token)
-                                  });
-                              Ok(())
-                            }))
-       .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
-                        let mut msg = test::msg!(ACK {0 . 00} x.x.x.x:2222);
+       .set_on_message_sent(|mock, _, msg| {
+         mock.state
+             .map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
+         Ok(())
+       })
+       .set_poll_resp(|mock, _, _, poll_for_token, _| {
+         let mut msg = test::msg!(ACK {0 . 00} x.x.x.x:2222);
 
-                        let token = mock.state
-                                        .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
-                        Addrd::data_mut(&mut msg).token = token;
+         let token = mock.state
+                         .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+         Addrd::data_mut(&mut msg).token = token;
 
-                        assert_eq!(token, poll_for_token);
+         assert_eq!(token, poll_for_token);
 
-                        Some(Ok(msg.map(Resp::from)))
-                      }));
+         Some(Ok(msg.map(Resp::from)))
+       });
 
     let token = Token(array_vec![1, 2, 3, 4]);
 

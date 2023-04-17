@@ -116,30 +116,84 @@ pub mod stepfn {
   #![allow(non_camel_case_types)]
   use super::*;
 
-  pub type poll_req<Self_, Req, E> =
-    dyn for<'a> FnMut(&'a Self_, &'a Snapshot, &'a mut Vec<Effect>) -> Option<nb::Result<Req, E>>;
-  pub type poll_resp<Self_, Resp, E> = dyn for<'a> FnMut(&'a Self_,
-                                                         &'a Snapshot,
-                                                         &'a mut Vec<Effect>,
-                                                         Token,
-                                                         SocketAddr)
-                                                         -> Option<nb::Result<Resp, E>>;
-  pub type notify<Self_, E> = dyn for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>;
-  pub type before_message_sent<Self_, E> = dyn for<'a> FnMut(&'a Self_,
-                                                             &'a Snapshot,
-                                                             &'a mut Vec<Effect>,
-                                                             &'a mut Addrd<Message>)
-                                                             -> Result<(), E>;
-  pub type on_message_sent<Self_, E> =
-    dyn for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>;
+  pub trait poll_req<Self_, Req, E>
+    where Self: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>)
+                          -> Option<nb::Result<Req, E>>
+  {
+  }
+  impl<T, Self_, Req, E> poll_req<Self_, Req, E> for T
+    where T: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>)
+                          -> Option<nb::Result<Req, E>>
+  {
+  }
+
+  pub trait poll_resp<Self_, Resp, E>
+    where Self: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          Token,
+                          SocketAddr) -> Option<nb::Result<Resp, E>>
+  {
+  }
+  impl<T, Self_, Resp, E> poll_resp<Self_, Resp, E> for T
+    where T: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          Token,
+                          SocketAddr) -> Option<nb::Result<Resp, E>>
+  {
+  }
+
+  pub trait notify<Self_, E>
+    where Self: 'static + for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>
+  {
+  }
+  impl<T, Self_, E> notify<Self_, E> for T
+    where T: 'static + for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>
+  {
+  }
+
+  pub trait before_message_sent<Self_, E>
+    where Self: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          &'a mut Addrd<Message>) -> Result<(), E>
+  {
+  }
+  impl<T, Self_, E> before_message_sent<Self_, E> for T
+    where T: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          &'a mut Addrd<Message>) -> Result<(), E>
+  {
+  }
+  pub trait on_message_sent<Self_, E>
+    where Self:
+            'static + for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>
+  {
+  }
+  impl<T, Self_, E> on_message_sent<Self_, E> for T
+    where T: 'static + for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>
+  {
+  }
 }
 
 pub struct MockStep<State, Req, Resp, E> {
-  pub poll_req: RwLock<Box<stepfn::poll_req<Self, Req, E>>>,
-  pub poll_resp: RwLock<Box<stepfn::poll_resp<Self, Resp, E>>>,
-  pub notify: RwLock<Box<stepfn::notify<Self, E>>>,
-  pub before_message_sent: RwLock<Box<stepfn::before_message_sent<Self, E>>>,
-  pub on_message_sent: RwLock<Box<stepfn::on_message_sent<Self, E>>>,
+  pub poll_req: RwLock<Box<dyn stepfn::poll_req<Self, Req, E>>>,
+  pub poll_resp: RwLock<Box<dyn stepfn::poll_resp<Self, Resp, E>>>,
+  pub notify: RwLock<Box<dyn stepfn::notify<Self, E>>>,
+  pub before_message_sent: RwLock<Box<dyn stepfn::before_message_sent<Self, E>>>,
+  pub on_message_sent: RwLock<Box<dyn stepfn::on_message_sent<Self, E>>>,
   pub state: Stem<Option<State>>,
 }
 
@@ -156,33 +210,33 @@ impl<State, Rq, Rp, E> MockStep<State, Rq, Rp, E> {
     self.init(Default::default())
   }
 
-  pub fn set_poll_req(&self, f: Box<stepfn::poll_req<Self, Rq, E>>) -> &Self {
+  pub fn set_poll_req(&self, f: impl stepfn::poll_req<Self, Rq, E>) -> &Self {
     let mut g = self.poll_req.try_write().unwrap();
-    *g = f;
+    *g = Box::new(f);
     self
   }
 
-  pub fn set_poll_resp(&self, f: Box<stepfn::poll_resp<Self, Rp, E>>) -> &Self {
+  pub fn set_poll_resp(&self, f: impl stepfn::poll_resp<Self, Rp, E>) -> &Self {
     let mut g = self.poll_resp.try_write().unwrap();
-    *g = f;
+    *g = Box::new(f);
     self
   }
 
-  pub fn set_notify(&self, f: Box<stepfn::notify<Self, E>>) -> &Self {
+  pub fn set_notify(&self, f: impl stepfn::notify<Self, E>) -> &Self {
     let mut g = self.notify.try_write().unwrap();
-    *g = f;
+    *g = Box::new(f);
     self
   }
 
-  pub fn set_before_message_sent(&self, f: Box<stepfn::before_message_sent<Self, E>>) -> &Self {
+  pub fn set_before_message_sent(&self, f: impl stepfn::before_message_sent<Self, E>) -> &Self {
     let mut g = self.before_message_sent.try_write().unwrap();
-    *g = f;
+    *g = Box::new(f);
     self
   }
 
-  pub fn set_on_message_sent(&self, f: Box<stepfn::on_message_sent<Self, E>>) -> &Self {
+  pub fn set_on_message_sent(&self, f: impl stepfn::on_message_sent<Self, E>) -> &Self {
     let mut g = self.on_message_sent.try_write().unwrap();
-    *g = f;
+    *g = Box::new(f);
     self
   }
 }
