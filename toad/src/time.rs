@@ -8,8 +8,8 @@ pub type Millis = embedded_time::duration::Milliseconds<u64>;
 
 /// Supertrait of [`embedded_time::Clock`] pinning the
 /// type of "ticks" to u64
-pub trait Clock: embedded_time::Clock<T = u64> {}
-impl<C: embedded_time::Clock<T = u64>> Clock for C {}
+pub trait Clock: core::fmt::Debug + embedded_time::Clock<T = u64> {}
+impl<C: embedded_time::Clock<T = u64> + core::fmt::Debug> Clock for C {}
 
 /// Timeout configuration allowing for "never time out" as an option
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]

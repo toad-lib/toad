@@ -23,6 +23,7 @@ pub mod runtime {
 
   /// `Map<naan::hkt::HashMap, u32, String> == Vec<(u32, String)>`
   type Map<M, K, V> = <M as HKT2>::T<K, V>;
+
   /// `Array<naan::hkt::Vec, u32> == Vec<u32>`
   type Array<A, T> = <A as HKT1>::T<T>;
 

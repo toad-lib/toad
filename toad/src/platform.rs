@@ -296,6 +296,12 @@ pub struct Snapshot<P: PlatformTypes> {
   pub config: Config,
 }
 
+impl<P: PlatformTypes> core::fmt::Debug for Snapshot<P> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Snapshot").field("time", &self.time).field("recvd_dgram", &self.recvd_dgram).field("config", &self.config).finish()
+    }
+}
+
 impl<P: PlatformTypes> Clone for Snapshot<P> {
   fn clone(&self) -> Self {
     Self { time: self.time,

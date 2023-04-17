@@ -97,7 +97,7 @@ macro_rules! common {
     } else if msg.data().ty == Type::Ack {
       $effects.push(Effect::Log(log::Level::Trace, Self::info_acked::<P>(msg)));
       $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
-      None
+      Some(Ok($in))
     } else {
       Some(Ok($in))
     }

@@ -67,6 +67,7 @@ macro_rules! common {
              .fold(|dgram, addr| {
                platform::Message::<P>::try_from_bytes(dgram).map(|dgram| Addrd(dgram, addr))
              })
+             .map(|m| {println!("{:?}", m); m})
              .map_err(Error::Parsing)
              .map_err(nb::Error::Other)
           })
