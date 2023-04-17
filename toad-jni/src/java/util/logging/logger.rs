@@ -1,4 +1,4 @@
-use super::Level;
+use super::{Handler, Level};
 use crate::java;
 
 /// `java.util.logging.Logger`
@@ -16,6 +16,25 @@ impl Logger {
   pub fn log(&self, e: &mut java::Env, level: Level, msg: impl ToString) {
     static LOG: java::Method<Logger, fn(Level, String)> = java::Method::new("log");
     LOG.invoke(e, self, level, msg.to_string())
+  }
+
+  /// `void setLevel(java.util.logging.Level)`
+  pub fn set_level(&self, e: &mut java::Env, level: Level) {
+    static SET_LEVEL: java::Method<Logger, fn(Level)> = java::Method::new("setLevel");
+    SET_LEVEL.invoke(e, self, level);
+  }
+
+  /// `void setUseParentHandlers(boolean)`
+  pub fn use_parent_handlers(&self, e: &mut java::Env, should_do_it_question_mark: bool) {
+    static SET_USE_PARENT_HANDLERS: java::Method<Logger, fn(bool)> =
+      java::Method::new("setUseParentHandlers");
+    SET_USE_PARENT_HANDLERS.invoke(e, self, should_do_it_question_mark);
+  }
+
+  /// `void addHandler(Handler h)`
+  pub fn add_handler(&self, e: &mut java::Env, h: Handler) {
+    static ADD_HANDLER: java::Method<Logger, fn(Handler)> = java::Method::new("addHandler");
+    ADD_HANDLER.invoke(e, self, h);
   }
 }
 
