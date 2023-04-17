@@ -26,26 +26,18 @@ pub struct HandleAcks<S, B> {
 }
 
 impl<S, B> HandleAcks<S, B> {
-  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>, because: impl AsRef<str>) -> String<1000> {
-    let mut string = String::<1000>::default();
-    write!(string,
-           "DISCARDING {}b ACK from {} {:?} because {}",
-           msg.data().len(),
-           msg.addr(),
-           msg.data().token,
-           because.as_ref(),
-    ).ok();
-    string
+  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>,
+                                        because: impl AsRef<str>)
+                                        -> String<1000> {
+    let (size, sender, token, because) =
+      (msg.data().len(), msg.addr(), msg.data().token, because.as_ref());
+
+    String::fmt(format_args!("DISCARDING {size}b ACK from {sender} {token:?} because {because}"))
   }
 
   fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
-    let mut string = String::<1000>::default();
-    write!(string,
-           "Got {}b ACK from {} for {:?}",
-           msg.data().len(),
-           msg.addr(),
-           (msg.data().id, msg.data().token)).ok();
-    string
+    let (size, sender, token) = (msg.data().len(), msg.addr(), (msg.data().id, msg.data().token));
+    String::fmt(format_args!("Got {size}b ACK from {sender} for {token:?}",))
   }
 }
 
@@ -191,7 +183,7 @@ mod test {
   use std::collections::BTreeMap;
 
   use tinyvec::array_vec;
-use toad_msg::{Payload, Code};
+  use toad_msg::{Code, Payload};
 
   use super::*;
   use crate::platform::Effect;
@@ -206,12 +198,12 @@ use toad_msg::{Payload, Code};
     use toad_msg::*;
 
     Addrd(test::Message { ver: Default::default(),
-                                 ty,
-                                 id: Id(1),
-                                 code: Code::new(0, 1),
-                                 token: Token(array_vec!(_ => 1)),
-                                 payload: Payload(Default::default()),
-                                 opts: Default::default() },
+                          ty,
+                          id: Id(1),
+                          code: Code::new(0, 1),
+                          token: Token(array_vec!(_ => 1)),
+                          payload: Payload(Default::default()),
+                          opts: Default::default() },
           test::dummy_addr())
   }
 
@@ -275,51 +267,58 @@ use toad_msg::{Payload, Code};
       token_last_sent: Option<Token>,
     }
 
-    type Mock = test::MockStep::<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
+    type Mock =
+      test::MockStep<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
 
     let sut = HandleAcks::<Mock>::default();
 
-    sut
-      .inner()
-      .init(TestState {token_last_sent: None})
-      .set_on_message_sent(Box::new(|mock, _, msg| {
-        mock.state.map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
-        Ok(())
-      }))
-      .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
-        let mut msg = test::msg!(ACK {2 . 05} x.x.x.x:2222);
+    sut.inner()
+       .init(TestState { token_last_sent: None })
+       .set_on_message_sent(Box::new(|mock, _, msg| {
+                              mock.state
+                                  .map_mut(|s| {
+                                    s.as_mut().unwrap().token_last_sent = Some(msg.data().token)
+                                  });
+                              Ok(())
+                            }))
+       .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
+                        let mut msg = test::msg!(ACK {2 . 05} x.x.x.x:2222);
 
-        let token = mock.state.map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
-        Addrd::data_mut(&mut msg).token = token;
+                        let token = mock.state
+                                        .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+                        Addrd::data_mut(&mut msg).token = token;
 
-        assert_eq!(token, poll_for_token);
+                        assert_eq!(token, poll_for_token);
 
-        let p = Payload(format!("oink oink!").bytes().collect::<Vec<_>>());
-        Addrd::data_mut(&mut msg).payload = p;
+                        let p = Payload(format!("oink oink!").bytes().collect::<Vec<_>>());
+                        Addrd::data_mut(&mut msg).payload = p;
 
-        Some(Ok(msg.map(Resp::from)))
-      }));
+                        Some(Ok(msg.map(Resp::from)))
+                      }));
 
-      let token = Token(array_vec![1, 2, 3, 4]);
+    let token = Token(array_vec![1, 2, 3, 4]);
 
-      let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
-      let dest = sent_req.addr();
-      sent_req.as_mut().token = token;
+    let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
+    let dest = sent_req.addr();
+    sent_req.as_mut().token = token;
 
-      let snap = test::snapshot();
-      let mut effs = Vec::<test::Effect>::new();
+    let snap = test::snapshot();
+    let mut effs = Vec::<test::Effect>::new();
 
-      sut.on_message_sent(&snap, &sent_req).unwrap();
+    sut.on_message_sent(&snap, &sent_req).unwrap();
 
-      let res = sut.poll_resp(&snap, &mut effs, token, dest);
-      assert!(!effs.is_empty());
+    let res = sut.poll_resp(&snap, &mut effs, token, dest);
+    assert!(!effs.is_empty());
 
-      match &effs[0] {
-        Effect::Log(log::Level::Trace, msg) if msg.as_str().split(" ").next().unwrap() == "Got" => (),
-        e => panic!("{e:?}"),
-      }
+    match &effs[0] {
+      | Effect::Log(log::Level::Trace, msg) if msg.as_str().split(" ").next().unwrap() == "Got" => {
+        ()
+      },
+      | e => panic!("{e:?}"),
+    }
 
-      assert_eq!(res.unwrap().unwrap().data().payload_string().unwrap(), format!("oink oink!"));
+    assert_eq!(res.unwrap().unwrap().data().payload_string().unwrap(),
+               format!("oink oink!"));
   }
 
   #[test]
@@ -328,47 +327,55 @@ use toad_msg::{Payload, Code};
       token_last_sent: Option<Token>,
     }
 
-    type Mock = test::MockStep::<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
+    type Mock =
+      test::MockStep<TestState, Addrd<Req<test::Platform>>, Addrd<Resp<test::Platform>>, ()>;
 
     let sut = HandleAcks::<Mock>::default();
 
-    sut
-      .inner()
-      .init(TestState {token_last_sent: None})
-      .set_on_message_sent(Box::new(|mock, _, msg| {
-        mock.state.map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
-        Ok(())
-      }))
-      .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
-        let mut msg = test::msg!(ACK {0 . 00} x.x.x.x:2222);
+    sut.inner()
+       .init(TestState { token_last_sent: None })
+       .set_on_message_sent(Box::new(|mock, _, msg| {
+                              mock.state
+                                  .map_mut(|s| {
+                                    s.as_mut().unwrap().token_last_sent = Some(msg.data().token)
+                                  });
+                              Ok(())
+                            }))
+       .set_poll_resp(Box::new(|mock, _, _, poll_for_token, _| {
+                        let mut msg = test::msg!(ACK {0 . 00} x.x.x.x:2222);
 
-        let token = mock.state.map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
-        Addrd::data_mut(&mut msg).token = token;
+                        let token = mock.state
+                                        .map_ref(|s| s.as_ref().unwrap().token_last_sent.unwrap());
+                        Addrd::data_mut(&mut msg).token = token;
 
-        assert_eq!(token, poll_for_token);
+                        assert_eq!(token, poll_for_token);
 
-        Some(Ok(msg.map(Resp::from)))
-      }));
+                        Some(Ok(msg.map(Resp::from)))
+                      }));
 
-      let token = Token(array_vec![1, 2, 3, 4]);
+    let token = Token(array_vec![1, 2, 3, 4]);
 
-      let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
-      let dest = sent_req.addr();
-      sent_req.as_mut().token = token;
+    let mut sent_req = test::msg!(CON GET x.x.x.x:2222);
+    let dest = sent_req.addr();
+    sent_req.as_mut().token = token;
 
-      let snap = test::snapshot();
-      let mut effs = Vec::<test::Effect>::new();
+    let snap = test::snapshot();
+    let mut effs = Vec::<test::Effect>::new();
 
-      sut.on_message_sent(&snap, &sent_req).unwrap();
+    sut.on_message_sent(&snap, &sent_req).unwrap();
 
-      let res = sut.poll_resp(&snap, &mut effs, token, dest);
-      assert!(!effs.is_empty());
+    let res = sut.poll_resp(&snap, &mut effs, token, dest);
+    assert!(!effs.is_empty());
 
-      match &effs[0] {
-        Effect::Log(log::Level::Warn, msg) if msg.as_str().split(" ").next().unwrap() == "DISCARDING" => (),
-        e => panic!("{e:?}"),
-      }
+    match &effs[0] {
+      | Effect::Log(log::Level::Warn, msg)
+        if msg.as_str().split(" ").next().unwrap() == "DISCARDING" =>
+      {
+        ()
+      },
+      | e => panic!("{e:?}"),
+    }
 
-      assert_eq!(res, None);
+    assert_eq!(res, None);
   }
 }

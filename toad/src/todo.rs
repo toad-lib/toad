@@ -1,5 +1,6 @@
 //! Future inherent methods on structs in other crates
-use core::{ops::{Div, Mul}, fmt::Write};
+use core::fmt::Write;
+use core::ops::{Div, Mul};
 
 use naan::prelude::ResultExt;
 use tinyvec::ArrayVec;
