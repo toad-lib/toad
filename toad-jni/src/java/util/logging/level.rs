@@ -48,19 +48,19 @@ impl java::Object for Level {
   fn upcast(e: &mut java::Env, jobj: java::lang::Object) -> Self {
     use Level::*;
 
-    let (all, cfg, fine, finer, finest, info, off, warn, sev) = (All.downcast(e),
-                                                                 Config.downcast(e),
-                                                                 Fine.downcast(e),
-                                                                 Finer.downcast(e),
-                                                                 Finest.downcast(e),
-                                                                 Info.downcast(e),
-                                                                 Off.downcast(e),
-                                                                 Warning.downcast(e),
-                                                                 Severe.downcast(e));
+    let all = All.downcast(e);
+    let config = Config.downcast(e);
+    let fine = Fine.downcast(e);
+    let finer = Finer.downcast(e);
+    let finest = Finest.downcast(e);
+    let info = Info.downcast(e);
+    let off = Off.downcast(e);
+    let warning = Warning.downcast(e);
+    let severe = Severe.downcast(e);
 
     if jobj.equals(e, &all) {
       Self::All
-    } else if jobj.equals(e, &cfg) {
+    } else if jobj.equals(e, &config) {
       Self::Config
     } else if jobj.equals(e, &fine) {
       Self::Fine
@@ -72,9 +72,9 @@ impl java::Object for Level {
       Self::Info
     } else if jobj.equals(e, &off) {
       Self::Off
-    } else if jobj.equals(e, &warn) {
+    } else if jobj.equals(e, &warning) {
       Self::Warning
-    } else if jobj.equals(e, &sev) {
+    } else if jobj.equals(e, &severe) {
       Self::Severe
     } else {
       panic!("not java.util.logging.Level: {}", jobj.to_string(e));
@@ -88,27 +88,29 @@ impl java::Object for Level {
   fn downcast_ref(&self, e: &mut java::Env) -> java::lang::Object {
     use Level::*;
 
+    type F = java::StaticField<Level, NoUpcast<Level>>;
+
     struct Field {
-      all: java::StaticField<Level, NoUpcast<Level>>,
-      off: java::StaticField<Level, NoUpcast<Level>>,
-      cfg: java::StaticField<Level, NoUpcast<Level>>,
-      info: java::StaticField<Level, NoUpcast<Level>>,
-      warning: java::StaticField<Level, NoUpcast<Level>>,
-      severe: java::StaticField<Level, NoUpcast<Level>>,
-      fine: java::StaticField<Level, NoUpcast<Level>>,
-      finer: java::StaticField<Level, NoUpcast<Level>>,
-      finest: java::StaticField<Level, NoUpcast<Level>>,
+      all: F,
+      off: F,
+      cfg: F,
+      info: F,
+      warning: F,
+      severe: F,
+      fine: F,
+      finer: F,
+      finest: F,
     }
 
-    static FIELD: Field = Field { all: java::StaticField::new("ALL"),
-                                  off: java::StaticField::new("OFF"),
-                                  cfg: java::StaticField::new("CONFIG"),
-                                  info: java::StaticField::new("INFO"),
-                                  warning: java::StaticField::new("WARNING"),
-                                  severe: java::StaticField::new("SEVERE"),
-                                  fine: java::StaticField::new("FINE"),
-                                  finer: java::StaticField::new("FINER"),
-                                  finest: java::StaticField::new("FINEST") };
+    static FIELD: Field = Field { all: F::new("ALL"),
+                                  off: F::new("OFF"),
+                                  cfg: F::new("CONFIG"),
+                                  info: F::new("INFO"),
+                                  warning: F::new("WARNING"),
+                                  severe: F::new("SEVERE"),
+                                  fine: F::new("FINE"),
+                                  finer: F::new("FINER"),
+                                  finest: F::new("FINEST") };
 
     match self {
       | All => &FIELD.all,
