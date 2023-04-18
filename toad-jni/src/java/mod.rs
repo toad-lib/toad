@@ -27,7 +27,7 @@ pub use nullable::Nullable;
 mod result;
 
 #[doc(inline)]
-pub use result::ResultExt;
+pub use result::{ResultExt, ResultYieldToJavaOrThrow};
 
 mod no_upcast;
 
