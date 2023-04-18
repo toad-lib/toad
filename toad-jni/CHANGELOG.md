@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.13.0...toad-jni-v0.14.0) (2023-04-18)
+
+
+### Features
+
+* should have easy route from Result&lt;Object, Throwable&gt; -> jobject ([#318](https://github.com/toad-lib/toad/issues/318)) ([2af8532](https://github.com/toad-lib/toad/commit/2af85325da9f2b8f67f6d98c6370495559c38355))
+
 ## [0.13.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.12.0...toad-jni-v0.13.0) (2023-04-17)
 
 
