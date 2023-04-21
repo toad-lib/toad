@@ -31,6 +31,13 @@ impl Logger {
     SET_USE_PARENT_HANDLERS.invoke(e, self, should_do_it_question_mark);
   }
 
+  /// `void getUseParentHandlers()`
+  pub fn uses_parent_handlers(&self, e: &mut java::Env) -> bool {
+    static GET_USE_PARENT_HANDLERS: java::Method<Logger, fn() -> bool> =
+      java::Method::new("getUseParentHandlers");
+    GET_USE_PARENT_HANDLERS.invoke(e, self)
+  }
+
   /// `void addHandler(Handler h)`
   pub fn add_handler(&self, e: &mut java::Env, h: Handler) {
     static ADD_HANDLER: java::Method<Logger, fn(Handler)> = java::Method::new("addHandler");
