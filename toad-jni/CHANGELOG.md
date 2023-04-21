@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.14.0...toad-jni-v0.14.1) (2023-04-21)
+
+
+### Bug Fixes
+
+* java::util::logging::Logger.uses_parent_handlers ([#321](https://github.com/toad-lib/toad/issues/321)) ([404df60](https://github.com/toad-lib/toad/commit/404df6013e471a2241a602e051d9af6a1f1e3517))
+
 ## [0.14.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.13.0...toad-jni-v0.14.0) (2023-04-18)
 
 
