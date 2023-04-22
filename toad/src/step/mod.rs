@@ -279,6 +279,17 @@ macro_rules! exec_inner_step {
   };
 }
 
+/// Issue an `Effect::Log`
+#[macro_export]
+macro_rules! log {
+  ($at:path, $effs:expr, $lvl:expr, $($arg:tt)*) => {{
+    type S = $crate::todo::String::<1000>;
+    let msg = S::fmt(format_args!($($arg)*));
+    let msg = S::fmt(format_args!("[{}] {}", stringify!($at), msg.as_str()));
+    $effs.push(Effect::Log($lvl, msg));
+  }};
+}
+
 /// Specialized `?` operator for use in step bodies, allowing early-exit
 /// for `Result`, `Option<Result>` and `Option<nb::Result>`.
 #[macro_export]
@@ -292,7 +303,7 @@ macro_rules! _try {
   }};
 }
 
-pub use {_try, exec_inner_step};
+pub use {_try, exec_inner_step, log};
 
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}
@@ -343,10 +354,12 @@ pub trait Step<P: PlatformTypes>: Default {
   /// there's a new version of the resource available.
   ///
   /// See [`observe`] for more info.
-  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+  fn notify<Path>(&self, path: Path, effects: &mut P::Effects) -> Result<(), Self::Error>
     where Path: AsRef<str> + Clone
   {
-    self.inner().notify(path).map_err(Self::Error::from)
+    self.inner()
+        .notify(path, effects)
+        .map_err(Self::Error::from)
   }
 
   /// Invoked before messages are sent, allowing for internal state change & modification.
@@ -409,7 +422,7 @@ impl<P: PlatformTypes> Step<P> for () {
     None
   }
 
-  fn notify<Path>(&self, _: Path) -> Result<(), Self::Error>
+  fn notify<Path>(&self, _: Path, _: &mut P::Effects) -> Result<(), Self::Error>
     where Path: AsRef<str>
   {
     Ok(())

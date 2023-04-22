@@ -153,11 +153,11 @@ pub mod stepfn {
   }
 
   pub trait notify<Self_, E>
-    where Self: 'static + for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>
+    where Self: 'static + for<'a> FnMut(&'a Self_, &'a str, &'a mut Vec<Effect>) -> Result<(), E>
   {
   }
   impl<T, Self_, E> notify<Self_, E> for T
-    where T: 'static + for<'a> FnMut(&'a Self_, &'a str) -> Result<(), E>
+    where T: 'static + for<'a> FnMut(&'a Self_, &'a str, &'a mut Vec<Effect>) -> Result<(), E>
   {
   }
 
@@ -245,7 +245,7 @@ impl<State, Rq, Rp, E> Default for MockStep<State, Rq, Rp, E> {
   fn default() -> Self {
     Self { poll_req: RwLock::new(Box::new(|_, _, _| None)),
            poll_resp: RwLock::new(Box::new(|_, _, _, _, _| None)),
-           notify: RwLock::new(Box::new(|_, _| Ok(()))),
+           notify: RwLock::new(Box::new(|_, _, _| Ok(()))),
            before_message_sent: RwLock::new(Box::new(|_, _, _, _| Ok(()))),
            on_message_sent: RwLock::new(Box::new(|_, _, _| Ok(()))),
            state: Stem::new(None) }
@@ -282,11 +282,11 @@ impl<State, Rq, Rp, E> crate::step::Step<Platform> for MockStep<State, Rq, Rp, E
     g.as_mut()(self, snap, effects, token, addr)
   }
 
-  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+  fn notify<Path>(&self, path: Path, effects: &mut Vec<Effect>) -> Result<(), Self::Error>
     where Path: AsRef<str> + Clone
   {
     let mut g = self.notify.try_write().unwrap();
-    g.as_mut()(self, path.as_ref())
+    g.as_mut()(self, path.as_ref(), effects)
   }
 
   fn before_message_sent(&self,

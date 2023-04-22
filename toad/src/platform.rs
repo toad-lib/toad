@@ -125,6 +125,19 @@ pub trait Platform<Steps>
     res
   }
 
+  /// Notify Observe subscribers that a new representation of the resource
+  /// at `path` is available
+  fn notify<P>(&self, path: P) -> Result<(), Self::Error>
+    where P: AsRef<str> + Clone
+  {
+    let mut effects = <Self::Types as PlatformTypes>::Effects::default();
+    self.steps()
+        .notify(path, &mut effects)
+        .map_err(Self::Error::step)?;
+
+    self.exec_many(effects).map_err(|(_, e)| e)
+  }
+
   /// Poll for a response to a sent request, and pass it through `Steps`
   /// for processing.
   fn poll_resp(&self,

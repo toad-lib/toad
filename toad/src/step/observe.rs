@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use core::fmt::{Debug, Write};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
@@ -11,11 +11,12 @@ use toad_msg::repeat::PATH;
 use toad_msg::{CodeKind, Id, MessageOptions, Token};
 use toad_stem::Stem;
 
-use super::Step;
+use super::{log, Step};
 use crate::net::Addrd;
 use crate::platform::{self, Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::todo::String;
 
 /// Custom metadata options used to track messages created by this step.
 ///
@@ -258,6 +259,26 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
         .map(|(ix, _)| ix)
   }
 
+  fn fmt_subs<'a, P>(&self) -> String<1000>
+    where Subs: Array<Item = Sub<P>>,
+          P: PlatformTypes
+  {
+    self.subs.map_ref(|subs| {
+               let mut msg = String::<1000>::from("[");
+               subs.iter().enumerate().for_each(|(n, s)| {
+                                        write!(&mut msg,
+                                               "\"{:?} {:?}\"",
+                                               s.req.addr(),
+                                               s.req.data().msg().token).ok();
+                                        if n < subs.len() - 1 {
+                                          write!(&mut msg, ",").ok();
+                                        }
+                                      });
+               write!(&mut msg, "]").ok();
+               msg
+             })
+  }
+
   fn similar_to<'a, P>(subs: &'a Subs,
                        addr: SocketAddr,
                        t: Token)
@@ -341,24 +362,33 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
                       })
   }
 
-  // [1a]: Observe=1?
-  // [2a]: add to subs
-  // [3a]: pass request up to server
   fn handle_incoming_request<P, E>(&self,
                                    req: Addrd<Req<P>>,
                                    _: &platform::Snapshot<P>,
-                                   _: &mut <P as PlatformTypes>::Effects)
+                                   effs: &mut <P as PlatformTypes>::Effects)
                                    -> super::StepOutput<Addrd<Req<P>>, E>
     where P: PlatformTypes,
           Subs: Array<Item = Sub<P>>
   {
     match req.data().msg().observe() {
       | Some(Register) => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "register: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
         let mut sub = Some(Sub::new(req.clone()));
         self.subs
-            .map_mut(move |s| s.push(Option::take(&mut sub).unwrap()));
+            .map_mut(move |s| s.push(Option::take(&mut sub).expect("closure only invoked once")));
       },
       | Some(Deregister) => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "deregister: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
         self.subs
             .map_mut(|s| match Self::get_index(s, req.data().msg().token) {
               | Some(ix) => {
@@ -367,7 +397,14 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
               | None => (),
             })
       },
-      | _ => (),
+      | _ => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "ignoring: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
+      },
     };
 
     Some(Ok(req))
@@ -437,16 +474,36 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
     self.inner.poll_resp(snap, effects, token, addr)
   }
 
-  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+  fn notify<Path>(&self,
+                  path: Path,
+                  effects: &mut <P as PlatformTypes>::Effects)
+                  -> Result<(), Self::Error>
     where Path: AsRef<str> + Clone
   {
-    self.inner.notify(path.clone())?;
+    self.inner.notify(path.clone(), effects)?;
 
     self.request_queue.map_mut(|rq| {
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "{}",
+                             path.as_ref());
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "discarding {} synthetic requests not yet processed",
+                             rq.len());
+
                         Self::remove_queued_requests_matching_path(rq, path.as_ref());
                         self.subs.map_ref(|subs| {
                                    Self::clone_and_enqueue_sub_requests(subs, rq, path.as_ref())
                                  });
+
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "{} synthetic requests now enqueued",
+                             rq.len());
                       });
 
     Ok(())
@@ -471,9 +528,28 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
                    msg.as_mut()
                       .set(opt::WAS_CREATED_BY_OBSERVE, Default::default())
                       .ok();
+
+                   log!(Observe::before_message_sent,
+                        effs,
+                        log::Level::Trace,
+                        "=> {:?} {:?}",
+                        sub.addr(),
+                        msg.data().token);
                    effs.push(Effect::Send(msg.with_addr(sub.addr())));
                  })
                });
+    } else {
+      log!(Observe::before_message_sent,
+           effs,
+           log::Level::Trace,
+           "ignoring {:?} {:?}",
+           msg.addr(),
+           msg.data().token);
+      log!(Observe::before_message_sent,
+           effs,
+           log::Level::Trace,
+           "subscriptions: {}",
+           self.fmt_subs().as_str());
     }
 
     Ok(())
@@ -575,7 +651,7 @@ mod tests {
                          config: Default::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
         // We have a new version available
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()})
       ]
       THEN request_is_duplicated [
         // A copy of the original request should be emitted
@@ -603,6 +679,7 @@ mod tests {
       THEN response_is_copied_and_sent_to_subscriber [
         (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:21 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
         (effects should satisfy {|effs| {
+          let effs = effs.into_iter().filter(|e| matches!(e, Effect::Send(_))).collect::<Vec<_>>();
           assert_eq!(effs.len(), 1);
           match effs.get(0).unwrap().clone() {
             platform::Effect::Send(m) => {
@@ -624,7 +701,7 @@ mod tests {
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foot/bart").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foot/bart", &mut vec![]).unwrap()})
       ]
       THEN nothing_happens [
         (poll_req(_, _) should satisfy { |req| assert!(req.is_none())  })
@@ -640,13 +717,13 @@ mod tests {
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()}),
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()}),
         ({|step: &Observe<Dummy>| {
           step.poll_req(&Snapshot { time: test::ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()})
       ]
       THEN request_is_duplicated_multiple_times [
         (poll_req(_, _) should satisfy { |req| {
