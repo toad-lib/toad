@@ -16,6 +16,7 @@ use crate::net::Addrd;
 use crate::platform::{self, Effect, PlatformTypes};
 use crate::req::Req;
 use crate::resp::Resp;
+use crate::todo::String;
 
 /// Custom metadata options used to track messages created by this step.
 ///
@@ -341,9 +342,6 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
                       })
   }
 
-  // [1a]: Observe=1?
-  // [2a]: add to subs
-  // [3a]: pass request up to server
   fn handle_incoming_request<P, E>(&self,
                                    req: Addrd<Req<P>>,
                                    _: &platform::Snapshot<P>,
@@ -356,7 +354,7 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
       | Some(Register) => {
         let mut sub = Some(Sub::new(req.clone()));
         self.subs
-            .map_mut(move |s| s.push(Option::take(&mut sub).unwrap()));
+            .map_mut(move |s| s.push(Option::take(&mut sub).expect("closure only invoked once")));
       },
       | Some(Deregister) => {
         self.subs
@@ -437,12 +435,18 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
     self.inner.poll_resp(snap, effects, token, addr)
   }
 
-  fn notify<Path>(&self, path: Path) -> Result<(), Self::Error>
+  fn notify<Path>(&self,
+                  path: Path,
+                  effects: &mut <P as PlatformTypes>::Effects)
+                  -> Result<(), Self::Error>
     where Path: AsRef<str> + Clone
   {
-    self.inner.notify(path.clone())?;
+    self.inner.notify(path.clone(), effects)?;
 
     self.request_queue.map_mut(|rq| {
+                        effects.push(Effect::Log(log::Level::Trace, String::<1000>::fmt(format_args!("[Observe] notify({:?})", path.as_ref()))));
+                        effects.push(Effect::Log(log::Level::Trace, String::<1000>::fmt(format_args!("[Observe] discarding {} synthetic requests", rq.len()))));
+
                         Self::remove_queued_requests_matching_path(rq, path.as_ref());
                         self.subs.map_ref(|subs| {
                                    Self::clone_and_enqueue_sub_requests(subs, rq, path.as_ref())
@@ -575,7 +579,7 @@ mod tests {
                          config: Default::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
         // We have a new version available
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()})
       ]
       THEN request_is_duplicated [
         // A copy of the original request should be emitted
@@ -624,7 +628,7 @@ mod tests {
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foot/bart").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foot/bart", &mut vec![]).unwrap()})
       ]
       THEN nothing_happens [
         (poll_req(_, _) should satisfy { |req| assert!(req.is_none())  })
@@ -640,13 +644,13 @@ mod tests {
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()}),
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()}),
         ({|step: &Observe<Dummy>| {
           step.poll_req(&Snapshot { time: test::ClockMock::new().try_now().unwrap(),
                          recvd_dgram: None,
                          config: crate::config::Config::default() }, &mut Default::default()).unwrap().unwrap()
         }}),
-        ({|step: &Observe<Dummy>| step.notify("foo/bar").unwrap()})
+        ({|step: &Observe<Dummy>| step.notify("foo/bar", &mut vec![]).unwrap()})
       ]
       THEN request_is_duplicated_multiple_times [
         (poll_req(_, _) should satisfy { |req| {

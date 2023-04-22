@@ -24,7 +24,7 @@ fn start_server(addr: &'static str) {
           .unwrap();
 
     std::thread::spawn(|| loop {
-      SERVER.borrow().unwrap().steps().notify("time").unwrap();
+      SERVER.borrow().unwrap().notify("time").unwrap();
       std::thread::sleep(Duration::from_millis(500));
     });
 
