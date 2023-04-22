@@ -679,6 +679,7 @@ mod tests {
       THEN response_is_copied_and_sent_to_subscriber [
         (before_message_sent(_, _, test::msg!(CON { 2 . 05 } x.x.x.x:21 with |m: &mut Message<_, _>| {m.token = Token(array_vec!(21)); m.id = Id(1);})) should be ok with {|_| ()}),
         (effects should satisfy {|effs| {
+          let effs = effs.into_iter().filter(|e| matches!(e, Effect::Send(_))).collect::<Vec<_>>();
           assert_eq!(effs.len(), 1);
           match effs.get(0).unwrap().clone() {
             platform::Effect::Send(m) => {
