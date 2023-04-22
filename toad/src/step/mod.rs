@@ -279,6 +279,17 @@ macro_rules! exec_inner_step {
   };
 }
 
+/// Issue an `Effect::Log`
+#[macro_export]
+macro_rules! log {
+  ($at:path, $effs:expr, $lvl:expr, $($arg:tt)*) => {{
+    type S = $crate::todo::String::<1000>;
+    let msg = S::fmt(format_args!($($arg)*));
+    let msg = S::fmt(format_args!("[{}] {}", stringify!($at), msg.as_str()));
+    $effs.push(Effect::Log($lvl, msg));
+  }};
+}
+
 /// Specialized `?` operator for use in step bodies, allowing early-exit
 /// for `Result`, `Option<Result>` and `Option<nb::Result>`.
 #[macro_export]
@@ -292,7 +303,7 @@ macro_rules! _try {
   }};
 }
 
-pub use {_try, exec_inner_step};
+pub use {_try, exec_inner_step, log};
 
 /// An error that can be returned by a [`Step`].
 pub trait Error: core::fmt::Debug {}

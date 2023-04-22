@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use core::fmt::{Debug, Write};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
@@ -11,7 +11,7 @@ use toad_msg::repeat::PATH;
 use toad_msg::{CodeKind, Id, MessageOptions, Token};
 use toad_stem::Stem;
 
-use super::Step;
+use super::{log, Step};
 use crate::net::Addrd;
 use crate::platform::{self, Effect, PlatformTypes};
 use crate::req::Req;
@@ -259,6 +259,26 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
         .map(|(ix, _)| ix)
   }
 
+  fn fmt_subs<'a, P>(&self) -> String<1000>
+    where Subs: Array<Item = Sub<P>>,
+          P: PlatformTypes
+  {
+    self.subs.map_ref(|subs| {
+               let mut msg = String::<1000>::from("[");
+               subs.iter().enumerate().for_each(|(n, s)| {
+                                        write!(&mut msg,
+                                               "\"{:?} {:?}\"",
+                                               s.req.addr(),
+                                               s.req.data().msg().token).ok();
+                                        if n < subs.len() - 1 {
+                                          write!(&mut msg, ",").ok();
+                                        }
+                                      });
+               write!(&mut msg, "]").ok();
+               msg
+             })
+  }
+
   fn similar_to<'a, P>(subs: &'a Subs,
                        addr: SocketAddr,
                        t: Token)
@@ -345,18 +365,30 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
   fn handle_incoming_request<P, E>(&self,
                                    req: Addrd<Req<P>>,
                                    _: &platform::Snapshot<P>,
-                                   _: &mut <P as PlatformTypes>::Effects)
+                                   effs: &mut <P as PlatformTypes>::Effects)
                                    -> super::StepOutput<Addrd<Req<P>>, E>
     where P: PlatformTypes,
           Subs: Array<Item = Sub<P>>
   {
     match req.data().msg().observe() {
       | Some(Register) => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "register: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
         let mut sub = Some(Sub::new(req.clone()));
         self.subs
             .map_mut(move |s| s.push(Option::take(&mut sub).expect("closure only invoked once")));
       },
       | Some(Deregister) => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "deregister: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
         self.subs
             .map_mut(|s| match Self::get_index(s, req.data().msg().token) {
               | Some(ix) => {
@@ -365,7 +397,14 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
               | None => (),
             })
       },
-      | _ => (),
+      | _ => {
+        log!(Observe::handle_incoming_request,
+             effs,
+             log::Level::Trace,
+             "ignoring: {:?} {:?}",
+             req.addr(),
+             req.data().msg().token);
+      },
     };
 
     Some(Ok(req))
@@ -444,13 +483,27 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
     self.inner.notify(path.clone(), effects)?;
 
     self.request_queue.map_mut(|rq| {
-                        effects.push(Effect::Log(log::Level::Trace, String::<1000>::fmt(format_args!("[Observe] notify({:?})", path.as_ref()))));
-                        effects.push(Effect::Log(log::Level::Trace, String::<1000>::fmt(format_args!("[Observe] discarding {} synthetic requests", rq.len()))));
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "{}",
+                             path.as_ref());
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "discarding {} synthetic requests not yet processed",
+                             rq.len());
 
                         Self::remove_queued_requests_matching_path(rq, path.as_ref());
                         self.subs.map_ref(|subs| {
                                    Self::clone_and_enqueue_sub_requests(subs, rq, path.as_ref())
                                  });
+
+                        log!(Observe::notify,
+                             effects,
+                             log::Level::Trace,
+                             "{} synthetic requests now enqueued",
+                             rq.len());
                       });
 
     Ok(())
@@ -475,9 +528,28 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
                    msg.as_mut()
                       .set(opt::WAS_CREATED_BY_OBSERVE, Default::default())
                       .ok();
+
+                   log!(Observe::before_message_sent,
+                        effs,
+                        log::Level::Trace,
+                        "=> {:?} {:?}",
+                        sub.addr(),
+                        msg.data().token);
                    effs.push(Effect::Send(msg.with_addr(sub.addr())));
                  })
                });
+    } else {
+      log!(Observe::before_message_sent,
+           effs,
+           log::Level::Trace,
+           "ignoring {:?} {:?}",
+           msg.addr(),
+           msg.data().token);
+      log!(Observe::before_message_sent,
+           effs,
+           log::Level::Trace,
+           "subscriptions: {}",
+           self.fmt_subs().as_str());
     }
 
     Ok(())

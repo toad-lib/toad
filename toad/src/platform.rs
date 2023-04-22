@@ -133,7 +133,9 @@ pub trait Platform<Steps>
     let mut effects = <Self::Types as PlatformTypes>::Effects::default();
     self.steps()
         .notify(path, &mut effects)
-        .map_err(Self::Error::step)
+        .map_err(Self::Error::step)?;
+
+    self.exec_many(effects).map_err(|(_, e)| e)
   }
 
   /// Poll for a response to a sent request, and pass it through `Steps`
