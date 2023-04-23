@@ -29,42 +29,47 @@ pub mod runtime {
 
   type Clock<P> = <P as PlatformTypes>::Clock;
 
-  type HandleAcks<M, S> = handle_acks::HandleAcks<S, Map<M, Addrd<Token>, ()>>;
-  type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
-  type BufferResponses<P, M, S> =
+  #[allow(missing_docs)]
+  pub type HandleAcks<M, S> = handle_acks::HandleAcks<S, Map<M, Addrd<Token>, ()>>;
+  #[allow(missing_docs)]
+  pub type Retry<P, A, S> = retry::Retry<S, Array<A, (retry::State<Clock<P>>, Addrd<Message<P>>)>>;
+  #[allow(missing_docs)]
+  pub type BufferResponses<P, M, S> =
     buffer_responses::BufferResponses<S,
                                       Map<M, (SocketAddr, Token, toad_msg::Type), Addrd<Resp<P>>>>;
-  type ProvisionIds<P, M, A, S> =
+  #[allow(missing_docs)]
+  pub type ProvisionIds<P, M, A, S> =
     provision_ids::ProvisionIds<P,
                                 S,
                                 Map<M,
                                     SocketAddrWithDefault,
                                     Array<A, Stamped<Clock<P>, IdWithDefault>>>>;
-  type Observe<P, A, S> = observe::Observe<S,
-                                           Array<A, observe::Sub<P>>,
-                                           Array<A, Addrd<Req<P>>>,
-                                           observe::SubHash_TypePathQueryAccept<P>>;
+  #[allow(missing_docs)]
+  pub type Observe<P, A, S> = observe::Observe<S,
+                                               Array<A, observe::Sub<P>>,
+                                               Array<A, Addrd<Req<P>>>,
+                                               observe::SubHash_TypePathQueryAccept<P>>;
 
-  /// Ack -> Retry -> HandleAcks -> BufferResponses -> ProvisionIds -> ProvisionTokens -> Observe
+  /// Parse -> ProvisionIds -> ProvisionTokens -> Ack -> Retry -> HandleAcks -> BufferResponses -> Observe
   pub type Runtime<P, Array, Map> =
     Observe<P,
             Array,
-            ProvisionTokens<ProvisionIds<P,
-                                         Map,
-                                         Array,
-                                         BufferResponses<P,
-                                                         Map,
-                                                         HandleAcks<Map,
-                                                                    Retry<P,
-                                                                          Array,
-                                                                          Ack<Parse<()>>>>>>>>;
+            BufferResponses<P,
+                            Map,
+                            HandleAcks<Map,
+                                       Retry<P,
+                                             Array,
+                                             Ack<ProvisionTokens<ProvisionIds<P,
+                                                                              Map,
+                                                                              Array,
+                                                                              Parse<()>>>>>>>>;
 
-  /// TODO
+  #[allow(missing_docs)]
   #[cfg(feature = "std")]
   pub mod std {
     use crate::std::PlatformTypes;
 
-    /// TODO
+    /// Default steps + step order pre-applied with `Vec` and `BTreeMap`
     pub type Runtime<Dtls> =
       super::Runtime<PlatformTypes<Dtls>, naan::hkt::Vec, naan::hkt::BTreeMap>;
   }
