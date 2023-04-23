@@ -51,18 +51,18 @@ pub mod runtime {
                                                observe::SubHash_TypePathQueryAccept<P>>;
 
   /// Parse -> ProvisionIds -> ProvisionTokens -> Ack -> Retry -> HandleAcks -> BufferResponses -> Observe
+  #[rustfmt::skip]
   pub type Runtime<P, Array, Map> =
-    Observe<P,
-            Array,
-            BufferResponses<P,
-                            Map,
-                            HandleAcks<Map,
-                                       Retry<P,
-                                             Array,
-                                             Ack<ProvisionTokens<ProvisionIds<P,
-                                                                              Map,
-                                                                              Array,
-                                                                              Parse<()>>>>>>>>;
+    Observe<P, Array,
+    BufferResponses<P, Map,
+    HandleAcks<Map,
+    Retry<P, Array,
+    Ack<
+    ProvisionTokens<
+    ProvisionIds<P, Map, Array,
+    Parse<
+    ()
+    >>>>>>>>;
 
   #[allow(missing_docs)]
   #[cfg(feature = "std")]
