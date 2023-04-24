@@ -18,7 +18,7 @@ pub trait Buf<P>
   where P: PlatformTypes,
         Self: Array<Item = (State<P::Clock>, Addrd<platform::Message<P>>)>
 {
-  /// Do some black box magic to send all messages that need to be sent
+  /// Send all messages that need to be sent
   fn attempt_all<E>(&mut self,
                     time: Instant<P::Clock>,
                     effects: &mut <P as PlatformTypes>::Effects)
