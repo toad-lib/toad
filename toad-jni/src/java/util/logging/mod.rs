@@ -9,3 +9,7 @@ pub use level::Level;
 mod handler;
 #[doc(inline)]
 pub use handler::{ConsoleHandler, Handler};
+
+mod formatter;
+#[doc(inline)]
+pub use formatter::Formatter;
