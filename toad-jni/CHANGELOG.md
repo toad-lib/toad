@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.14.1...toad-jni-v0.15.0) (2023-04-24)
+
+
+### Features
+
+* java.util.logging.Formatter ([#329](https://github.com/toad-lib/toad/issues/329)) ([1222b14](https://github.com/toad-lib/toad/commit/1222b14631f2d6f857a8f53b56a82ca087d41de4))
+
+
+### Bug Fixes
+
+* handleAcks should log expected tokens when ignoring an ack ([#328](https://github.com/toad-lib/toad/issues/328)) ([0846759](https://github.com/toad-lib/toad/commit/084675940b1dedcdd31d31d099324ca14328cc64))
+
 ## [0.14.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.14.0...toad-jni-v0.14.1) (2023-04-21)
 
 

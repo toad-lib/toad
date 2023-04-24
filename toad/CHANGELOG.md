@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.17.7](https://github.com/toad-lib/toad/compare/toad-v0.17.6...toad-v0.17.7) (2023-04-24)
+
+
+### Bug Fixes
+
+* handleAcks should log expected tokens when ignoring an ack ([#328](https://github.com/toad-lib/toad/issues/328)) ([0846759](https://github.com/toad-lib/toad/commit/084675940b1dedcdd31d31d099324ca14328cc64))
+
 ## [0.17.6](https://github.com/toad-lib/toad/compare/toad-v0.17.5...toad-v0.17.6) (2023-04-23)
 
 
