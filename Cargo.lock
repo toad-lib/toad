@@ -985,35 +985,7 @@ checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "toad"
-version = "0.17.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d4000090e5f6d1380e1a4bfb9a5428019cb7a4374b3663792ef7965384968fc"
-dependencies = [
- "embedded-time",
- "log",
- "naan",
- "nb",
- "no-std-net",
- "openssl",
- "paste",
- "rand",
- "rand_chacha",
- "serde",
- "serde_json",
- "tinyvec",
- "toad-array 0.2.3",
- "toad-hash 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-macros 0.2.0",
- "toad-map 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-msg 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-stem 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "toad-writable 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "toad"
-version = "0.17.5"
+version = "0.17.6"
 dependencies = [
  "embedded-time",
  "lazycell",
@@ -1104,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "toad-jni"
-version = "0.14.1"
+version = "0.14.0"
 dependencies = [
  "embedded-time",
  "jni",
@@ -1112,7 +1084,7 @@ dependencies = [
  "nb",
  "no-std-net",
  "tinyvec",
- "toad 0.17.3",
+ "toad",
  "toad-array 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-msg 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",

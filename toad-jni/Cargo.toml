@@ -1,6 +1,6 @@
 [package]
 name = "toad-jni"
-version = "0.14.1"
+version = "0.14.0"
 edition = "2021"
 description = "JNI abstractions and bindings used by the toad ecosystem"
 authors = ["Orion Kindel <cakekindel@gmail.com>"]
@@ -24,7 +24,7 @@ nb = "1"
 no-std-net = "0.6"
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
 toad-msg = "0.18.1"
-toad = "0.17.3"
+toad = {path = "../toad"} # "0.17.3"
 jni = {version = "0.21.1", features = ["invocation"]}
 toad-stem = {version = "0.1.0", default_features = false}
 toad-len = {version = "0.1.3", default_features = false}
