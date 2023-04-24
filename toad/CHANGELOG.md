@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.18.0](https://github.com/toad-lib/toad/compare/toad-v0.17.7...toad-v0.18.0) (2023-04-24)
+
+
+### Features
+
+* add many String inherent methods and functionality ([#332](https://github.com/toad-lib/toad/issues/332)) ([6ee3d8c](https://github.com/toad-lib/toad/commit/6ee3d8ce1f491609c91764e55105f93b370b538f))
+
 ## [0.17.7](https://github.com/toad-lib/toad/compare/toad-v0.17.6...toad-v0.17.7) (2023-04-24)
 
 
