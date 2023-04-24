@@ -25,13 +25,6 @@ pub struct HandleAcks<S, B> {
   inner: S,
 }
 
-impl<S, B> HandleAcks<S, B> {
-  fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
-    let (size, sender, token) = (msg.data().len(), msg.addr(), (msg.data().id, msg.data().token));
-    String::fmt(format_args!("Got {size}b ACK from {sender} for {token:?}",))
-  }
-}
-
 impl<S: Default, B: Default> Default for HandleAcks<S, B> {
   fn default() -> Self {
     Self { buffer: Default::default(),
@@ -98,13 +91,19 @@ macro_rules! common {
 
           let tokens = tokens.as_str();
 
-          log!(HandleAcks, $effects, log::Level::Warn, "Discarding {size}b ACK from {sender} addressing unknown {token:?}. Presently expecting acks for: {tokens}");
+        log!(HandleAcks, $effects, log::Level::Warn, "Discarding {size}b ACK from {sender} addressing unknown {token:?}. Presently expecting acks for: {tokens}");
         None
       },
       Type::Ack => {
-        log!(HandleAcks, $effects, log::Level::Trace, "{}", Self::info_acked::<P>(msg).as_str());
+        let (size, sender, token) = (msg.data().len(), msg.addr(), (msg.data().id, msg.data().token));
+        log!(HandleAcks, $effects, log::Level::Trace, "Got {size}b ACK from {sender} for {token:?}");
         $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
-        Some(Ok($in))
+
+        if msg.data().code.kind() == toad_msg::CodeKind::Empty {
+          None
+        } else {
+          Some(Ok($in))
+        }
       },
       _ => Some(Ok($in))
     }
@@ -314,9 +313,7 @@ mod test {
     assert!(!effs.is_empty());
 
     match &effs[0] {
-      | Effect::Log(log::Level::Trace, msg) if msg.as_str().split(" ").next().unwrap() == "Got" => {
-        ()
-      },
+      | Effect::Log(lvl, _) => assert_eq!(*lvl, log::Level::Trace),
       | e => panic!("{e:?}"),
     }
 
@@ -369,11 +366,7 @@ mod test {
     assert!(!effs.is_empty());
 
     match &effs[0] {
-      | Effect::Log(log::Level::Warn, msg)
-        if msg.as_str().split(" ").next().unwrap() == "DISCARDING" =>
-      {
-        ()
-      },
+      | Effect::Log(lvl, _) => assert_eq!(*lvl, log::Level::Trace),
       | e => panic!("{e:?}"),
     }
 
