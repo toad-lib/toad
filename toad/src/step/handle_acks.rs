@@ -7,7 +7,7 @@ use toad_map::{InsertError, Map};
 use toad_msg::{Token, Type};
 use toad_stem::Stem;
 
-use super::{Step, StepOutput};
+use super::{log, Step, StepOutput};
 use crate::net::Addrd;
 use crate::platform::{Effect, PlatformTypes};
 use crate::req::Req;
@@ -23,22 +23,6 @@ use crate::{exec_inner_step, platform};
 pub struct HandleAcks<S, B> {
   buffer: Stem<B>,
   inner: S,
-}
-
-impl<S, B> HandleAcks<S, B> {
-  fn warn_ack_ignored<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>,
-                                        because: impl AsRef<str>)
-                                        -> String<1000> {
-    let (size, sender, token, because) =
-      (msg.data().len(), msg.addr(), msg.data().token, because.as_ref());
-
-    String::fmt(format_args!("DISCARDING {size}b ACK from {sender} {token:?} because {because}"))
-  }
-
-  fn info_acked<P: PlatformTypes>(msg: Addrd<&platform::Message<P>>) -> String<1000> {
-    let (size, sender, token) = (msg.data().len(), msg.addr(), (msg.data().id, msg.data().token));
-    String::fmt(format_args!("Got {size}b ACK from {sender} for {token:?}",))
-  }
 }
 
 impl<S: Default, B: Default> Default for HandleAcks<S, B> {
@@ -86,20 +70,40 @@ macro_rules! common {
     let msg: Addrd<&platform::Message<P>> = $msg;
 
     match msg.data().ty {
-      Type::Ack if msg.data().code.kind() == toad_msg::CodeKind::Empty
-          => {
-        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "the message was empty (0.00)")));
-        None
-      },
       Type::Ack if !$buffer.map_ref(|buf| buf.has(&msg.map(|m| m.token)))
           => {
-        $effects.push(Effect::Log(log::Level::Warn, Self::warn_ack_ignored::<P>(msg, "it was addressing a token that we were not expecting an ACK for")));
+        let (size, sender, token) =
+          (msg.data().len(), msg.addr(), msg.data().token);
+
+        let tokens = $buffer.map_ref(
+          |buf| {
+            let mut tokens = String::<1000>::default();
+            write!(tokens, "[").ok();
+            buf.iter().enumerate().for_each(|(ix, (token, _))| {
+              write!(tokens, "{:?}", token).ok();
+              if ix < buf.len() - 1 {
+                write!(tokens, ",").ok();
+              }
+            });
+            write!(tokens, "]").ok();
+            tokens
+          });
+
+          let tokens = tokens.as_str();
+
+        log!(HandleAcks, $effects, log::Level::Warn, "Discarding {size}b ACK from {sender} addressing unknown {token:?}. Presently expecting acks for: {tokens}");
         None
       },
       Type::Ack => {
-        $effects.push(Effect::Log(log::Level::Trace, Self::info_acked::<P>(msg)));
+        let (size, sender, token) = (msg.data().len(), msg.addr(), (msg.data().id, msg.data().token));
+        log!(HandleAcks, $effects, log::Level::Trace, "Got {size}b ACK from {sender} for {token:?}");
         $buffer.map_mut(|buf| buf.remove(&msg.as_ref().map(|m| m.token)));
-        Some(Ok($in))
+
+        if msg.data().code.kind() == toad_msg::CodeKind::Empty {
+          None
+        } else {
+          Some(Ok($in))
+        }
       },
       _ => Some(Ok($in))
     }
@@ -309,9 +313,7 @@ mod test {
     assert!(!effs.is_empty());
 
     match &effs[0] {
-      | Effect::Log(log::Level::Trace, msg) if msg.as_str().split(" ").next().unwrap() == "Got" => {
-        ()
-      },
+      | Effect::Log(lvl, _) => assert_eq!(*lvl, log::Level::Trace),
       | e => panic!("{e:?}"),
     }
 
@@ -364,11 +366,7 @@ mod test {
     assert!(!effs.is_empty());
 
     match &effs[0] {
-      | Effect::Log(log::Level::Warn, msg)
-        if msg.as_str().split(" ").next().unwrap() == "DISCARDING" =>
-      {
-        ()
-      },
+      | Effect::Log(lvl, _) => assert_eq!(*lvl, log::Level::Trace),
       | e => panic!("{e:?}"),
     }
 
