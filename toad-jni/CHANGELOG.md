@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.15.0...toad-jni-v0.16.0) (2023-04-24)
+
+
+### Features
+
+* ConsoleHandler.setFormatter ([139362e](https://github.com/toad-lib/toad/commit/139362edce84346f9c6fb8a9e783ed6bfd12bf1b))
+
 ## [0.15.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.14.1...toad-jni-v0.15.0) (2023-04-24)
 
 
