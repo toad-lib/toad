@@ -2,7 +2,7 @@ use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use toad_msg::{CodeKind, Token};
 
-use super::Step;
+use super::{log, Step};
 use crate::config::Config;
 use crate::net::Addrd;
 use crate::platform;
@@ -67,8 +67,13 @@ impl<Inner> Default for ProvisionTokens<Inner> where Inner: Default
 }
 
 impl<Inner> ProvisionTokens<Inner> {
-  fn next<E, Clock>(&self, now: Instant<Clock>, cfg: Config) -> Result<Token, Error<E>>
-    where Clock: crate::time::Clock
+  fn next<P>(&self,
+             effs: &mut P::Effects,
+             now: Instant<P::Clock>,
+             cfg: Config)
+             -> Result<Token, Error<Inner::Error>>
+    where P: PlatformTypes,
+          Inner: Step<P>
   {
     // TODO(orion): we may want to handle this
     let now_since_epoch =
@@ -83,7 +88,13 @@ impl<Inner> ProvisionTokens<Inner> {
       [a, b, c, d, e, f, g, h, i, j]
     };
 
-    Ok(Token::opaque(&bytes))
+    let next = Token::opaque(&bytes);
+    log!(ProvisionTokens::next,
+         effs,
+         log::Level::Debug,
+         "Generated new {:?}",
+         next);
+    Ok(next)
   }
 }
 
@@ -109,7 +120,7 @@ impl<P, E: super::Error, Inner> Step<P> for ProvisionTokens<Inner>
 
     let token = match (msg.data().code.kind(), msg.data().token) {
       | (CodeKind::Request, t) if t == Token(Default::default()) => {
-        self.next(snap.time, snap.config)?
+        self.next(effs, snap.time, snap.config)?
       },
       | (_, t) => t,
     };
