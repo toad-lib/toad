@@ -642,6 +642,111 @@ mod tests {
   /*
    * | t      | what                                              |
    * | ------ | ------------------------------------------------- |
+   * |     50 | CON request sent                                  |
+   * |    100 | got RESET                                         |
+   * | 10_000 | should not have retried                           |
+   */
+  #[test]
+  fn when_outbound_message_reset_retry_should_not_retry() {
+    type Mock = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
+    let s = Retry::<Mock>::default();
+
+    let token_a = Token(array_vec![1, 2, 3]);
+    let token_a: &'static Token = unsafe { core::mem::transmute::<_, _>(&token_a) };
+
+    let token_b = Token(array_vec![1, 2, 4]);
+    let token_b: &'static Token = unsafe { core::mem::transmute::<_, _>(&token_b) };
+
+    let token_c = Token(array_vec![1, 2, 5]);
+    let token_c: &'static Token = unsafe { core::mem::transmute::<_, _>(&token_c) };
+
+    s.inner()
+     .set_poll_resp(|_, Snapshot { time, .. }, _, token, _| {
+       let time: u64 = Milliseconds::try_from(time.duration_since_epoch()).unwrap()
+                                                                          .0;
+
+       let mut rst = test::msg!(RESET x.x.x.x:0000);
+       rst.as_mut().token = token;
+
+       match time {
+         | 150 => Some(Ok(rst.map(Resp::from))),
+         | _ => None,
+       }
+     })
+     .set_poll_req(|_, Snapshot { time, .. }, _| {
+       let time: u64 = Milliseconds::try_from(time.duration_since_epoch()).unwrap()
+                                                                          .0;
+
+       let mut rst = test::msg!(RESET x.x.x.x:0000);
+       rst.as_mut().token = *token_c;
+
+       match time {
+         | 150 => Some(Ok(rst.map(Req::from))),
+         | _ => None,
+       }
+     });
+    let cfg = config(200, 400);
+    let mut effs = Vec::<test::Effect>::new();
+    macro_rules! sent {
+       () => {{
+         effs.iter().filter(|e| matches!(e, Effect::Log(_, _))).for_each(|e| match e {
+           Effect::Log(l, m) => println!("[{:?}] {}", l, m.as_str()),
+           _ => (),
+         });
+         effs.iter().filter(|e| matches!(e, Effect::Send(_))).collect::<Vec<&test::Effect>>()
+       }};
+     }
+
+    let mut con_req = test::msg!(CON GET x.x.x.x:1111);
+    con_req.as_mut().token = *token_a;
+
+    let mut non_req = test::msg!(NON GET x.x.x.x:1111);
+    non_req.as_mut().token = *token_b;
+
+    let mut con_rep = test::msg!(CON {2 . 04} x.x.x.x:1111);
+    con_rep.as_mut().token = *token_c;
+
+    s.on_message_sent(&snap_time(cfg, 50), &mut effs, &con_rep)
+     .unwrap();
+    s.on_message_sent(&snap_time(cfg, 50), &mut effs, &con_req)
+     .unwrap();
+    s.on_message_sent(&snap_time(cfg, 50), &mut effs, &non_req)
+     .unwrap();
+
+    let rep = s.poll_resp(&snap_time(cfg, 150), &mut effs, *token_a, con_req.addr())
+               .unwrap()
+               .unwrap();
+    assert_eq!(sent!().len(), 0);
+    assert_eq!(rep.data().msg().ty, Type::Reset);
+
+    let rep = s.poll_resp(&snap_time(cfg, 150), &mut effs, *token_b, con_req.addr())
+               .unwrap()
+               .unwrap();
+    assert_eq!(sent!().len(), 0);
+    assert_eq!(rep.data().msg().ty, Type::Reset);
+
+    let req = s.poll_req(&snap_time(cfg, 150), &mut effs)
+               .unwrap()
+               .unwrap();
+    assert_eq!(sent!().len(), 0);
+    assert_eq!(req.data().msg().ty, Type::Reset);
+
+    s.poll_resp(&snap_time(cfg, 10_000), &mut effs, *token_a, con_req.addr())
+     .ok_or(())
+     .unwrap_err();
+    s.poll_resp(&snap_time(cfg, 10_000), &mut effs, *token_b, con_req.addr())
+     .ok_or(())
+     .unwrap_err();
+    s.poll_req(&snap_time(cfg, 10_000), &mut effs)
+     .ok_or(())
+     .unwrap_err();
+
+    assert_eq!(sent!().len(), 0);
+  }
+
+  /*
+   * | t      | what                                              |
+   * | ------ | ------------------------------------------------- |
    * |     50 | CON response sent                                 |
    * |    250 | con_retry_strategy delay has passed, so we resend |
    * |    350 | got ACK, will never retry again                   |
