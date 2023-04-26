@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.19.1](https://github.com/toad-lib/toad/compare/toad-v0.19.0...toad-v0.19.1) (2023-04-26)
+
+
+### Bug Fixes
+
+* retry should drop state on RESET ([#337](https://github.com/toad-lib/toad/issues/337)) ([bf8924a](https://github.com/toad-lib/toad/commit/bf8924ae641863a937db3560892e3f125b0824a6))
+
 ## [0.19.0](https://github.com/toad-lib/toad/compare/toad-v0.18.0...toad-v0.19.0) (2023-04-26)
 
 
