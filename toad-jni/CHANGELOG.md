@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/toad-lib/toad/compare/toad-jni-v0.16.0...toad-jni-v0.16.1) (2023-04-26)
+
+
+### Bug Fixes
+
+* bump toad to 0.19.1 ([#339](https://github.com/toad-lib/toad/issues/339)) ([3335a52](https://github.com/toad-lib/toad/commit/3335a52ddbde5d92efa43f720628c032ffc416ac))
+
 ## [0.16.0](https://github.com/toad-lib/toad/compare/toad-jni-v0.15.0...toad-jni-v0.16.0) (2023-04-24)
 
 
