@@ -393,10 +393,11 @@ pub trait Step<P: PlatformTypes>: Default {
   /// The default implementation will just invoke `self.inner().on_message_sent`
   fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
+                     effects: &mut P::Effects,
                      msg: &Addrd<platform::Message<P>>)
                      -> Result<(), Self::Error> {
     self.inner()
-        .on_message_sent(snap, msg)
+        .on_message_sent(snap, effects, msg)
         .map_err(Self::Error::from)
   }
 }
@@ -443,6 +444,7 @@ impl<P: PlatformTypes> Step<P> for () {
 
   fn on_message_sent(&self,
                      _: &platform::Snapshot<P>,
+                     _: &mut P::Effects,
                      _: &Addrd<platform::Message<P>>)
                      -> Result<(), Self::Error> {
     Ok(())
@@ -533,6 +535,7 @@ pub mod test {
 
         fn on_message_sent(&self,
                            snap: &platform::Snapshot<test::Platform>,
+                           effects: &mut Vec<test::Effect>,
                            msg: &Addrd<test::Message>)
                            -> Result<(), Self::Error> {
           unsafe { ON_MESSAGE_SENT_MOCK.as_ref().unwrap()(snap, msg) }
@@ -730,7 +733,7 @@ pub mod test {
       use $crate::step::Step;
 
       let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
-      assert_fn($step.on_message_sent($snap, &$msg))
+      assert_fn($step.on_message_sent($snap, $effects, &$msg))
     }};
     (
       step: $step_ty:ty = $step:expr,
@@ -743,7 +746,7 @@ pub mod test {
       use $crate::step::Step;
 
       let assert_fn: Box<dyn Fn(Result<(), <$step_ty as Step<_>>::Error>)> = Box::new($assert_fn);
-      assert_fn($step.on_message_sent(&$snap, &$msg))
+      assert_fn($step.on_message_sent(&$snap, $effects, &$msg))
     }};
     (
       step: $step_ty:ty = $step:expr,
