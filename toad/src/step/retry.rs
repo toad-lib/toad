@@ -18,6 +18,7 @@ use crate::time::{Clock, Millis};
 #[allow(missing_debug_implementations)]
 #[allow(missing_copy_implementations)]
 pub struct Debug {
+  pub msg_short: String<100>,
   pub msg_should_be: String<16>,
   pub since_last_attempt: Millis,
   pub since_first_attempt: Millis,
@@ -34,6 +35,7 @@ pub trait Buf<P>
            state: &State<P::Clock>,
            msg: &Addrd<platform::toad_msg::Message<P>>)
            -> Debug {
+    let msg_short = format!(100, "{:?} {:?} {:?}", msg.data().ty, msg.data().code, msg.data().token);
     let since_first_attempt = Millis::try_from(now - state.retry_timer().first_attempted_at()).expect("duration since first attempt should be less than u64::MAX milliseconds");
     let since_last_attempt = Millis::try_from(now - state.retry_timer().last_attempted_at()).expect("duration since last attempt should be less than u64::MAX milliseconds");
     let until_next_attempt = state.retry_timer().next_attempt_at().checked_duration_since(&now).map(|until| Millis::try_from(until).expect("duration until next attempt should be less than u64::MAX milliseconds"));
@@ -45,7 +47,7 @@ pub trait Buf<P>
     Debug { since_first_attempt,
             since_last_attempt,
             until_next_attempt,
-            msg_should_be }
+            msg_should_be, msg_short }
   }
 
   /// Send all messages that need to be sent
@@ -60,8 +62,8 @@ pub trait Buf<P>
                          log!(retry::Buf::attempt_all,
                               effects,
                               log::Level::Info,
-                              "{:?} not {} in {}ms. retrying...",
-                              msg,
+                              "{} not {} in {}ms. retrying...",
+                              dbg.msg_short,
                               dbg.msg_should_be,
                               dbg.since_last_attempt);
                          effects.push(Effect::Send(msg.clone()));
@@ -69,8 +71,8 @@ pub trait Buf<P>
                        | _ => log!(retry::Buf::attempt_all,
                                    effects,
                                    log::Level::Trace,
-                                   "{:?} not {} in {}ms, will retry in {:?}",
-                                   msg,
+                                   "{} not {} in {}ms, will retry in {:?}",
+                                   dbg.msg_short,
                                    dbg.msg_should_be,
                                    dbg.since_last_attempt,
                                    dbg.until_next_attempt),
@@ -90,7 +92,8 @@ pub trait Buf<P>
         log!(retry::Buf::forget,
              effects,
              log::Level::Debug,
-             "{msg:?} {} after waiting {}ms since last attempt (first attempt {}ms ago)",
+             "{} {} after waiting {}ms since last attempt (first attempt {}ms ago)",
+             dbg.msg_short,
              dbg.msg_should_be,
              dbg.since_last_attempt,
              dbg.since_first_attempt);
@@ -117,7 +120,7 @@ pub trait Buf<P>
                                   .. },
                msg))) => {
         let dbg = Self::debug(now, state, msg);
-        log!(retry::Buf::mark_acked, effects, log::Level::Debug, "{msg:?} request acked after waiting {}ms since last attempt (first attempt {}ms ago)", dbg.since_last_attempt, dbg.since_first_attempt);
+        log!(retry::Buf::mark_acked, effects, log::Level::Debug, "{} request acked after waiting {}ms since last attempt (first attempt {}ms ago)", dbg.msg_short, dbg.since_last_attempt, dbg.since_first_attempt);
         (ix, RetryTimer::new(now, *post_ack_strategy, *post_ack_max_attempts))
       },
       | _ => return,

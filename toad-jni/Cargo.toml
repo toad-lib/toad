@@ -24,7 +24,7 @@ nb = "1"
 no-std-net = "0.6"
 tinyvec = {version = "1.5", default_features = false, features = ["rustc_1_55"]}
 toad-msg = "0.18.1"
-toad = "0.17.6"
+toad = {path = "../toad"} # "0.17.6"
 jni = {version = "0.21.1", features = ["invocation"]}
 toad-stem = {version = "0.1.0", default_features = false}
 toad-len = {version = "0.1.3", default_features = false}
