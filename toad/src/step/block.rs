@@ -407,9 +407,10 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
 
   fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
+                     effs: &mut P::Effects,
                      msg: &Addrd<Message<P>>)
                      -> Result<(), Self::Error> {
-    self.inner.on_message_sent(snap, msg)?;
+    self.inner.on_message_sent(snap, effs, msg)?;
     if msg.data().code.kind() == CodeKind::Request {
       self.push(BlockState { biggest: None,
                              original: Some(msg.data().clone()),
@@ -459,8 +460,8 @@ mod tests {
     let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
 
     b.inner()
-     .set_poll_req(Box::new(|_, _, _| Some(Err(nb::Error::Other(())))))
-     .set_poll_resp(Box::new(|_, _, _, _, _| Some(Err(nb::Error::Other(())))));
+     .set_poll_req(|_, _, _| Some(Err(nb::Error::Other(()))))
+     .set_poll_resp(|_, _, _, _, _| Some(Err(nb::Error::Other(()))));
 
     assert_eq!(b.poll_req(&test::snapshot(), &mut vec![]),
                Some(Err(nb::Error::Other(()))));
@@ -476,13 +477,13 @@ mod tests {
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
     let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
 
-    b.inner().set_poll_resp(Box::new(|_, _, _, _, _| {
-                              let msg = toad_msg::alloc::Message::new(Type::Con,
-                                                                      Code::GET,
-                                                                      Id(0),
-                                                                      Token(Default::default()));
-                              Some(Ok(Addrd(Resp::from(msg), test::x.x.x.x(80))))
-                            }));
+    b.inner().set_poll_resp(|_, _, _, _, _| {
+               let msg = toad_msg::alloc::Message::new(Type::Con,
+                                                       Code::GET,
+                                                       Id(0),
+                                                       Token(Default::default()));
+               Some(Ok(Addrd(Resp::from(msg), test::x.x.x.x(80))))
+             });
 
     let mut effects = vec![];
     assert!(matches!(b.poll_resp(&test::snapshot(),
@@ -518,10 +519,12 @@ mod tests {
 
     let cache_key = orig_req.cache_key();
 
-    b.on_message_sent(&test::snapshot(), &Addrd(orig_req, addrs.client))
-     .unwrap();
-
     let mut effects: Vec<test::Effect> = vec![];
+
+    b.on_message_sent(&test::snapshot(),
+                      &mut effects,
+                      &Addrd(orig_req, addrs.client))
+     .unwrap();
 
     let payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do";
     let payload_blocks = || {
@@ -540,7 +543,7 @@ mod tests {
      .init(TestState { gave_pieces: vec![],
                        req: None,
                        last_request_at: Instant::now() })
-     .set_poll_resp(Box::new(move |mock, _, _, _, _| {
+     .set_poll_resp(move |mock, _, _, _, _| {
        let blocksize: u16 = 16;
        let blocks = payload_blocks();
 
@@ -591,7 +594,7 @@ mod tests {
        }
 
        Some(Ok(Addrd(resp, addrs.server)))
-     }));
+     });
 
     let rep = loop {
       let mut reqs = effects.drain(..)
@@ -652,13 +655,11 @@ mod tests {
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
     let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
 
-    b.inner().set_poll_req(Box::new(|_, _, _| {
-                             let req = test::Message::new(Type::Con,
-                                                          Code::POST,
-                                                          Id(0),
-                                                          Token(Default::default()));
-                             Some(Ok(Addrd(Req::from(req), addrs.client)))
-                           }));
+    b.inner().set_poll_req(|_, _, _| {
+               let req =
+                 test::Message::new(Type::Con, Code::POST, Id(0), Token(Default::default()));
+               Some(Ok(Addrd(Req::from(req), addrs.client)))
+             });
 
     let mut effects = vec![];
     b.poll_req(&test::snapshot(), &mut effects)
@@ -689,16 +690,15 @@ mod tests {
 
     b.inner()
      .init(TestState { next_block: 0 })
-     .set_poll_req(Box::new(|mock, _, _| {
-                     let mut req =
-                       test::Message::new(Type::Con, Code::POST, Id(0), Token(Default::default()));
-                     let num = mock.state.map_ref(|s| s.as_ref().unwrap().next_block);
-                     req.set_block2(128, num, num < 2).ok();
-                     req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
+     .set_poll_req(|mock, _, _| {
+       let mut req = test::Message::new(Type::Con, Code::POST, Id(0), Token(Default::default()));
+       let num = mock.state.map_ref(|s| s.as_ref().unwrap().next_block);
+       req.set_block2(128, num, num < 2).ok();
+       req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
 
-                     mock.state.map_mut(|s| s.as_mut().unwrap().next_block += 1);
-                     Some(Ok(Addrd(Req::from(req), addrs.client)))
-                   }));
+       mock.state.map_mut(|s| s.as_mut().unwrap().next_block += 1);
+       Some(Ok(Addrd(Req::from(req), addrs.client)))
+     });
 
     let mut effects = vec![];
 
@@ -740,15 +740,13 @@ mod tests {
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
     let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
 
-    b.inner().set_poll_req(Box::new(|_, _, _| {
-                             let mut req = test::Message::new(Type::Con,
-                                                              Code::POST,
-                                                              Id(0),
-                                                              Token(Default::default()));
-                             req.set_block2(128, 1, true).ok();
-                             req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
-                             Some(Ok(Addrd(Req::from(req), addrs.client)))
-                           }));
+    b.inner().set_poll_req(|_, _, _| {
+               let mut req =
+                 test::Message::new(Type::Con, Code::POST, Id(0), Token(Default::default()));
+               req.set_block2(128, 1, true).ok();
+               req.set_payload(Payload(core::iter::repeat(0u8).take(128).collect()));
+               Some(Ok(Addrd(Req::from(req), addrs.client)))
+             });
 
     let mut effects = vec![];
     assert_eq!(b.poll_req(&test::snapshot(), &mut effects),

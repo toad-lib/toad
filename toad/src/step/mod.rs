@@ -48,7 +48,7 @@ pub mod runtime {
   pub type Observe<P, A, S> = observe::Observe<S,
                                                Array<A, observe::Sub<P>>,
                                                Array<A, Addrd<Req<P>>>,
-                                               observe::SubHash_TypePathQueryAccept<P>>;
+                                               toad_msg::DefaultCacheKey>;
 
   /// Parse -> ProvisionIds -> ProvisionTokens -> Ack -> Retry -> HandleAcks -> BufferResponses -> Observe
   #[rustfmt::skip]
