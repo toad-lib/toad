@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.19.0](https://github.com/toad-lib/toad/compare/toad-v0.18.0...toad-v0.19.0) (2023-04-26)
+
+
+### Features
+
+* logging in provisionids, provisiontokens ([#335](https://github.com/toad-lib/toad/issues/335)) ([74e59a1](https://github.com/toad-lib/toad/commit/74e59a1418c55a482ce9f2275e706271a42fe898))
+
+
+### Bug Fixes
+
+* retry logging + tests rework ([#334](https://github.com/toad-lib/toad/issues/334)) ([22804e5](https://github.com/toad-lib/toad/commit/22804e59db8c798e7bf17e47cca94dcdbe552f06))
+
 ## [0.18.0](https://github.com/toad-lib/toad/compare/toad-v0.17.7...toad-v0.18.0) (2023-04-24)
 
 
