@@ -160,10 +160,11 @@ impl<P: PlatformTypes,
 
   fn on_message_sent(&self,
                      snap: &platform::Snapshot<P>,
+                     effects: &mut P::Effects,
                      msg: &Addrd<crate::platform::Message<P>>)
                      -> Result<(), Self::Error> {
     self.inner
-        .on_message_sent(snap, msg)
+        .on_message_sent(snap, effects, msg)
         .map_err(Error::Inner)?;
 
     match msg.data().ty {
@@ -278,7 +279,7 @@ mod test {
 
     sut.inner()
        .init(TestState { token_last_sent: None })
-       .set_on_message_sent(|mock, _, msg| {
+       .set_on_message_sent(|mock, _, _, msg| {
          mock.state
              .map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
          Ok(())
@@ -307,7 +308,7 @@ mod test {
     let snap = test::snapshot();
     let mut effs = Vec::<test::Effect>::new();
 
-    sut.on_message_sent(&snap, &sent_req).unwrap();
+    sut.on_message_sent(&snap, &mut effs, &sent_req).unwrap();
 
     let res = sut.poll_resp(&snap, &mut effs, token, dest);
     assert!(!effs.is_empty());
@@ -334,7 +335,7 @@ mod test {
 
     sut.inner()
        .init(TestState { token_last_sent: None })
-       .set_on_message_sent(|mock, _, msg| {
+       .set_on_message_sent(|mock, _, _, msg| {
          mock.state
              .map_mut(|s| s.as_mut().unwrap().token_last_sent = Some(msg.data().token));
          Ok(())
@@ -360,7 +361,7 @@ mod test {
     let snap = test::snapshot();
     let mut effs = Vec::<test::Effect>::new();
 
-    sut.on_message_sent(&snap, &sent_req).unwrap();
+    sut.on_message_sent(&snap, &mut effs, &sent_req).unwrap();
 
     let res = sut.poll_resp(&snap, &mut effs, token, dest);
     assert!(!effs.is_empty());

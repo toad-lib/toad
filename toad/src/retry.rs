@@ -49,10 +49,79 @@ use crate::time::{Clock, Millis};
 #[derive(Debug)]
 pub struct RetryTimer<C: Clock> {
   start: Instant<C>,
+  last_attempted_at: Option<Instant<C>>,
   init: Millis,
   strategy: Strategy,
   attempts: Attempts,
   max_attempts: Attempts,
+}
+
+impl<C> RetryTimer<C> where C: Clock
+{
+  /// Create a new retrier
+  pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
+    Self { start,
+           strategy,
+           last_attempted_at: None,
+           init: if strategy.has_jitter() {
+             let mut rand =
+               Ok(start.duration_since_epoch()).bind(Millis::try_from)
+                                               .map(|Milliseconds(ms)| {
+                                                 rand_chacha::ChaCha8Rng::seed_from_u64(ms)
+                                               })
+                                               .unwrap();
+
+             Milliseconds(rand.gen_range(strategy.range()))
+           } else {
+             Milliseconds(*strategy.range().start())
+           },
+           max_attempts,
+           attempts: Attempts(1) }
+  }
+
+  /// When the thing we keep trying fails, invoke this to
+  /// tell the retrytimer "it failed again! what do I do??"
+  ///
+  /// Returns `nb::Error::WouldBlock` when we have not yet
+  /// waited the appropriate amount of time to retry.
+  pub fn what_should_i_do(&mut self,
+                          now: Instant<C>)
+                          -> nb::Result<YouShould, core::convert::Infallible> {
+    if self.attempts >= self.max_attempts {
+      Ok(YouShould::Cry)
+    } else {
+      if now >= self.next_attempt_at() {
+        self.attempts.0 += 1;
+        self.last_attempted_at = Some(now);
+        Ok(YouShould::Retry)
+      } else {
+        Err(nb::Error::WouldBlock)
+      }
+    }
+  }
+
+  /// Get the instant this retry timer was first attempted
+  pub fn first_attempted_at(&self) -> Instant<C> {
+    self.start
+  }
+
+  /// Get the instant this retry timer was last attempted (if at all)
+  pub fn last_attempted_at(&self) -> Instant<C> {
+    self.last_attempted_at
+        .unwrap_or_else(|| self.first_attempted_at())
+  }
+
+  /// Get the next time at which this should be retried
+  pub fn next_attempt_at(&self) -> Instant<C> {
+    let after_start = match self.strategy {
+      | Strategy::Delay { .. } => Milliseconds(self.init.0 * (self.attempts.0 as u64)),
+      | Strategy::Exponential { .. } => {
+        Milliseconds(Strategy::total_delay_exp(self.init, self.attempts.0))
+      },
+    };
+
+    self.start + after_start
+  }
 }
 
 impl<C> Copy for RetryTimer<C> where C: Clock {}
@@ -61,6 +130,7 @@ impl<C> Clone for RetryTimer<C> where C: Clock
   fn clone(&self) -> Self {
     Self { start: self.start,
            init: self.init,
+           last_attempted_at: self.last_attempted_at,
            strategy: self.strategy,
            attempts: self.attempts,
            max_attempts: self.max_attempts }
@@ -72,6 +142,7 @@ impl<C> PartialEq for RetryTimer<C> where C: Clock
   fn eq(&self, other: &Self) -> bool {
     self.start == other.start
     && self.init == other.init
+    && self.last_attempted_at == other.last_attempted_at
     && self.strategy == other.strategy
     && self.attempts == other.attempts
     && self.max_attempts == other.max_attempts
@@ -79,24 +150,6 @@ impl<C> PartialEq for RetryTimer<C> where C: Clock
 }
 
 impl<C> Eq for RetryTimer<C> where C: Clock {}
-
-impl<C> PartialOrd for RetryTimer<C> where C: Clock
-{
-  fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-    Some(self.cmp(other))
-  }
-}
-
-impl<C> Ord for RetryTimer<C> where C: Clock
-{
-  fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-    self.start
-        .cmp(&other.start)
-        .then(self.init.cmp(&other.init))
-        .then(self.attempts.cmp(&other.attempts))
-        .then(self.max_attempts.cmp(&other.max_attempts))
-  }
-}
 
 /// A number of attempts
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -136,63 +189,6 @@ pub enum YouShould {
   Cry,
   /// A retry should be performed
   Retry,
-}
-
-impl<C: Clock> RetryTimer<C> {
-  /// Create a new retrier
-  pub fn new(start: Instant<C>, strategy: Strategy, max_attempts: Attempts) -> Self {
-    Self { start,
-           strategy,
-           init: if strategy.has_jitter() {
-             let mut rand =
-               Ok(start.duration_since_epoch()).bind(Millis::try_from)
-                                               .map(|Milliseconds(ms)| {
-                                                 rand_chacha::ChaCha8Rng::seed_from_u64(ms)
-                                               })
-                                               .unwrap();
-
-             Milliseconds(rand.gen_range(strategy.range()))
-           } else {
-             Milliseconds(*strategy.range().start())
-           },
-           max_attempts,
-           attempts: Attempts(1) }
-  }
-
-  /// When the thing we keep trying fails, invoke this to
-  /// tell the retrytimer "it failed again! what do I do??"
-  ///
-  /// Returns `nb::Error::WouldBlock` when we have not yet
-  /// waited the appropriate amount of time to retry.
-  pub fn what_should_i_do(&mut self,
-                          now: Instant<C>)
-                          -> nb::Result<YouShould, core::convert::Infallible> {
-    if self.attempts >= self.max_attempts {
-      Ok(YouShould::Cry)
-    } else {
-      let ready = self.is_ready((now - self.start).try_into().unwrap(), self.attempts.0);
-      if ready {
-        self.attempts.0 += 1;
-        Ok(YouShould::Retry)
-      } else {
-        Err(nb::Error::WouldBlock)
-      }
-    }
-  }
-
-  /// Check if the strategy says an appropriate time has passed
-  pub fn is_ready(&self, Milliseconds(time_passed): Millis, attempts: u16) -> bool {
-    if attempts == 0 {
-      return true;
-    }
-
-    match self.strategy {
-      | Strategy::Delay { .. } => time_passed >= self.init.0 * (attempts as u64),
-      | Strategy::Exponential { .. } => {
-        time_passed >= Strategy::total_delay_exp(self.init, attempts)
-      },
-    }
-  }
 }
 
 /// Strategy to employ when retrying

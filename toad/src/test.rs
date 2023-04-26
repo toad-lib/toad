@@ -63,6 +63,10 @@ macro_rules! msg {
     $crate::test::msg!({::toad_msg::Type::Ack} {::toad_msg::Code::new(0, 0)} x.x.x.x:$port)
   }};
 
+  (RESET x.x.x.x:$port:literal) => {{
+    $crate::test::msg!({::toad_msg::Type::Reset} {::toad_msg::Code::new(0, 0)} x.x.x.x:$port)
+  }};
+
   ({$ty:expr} {$code:expr} x.x.x.x:$port:literal $(with $f:expr)?) => {{
     use $crate::net::Addrd;
     use ::toad_msg::*;
@@ -178,12 +182,19 @@ pub mod stepfn {
   {
   }
   pub trait on_message_sent<Self_, E>
-    where Self:
-            'static + for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>
+    where Self: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          &'a Addrd<Message>) -> Result<(), E>
   {
   }
   impl<T, Self_, E> on_message_sent<Self_, E> for T
-    where T: 'static + for<'a> FnMut(&'a Self_, &'a Snapshot, &'a Addrd<Message>) -> Result<(), E>
+    where T: 'static
+            + for<'a> FnMut(&'a Self_,
+                          &'a Snapshot,
+                          &'a mut Vec<Effect>,
+                          &'a Addrd<Message>) -> Result<(), E>
   {
   }
 }
@@ -247,7 +258,7 @@ impl<State, Rq, Rp, E> Default for MockStep<State, Rq, Rp, E> {
            poll_resp: RwLock::new(Box::new(|_, _, _, _, _| None)),
            notify: RwLock::new(Box::new(|_, _, _| Ok(()))),
            before_message_sent: RwLock::new(Box::new(|_, _, _, _| Ok(()))),
-           on_message_sent: RwLock::new(Box::new(|_, _, _| Ok(()))),
+           on_message_sent: RwLock::new(Box::new(|_, _, _, _| Ok(()))),
            state: Stem::new(None) }
   }
 }
@@ -300,10 +311,11 @@ impl<State, Rq, Rp, E> crate::step::Step<Platform> for MockStep<State, Rq, Rp, E
 
   fn on_message_sent(&self,
                      snap: &platform::Snapshot<Platform>,
+                     effects: &mut Vec<Effect>,
                      msg: &Addrd<platform::Message<Platform>>)
                      -> Result<(), Self::Error> {
     let mut g = self.on_message_sent.try_write().unwrap();
-    g.as_mut()(self, snap, msg)
+    g.as_mut()(self, snap, effects, msg)
   }
 }
 

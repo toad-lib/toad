@@ -28,12 +28,12 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["std", "std_serde_json"]
-std = ["alloc", "openssl", "toad-array/std", "toad-len/std", "toad-map/std", "toad-writable/std", "toad-stem/std"]
+std = ["alloc", "openssl", "toad-string/std", "toad-array/std", "toad-len/std", "toad-map/std", "toad-writable/std", "toad-stem/std"]
 std_serde = ["serde/std"]
 std_serde_json = ["std_serde", "serde_json/std"]
 serde = ["dep:serde"]
 unstable_serde_json = ["serde", "dep:serde-json-core"]
-alloc = ["toad-array/alloc", "toad-writable/alloc", "toad-stem/alloc", "toad-len/alloc", "toad-map/alloc"]
+alloc = ["toad-string/alloc", "toad-array/alloc", "toad-writable/alloc", "toad-stem/alloc", "toad-len/alloc", "toad-map/alloc"]
 test = []
 docs = []
 
@@ -44,6 +44,7 @@ toad-len = {version = "0.1.3", default_features = false}
 toad-hash = {version = "0.3.0", default_features = false}
 toad-writable = {version = "0.1.1", default_features = false}
 toad-stem = {version = "0.1.0", default_features = false}
+toad-string = {version = "0.2.0", default_features = false}
 toad-msg = "0.18.1"
 toad-macros = "0.2.0"
 log = "0.4"

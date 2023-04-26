@@ -174,6 +174,7 @@ pub trait Platform<Steps>
     type Dgram<P> = <<P as PlatformTypes>::Socket as Socket>::Dgram;
 
     let mut effs = <Self::Types as PlatformTypes>::Effects::default();
+    let mut on_message_sent_effs = <Self::Types as PlatformTypes>::Effects::default();
 
     self.snapshot()
         .discard(|snapshot: &Snapshot<Self::Types>| {
@@ -198,10 +199,11 @@ pub trait Platform<Steps>
         })
         .discard(|(_, _, snapshot, _): &(_, _, Snapshot<<Self as Platform<Steps>>::Types>, _)| {
           self.steps()
-              .on_message_sent(snapshot, &addrd_msg)
+              .on_message_sent(snapshot, &mut on_message_sent_effs, &addrd_msg)
               .map_err(Self::Error::step)
               .map_err(nb::Error::Other)
         })
+        .discard(|_: &(_, _, _, _)| self.exec_many(on_message_sent_effs).map_err(|(_, e)| e).map_err(nb::Error::Other))
         .map(|(id, token, _, _)| (id, token))
   }
 
