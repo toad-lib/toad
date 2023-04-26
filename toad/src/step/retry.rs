@@ -111,19 +111,13 @@ pub trait Buf<P>
   /// We saw an ACK and should transition the retry state for matching outbound
   /// CONs to the "acked" state
   fn mark_acked(&mut self, now: Instant<P::Clock>, effects: &mut P::Effects, token: Token) {
-    let found = self.iter()
-                    .enumerate()
-                    .find(|(_, (_, msg))| msg.data().token == token);
+    let found = self.iter_mut().find(|(_, msg)| msg.data().token == token);
 
-    let (ix, new_timer) = match found {
-      | Some((ix, _)) if self[ix].1.data().code.kind() == CodeKind::Response => {
-        return self.forget(now, effects, token)
+    match found {
+      | Some((_, msg)) if msg.data().code.kind() == CodeKind::Response => {
+        self.forget(now, effects, token);
       },
-      | Some((ix,
-              (state @ State::ConPreAck { post_ack_strategy,
-                                  post_ack_max_attempts,
-                                  .. },
-               msg))) => {
+      | Some((state, msg)) if matches!(state, State::ConPreAck { .. }) => {
         let dbg = Self::debug(now, state, msg);
         log!(retry::Buf::mark_acked,
              effects,
@@ -132,12 +126,50 @@ pub trait Buf<P>
              dbg.msg_short,
              dbg.since_last_attempt,
              dbg.since_first_attempt);
-        (ix, RetryTimer::new(now, *post_ack_strategy, *post_ack_max_attempts))
-      },
-      | _ => return,
-    };
 
-    self.get_mut(ix).unwrap().0 = State::Just(new_timer);
+        let timer = match state {
+          | State::ConPreAck { post_ack_strategy,
+                               post_ack_max_attempts,
+                               .. } => {
+            RetryTimer::new(now, *post_ack_strategy, *post_ack_max_attempts)
+          },
+          | _ => unreachable!(),
+        };
+
+        *state = State::Just(timer);
+      },
+      | _ => {
+        log!(retry::Buf::mark_acked,
+             effects,
+             log::Level::Info,
+             "ACK {:?} does not apply to any known messages",
+             token);
+      },
+    };
+  }
+
+  /// We saw a RESET regarding token `token`
+  fn mark_reset(&mut self, now: Instant<P::Clock>, effects: &mut P::Effects, token: Token) {
+    let found = self.iter().find(|(_, msg)| msg.data().token == token);
+
+    match found {
+      | Some((state, msg)) => {
+        let dbg = Self::debug(now, state, msg);
+        log!(retry::Buf::mark_reset,
+             effects,
+             log::Level::Debug,
+             "{} got RESET, dropping all retry state.",
+             dbg.msg_short);
+        self.forget(now, effects, token)
+      },
+      | _ => {
+        log!(retry::Buf::mark_reset,
+             effects,
+             log::Level::Info,
+             "RESET {:?} does not correspond to any known messages",
+             token);
+      },
+    };
   }
 
   /// Called when a response of any kind to any request is
@@ -150,6 +182,10 @@ pub trait Buf<P>
                             msg: Addrd<&platform::Message<P>>)
                             -> Result<(), Error<E>> {
     match (msg.data().ty, msg.data().code.kind()) {
+      | (Type::Reset, _) => {
+        self.mark_reset(now, effects, msg.data().token);
+        Ok(())
+      },
       | (Type::Ack, CodeKind::Empty) => {
         log!(retry::Buf::maybe_seen_response, effects, log::Level::Trace, "ACK 0.00 {:?} means we should find the corresponding outbound CON and either forget (if CON response) or transition to expecting a response (if CON request). No following logs means the ACK was unexpected.", msg.data().token);
         self.mark_acked(now, effects, msg.data().token);
