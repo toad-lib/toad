@@ -715,6 +715,50 @@ mod tests {
   }
 
   #[test]
+  fn when_recv_request_with_block2_and_dont_hear_another_for_a_long_time_this_should_prune_state() {
+    #[derive(Clone, Copy)]
+    #[allow(dead_code)]
+    struct Addrs {
+      server: SocketAddr,
+      client: SocketAddr,
+    }
+
+    let addrs = Addrs { server: test::x.x.x.x(80),
+                        client: test::x.x.x.x(10) };
+    let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
+
+    type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
+    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+
+    b.inner().set_poll_req(|_, snap, _| {
+               if snap.time == Instant::new(0) {
+                 let mut req =
+                   test::Message::new(Type::Non, Code::GET, Id(0), Token(Default::default()));
+                 req.set_block2(128, 0, true).ok();
+                 Some(Ok(Addrd(Req::from(req), addrs.client)))
+               } else {
+                 None
+               }
+             });
+
+    let t_0 = test::snapshot();
+    let mut t_1 = test::snapshot();
+    t_1.time = Instant::new(0) + Milliseconds(t_1.config.exchange_lifetime_millis() - 1);
+
+    let mut t_2 = test::snapshot();
+    t_2.time = Instant::new(0) + Milliseconds(t_2.config.exchange_lifetime_millis() + 1);
+
+    assert!(matches!(b.poll_req(&t_0, &mut vec![]).unwrap().unwrap_err(), nb::Error::WouldBlock));
+    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+
+    assert!(matches!(b.poll_req(&t_1, &mut vec![]), None));
+    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+
+    assert!(matches!(b.poll_req(&t_2, &mut vec![]), None));
+    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 0);
+  }
+
+  #[test]
   fn when_recv_response_with_block2_and_dont_hear_back_for_a_long_time_this_should_prune_state() {
     #[derive(Clone, Copy)]
     #[allow(dead_code)]
