@@ -2,7 +2,6 @@ use core::marker::PhantomData;
 
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
-use naan::prelude::F1Once;
 use no_std_net::SocketAddr;
 use toad_array::{AppendCopy, Array};
 use toad_map::Map;
@@ -18,36 +17,92 @@ use crate::req::Req;
 use crate::resp::code::{CONTINUE, REQUEST_ENTITY_INCOMPLETE};
 use crate::resp::Resp;
 
+/// A potential role for a blocked message (request / response)
+///
+/// Part of composite map keys identifying [`Conversation`]s.
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+pub enum Role {
+  #[allow(missing_docs)]
+  Request,
+  #[allow(missing_docs)]
+  Response,
+}
+
+/// Whether a blocked message is outbound or inbound
+///
+/// Part of composite map keys identifying [`Conversation`]s.
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+pub enum Direction {
+  #[allow(missing_docs)]
+  Outbound,
+  #[allow(missing_docs)]
+  Inbound,
+}
+
+/// A single piece of a blocked message
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
-enum Piece<M> {
-  Have(M),
-  Waiting,
-  Missing,
+pub enum Piece<M> {
+  /// For [`Direction::Inbound`], indicates that we have received this piece,
+  /// and have the data `M` associated with a piece.
+  ///
+  /// For [`Direction::Outbound`], indicates that we have not yet communicated
+  /// this piece, and are waiting for the right time to transition to a different state.
+  Data(M),
+  /// For [`Direction::Inbound`], indicates that we have requested this piece,
+  /// and expect that it will be transitioned to [`Piece::Have`] at some point in
+  /// the future.
+  ///
+  /// For [`Direction::Outbound`], this state is impossible.
+  Requested,
+  /// For [`Direction::Inbound`], indicates that we have not yet received or asked for this piece.
+  ///
+  /// For [`Direction::Outbound`], indicates that we previously had this piece and have
+  /// sent it to the remote endpoint.
+  Absent,
 }
 
 impl<M> Piece<M> {
   fn get_msg(&self) -> Option<&M> {
     match self {
-      | Piece::Have(m) => Some(m),
+      | Piece::Data(m) => Some(m),
       | _ => None,
     }
   }
 }
 
+/// The state for a given Blocked conversation between ourselves and a remote endpoint.
 #[derive(Debug)]
-struct BlockState<P, Pcs>
+pub struct Conversation<P, Pieces>
   where P: PlatformTypes
 {
-  pub(self) biggest: Option<u32>,
-  pub(self) original: Option<Addrd<Message<P>>>,
-  pub(self) pcs: Pcs,
+  pub(self) biggest_number_seen: Option<u32>,
+  pub(self) original: Option<Message<P>>,
+  pub(self) pcs: Pieces,
   pub(self) expires_at: Instant<P::Clock>,
 }
 
-impl<P, Pcs> BlockState<P, Pcs> where P: PlatformTypes
+impl<P, Pieces> Conversation<P, Pieces>
+  where P: PlatformTypes,
+        Pieces: Default
 {
+  /// Create a new [`Conversation`] tracking a Blocked response to a sent request (param `msg`)
+  pub fn expect_response(expires_at: Instant<P::Clock>, msg: Message<P>) -> Self {
+    Self { original: Some(msg),
+           biggest_number_seen: None,
+           pcs: Default::default(),
+           expires_at }
+  }
+
+  /// Create a new [`Conversation`] tracking a received Blocked request
+  pub fn request(expires_at: Instant<P::Clock>) -> Self {
+    Self { original: None,
+           biggest_number_seen: None,
+           pcs: Default::default(),
+           expires_at }
+  }
+
   pub(self) fn assembled(&self) -> Payload<P::MessagePayload>
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>
+    where Pieces: Map<u32, Piece<Message<P>>>
   {
     const PANIC_MSG: &'static str = r#"BlockState.assembled() assumes:
 - BlockState.biggest is Some(_)
@@ -55,13 +110,12 @@ impl<P, Pcs> BlockState<P, Pcs> where P: PlatformTypes
 - BlockState.have_all() has been invoked and confirmed to be true"#;
 
     let mut p = P::MessagePayload::default();
-    for i in 0..=self.biggest.expect(PANIC_MSG) {
+    for i in 0..=self.biggest_number_seen.expect(PANIC_MSG) {
       p.append_copy(&self.pcs
                          .get(&i)
                          .expect(PANIC_MSG)
                          .get_msg()
                          .expect(PANIC_MSG)
-                         .data()
                          .payload
                          .0);
     }
@@ -71,56 +125,56 @@ impl<P, Pcs> BlockState<P, Pcs> where P: PlatformTypes
 
   /// find a missing piece that should be requested
   pub(self) fn get_missing<T>(&self) -> Option<u32>
-    where Pcs: Map<u32, Piece<T>>,
+    where Pieces: Map<u32, Piece<T>>,
           T: PartialEq
   {
     self.pcs
         .iter()
-        .find_map(|(n, p)| if p == &Piece::Missing { Some(n) } else { None })
+        .find_map(|(n, p)| if p == &Piece::Absent { Some(n) } else { None })
         .copied()
   }
 
   /// are no pieces waiting or missing?
   pub(self) fn have_all<T>(&self) -> bool
-    where Pcs: Map<u32, Piece<T>>,
+    where Pieces: Map<u32, Piece<T>>,
           T: PartialEq
   {
     self.pcs
         .iter()
-        .all(|(_, p)| p != &Piece::Missing && p != &Piece::Waiting)
+        .all(|(_, p)| p != &Piece::Absent && p != &Piece::Requested)
   }
 
   /// if `n > self.biggest`, update `self.biggest` to `n`
   /// and insert `Piece::Missing` for all pieces between `biggest` and `n`
   pub(self) fn touch<T>(&mut self, now: Instant<P::Clock>, n: u32)
-    where Pcs: Map<u32, Piece<T>>
+    where Pieces: Map<u32, Piece<T>>
   {
-    let missing_nums = match self.biggest {
+    let missing_nums = match self.biggest_number_seen {
       | Some(m) if m + 1 < n => (m + 1..n).into_iter(),
       | None if n > 0 => (0..n).into_iter(),
       | _ => (0..0).into_iter(),
     };
 
     missing_nums.for_each(|n| {
-                  self.pcs.insert(n, Piece::Missing).ok();
+                  self.pcs.insert(n, Piece::Absent).ok();
                 });
 
-    let n_is_bigger = self.biggest.map(|m| m < n).unwrap_or(true);
+    let n_is_bigger = self.biggest_number_seen.map(|m| m < n).unwrap_or(true);
     if n_is_bigger {
-      self.biggest = Some(n);
+      self.biggest_number_seen = Some(n);
     }
   }
 
   /// Mark piece `n` as having been requested
   pub(self) fn waiting<T>(&mut self, now: Instant<P::Clock>, n: u32)
-    where Pcs: Map<u32, Piece<T>>
+    where Pieces: Map<u32, Piece<T>>
   {
     let e = self.pcs.get_mut(&n);
 
     match e {
-      | Some(Piece::Missing) | Some(Piece::Waiting) | None => {
+      | Some(Piece::Absent) | Some(Piece::Requested) | None => {
         self.touch(now, n);
-        self.pcs.insert(n, Piece::Waiting).ok();
+        self.pcs.insert(n, Piece::Requested).ok();
       },
       | _ => (),
     }
@@ -128,177 +182,164 @@ impl<P, Pcs> BlockState<P, Pcs> where P: PlatformTypes
 
   /// Store piece `T` corresponding to piece number `n`
   pub(self) fn have<T>(&mut self, now: Instant<P::Clock>, n: u32, m: T)
-    where Pcs: Map<u32, Piece<T>>
+    where Pieces: Map<u32, Piece<T>>
   {
     self.touch(now, n);
-    self.pcs.insert(n, Piece::Have(m)).ok();
-  }
-
-  pub(self) fn biggest(&self) -> Option<u32> {
-    self.biggest
+    self.pcs.insert(n, Piece::Data(m)).ok();
   }
 }
 
 /// TODO
 #[derive(Debug)]
-pub struct Block<P, S, BS, Pcs> {
+pub struct Block<P, S, Endpoints, Conversations, Pieces> {
   inner: S,
-  block_states: Stem<BS>,
-  __p: PhantomData<(P, Pcs)>,
+  endpoints: Stem<Endpoints>,
+  __p: PhantomData<(P, Conversations, Pieces)>,
 }
 
-impl<P, S, BS, Pcs> Default for Block<P, S, BS, Pcs>
+impl<P, S, Endpoints, Conversations, Pieces> Default
+  for Block<P, S, Endpoints, Conversations, Pieces>
   where S: Default,
-        BS: Default
+        Endpoints: Default
 {
   fn default() -> Self {
     Block { inner: S::default(),
-            block_states: Stem::new(BS::default()),
+            endpoints: Stem::new(Endpoints::default()),
             __p: PhantomData }
   }
 }
 
-impl<P, S, BS, Pcs> Block<P, S, BS, Pcs> where P: PlatformTypes
+impl<P, S, Endpoints, Conversations, Pieces> Block<P, S, Endpoints, Conversations, Pieces>
+  where P: PlatformTypes,
+        Endpoints: Default + Map<SocketAddr, Conversations>,
+        Conversations:
+          core::fmt::Debug + Default + Map<(Token, Role, Direction), Conversation<P, Pieces>>,
+        Pieces: core::fmt::Debug + Default + Map<u32, Piece<Message<P>>>
 {
-  fn prune(&self, effects: &mut P::Effects, now: Instant<P::Clock>)
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    let len_before = self.block_states.map_ref(|bss| bss.len());
-    fn go<_P, _S, _BS, _Pcs>(now: Instant<_P::Clock>, b: &Block<_P, _S, _BS, _Pcs>)
-      where _P: PlatformTypes,
-            _Pcs: Map<u32, Piece<Addrd<Message<_P>>>>,
-            _BS: Array<Item = BlockState<_P, _Pcs>>
-    {
-      if let Some(ix) = b.block_states.map_ref(|bss| {
-                                        bss.iter().enumerate().find_map(|(ix, b)| {
-                                                                if now >= b.expires_at {
-                                                                  Some(ix)
-                                                                } else {
-                                                                  None
-                                                                }
-                                                              })
-                                      })
-      {
-        b.block_states.map_mut(|bss| bss.remove(ix));
-        go(now, b);
-      }
-    }
+  fn prune_conversations(&self,
+                         effects: &mut P::Effects,
+                         now: Instant<P::Clock>,
+                         cs: &mut Conversations) {
+    let len_before = cs.len();
+    let mut remove_next = || {
+      cs.iter()
+        .filter(|(_, b)| now >= b.expires_at)
+        .map(|(k, _)| *k)
+        .next()
+        .map(|k| cs.remove(&k))
+        .map(|_| ())
+    };
 
-    go(now, self);
-    let len_after = self.block_states.map_ref(|bss| bss.len());
+    while let Some(()) = remove_next() {}
+
+    let len_after = cs.len();
     if len_before - len_after > 0 {
       log!(Block::prune, effects, log::Level::Debug, "Removed {} expired entries. For outbound messages, a prior step SHOULD but MAY NOT retry sending them", len_before - len_after);
     }
   }
 
-  fn find_rx_request_block_state_ix(&self, token: Addrd<Token>) -> Option<usize>
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    self.block_states.map_ref(|bs| {
-                       bs.iter()
-                         .enumerate()
-                         .find(|(_, bs)| match bs.pcs.get(&0) {
-                           | Some(Piece::Have(m)) => m.as_ref().map(|m| m.token) == token,
-                           | _ => false,
-                         })
-                         .map(|(ix, _)| ix)
-                     })
+  fn prune_endpoints(&self) {
+    self.endpoints.map_mut(|es| {
+                    let mut remove_next = || {
+                      es.iter()
+                        .filter(|(_, cs)| cs.is_empty())
+                        .map(|(k, _)| *k)
+                        .next()
+                        .map(|k| es.remove(&k))
+                        .map(|_| ())
+                    };
+
+                    while let Some(()) = remove_next() {}
+                  });
   }
 
-  fn find_rx_response_block_state_ix(&self, token: Addrd<Token>, cache_key: u64) -> Option<usize>
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    self.block_states.map_ref(|block_states| {
-                       block_states.iter()
-                                   .enumerate()
-                                   .find(|(_, bs)| {
-                                     let block0_and_response_is_for_originating_request =
-                                       bs.biggest.is_none()
-                                       && bs.original
-                                            .as_ref()
-                                            .map(|msg| msg.as_ref().map(|m| m.token))
-                                          == Some(token);
-
-                                     let block_n_and_response_matches_previous_block =
-                                       bs.pcs
-                                         .get(&0)
-                                         .and_then(|p| p.get_msg().map(|m| m.data().cache_key()))
-                                       == Some(cache_key);
-
-                                     block0_and_response_is_for_originating_request
-                                     || block_n_and_response_matches_previous_block
-                                   })
-                                   .map(|(ix, _)| ix)
-                     })
+  fn prune(&self, effects: &mut P::Effects, now: Instant<P::Clock>) {
+    // TODO: log
+    self.endpoints.map_mut(|es| {
+                    es.iter_mut()
+                      .for_each(|(_, c)| self.prune_conversations(effects, now, c))
+                  });
+    self.prune_endpoints();
   }
 
-  fn block_state_mut<F, R>(&self, ix: usize, f: F) -> R
-    where F: for<'a> F1Once<&'a mut BlockState<P, Pcs>, Ret = R>,
-          Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
+  fn get_endpoint<F, R>(&self, addr: SocketAddr, mut f: F) -> Option<R>
+    where F: FnMut(&mut Conversations) -> R
+  {
+    self.endpoints.map_mut(|es| es.get_mut(&addr).map(&mut f))
+  }
+
+  fn get_or_create_endpoint<F, R>(&self, addr: SocketAddr, mut f: F) -> R
+    where F: FnMut(&mut Conversations) -> R
+  {
+    self.endpoints.map_mut(|es| {
+                    if !es.has(&addr) {
+                      es.insert(addr, Conversations::default()).unwrap();
+                    }
+
+                    es.get_mut(&addr).map(&mut f).unwrap()
+                  })
+  }
+
+  fn expect_response(&self, snap: &Snapshot<P>, addr: SocketAddr, req: &Message<P>) {
+    let exp = snap.time + Milliseconds(snap.config.exchange_lifetime_millis());
+    self.get_or_create_endpoint(addr, |convs| {
+          convs.insert((req.token, Role::Response, Direction::Inbound),
+                       Conversation::expect_response(exp, req.clone()))
+               .unwrap();
+        });
+  }
+
+  fn insert_request(&self,
+                    snap: &Snapshot<P>,
+                    (addr, token, role, dir): (SocketAddr, Token, Role, Direction)) {
+    let exp = snap.time + Milliseconds(snap.config.exchange_lifetime_millis());
+    self.get_or_create_endpoint(addr, |convs| {
+          convs.insert((token, role, dir), Conversation::request(exp))
+               .unwrap();
+        });
+  }
+
+  fn has(&self, (addr, token, role, dir): (SocketAddr, Token, Role, Direction)) -> bool {
+    self.get_endpoint(addr, |convs| convs.has(&(token, role, dir)))
+        .unwrap_or(false)
+  }
+
+  fn map_mut<F, R>(&self,
+                   (addr, token, role, dir): (SocketAddr, Token, Role, Direction),
+                   mut f: F)
+                   -> Option<R>
+    where F: FnMut(&mut Conversation<P, Pieces>) -> R
+  {
+    self.get_or_create_endpoint(addr, |conv| conv.get_mut(&(token, role, dir)).map(&mut f))
+  }
+
+  fn map<F, R>(&self,
+               (addr, token, role, dir): (SocketAddr, Token, Role, Direction),
+               f: F)
+               -> Option<R>
+    where F: FnOnce(&Conversation<P, Pieces>) -> R
   {
     let mut f = Some(f);
-    self.block_states
-        .map_mut(|bs| Option::take(&mut f).unwrap().call1(&mut bs[ix]))
-  }
-
-  fn block_state<F, R>(&self, ix: usize, f: F) -> R
-    where F: for<'a> F1Once<&'a BlockState<P, Pcs>, Ret = R>,
-          Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    let mut f = Some(f);
-    self.block_states
-        .map_ref(|bs| Option::take(&mut f).unwrap().call1(&bs[ix]))
-  }
-
-  fn push(&self, s: BlockState<P, Pcs>)
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    let mut s = Some(s);
-    self.block_states
-        .map_mut(|bs| bs.push(Option::take(&mut s).unwrap()));
-  }
-
-  fn remove(&self, ix: usize)
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    self.block_states.map_mut(|bs| bs.remove(ix));
-  }
-
-  fn clone_original(&self, ix: usize) -> Option<Addrd<Message<P>>>
-    where Pcs: Map<u32, Piece<Addrd<Message<P>>>>,
-          BS: Array<Item = BlockState<P, Pcs>>
-  {
-    self.block_state(ix, |s: &BlockState<_, _>| {
-          s.original.as_ref().map(|orig| {
-                               let addr = orig.addr();
-                               let orig: &Message<P> = orig.data();
-                               let mut new =
-                                 Message::<P>::new(Type::Con, orig.code, Id(0), orig.token);
-
-                               orig.opts.iter().for_each(|(n, vs)| {
-                                                 if n.include_in_cache_key() {
-                                                   new.opts.insert(*n, vs.clone()).ok();
-                                                 }
-                                               });
-
-                               Addrd(new, addr)
-                             })
+    self.get_or_create_endpoint(addr, |conv| {
+          conv.get(&(token, role, dir))
+              .map(Option::take(&mut f).unwrap())
         })
+  }
+
+  fn remove_if_present(&self, (addr, token, role, dir): (SocketAddr, Token, Role, Direction)) {
+    self.get_endpoint(addr, |convs| {
+          convs.remove(&(token, role, dir));
+        });
   }
 }
 
-impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
+impl<P, S, Endpoints, Conversations, Pieces> Step<P>
+  for Block<P, S, Endpoints, Conversations, Pieces>
   where P: PlatformTypes,
         S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>>,
-        Pcs: Map<u32, Piece<Addrd<Message<P>>>> + core::fmt::Debug,
-        BS: Array<Item = BlockState<P, Pcs>>
+        Endpoints: core::fmt::Debug + Map<SocketAddr, Conversations>,
+        Conversations: core::fmt::Debug + Map<(Token, Role, Direction), Conversation<P, Pieces>>,
+        Pieces: core::fmt::Debug + Map<u32, Piece<Message<P>>>
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
@@ -318,10 +359,9 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
 
     macro_rules! respond {
       ($code:expr) => {{
-        let rep_ty = if req.data().msg().ty == Type::Con {
-          Type::Ack
-        } else {
-          Type::Non
+        let rep_ty = match req.data().msg().ty {
+          | Type::Con => Type::Ack,
+          | _ => Type::Non,
         };
 
         let rep = Message::<P>::new(rep_ty, $code, Id(0), req.data().msg().token);
@@ -329,12 +369,13 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
       }};
     }
 
-    let block_state_ix = self.find_rx_request_block_state_ix(req.as_ref().map(|r| r.msg().token));
+    let k = (req.addr(), req.data().msg().token, Role::Request, Direction::Inbound);
+    let has_prev_pieces = self.has(k);
 
     match req.data().msg().block2() {
       | None => {
-        if let Some(ix) = block_state_ix {
-          self.block_state(ix, |s: &BlockState<_, _>| {
+        if has_prev_pieces {
+          self.map(k, |s: &Conversation<_, _>| {
                 log!(Block::poll_req,
                      effects,
                      log::Level::Warn,
@@ -342,65 +383,51 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
                      req.data().msg().token,
                      s);
               });
-          self.remove(ix);
+          self.remove_if_present(k);
           respond!(REQUEST_ENTITY_INCOMPLETE);
         }
 
         Some(Ok(req))
       },
       | Some(block) => {
-        match block_state_ix {
-          | None if block.num() > 0 => {
-            respond!(REQUEST_ENTITY_INCOMPLETE);
-
-            Some(Err(nb::Error::WouldBlock))
-          },
-          | None if block.more() => {
-            let mut block_state =
-              BlockState { biggest: Some(0),
-                           original: None,
-                           pcs: Default::default(),
-                           expires_at: snap.time
-                                       + Milliseconds(snap.config.exchange_lifetime_millis()) };
-
-            block_state.have(snap.time, 0, req.clone().map(|r| r.into()));
-
-            self.push(block_state);
-            respond!(CONTINUE);
-
-            Some(Err(nb::Error::WouldBlock))
-          },
-          | None => {
-            // this is block 0 and there are no more blocks,
-            // simply yield the request
-            Some(Ok(req))
-          },
-          | Some(ix)
-            if self.block_state(ix, BlockState::biggest)
-                   .map(|n| n + 1)
-                   .unwrap_or(0)
-               < block.num() =>
-          {
-            self.remove(ix);
-            respond!(REQUEST_ENTITY_INCOMPLETE);
-
-            Some(Err(nb::Error::WouldBlock))
-          },
-          | Some(ix) => {
-            self.block_state_mut(ix, |s: &mut BlockState<_, _>| {
-                  s.have(snap.time, block.num(), req.clone().map(|r| r.into()))
-                });
-
-            if block.more() {
-              respond!(CONTINUE);
-              Some(Err(nb::Error::WouldBlock))
-            } else {
-              let p = self.block_state(ix, BlockState::assembled);
-              req.as_mut().msg_mut().payload = p;
-              self.remove(ix);
-              Some(Ok(req))
-            }
-          },
+        if !has_prev_pieces && block.num() == 0 && block.more() {
+          self.insert_request(snap, k);
+          self.map_mut(k, |conv| {
+                conv.have(snap.time, 0, req.clone().map(|r| r.into()).unwrap())
+              });
+          respond!(CONTINUE);
+          Some(Err(nb::Error::WouldBlock))
+        } else if !has_prev_pieces && block.num() == 0 && !block.more() {
+          Some(Ok(req))
+        } else if !has_prev_pieces && block.num() > 0 {
+          respond!(REQUEST_ENTITY_INCOMPLETE);
+          Some(Err(nb::Error::WouldBlock))
+        } else if block.num()
+                  > self.map(k, |conv| conv.biggest_number_seen.map(|n| n + 1))
+                        .flatten()
+                        .unwrap_or(0)
+        {
+          self.remove_if_present(k);
+          respond!(REQUEST_ENTITY_INCOMPLETE);
+          Some(Err(nb::Error::WouldBlock))
+        } else if block.more() {
+          self.map_mut(k, |conv| {
+                conv.have(snap.time,
+                          block.num(),
+                          req.clone().map(|r| r.into()).unwrap())
+              });
+          respond!(CONTINUE);
+          Some(Err(nb::Error::WouldBlock))
+        } else {
+          self.map_mut(k, |conv| {
+                conv.have(snap.time,
+                          block.num(),
+                          req.clone().map(|r| r.into()).unwrap())
+              });
+          let p = self.map(k, Conversation::assembled).unwrap();
+          req.as_mut().msg_mut().payload = p;
+          self.remove_if_present(k);
+          Some(Ok(req))
         }
       },
     }
@@ -413,61 +440,57 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
                addr: SocketAddr)
                -> super::StepOutput<Self::PollResp, Self::Error> {
     self.prune(effects, snap.time);
+
     let mut rep: Addrd<Resp<P>> =
       _try!(Option<nb::Result>; self.inner().poll_resp(snap, effects, token, addr));
 
-    let block_state_ix = self.find_rx_response_block_state_ix(rep.as_ref().map(|r| r.msg().token),
-                                                              rep.data().msg().cache_key());
+    let k = (rep.addr(), rep.data().msg().token, Role::Response, Direction::Inbound);
+    let has_prev_pieces = self.has(k);
+
+    macro_rules! request_piece {
+      ($num:expr) => {{
+        let mut new = self.map(k, |conv| conv.original.clone().unwrap()).unwrap();
+
+        new.set_block1(0, $num, false).ok();
+        new.remove(BLOCK2);
+        new.remove(SIZE2);
+
+        effects.push(Effect::Send(Addrd(new, rep.addr())));
+        self.map_mut(k, |conv| conv.waiting(snap.time, $num));
+      }};
+    }
 
     match rep.data().msg().block1() {
       | None => {
-        // Response didn't have Block1; we can drop the block state
-        if let Some(ix) = block_state_ix {
-          self.remove(ix);
-        }
+        self.remove_if_present(k);
         Some(Ok(rep))
       },
       | Some(block) => {
-        match block_state_ix {
-          | None => {
-            // Got a Block1 message but we don't have any conception of it; yield the response as-is from the inner step.
+        if !has_prev_pieces {
+          // TODO: warn
+          Some(Ok(rep))
+        } else {
+          self.map_mut(k, |conv| {
+                conv.have(snap.time,
+                          block.num(),
+                          rep.clone().map(|r| r.into()).unwrap())
+              });
+          if block.more() {
+            request_piece!(block.num() + 1);
+          }
+
+          if let Some(missing) = self.map(k, Conversation::get_missing).unwrap() {
+            request_piece!(missing);
+          }
+
+          if self.map(k, Conversation::have_all).unwrap() {
+            rep.as_mut().msg_mut().payload = self.map(k, Conversation::assembled).unwrap();
+            rep.as_mut().msg_mut().remove(BLOCK1);
+            self.remove_if_present(k);
             Some(Ok(rep))
-          },
-          | Some(ix) => {
-            macro_rules! request_num {
-              ($num:expr) => {{
-                let mut new = self.clone_original(ix).unwrap();
-
-                new.as_mut().set_block1(0, $num, false).ok();
-                new.as_mut().remove(BLOCK2);
-                new.as_mut().remove(SIZE2);
-
-                effects.push(Effect::Send(new));
-                self.block_state_mut(ix, |s: &mut BlockState<_, _>| s.waiting(snap.time, $num));
-              }};
-            }
-
-            self.block_state_mut(ix, |s: &mut BlockState<_, _>| {
-                  s.have(snap.time, block.num(), rep.clone().map(|r| r.into()))
-                });
-
-            if block.more() {
-              request_num!(block.num() + 1);
-            }
-
-            if let Some(missing) = self.block_state(ix, BlockState::get_missing) {
-              request_num!(missing);
-            }
-
-            if self.block_state(ix, BlockState::have_all) {
-              rep.as_mut().msg_mut().payload = self.block_state(ix, BlockState::assembled);
-              rep.as_mut().msg_mut().remove(BLOCK1);
-              self.remove(ix);
-              Some(Ok(rep))
-            } else {
-              Some(Err(nb::Error::WouldBlock))
-            }
-          },
+          } else {
+            Some(Err(nb::Error::WouldBlock))
+          }
         }
       },
     }
@@ -481,12 +504,10 @@ impl<P, S, BS, Pcs> Step<P> for Block<P, S, BS, Pcs>
     self.prune(effs, snap.time);
     self.inner.on_message_sent(snap, effs, msg)?;
     if msg.data().code.kind() == CodeKind::Request {
-      self.push(BlockState { biggest: None,
-                             original: Some(msg.clone()),
-                             pcs: Default::default(),
-                             expires_at: snap.time
-                                         + Milliseconds(snap.config.exchange_lifetime_millis()) });
+      self.expect_response(snap, msg.addr(), msg.data());
+    } else if msg.data().code.kind() == CodeKind::Response {
     }
+
     Ok(())
   }
 }
@@ -502,13 +523,19 @@ mod tests {
   use crate::resp::code::CONTENT;
   use crate::test;
 
+  type Pieces = BTreeMap<u32, Piece<test::Message>>;
+  type Conversations =
+    BTreeMap<(Token, Role, Direction), super::Conversation<test::Platform, Pieces>>;
+  type Block<S> =
+    super::Block<test::Platform, S, BTreeMap<SocketAddr, Conversations>, Conversations, Pieces>;
+
   #[test]
-  fn ent_correctly_identifies_missing_pieces() {
-    let mut e = BlockState::<test::Platform, BTreeMap<u32, Piece<()>>> { biggest: None,
-                                                                         original: None,
-                                                                         pcs: BTreeMap::new(),
-                                                                         expires_at:
-                                                                           Instant::new(1000) };
+  fn block_state_correctly_identifies_missing_pieces() {
+    let mut e =
+      Conversation::<test::Platform, BTreeMap<u32, Piece<()>>> { biggest_number_seen: None,
+                                                                 original: None,
+                                                                 pcs: BTreeMap::new(),
+                                                                 expires_at: Instant::new(1000) };
     e.have(Instant::new(0), 0, ());
     assert_eq!(e.get_missing(), None);
 
@@ -528,7 +555,7 @@ mod tests {
   #[test]
   fn when_inner_errors_block_should_error() {
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner()
      .set_poll_req(|_, _, _| Some(Err(nb::Error::Other(()))))
@@ -546,7 +573,7 @@ mod tests {
   #[test]
   fn when_recv_response_with_no_block1_this_should_do_nothing() {
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner().set_poll_resp(|_, _, _, _, _| {
                let msg = toad_msg::alloc::Message::new(Type::Con,
@@ -583,7 +610,7 @@ mod tests {
                         client: test::x.x.x.x(10) };
 
     type S = test::MockStep<TestState, Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     let mut orig_req = test::Message::new(Type::Con, Code::GET, Id(1), Token(array_vec! {1}));
     orig_req.set_accept(ContentFormat::Text).ok();
@@ -715,7 +742,8 @@ mod tests {
   }
 
   #[test]
-  fn when_recv_request_with_block2_and_dont_hear_another_for_a_long_time_this_should_prune_state() {
+  fn when_recv_request_with_block2_and_dont_hear_another_for_a_long_time_this_should_prune_state(
+    ) {
     #[derive(Clone, Copy)]
     #[allow(dead_code)]
     struct Addrs {
@@ -728,7 +756,7 @@ mod tests {
     let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
 
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner().set_poll_req(|_, snap, _| {
                if snap.time == Instant::new(0) {
@@ -748,14 +776,17 @@ mod tests {
     let mut t_2 = test::snapshot();
     t_2.time = Instant::new(0) + Milliseconds(t_2.config.exchange_lifetime_millis() + 1);
 
-    assert!(matches!(b.poll_req(&t_0, &mut vec![]).unwrap().unwrap_err(), nb::Error::WouldBlock));
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+    assert!(matches!(b.poll_req(&t_0, &mut vec![]).unwrap().unwrap_err(),
+                     nb::Error::WouldBlock));
+    assert_eq!(b.get_endpoint(addrs.client, |convs| convs.len()).unwrap(),
+               1);
 
     assert!(matches!(b.poll_req(&t_1, &mut vec![]), None));
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+    assert_eq!(b.get_endpoint(addrs.client, |convs| convs.len()).unwrap(),
+               1);
 
     assert!(matches!(b.poll_req(&t_2, &mut vec![]), None));
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 0);
+    assert_eq!(b.get_endpoint(addrs.client, |convs| convs.len()), None);
   }
 
   #[test]
@@ -772,7 +803,7 @@ mod tests {
     let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
 
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner().set_poll_resp(|_, snap, _, _, _| {
                if snap.time == Instant::new(0) {
@@ -804,19 +835,21 @@ mod tests {
 
     assert!(matches!(rep_0, nb::Error::WouldBlock));
 
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+    assert_eq!(b.get_endpoint(addrs.server, |convs| convs.len()).unwrap(),
+               1);
 
     b.poll_resp(&t_n1, &mut effects, Token(Default::default()), addrs.server)
      .ok_or(())
      .unwrap_err();
 
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 1);
+    assert_eq!(b.get_endpoint(addrs.server, |convs| convs.len()).unwrap(),
+               1);
 
     b.poll_resp(&t_n2, &mut effects, Token(Default::default()), addrs.server)
      .ok_or(())
      .unwrap_err();
 
-    assert_eq!(b.block_states.map_ref(|bss| bss.len()), 0);
+    assert_eq!(b.get_endpoint(addrs.server, |convs| convs.len()), None);
   }
 
   #[test]
@@ -833,7 +866,7 @@ mod tests {
     let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
 
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner().set_poll_req(|_, _, _| {
                let req =
@@ -867,7 +900,7 @@ mod tests {
     let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
 
     type S = test::MockStep<TestState, Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner()
      .init(TestState { next_block: 0 })
@@ -920,7 +953,7 @@ mod tests {
     let addrs: &'static Addrs = unsafe { core::mem::transmute(&addrs) };
 
     type S = test::MockStep<(), Addrd<test::Req>, Addrd<test::Resp>, ()>;
-    let b = Block::<test::Platform, S, Vec<_>, BTreeMap<_, _>>::default();
+    let b = Block::<S>::default();
 
     b.inner().set_poll_req(|_, _, _| {
                let mut req =
