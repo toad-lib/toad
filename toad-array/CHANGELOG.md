@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/toad-lib/toad/compare/toad-array-v0.5.0...toad-array-v0.6.0) (2023-05-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* add `idx`, `idx_mut` slice operations to `Indexed` ([#341](https://github.com/toad-lib/toad/issues/341))
+
+### Features
+
+* add `idx`, `idx_mut` slice operations to `Indexed` ([#341](https://github.com/toad-lib/toad/issues/341)) ([d5e8408](https://github.com/toad-lib/toad/commit/d5e840814dc61c63d26b1bb59f57777e413f2bcf))
+
 ## [0.5.0](https://github.com/toad-lib/toad/compare/toad-array-v0.4.0...toad-array-v0.5.0) (2023-03-31)
 
 
