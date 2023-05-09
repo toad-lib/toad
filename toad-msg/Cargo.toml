@@ -1,4 +1,4 @@
-package]
+[package]
 name = "toad-msg"
 version = "0.18.1"
 edition = "2021"

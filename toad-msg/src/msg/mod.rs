@@ -73,7 +73,7 @@ impl<C> Eq for Payload<C> where C: Array<Item = u8> {}
 impl<C> Hash for Payload<C> where C: Array<Item = u8>
 {
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-    state.write(&self.0)
+    self.0.into_iter() state.write_u8()
   }
 }
 
