@@ -29,6 +29,7 @@
 extern crate alloc as std_alloc;
 
 use core::ops::{Deref, DerefMut};
+use core::slice::SliceIndex;
 
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
@@ -38,12 +39,15 @@ use toad_len::Len;
 pub trait Indexed<T>
   where Self: Len
 {
-  /// TODO
+  /// If this is false, [`Indexed::idx`] and [`Indexed::idx_mut`] will panic!
+  const SUPPORTS_SLICE_OPS: bool;
+
+  /// A reference to an element `T` in the collection
   type Ref<'a>: Deref<Target = T>
     where Self: 'a,
           T: 'a;
 
-  /// TODO
+  /// A mutable reference to an element `T` in the collection
   type RefMut<'a>: Deref<Target = T> + DerefMut
     where Self: 'a,
           T: 'a;
@@ -208,6 +212,51 @@ pub trait Indexed<T>
     self.remove(0);
     self.drop_while(f);
   }
+
+  /// Get one or more elements using any [`SliceIndex`].
+  ///
+  /// Note that not all [`Indexed`] collections support contiguous slice operations,
+  /// for collections that have [`Indexed::SUPPORTS_SLICE_OPS`]` = false`, this method will panic.
+  ///
+  /// ```
+  /// use tinyvec::{array_vec, ArrayVec};
+  /// use toad_array::Indexed;
+  ///
+  /// let vec: Vec<usize> = vec![1, 2, 3, 4];
+  /// let avec: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
+  ///
+  /// fn foo<I: Indexed<usize>>(i: &I) {
+  ///   assert_eq!(i.idx(1..), &[2, 3, 4])
+  /// }
+  ///
+  /// foo(&vec);
+  /// foo(&avec);
+  /// ```
+  fn idx<I>(&self, idx: I) -> &I::Output
+    where I: SliceIndex<[T]>;
+
+  /// Mutably get one or more elements using any [`SliceIndex`].
+  ///
+  /// Note that not all [`Indexed`] collections support contiguous slice operations,
+  /// for collections that have [`Indexed::SUPPORTS_SLICE_OPS`]` = false`, this method will panic.
+  ///
+  /// ```
+  /// use tinyvec::{array_vec, ArrayVec};
+  /// use toad_array::Indexed;
+  ///
+  /// let mut vec: Vec<usize> = vec![1, 2, 3, 4];
+  /// let mut avec: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
+  ///
+  /// fn foo<I: Indexed<usize>>(i: &mut I) {
+  ///   *i.idx_mut(1) = 10;
+  ///   assert_eq!(i.idx(..), &[1, 10, 3, 4])
+  /// }
+  ///
+  /// foo(&mut vec);
+  /// foo(&mut avec);
+  /// ```
+  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
+    where I: SliceIndex<[T]>;
 }
 
 /// Create a data structure and reserve some amount of space for it to grow into
@@ -387,6 +436,8 @@ impl<T> Array for Vec<T> {
 
 #[cfg(feature = "alloc")]
 impl<T> Indexed<T> for Vec<T> {
+  const SUPPORTS_SLICE_OPS: bool = true;
+
   type Ref<'a> = &'a T where T: 'a;
   type RefMut<'a> = &'a mut T where T: 'a;
 
@@ -409,6 +460,18 @@ impl<T> Indexed<T> for Vec<T> {
       None
     }
   }
+
+  fn idx<I>(&self, idx: I) -> &I::Output
+    where I: SliceIndex<[T]>
+  {
+    &self[idx]
+  }
+
+  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
+    where I: SliceIndex<[T]>
+  {
+    &mut self[idx]
+  }
 }
 
 impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T> + Trunc
@@ -419,6 +482,8 @@ impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: 
 impl<A: tinyvec::Array> Indexed<A::Item> for tinyvec::ArrayVec<A>
   where Self: Filled<A::Item> + Trunc
 {
+  const SUPPORTS_SLICE_OPS: bool = true;
+
   type Ref<'a> = &'a A::Item where A::Item: 'a, Self: 'a;
   type RefMut<'a> = &'a mut A::Item where A::Item: 'a, Self: 'a;
 
@@ -440,5 +505,17 @@ impl<A: tinyvec::Array> Indexed<A::Item> for tinyvec::ArrayVec<A>
     } else {
       None
     }
+  }
+
+  fn idx<I>(&self, idx: I) -> &I::Output
+    where I: SliceIndex<[A::Item]>
+  {
+    &self[idx]
+  }
+
+  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
+    where I: SliceIndex<[A::Item]>
+  {
+    &mut self[idx]
   }
 }
