@@ -60,8 +60,54 @@ impl<'a, I, T> Iterator for IndexedIter<'a, I, T>
       Some(el)
     }
   }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    (self.len, Some(self.len))
+  }
 }
 impl<'a, I, T> ExactSizeIterator for IndexedIter<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+}
+
+/// TODO
+#[derive(Debug)]
+pub struct IndexedIterMut<'a, I, T> {
+  collection: &'a mut I,
+  index: usize,
+  len: usize,
+  _t: PhantomData<T>,
+}
+
+impl<'a, I, T> Iterator for IndexedIterMut<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+  type Item = I::RefMut<'a>;
+
+  #[allow(unsafe_code)]
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.index >= self.len {
+      None
+    } else {
+      // SAFETY:
+      // We can safely split the `self.collection` mutable borrow because
+      // we narrow it to a single element, and we will never issue
+      // multiple mutable references to the same element.
+      let i: &'a mut I = 
+          unsafe {(self.collection as *mut I).as_mut().unwrap()};
+      let el = i.get_mut(self.index).unwrap();
+      self.index += 1;
+      Some(el)
+    }
+  }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    (self.len, Some(self.len))
+  }
+}
+impl<'a, I, T> ExactSizeIterator for IndexedIterMut<'a, I, T>
   where I: Indexed<T>,
         T: 'a
 {
@@ -110,6 +156,38 @@ pub trait Indexed<T>
     IndexedIter { collection: self,
                   index: 0,
                   len: self.len(),
+                  _t: PhantomData }
+  }
+
+  /// Iterate mutably over the elements in the collection
+  ///
+  /// ```
+  /// use core::ops::Deref;
+  /// use core::ops::DerefMut;
+  ///
+  /// use tinyvec::{array_vec, ArrayVec};
+  /// use toad_array::Indexed;
+  ///
+  /// let mut v: Vec<usize> = vec![1, 2, 3, 4];
+  /// let mut av: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
+  ///
+  /// fn foo<I>(i: &mut I)
+  ///   where I: Indexed<usize>
+  /// {
+  ///   i.iter_mut().for_each(|mut n| *n.deref_mut() = 0);
+  ///   assert!(i.iter().map(|n| *n.deref()).eq(vec![0usize, 0, 0, 0].into_iter()));
+  /// }
+  ///
+  /// foo(&mut v);
+  /// foo(&mut av);
+  /// ```
+  fn iter_mut<'a>(&'a mut self) -> IndexedIterMut<'a, Self, T>
+    where Self: Sized
+  {
+    let len = self.len();
+    IndexedIterMut { collection: self,
+                  index: 0,
+                  len,
                   _t: PhantomData }
   }
 
