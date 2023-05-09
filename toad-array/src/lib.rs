@@ -36,7 +36,7 @@ use core::slice::SliceIndex;
 use std_alloc::vec::Vec;
 use toad_len::Len;
 
-/// TODO
+/// An iterator over immutable references to items `T` in collection `I`
 #[derive(Debug)]
 pub struct IndexedIter<'a, I, T> {
   collection: &'a I,
@@ -71,7 +71,7 @@ impl<'a, I, T> ExactSizeIterator for IndexedIter<'a, I, T>
 {
 }
 
-/// TODO
+/// An iterator over mutable references to items `T` in collection `I`
 #[derive(Debug)]
 pub struct IndexedIterMut<'a, I, T> {
   collection: &'a mut I,
@@ -95,8 +95,7 @@ impl<'a, I, T> Iterator for IndexedIterMut<'a, I, T>
       // We can safely split the `self.collection` mutable borrow because
       // we narrow it to a single element, and we will never issue
       // multiple mutable references to the same element.
-      let i: &'a mut I = 
-          unsafe {(self.collection as *mut I).as_mut().unwrap()};
+      let i: &'a mut I = unsafe { (self.collection as *mut I).as_mut().unwrap() };
       let el = i.get_mut(self.index).unwrap();
       self.index += 1;
       Some(el)
@@ -162,8 +161,7 @@ pub trait Indexed<T>
   /// Iterate mutably over the elements in the collection
   ///
   /// ```
-  /// use core::ops::Deref;
-  /// use core::ops::DerefMut;
+  /// use core::ops::{Deref, DerefMut};
   ///
   /// use tinyvec::{array_vec, ArrayVec};
   /// use toad_array::Indexed;
@@ -175,7 +173,9 @@ pub trait Indexed<T>
   ///   where I: Indexed<usize>
   /// {
   ///   i.iter_mut().for_each(|mut n| *n.deref_mut() = 0);
-  ///   assert!(i.iter().map(|n| *n.deref()).eq(vec![0usize, 0, 0, 0].into_iter()));
+  ///   assert!(i.iter()
+  ///            .map(|n| *n.deref())
+  ///            .eq(vec![0usize, 0, 0, 0].into_iter()));
   /// }
   ///
   /// foo(&mut v);
@@ -186,9 +186,9 @@ pub trait Indexed<T>
   {
     let len = self.len();
     IndexedIterMut { collection: self,
-                  index: 0,
-                  len,
-                  _t: PhantomData }
+                     index: 0,
+                     len,
+                     _t: PhantomData }
   }
 
   /// Get an immutable reference to element at `ix`
