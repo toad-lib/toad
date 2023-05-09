@@ -1105,7 +1105,7 @@ dependencies = [
 
 [[package]]
 name = "toad-jni"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "embedded-time",
  "jni",
