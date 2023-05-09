@@ -28,12 +28,89 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
+use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use core::slice::SliceIndex;
 
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_len::Len;
+
+/// An iterator over immutable references to items `T` in collection `I`
+#[derive(Debug)]
+pub struct IndexedIter<'a, I, T> {
+  collection: &'a I,
+  index: usize,
+  len: usize,
+  _t: PhantomData<T>,
+}
+
+impl<'a, I, T> Iterator for IndexedIter<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+  type Item = I::Ref<'a>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.index >= self.len {
+      None
+    } else {
+      let el = self.collection.get(self.index).unwrap();
+      self.index += 1;
+      Some(el)
+    }
+  }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    (self.len, Some(self.len))
+  }
+}
+impl<'a, I, T> ExactSizeIterator for IndexedIter<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+}
+
+/// An iterator over mutable references to items `T` in collection `I`
+#[derive(Debug)]
+pub struct IndexedIterMut<'a, I, T> {
+  collection: &'a mut I,
+  index: usize,
+  len: usize,
+  _t: PhantomData<T>,
+}
+
+impl<'a, I, T> Iterator for IndexedIterMut<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+  type Item = I::RefMut<'a>;
+
+  #[allow(unsafe_code)]
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.index >= self.len {
+      None
+    } else {
+      // SAFETY:
+      // We can safely split the `self.collection` mutable borrow because
+      // we narrow it to a single element, and we will never issue
+      // multiple mutable references to the same element.
+      let i: &'a mut I = unsafe { (self.collection as *mut I).as_mut().unwrap() };
+      let el = i.get_mut(self.index).unwrap();
+      self.index += 1;
+      Some(el)
+    }
+  }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    (self.len, Some(self.len))
+  }
+}
+impl<'a, I, T> ExactSizeIterator for IndexedIterMut<'a, I, T>
+  where I: Indexed<T>,
+        T: 'a
+{
+}
 
 /// Operations on ordered indexed collections
 pub trait Indexed<T>
@@ -51,6 +128,68 @@ pub trait Indexed<T>
   type RefMut<'a>: Deref<Target = T> + DerefMut
     where Self: 'a,
           T: 'a;
+
+  /// Iterate over the elements in the collection
+  ///
+  /// ```
+  /// use core::ops::Deref;
+  ///
+  /// use tinyvec::{array_vec, ArrayVec};
+  /// use toad_array::Indexed;
+  ///
+  /// let v: Vec<usize> = vec![1, 2, 3, 4];
+  /// let av: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
+  ///
+  /// fn foo<I>(i: &I)
+  ///   where I: Indexed<usize>
+  /// {
+  ///   assert_eq!(i.iter().map(|n| *n.deref()).sum::<usize>(), 10)
+  /// }
+  ///
+  /// foo(&v);
+  /// foo(&av);
+  /// ```
+  fn iter<'a>(&'a self) -> IndexedIter<'a, Self, T>
+    where Self: Sized
+  {
+    IndexedIter { collection: self,
+                  index: 0,
+                  len: self.len(),
+                  _t: PhantomData }
+  }
+
+  /// Iterate mutably over the elements in the collection
+  ///
+  /// ```
+  /// use core::ops::{Deref, DerefMut};
+  ///
+  /// use tinyvec::{array_vec, ArrayVec};
+  /// use toad_array::Indexed;
+  ///
+  /// let mut v: Vec<usize> = vec![1, 2, 3, 4];
+  /// let mut av: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
+  ///
+  /// fn foo<I>(i: &mut I)
+  ///   where I: Indexed<usize>
+  /// {
+  ///   i.iter_mut().for_each(|mut n| *n.deref_mut() = 0);
+  ///   assert!(i.iter()
+  ///            .map(|n| *n.deref())
+  ///            .eq(vec![0usize, 0, 0, 0].into_iter()));
+  /// }
+  ///
+  /// foo(&mut v);
+  /// foo(&mut av);
+  /// ```
+  fn iter_mut<'a>(&'a mut self) -> IndexedIterMut<'a, Self, T>
+    where Self: Sized
+  {
+    let len = self.len();
+    IndexedIterMut { collection: self,
+                     index: 0,
+                     len,
+                     _t: PhantomData }
+  }
 
   /// Get an immutable reference to element at `ix`
   fn get<'a>(&'a self, ix: usize) -> Option<Self::Ref<'a>>;
