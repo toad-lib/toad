@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/toad-lib/toad/compare/toad-array-v0.6.0...toad-array-v0.7.0) (2023-05-09)
+
+
+### Features
+
+* `Indexed` should provide `Iterator` implementations  ([#343](https://github.com/toad-lib/toad/issues/343)) ([a5477da](https://github.com/toad-lib/toad/commit/a5477dac79fa67e2baf102510e3ecfdc0271c27c))
+
 ## [0.6.0](https://github.com/toad-lib/toad/compare/toad-array-v0.5.0...toad-array-v0.6.0) (2023-05-09)
 
 
