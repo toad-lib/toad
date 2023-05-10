@@ -1185,7 +1185,7 @@ dependencies = [
  "heapless",
  "itertools",
  "tinyvec",
- "toad-array 0.5.0",
+ "toad-array 0.6.0",
  "toad-cursor 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-hash 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toad-len 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",

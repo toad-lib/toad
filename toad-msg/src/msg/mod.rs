@@ -3,7 +3,7 @@ use core::hash::Hash;
 use core::iter::FromIterator;
 use core::str::{from_utf8, Utf8Error};
 
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 use toad_cursor::Cursor;
 use toad_len::Len;
 use toad_macros::rfc_7252_doc;
@@ -50,7 +50,7 @@ pub struct Payload<C>(pub C);
 impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    self.0.iter().partial_cmp(other.0.iter())
+    <C as Indexed>::iter(&self.0).partial_cmp(other.0.iter())
   }
 }
 
@@ -917,27 +917,27 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   fn get_u8(&self, n: OptNumber) -> Option<u8> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 1)
-        .map(|bytes| bytes.0[0])
+        .map(|bytes| *bytes.0.get(0).unwrap())
   }
 
   fn get_u16(&self, n: OptNumber) -> Option<u16> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 2)
-        .map(|bytes| u16::from_be_bytes([bytes.0[0], bytes.0[1]]))
+        .map(|bytes| u16::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap()]))
   }
 
   fn get_u32(&self, n: OptNumber) -> Option<u32> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 4)
-        .map(|bytes| u32::from_be_bytes([bytes.0[0], bytes.0[1], bytes.0[2], bytes.0[3]]))
+        .map(|bytes| u32::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap(), *bytes.0.get(2).unwrap(), *bytes.0.get(3).unwrap()]))
   }
 
   fn get_u64(&self, n: OptNumber) -> Option<u64> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 8)
         .map(|bytes| {
-          u64::from_be_bytes([bytes.0[0], bytes.0[1], bytes.0[2], bytes.0[3], bytes.0[4],
-                              bytes.0[5], bytes.0[6], bytes.0[7]])
+          u64::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap(), *bytes.0.get(2).unwrap(), *bytes.0.get(3).unwrap(), *bytes.0.get(4).unwrap(),
+                              *bytes.0.get(5).unwrap(), *bytes.0.get(6).unwrap(), *bytes.0.get(7).unwrap()])
         })
   }
 
