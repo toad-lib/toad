@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/toad-lib/toad/compare/toad-array-v0.7.0...toad-array-v0.8.0) (2023-05-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* reintroduce contiguous requirement on Array ([#345](https://github.com/toad-lib/toad/issues/345))
+
+### Features
+
+* reintroduce contiguous requirement on Array ([#345](https://github.com/toad-lib/toad/issues/345)) ([88086fb](https://github.com/toad-lib/toad/commit/88086fbfc30112aa448a8f81e933ee89d9ea2625))
+
 ## [0.7.0](https://github.com/toad-lib/toad/compare/toad-array-v0.6.0...toad-array-v0.7.0) (2023-05-09)
 
 
