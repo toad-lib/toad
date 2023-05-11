@@ -3,7 +3,7 @@ use core::hash::Hash;
 use core::iter::FromIterator;
 use core::str::{from_utf8, Utf8Error};
 
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 use toad_cursor::Cursor;
 use toad_len::Len;
 use toad_macros::rfc_7252_doc;
@@ -870,7 +870,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
       | (vals, _) if vals.is_full() => Err(SetOptionError::RepeatedTooManyTimes(v)),
       | (vals, opts) if opts.is_full() => Err(SetOptionError::TooManyOptions(n, vals)),
       | (mut vals, opts) => {
-        vals.push(v);
+        vals.append(v);
         opts.insert(n, vals).ok();
         Ok(())
       },
