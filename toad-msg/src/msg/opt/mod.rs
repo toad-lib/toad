@@ -6,7 +6,7 @@ use core::ops::{Add, Sub};
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use tinyvec::ArrayVec;
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 use toad_cursor::Cursor;
 use toad_len::Len;
 use toad_macros::rfc_7252_doc;

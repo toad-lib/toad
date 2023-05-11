@@ -50,7 +50,7 @@ pub struct Payload<C>(pub C);
 impl<C> PartialOrd for Payload<C> where C: Array<Item = u8>
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    <C as Indexed>::iter(&self.0).partial_cmp(other.0.iter())
+    self.0.iter().partial_cmp(other.0.iter())
   }
 }
 
@@ -73,7 +73,7 @@ impl<C> Eq for Payload<C> where C: Array<Item = u8> {}
 impl<C> Hash for Payload<C> where C: Array<Item = u8>
 {
   fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-    self.0.into_iter() state.write_u8()
+    state.write(&self.0)
   }
 }
 
@@ -870,7 +870,7 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
       | (vals, _) if vals.is_full() => Err(SetOptionError::RepeatedTooManyTimes(v)),
       | (vals, opts) if opts.is_full() => Err(SetOptionError::TooManyOptions(n, vals)),
       | (mut vals, opts) => {
-        vals.push(v);
+        vals.append(v);
         opts.insert(n, vals).ok();
         Ok(())
       },
@@ -929,15 +929,26 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   fn get_u32(&self, n: OptNumber) -> Option<u32> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 4)
-        .map(|bytes| u32::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap(), *bytes.0.get(2).unwrap(), *bytes.0.get(3).unwrap()]))
+        .map(|bytes| {
+          u32::from_be_bytes([*bytes.0.get(0).unwrap(),
+                              *bytes.0.get(1).unwrap(),
+                              *bytes.0.get(2).unwrap(),
+                              *bytes.0.get(3).unwrap()])
+        })
   }
 
   fn get_u64(&self, n: OptNumber) -> Option<u64> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 8)
         .map(|bytes| {
-          u64::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap(), *bytes.0.get(2).unwrap(), *bytes.0.get(3).unwrap(), *bytes.0.get(4).unwrap(),
-                              *bytes.0.get(5).unwrap(), *bytes.0.get(6).unwrap(), *bytes.0.get(7).unwrap()])
+          u64::from_be_bytes([*bytes.0.get(0).unwrap(),
+                              *bytes.0.get(1).unwrap(),
+                              *bytes.0.get(2).unwrap(),
+                              *bytes.0.get(3).unwrap(),
+                              *bytes.0.get(4).unwrap(),
+                              *bytes.0.get(5).unwrap(),
+                              *bytes.0.get(6).unwrap(),
+                              *bytes.0.get(7).unwrap()])
         })
   }
 
