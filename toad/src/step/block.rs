@@ -490,7 +490,7 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
 
     let block_size: usize = 1024;
 
-    let original_payload = msg.data().payload().0;
+    let original_payload = &msg.data().payload().0;
 
     // TODO: block if 1024 is too big and we got REQUEST_ENTITY_TOO_LARGE
     if msg.data().block1().is_none() && original_payload.len() > block_size {
@@ -503,7 +503,7 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
           let mut msg_block = msg.clone();
           msg_block.as_mut().set_block1(1024, n, n == block_count - 1).ok();
           let mut p = P::MessagePayload::default();
-          p.append_copy(original_payload[n * 1024..((n + 1) * 1024)]);
+          p.append_copy(&original_payload[(n as usize) * 1024..(((n as usize) + 1) * 1024)]);
           msg_block.as_mut().payload = Payload(p);
           conv.have(snap.time, n, msg_block.unwrap());
         }
