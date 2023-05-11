@@ -917,38 +917,27 @@ impl<PayloadBytes: Array<Item = u8> + AppendCopy<u8>, Options: OptionMap>
   fn get_u8(&self, n: OptNumber) -> Option<u8> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 1)
-        .map(|bytes| *bytes.0.get(0).unwrap())
+        .map(|bytes| bytes.0[0])
   }
 
   fn get_u16(&self, n: OptNumber) -> Option<u16> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 2)
-        .map(|bytes| u16::from_be_bytes([*bytes.0.get(0).unwrap(), *bytes.0.get(1).unwrap()]))
+        .map(|bytes| u16::from_be_bytes([bytes.0[0], bytes.0[1]]))
   }
 
   fn get_u32(&self, n: OptNumber) -> Option<u32> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 4)
-        .map(|bytes| {
-          u32::from_be_bytes([*bytes.0.get(0).unwrap(),
-                              *bytes.0.get(1).unwrap(),
-                              *bytes.0.get(2).unwrap(),
-                              *bytes.0.get(3).unwrap()])
-        })
+        .map(|bytes| u32::from_be_bytes([bytes.0[0], bytes.0[1], bytes.0[2], bytes.0[3]]))
   }
 
   fn get_u64(&self, n: OptNumber) -> Option<u64> {
     self.get_first(n)
         .filter(|bytes| bytes.0.len() == 8)
         .map(|bytes| {
-          u64::from_be_bytes([*bytes.0.get(0).unwrap(),
-                              *bytes.0.get(1).unwrap(),
-                              *bytes.0.get(2).unwrap(),
-                              *bytes.0.get(3).unwrap(),
-                              *bytes.0.get(4).unwrap(),
-                              *bytes.0.get(5).unwrap(),
-                              *bytes.0.get(6).unwrap(),
-                              *bytes.0.get(7).unwrap()])
+          u64::from_be_bytes([bytes.0[0], bytes.0[1], bytes.0[2], bytes.0[3], bytes.0[4],
+                              bytes.0[5], bytes.0[6], bytes.0[7]])
         })
   }
 
