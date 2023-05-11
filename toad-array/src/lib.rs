@@ -28,7 +28,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-use core::ops::{DerefMut, Deref};
+use core::ops::{Deref, DerefMut};
 
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
@@ -346,7 +346,9 @@ pub trait Array:
 }
 
 /// Collections that support extending themselves mutably from copyable slices
-pub trait AppendCopy<T> where T: Copy {
+pub trait AppendCopy<T>
+  where T: Copy
+{
   /// Extend self mutably, copying from a slice.
   ///
   /// Worst-case implementations copy 1 element at a time (time O(n))
@@ -358,13 +360,17 @@ pub trait AppendCopy<T> where T: Copy {
 }
 
 #[cfg(feature = "alloc")]
-impl<T> AppendCopy<T> for Vec<T> where T: Copy {
+impl<T> AppendCopy<T> for Vec<T> where T: Copy
+{
   fn append_copy(&mut self, i: &[T]) {
     self.extend(i);
   }
 }
 
-impl<T, A> AppendCopy<T> for tinyvec::ArrayVec<A> where T: Copy, A: tinyvec::Array<Item = T> {
+impl<T, A> AppendCopy<T> for tinyvec::ArrayVec<A>
+  where T: Copy,
+        A: tinyvec::Array<Item = T>
+{
   fn append_copy(&mut self, i: &[T]) {
     self.extend_from_slice(i);
   }
@@ -390,13 +396,16 @@ impl<T> Indexed<T> for Vec<T> {
   }
 }
 
-impl<A, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T> + Trunc, A: tinyvec::Array<Item = T>
+impl<A, T> Array for tinyvec::ArrayVec<A>
+  where Self: Filled<T> + Trunc,
+        A: tinyvec::Array<Item = T>
 {
   type Item = T;
 }
 
 impl<A> Indexed<A::Item> for tinyvec::ArrayVec<A>
-  where Self: Filled<A::Item> + Trunc, A: tinyvec::Array
+  where Self: Filled<A::Item> + Trunc,
+        A: tinyvec::Array
 {
   fn insert(&mut self, ix: usize, t: A::Item) {
     tinyvec::ArrayVec::insert(self, ix, t)
