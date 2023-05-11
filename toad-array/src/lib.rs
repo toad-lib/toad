@@ -28,175 +28,16 @@
 #[cfg(feature = "alloc")]
 extern crate alloc as std_alloc;
 
-use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
-use core::slice::SliceIndex;
 
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
 use toad_len::Len;
 
-/// An iterator over immutable references to items `T` in collection `I`
-#[derive(Debug)]
-pub struct IndexedIter<'a, I, T> {
-  collection: &'a I,
-  index: usize,
-  len: usize,
-  _t: PhantomData<T>,
-}
-
-impl<'a, I, T> Iterator for IndexedIter<'a, I, T>
-  where I: Indexed<T>,
-        T: 'a
-{
-  type Item = I::Ref<'a>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.index >= self.len {
-      None
-    } else {
-      let el = self.collection.get(self.index).unwrap();
-      self.index += 1;
-      Some(el)
-    }
-  }
-
-  fn size_hint(&self) -> (usize, Option<usize>) {
-    (self.len, Some(self.len))
-  }
-}
-impl<'a, I, T> ExactSizeIterator for IndexedIter<'a, I, T>
-  where I: Indexed<T>,
-        T: 'a
-{
-}
-
-/// An iterator over mutable references to items `T` in collection `I`
-#[derive(Debug)]
-pub struct IndexedIterMut<'a, I, T> {
-  collection: &'a mut I,
-  index: usize,
-  len: usize,
-  _t: PhantomData<T>,
-}
-
-impl<'a, I, T> Iterator for IndexedIterMut<'a, I, T>
-  where I: Indexed<T>,
-        T: 'a
-{
-  type Item = I::RefMut<'a>;
-
-  #[allow(unsafe_code)]
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.index >= self.len {
-      None
-    } else {
-      // SAFETY:
-      // We can safely split the `self.collection` mutable borrow because
-      // we narrow it to a single element, and we will never issue
-      // multiple mutable references to the same element.
-      let i: &'a mut I = unsafe { (self.collection as *mut I).as_mut().unwrap() };
-      let el = i.get_mut(self.index).unwrap();
-      self.index += 1;
-      Some(el)
-    }
-  }
-
-  fn size_hint(&self) -> (usize, Option<usize>) {
-    (self.len, Some(self.len))
-  }
-}
-impl<'a, I, T> ExactSizeIterator for IndexedIterMut<'a, I, T>
-  where I: Indexed<T>,
-        T: 'a
-{
-}
-
 /// Operations on ordered indexed collections
 pub trait Indexed<T>
-  where Self: Len
+  where Self: Len + Deref<Target = [T]>
 {
-  /// If this is false, [`Indexed::idx`] and [`Indexed::idx_mut`] will panic!
-  const SUPPORTS_SLICE_OPS: bool;
-
-  /// A reference to an element `T` in the collection
-  type Ref<'a>: Deref<Target = T>
-    where Self: 'a,
-          T: 'a;
-
-  /// A mutable reference to an element `T` in the collection
-  type RefMut<'a>: Deref<Target = T> + DerefMut
-    where Self: 'a,
-          T: 'a;
-
-  /// Iterate over the elements in the collection
-  ///
-  /// ```
-  /// use core::ops::Deref;
-  ///
-  /// use tinyvec::{array_vec, ArrayVec};
-  /// use toad_array::Indexed;
-  ///
-  /// let v: Vec<usize> = vec![1, 2, 3, 4];
-  /// let av: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
-  ///
-  /// fn foo<I>(i: &I)
-  ///   where I: Indexed<usize>
-  /// {
-  ///   assert_eq!(i.iter().map(|n| *n.deref()).sum::<usize>(), 10)
-  /// }
-  ///
-  /// foo(&v);
-  /// foo(&av);
-  /// ```
-  fn iter<'a>(&'a self) -> IndexedIter<'a, Self, T>
-    where Self: Sized
-  {
-    IndexedIter { collection: self,
-                  index: 0,
-                  len: self.len(),
-                  _t: PhantomData }
-  }
-
-  /// Iterate mutably over the elements in the collection
-  ///
-  /// ```
-  /// use core::ops::{Deref, DerefMut};
-  ///
-  /// use tinyvec::{array_vec, ArrayVec};
-  /// use toad_array::Indexed;
-  ///
-  /// let mut v: Vec<usize> = vec![1, 2, 3, 4];
-  /// let mut av: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
-  ///
-  /// fn foo<I>(i: &mut I)
-  ///   where I: Indexed<usize>
-  /// {
-  ///   i.iter_mut().for_each(|mut n| *n.deref_mut() = 0);
-  ///   assert!(i.iter()
-  ///            .map(|n| *n.deref())
-  ///            .eq(vec![0usize, 0, 0, 0].into_iter()));
-  /// }
-  ///
-  /// foo(&mut v);
-  /// foo(&mut av);
-  /// ```
-  fn iter_mut<'a>(&'a mut self) -> IndexedIterMut<'a, Self, T>
-    where Self: Sized
-  {
-    let len = self.len();
-    IndexedIterMut { collection: self,
-                     index: 0,
-                     len,
-                     _t: PhantomData }
-  }
-
-  /// Get an immutable reference to element at `ix`
-  fn get<'a>(&'a self, ix: usize) -> Option<Self::Ref<'a>>;
-
-  /// Get a mutable reference to element at `ix`
-  fn get_mut<'a>(&'a mut self, ix: usize) -> Option<Self::RefMut<'a>>;
-
   /// Insert a new element at `ix`, shifting all other elements to the right.
   ///
   /// ```
@@ -351,51 +192,6 @@ pub trait Indexed<T>
     self.remove(0);
     self.drop_while(f);
   }
-
-  /// Get one or more elements using any [`SliceIndex`].
-  ///
-  /// Note that not all [`Indexed`] collections support contiguous slice operations,
-  /// for collections that have [`Indexed::SUPPORTS_SLICE_OPS`]` = false`, this method will panic.
-  ///
-  /// ```
-  /// use tinyvec::{array_vec, ArrayVec};
-  /// use toad_array::Indexed;
-  ///
-  /// let vec: Vec<usize> = vec![1, 2, 3, 4];
-  /// let avec: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
-  ///
-  /// fn foo<I: Indexed<usize>>(i: &I) {
-  ///   assert_eq!(i.idx(1..), &[2, 3, 4])
-  /// }
-  ///
-  /// foo(&vec);
-  /// foo(&avec);
-  /// ```
-  fn idx<I>(&self, idx: I) -> &I::Output
-    where I: SliceIndex<[T]>;
-
-  /// Mutably get one or more elements using any [`SliceIndex`].
-  ///
-  /// Note that not all [`Indexed`] collections support contiguous slice operations,
-  /// for collections that have [`Indexed::SUPPORTS_SLICE_OPS`]` = false`, this method will panic.
-  ///
-  /// ```
-  /// use tinyvec::{array_vec, ArrayVec};
-  /// use toad_array::Indexed;
-  ///
-  /// let mut vec: Vec<usize> = vec![1, 2, 3, 4];
-  /// let mut avec: ArrayVec<[usize; 16]> = array_vec![1, 2, 3, 4];
-  ///
-  /// fn foo<I: Indexed<usize>>(i: &mut I) {
-  ///   *i.idx_mut(1) = 10;
-  ///   assert_eq!(i.idx(..), &[1, 10, 3, 4])
-  /// }
-  ///
-  /// foo(&mut vec);
-  /// foo(&mut avec);
-  /// ```
-  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
-    where I: SliceIndex<[T]>;
 }
 
 /// Create a data structure and reserve some amount of space for it to grow into
@@ -505,29 +301,33 @@ impl<T, const N: usize> Filled<T> for tinyvec::ArrayVec<[T; N]> where T: Default
   }
 }
 
-/// An ordered indexable collection of some type `Item`
+/// A generalization of [`std::vec::Vec`]
 ///
 /// # Provided implementations
 /// - [`Vec`]
 /// - [`tinyvec::ArrayVec`]
 ///
-/// Notably, not `heapless::ArrayVec` or `arrayvec::ArrayVec`. An important usecase within `toad`
-/// is [`Extend`]ing the collection, and the performance of `heapless` and `arrayvec`'s Extend implementations
-/// are notably worse than `tinyvec`.
+/// ## Why [`tinyvec::ArrayVec`]?
+/// The performance of `heapless` and `arrayvec`'s Extend implementations
+/// are notably worse than `tinyvec`. (see `toad-msg/benches/collections.rs`)
+/// `tinyvec` also has the added bonus of being 100% unsafe-code-free.
 ///
-/// `tinyvec` also has the added bonus of being 100% unsafe-code-free, meaning if you choose `tinyvec` you eliminate the
-/// possibility of memory defects and UB.
+/// # Definition of an [`Array`]
+/// The Array trait is automatically implemented for ordered indexed collections
+/// with a non-fixed number of elements which are contiguous in memory.
 ///
-/// # Requirements
-/// - [`Default`] for creating the collection
-/// - [`Extend`] for mutating and adding onto the collection (1 or more elements)
-/// - [`Reserve`] for reserving space ahead of time
-/// - [`GetSize`] for bound checks, empty checks, and accessing the length
-/// - [`FromIterator`] for [`collect`](core::iter::Iterator#method.collect)ing into the collection
-/// - [`IntoIterator`] for iterating and destroying the collection
-/// - [`Deref<Target = [T]>`](Deref) and [`DerefMut`] for:
-///    - indexing ([`Index`](core::ops::Index), [`IndexMut`](core::ops::IndexMut))
-///    - iterating ([`&[T].iter()`](primitive@slice#method.iter) and [`&mut [T].iter_mut()`](primitive@slice#method.iter_mut))
+/// This translates to the trait requirements:
+/// - Must have an empty ([`Default`]) value
+/// - Must allow populating every element with a value ([`Filled`])
+/// - Must allow dropping every element after a given index ([`Trunc`])
+/// - Must allow mutably appending one or more elements ([`Extend`])
+/// - Must be creatable from an iterator ([`FromIterator`])
+/// - Must allow iterating over owned elements ([`IntoIterator`])
+/// - Must be dereferenceable to readonly and mutable slices ([`Deref`], [`DerefMut`])
+/// - Must allow getting the runtime length ([`Len`])
+/// - May have a hard limit on number of elements ([`Len`])
+/// - May allow creating an instance with maximum length and a given filler value ([`Filled`])
+/// - May allow pre-allocating space for a specific number of elements ([`Reserve`])
 pub trait Array:
   Default
   + Len
@@ -538,13 +338,17 @@ pub trait Array:
   + Extend<<Self as Array>::Item>
   + FromIterator<<Self as Array>::Item>
   + IntoIterator<Item = <Self as Array>::Item>
+  + Deref<Target = [<Self as Array>::Item]>
+  + DerefMut
 {
   /// The type of item contained in the collection
   type Item;
 }
 
 /// Collections that support extending themselves mutably from copyable slices
-pub trait AppendCopy<T: Copy> {
+pub trait AppendCopy<T>
+  where T: Copy
+{
   /// Extend self mutably, copying from a slice.
   ///
   /// Worst-case implementations copy 1 element at a time (time O(n))
@@ -556,13 +360,17 @@ pub trait AppendCopy<T: Copy> {
 }
 
 #[cfg(feature = "alloc")]
-impl<T: Copy> AppendCopy<T> for Vec<T> {
+impl<T> AppendCopy<T> for Vec<T> where T: Copy
+{
   fn append_copy(&mut self, i: &[T]) {
     self.extend(i);
   }
 }
 
-impl<T: Copy, A: tinyvec::Array<Item = T>> AppendCopy<T> for tinyvec::ArrayVec<A> {
+impl<T, A> AppendCopy<T> for tinyvec::ArrayVec<A>
+  where T: Copy,
+        A: tinyvec::Array<Item = T>
+{
   fn append_copy(&mut self, i: &[T]) {
     self.extend_from_slice(i);
   }
@@ -575,19 +383,6 @@ impl<T> Array for Vec<T> {
 
 #[cfg(feature = "alloc")]
 impl<T> Indexed<T> for Vec<T> {
-  const SUPPORTS_SLICE_OPS: bool = true;
-
-  type Ref<'a> = &'a T where T: 'a;
-  type RefMut<'a> = &'a mut T where T: 'a;
-
-  fn get(&self, ix: usize) -> Option<&T> {
-    <[T]>::get(self, ix)
-  }
-
-  fn get_mut(&mut self, ix: usize) -> Option<&mut T> {
-    <[T]>::get_mut(self, ix)
-  }
-
   fn insert(&mut self, index: usize, value: T) {
     self.insert(index, value);
   }
@@ -599,41 +394,19 @@ impl<T> Indexed<T> for Vec<T> {
       None
     }
   }
-
-  fn idx<I>(&self, idx: I) -> &I::Output
-    where I: SliceIndex<[T]>
-  {
-    &self[idx]
-  }
-
-  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
-    where I: SliceIndex<[T]>
-  {
-    &mut self[idx]
-  }
 }
 
-impl<A: tinyvec::Array<Item = T>, T> Array for tinyvec::ArrayVec<A> where Self: Filled<T> + Trunc
+impl<A, T> Array for tinyvec::ArrayVec<A>
+  where Self: Filled<T> + Trunc,
+        A: tinyvec::Array<Item = T>
 {
   type Item = T;
 }
 
-impl<A: tinyvec::Array> Indexed<A::Item> for tinyvec::ArrayVec<A>
-  where Self: Filled<A::Item> + Trunc
+impl<A> Indexed<A::Item> for tinyvec::ArrayVec<A>
+  where Self: Filled<A::Item> + Trunc,
+        A: tinyvec::Array
 {
-  const SUPPORTS_SLICE_OPS: bool = true;
-
-  type Ref<'a> = &'a A::Item where A::Item: 'a, Self: 'a;
-  type RefMut<'a> = &'a mut A::Item where A::Item: 'a, Self: 'a;
-
-  fn get(&self, ix: usize) -> Option<&A::Item> {
-    <[A::Item]>::get(&self, ix)
-  }
-
-  fn get_mut(&mut self, ix: usize) -> Option<&mut A::Item> {
-    <[A::Item]>::get_mut(self, ix)
-  }
-
   fn insert(&mut self, ix: usize, t: A::Item) {
     tinyvec::ArrayVec::insert(self, ix, t)
   }
@@ -644,17 +417,5 @@ impl<A: tinyvec::Array> Indexed<A::Item> for tinyvec::ArrayVec<A>
     } else {
       None
     }
-  }
-
-  fn idx<I>(&self, idx: I) -> &I::Output
-    where I: SliceIndex<[A::Item]>
-  {
-    &self[idx]
-  }
-
-  fn idx_mut<I>(&mut self, idx: I) -> &mut I::Output
-    where I: SliceIndex<[A::Item]>
-  {
-    &mut self[idx]
   }
 }
