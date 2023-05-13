@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 use toad_map::Map;
 use toad_msg::no_repeat::{BLOCK1, BLOCK2, SIZE2};
 use toad_msg::{CodeKind, Id, MessageOptions, Payload, Token, Type};
@@ -273,12 +273,13 @@ impl<P, S, Endpoints, Conversations, Pieces> Block<P, S, Endpoints, Conversation
   }
 
   fn insert(&self,
-                    snap: &Snapshot<P>,
-                    original: Option<&Message<P>>,
-                    (addr, token, role, dir): (SocketAddr, Token, Role, Direction)) {
+            snap: &Snapshot<P>,
+            original: Option<&Message<P>>,
+            (addr, token, role, dir): (SocketAddr, Token, Role, Direction)) {
     let exp = snap.time + Milliseconds(snap.config.exchange_lifetime_millis());
     self.get_or_create_endpoint(addr, |convs| {
-          convs.insert((token, role, dir), Conversation::new(exp, original.cloned()))
+          convs.insert((token, role, dir),
+                       Conversation::new(exp, original.cloned()))
                .unwrap();
         });
   }
@@ -349,7 +350,7 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
         };
 
         let rep = Message::<P>::new(rep_ty, $code, Id(0), req.data().msg().token);
-        effects.push(Effect::Send(Addrd(rep, req.addr())));
+        effects.append(Effect::Send(Addrd(rep, req.addr())));
       }};
     }
 
@@ -439,7 +440,7 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
         new.remove(BLOCK2);
         new.remove(SIZE2);
 
-        effects.push(Effect::Send(Addrd(new, rep.addr())));
+        effects.append(Effect::Send(Addrd(new, rep.addr())));
         self.map_mut(k, |conv| conv.waiting(snap.time, $num));
       }};
     }
@@ -481,10 +482,10 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
   }
 
   fn before_message_sent(&self,
-                     snap: &platform::Snapshot<P>,
-                     effs: &mut P::Effects,
-                     msg: &mut Addrd<Message<P>>)
-                     -> Result<(), Self::Error> {
+                         snap: &platform::Snapshot<P>,
+                         effs: &mut P::Effects,
+                         msg: &mut Addrd<Message<P>>)
+                         -> Result<(), Self::Error> {
     self.prune(effs, snap.time);
     self.inner.before_message_sent(snap, effs, msg)?;
 
@@ -494,20 +495,23 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
 
     // TODO: block if 1024 is too big and we got REQUEST_ENTITY_TOO_LARGE
     if msg.data().block1().is_none() && original_payload.len() > block_size {
-        let k = (msg.addr(), msg.data().token, Role::Request, Direction::Outbound);
+      let k = (msg.addr(), msg.data().token, Role::Request, Direction::Outbound);
       self.insert(snap, Some(msg.data()), k);
       self.map_mut(k, |conv| {
-        let len = original_payload.len() as f32;
-        let block_count = (len / block_size as f32).ceil() as u32;
-        for n in 0..block_count {
-          let mut msg_block = msg.clone();
-          msg_block.as_mut().set_block1(1024, n, n == block_count - 1).ok();
-          let mut p = P::MessagePayload::default();
-          p.append_copy(&original_payload[(n as usize) * 1024..(((n as usize) + 1) * 1024)]);
-          msg_block.as_mut().payload = Payload(p);
-          conv.have(snap.time, n, msg_block.unwrap());
-        }
-      }).unwrap();
+            let len = original_payload.len() as f32;
+            let block_count = (len / block_size as f32).ceil() as u32;
+            for n in 0..block_count {
+              let mut msg_block = msg.clone();
+              msg_block.as_mut()
+                       .set_block1(1024, n, n == block_count - 1)
+                       .ok();
+              let mut p = P::MessagePayload::default();
+              p.append_copy(&original_payload[(n as usize) * 1024..(((n as usize) + 1) * 1024)]);
+              msg_block.as_mut().payload = Payload(p);
+              conv.have(snap.time, n, msg_block.unwrap());
+            }
+          })
+          .unwrap();
     }
     Ok(())
   }
@@ -519,7 +523,9 @@ impl<P, S, Endpoints, Conversations, Pieces> Step<P>
                      -> Result<(), Self::Error> {
     self.inner.on_message_sent(snap, effs, msg)?;
     if msg.data().code.kind() == CodeKind::Request {
-      self.insert(snap, Some(msg.data()), (msg.addr(), msg.data().token, Role::Response, Direction::Inbound));
+      self.insert(snap,
+                  Some(msg.data()),
+                  (msg.addr(), msg.data().token, Role::Response, Direction::Inbound));
     } else if msg.data().code.kind() == CodeKind::Response {
       // TODO: block outbound responses
     }

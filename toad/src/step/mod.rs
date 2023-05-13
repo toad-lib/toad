@@ -330,11 +330,11 @@ macro_rules! exec_inner_step {
 #[macro_export]
 macro_rules! log {
   ($at:path, $effs:expr, $lvl:expr, $($arg:tt)*) => {{
-    use toad_array::Array;
+    use toad_array::Indexed;
     type S = $crate::todo::String::<1000>;
     let msg = S::fmt(format_args!($($arg)*));
     let msg = S::fmt(format_args!("[{}] {}", stringify!($at), msg.as_str()));
-    $effs.push($crate::platform::Effect::Log($lvl, msg));
+    $effs.append($crate::platform::Effect::Log($lvl, msg));
   }};
 }
 

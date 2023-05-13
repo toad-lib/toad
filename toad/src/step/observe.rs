@@ -3,7 +3,7 @@ use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
 use no_std_net::SocketAddr;
-use toad_array::Array;
+use toad_array::{Array, Indexed};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
 use toad_msg::repeat::PATH;
@@ -259,7 +259,7 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
              req.data().msg().token);
         let mut sub = Some(Sub::new(req.clone()));
         self.subs
-            .map_mut(move |s| s.push(Option::take(&mut sub).expect("closure only invoked once")));
+            .map_mut(move |s| s.append(Option::take(&mut sub).expect("closure only invoked once")));
       },
       | Some(Deregister) => {
         log!(Observe::handle_incoming_request,
@@ -414,7 +414,7 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
                         "=> {:?} {:?}",
                         sub.addr(),
                         msg.data().token);
-                   effs.push(Effect::Send(msg.with_addr(sub.addr())));
+                   effs.append(Effect::Send(msg.with_addr(sub.addr())));
                  })
                });
     } else {

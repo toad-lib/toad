@@ -6,7 +6,7 @@ use naan::prelude::MonadOnce;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
@@ -232,11 +232,11 @@ pub trait Platform<Steps>
              | Ok(()) => nb::block!(self.exec_1(&eff)).map_err(|e| {
                            let mut effs: <Self::Types as PlatformTypes>::Effects =
                              Default::default();
-                           effs.push(eff);
+                           effs.append(eff);
                            (effs, e)
                          }),
              | Err((mut effs, e)) => {
-               effs.push(eff);
+               effs.append(eff);
                Err((effs, e))
              },
            })

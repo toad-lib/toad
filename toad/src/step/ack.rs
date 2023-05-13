@@ -1,4 +1,4 @@
-use toad_array::Array;
+use toad_array::{Array, Indexed};
 use toad_msg::{CodeKind, Type};
 
 use super::{exec_inner_step, Step, StepOutput};
@@ -50,7 +50,7 @@ impl<Inner: Step<P, PollReq = InnerPollReq<P>, PollResp = InnerPollResp<P>>, P: 
         if req.data().as_ref().ty == Type::Con
            && req.data().as_ref().code.kind() == CodeKind::Request =>
       {
-        effects.push(Effect::Send(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
+        effects.append(Effect::Send(Addrd(Resp::ack(req.as_ref().data()).into(), req.addr())));
         Some(Ok(req))
       },
       | Some(req) => Some(Ok(req)),
