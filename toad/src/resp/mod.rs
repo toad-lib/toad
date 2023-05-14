@@ -129,13 +129,13 @@ impl<P: PlatformTypes> Resp<P> {
 
   /// Create a response ACKnowledging an incoming request.
   ///
-  /// An ack response must be used when you receive
-  /// a CON request.
+  /// Received CON requests will be continually retried until
+  /// ACKed, making it very important that we acknowledge them
+  /// quickly on receipt.
   ///
-  /// You may choose to include the response payload in an ACK,
-  /// but keep in mind that you might receive duplicate
-  /// If you do need to ensure they receive your response,
-  /// you
+  /// Servers may choose to include a response to the request
+  /// along with the ACK (entailing a response [`Code`] and [`Payload`]),
+  /// as long as care is taken to not delay between receipt and ACK.
   pub fn ack(req: &Req<P>) -> Self {
     let msg = Message { ty: Type::Ack,
                         id: req.msg().id,

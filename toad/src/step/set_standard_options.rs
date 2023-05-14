@@ -69,32 +69,46 @@ impl<P, E, S> Step<P> for SetStandardOptions<S>
     msg.as_mut().set_host(bytes.as_str()).ok();
     msg.as_mut().set_port(port).ok();
 
+    let payload_len = msg.data().payload().as_bytes().len() as u64;
+    match msg.data().code.kind() {
+      | toad_msg::CodeKind::Request => {
+        msg.as_mut().set_size1(payload_len).ok();
+      },
+      | toad_msg::CodeKind::Response => {
+        msg.as_mut().set_size2(payload_len).ok();
+      },
+      | toad_msg::CodeKind::Empty => (),
+    }
+
     Ok(())
   }
 }
 
 #[cfg(test)]
 mod test {
+  use embedded_time::Instant;
   use tinyvec::array_vec;
   use toad_msg::Type;
 
   use super::*;
+  use crate::platform::Snapshot;
   use crate::step::test::test_step;
+  use crate::test;
 
-  type InnerPollReq = Addrd<Req<crate::test::Platform>>;
-  type InnerPollResp = Addrd<Resp<crate::test::Platform>>;
+  type InnerPollReq = Addrd<Req<test::Platform>>;
+  type InnerPollResp = Addrd<Resp<test::Platform>>;
 
-  fn test_message(ty: Type) -> Addrd<crate::test::Message> {
+  fn test_message(ty: Type) -> Addrd<test::Message> {
     use toad_msg::*;
 
-    Addrd(crate::test::Message { ver: Default::default(),
-                                 ty,
-                                 id: Id(1),
-                                 code: Code::new(1, 1),
-                                 token: Token(array_vec!(_ => 1)),
-                                 payload: Payload(Default::default()),
-                                 opts: Default::default() },
-          crate::test::dummy_addr())
+    Addrd(test::Message { ver: Default::default(),
+                          ty,
+                          id: Id(1),
+                          code: Code::new(1, 1),
+                          token: Token(array_vec!(_ => 1)),
+                          payload: Payload(Default::default()),
+                          opts: Default::default() },
+          test::dummy_addr())
   }
 
   test_step!(
@@ -122,4 +136,26 @@ mod test {
       (poll_resp(_, _, _, _) should satisfy { |out| assert_eq!(out, Some(Err(nb::Error::WouldBlock))) })
     ]
   );
+
+  #[test]
+  fn options() {
+    crate::step::test::dummy_step!({Step<PollReq = InnerPollReq, PollResp = InnerPollResp, Error = ()>});
+    let s = SetStandardOptions::<Dummy>::default();
+    let snap = Snapshot { time: Instant::new(0),
+                          config: Default::default(),
+                          recvd_dgram: None };
+
+    let mut req = test::msg!(CON GET x.x.x.x:80);
+    req.as_mut().payload = toad_msg::Payload("Yabba dabba doo!!".bytes().collect());
+
+    let mut resp = test::msg!(CON {2 . 04} x.x.x.x:80);
+    resp.as_mut().payload =
+      toad_msg::Payload("wacky tobaccy is the smacky holacky".bytes().collect());
+
+    s.before_message_sent(&snap, &mut vec![], &mut req).unwrap();
+    s.before_message_sent(&snap, &mut vec![], &mut resp)
+     .unwrap();
+    assert_eq!(req.data().size1(), Some(17));
+    assert_eq!(resp.data().size2(), Some(35));
+  }
 }

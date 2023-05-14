@@ -3,12 +3,11 @@ use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 
 use no_std_net::SocketAddr;
-use toad_array::Array;
-use toad_hash::Blake2Hasher;
+use toad_array::{Array, Indexed};
 use toad_msg::opt::known::observe::Action::{Deregister, Register};
 use toad_msg::opt::known::repeat::QUERY;
 use toad_msg::repeat::PATH;
-use toad_msg::{CodeKind, Id, MessageOptions, Token};
+use toad_msg::{CacheKey, CodeKind, DefaultCacheKey, Id, MessageOptions, Token};
 use toad_stem::Stem;
 
 use super::{log, Step};
@@ -28,126 +27,6 @@ pub mod opt {
   /// created by the [`super::Observe`] step and should not, under
   /// any circumstances, trigger any additional message creation.
   pub const WAS_CREATED_BY_OBSERVE: OptNumber = OptNumber(65000);
-}
-
-/// Default hasher used for [`SubscriptionHash`]
-///
-/// Hashes:
-///  - [Message Type](toad_msg::Message.ty)
-///  - [Uri-Path](toad_msg::opt::known::no_repeat::HOST)
-///  - [Uri-Query](toad_msg::opt::known::no_repeat::HOST)
-///  - [Accept](toad_msg::opt::known::no_repeat::ACCEPT)
-#[derive(Debug, Clone)]
-#[allow(non_camel_case_types)]
-pub struct SubHash_TypePathQueryAccept<P>(Blake2Hasher, PhantomData<P>);
-
-impl<P> Default for SubHash_TypePathQueryAccept<P> {
-  fn default() -> Self {
-    Self(Blake2Hasher::new(), PhantomData)
-  }
-}
-
-impl<P> SubHash_TypePathQueryAccept<P> {
-  /// Create a new `DefaultSubscriptionHasher`
-  pub fn new() -> Self {
-    Self::default()
-  }
-}
-
-impl<P> SubscriptionHash<P> for SubHash_TypePathQueryAccept<P> where P: PlatformTypes
-{
-  type Hasher = Blake2Hasher;
-
-  fn hasher(&mut self) -> &mut Self::Hasher {
-    &mut self.0
-  }
-
-  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>) {
-    let msg = sub.data().msg();
-
-    msg.ty.hash(&mut self.0);
-    msg.get(QUERY).into_iter().for_each(|v| {
-                                v.hash(&mut self.0);
-                              });
-    msg.accept().hash(&mut self.0);
-    msg.get(PATH).into_iter().for_each(|v| {
-                               v.hash(&mut self.0);
-                             });
-  }
-}
-
-/// Extends [`core::hash::Hash`] with "subscription similarity"
-/// used to determine whether similar subscriptions may be grouped together.
-///
-/// A default implementation is provided by [`SubHash_TypePathQueryAccept`].
-///
-/// ## Why?
-/// When your server [`notify`](super::Step::notify)s the toad runtime
-/// that there is a new version of a resource available, all
-/// subscriptions matching the path passed to `notify` will be
-/// re-sent as new requests to your server.
-///
-/// Similar requests (determined by this trait) will be grouped together
-/// so that your server only sees 1 request, and the response
-/// will be fanned back out to the subscribers.
-///
-/// For a more concrete example, see the [module documentation](self).
-pub trait SubscriptionHash<P>
-  where Self: Sized + Debug,
-        P: PlatformTypes
-{
-  /// Type used to generate hashes
-  type Hasher: Hasher;
-
-  #[allow(missing_docs)]
-  fn hasher(&mut self) -> &mut Self::Hasher;
-
-  /// Mutate the hasher instance with a subscription
-  ///
-  /// To obtain the [`u64`] hash, use [`Hasher::finish`] on [`sub_hash.hasher()`](SubscriptionHash::hasher)
-  ///
-  /// ```
-  /// use core::hash::Hasher;
-  ///
-  /// use toad::net::{ipv4_socketaddr, Addrd};
-  /// use toad::platform::toad_msg::Message;
-  /// use toad::req::Req;
-  /// use toad::step::observe::{SubHash_TypePathQueryAccept, SubscriptionHash};
-  /// use toad_msg::Type::Con;
-  /// use toad_msg::{Code, Id, Token};
-  ///
-  /// type Std = toad::std::PlatformTypes<toad::std::dtls::N>;
-  ///
-  /// let msg_a = Message::<Std>::new(Con, Code::GET, Id(1), Token(Default::default()));
-  /// let req_a = Addrd(Req::<Std>::from(msg_a),
-  ///                   ipv4_socketaddr([127, 0, 0, 1], 1234));
-  /// let mut ha = SubHash_TypePathQueryAccept::new();
-  /// ha.subscription_hash(&req_a);
-  ///
-  /// let msg_b = Message::<Std>::new(Con, Code::GET, Id(2), Token(Default::default()));
-  /// let req_b = Addrd(Req::<Std>::from(msg_b),
-  ///                   ipv4_socketaddr([127, 0, 0, 1], 2345));
-  /// let mut hb = SubHash_TypePathQueryAccept::new();
-  /// hb.subscription_hash(&req_a);
-  ///
-  /// assert_eq!(ha.hasher().finish(), hb.hasher().finish());
-  /// ```
-  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>);
-}
-
-impl<P, T> SubscriptionHash<P> for &mut T
-  where P: PlatformTypes,
-        T: SubscriptionHash<P>
-{
-  type Hasher = T::Hasher;
-
-  fn hasher(&mut self) -> &mut Self::Hasher {
-    <T as SubscriptionHash<P>>::hasher(self)
-  }
-
-  fn subscription_hash(&mut self, sub: &Addrd<Req<P>>) {
-    <T as SubscriptionHash<P>>::subscription_hash(self, sub)
-  }
 }
 
 /// An Observe subscription
@@ -228,17 +107,17 @@ impl<I, S, RQ, H> Default for Observe<I, S, RQ, H>
 impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
   fn hash<'a, P>(sub: &'a Sub<P>) -> (&'a Sub<P>, u64)
     where P: PlatformTypes,
-          Hasher: SubscriptionHash<P> + Default
+          Hasher: CacheKey + Default
   {
     (sub, Self::hash_req(sub.req()))
   }
 
   fn hash_req<'a, P>(sub: &'a Addrd<Req<P>>) -> u64
     where P: PlatformTypes,
-          Hasher: SubscriptionHash<P> + Default
+          Hasher: CacheKey + Default
   {
     let mut h = Hasher::default();
-    h.subscription_hash(sub);
+    h.cache_key(sub.data().msg());
     h.hasher().finish()
   }
 
@@ -285,7 +164,7 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
                        -> impl 'a + Iterator<Item = &'a Sub<P>>
     where Subs: Array<Item = Sub<P>>,
           P: PlatformTypes,
-          Hasher: SubscriptionHash<P> + Default
+          Hasher: CacheKey + Default
   {
     subs.iter()
         .filter(move |s| match Self::get(subs, addr, t).map(Self::hash) {
@@ -380,7 +259,7 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
              req.data().msg().token);
         let mut sub = Some(Sub::new(req.clone()));
         self.subs
-            .map_mut(move |s| s.push(Option::take(&mut sub).expect("closure only invoked once")));
+            .map_mut(move |s| s.append(Option::take(&mut sub).expect("closure only invoked once")));
       },
       | Some(Deregister) => {
         log!(Observe::handle_incoming_request,
@@ -414,7 +293,7 @@ impl<S, Subs, RequestQueue, Hasher> Observe<S, Subs, RequestQueue, Hasher> {
     where P: PlatformTypes,
           Subs: Array<Item = Sub<P>>,
           RequestQueue: Array<Item = Addrd<Req<P>>>,
-          Hasher: SubscriptionHash<P> + Default
+          Hasher: CacheKey + Default
   {
     Self::subs_matching_path(subs, path).for_each(|sub| {
                                           // TODO: handle option capacity
@@ -439,7 +318,7 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
         S: Step<P, PollReq = Addrd<Req<P>>, PollResp = Addrd<Resp<P>>>,
         B: Default + Array<Item = Sub<P>>,
         RQ: Default + Array<Item = Addrd<Req<P>>>,
-        H: SubscriptionHash<P> + Default
+        H: CacheKey + Default
 {
   type PollReq = Addrd<Req<P>>;
   type PollResp = Addrd<Resp<P>>;
@@ -535,7 +414,7 @@ impl<P, S, B, RQ, H> Step<P> for Observe<S, B, RQ, H>
                         "=> {:?} {:?}",
                         sub.addr(),
                         msg.data().token);
-                   effs.push(Effect::Send(msg.with_addr(sub.addr())));
+                   effs.append(Effect::Send(msg.with_addr(sub.addr())));
                  })
                });
     } else {
@@ -576,10 +455,7 @@ mod tests {
   type Snapshot = crate::platform::Snapshot<test::Platform>;
   type Message = toad_msg::Message<test::Platform>;
   type Sub = super::Sub<test::Platform>;
-  type Observe<S> = super::Observe<S,
-                                   Vec<Sub>,
-                                   Vec<Addrd<Req<test::Platform>>>,
-                                   SubHash_TypePathQueryAccept<test::Platform>>;
+  type Observe<S> = super::Observe<S, Vec<Sub>, Vec<Addrd<Req<test::Platform>>>, DefaultCacheKey>;
   type PollReq = Addrd<Req<test::Platform>>;
   type PollResp = Addrd<Resp<test::Platform>>;
 
@@ -733,66 +609,4 @@ mod tests {
         (poll_req(_, _) should satisfy { |req| assert!(req.is_none())  })
       ]
   );
-
-  #[test]
-  pub fn sub_hash() {
-    fn req<F>(stuff: F) -> u64
-      where F: FnOnce(&mut Message)
-    {
-      let mut req = Message::new(Type::Con, Code::GET, Id(1), Token(Default::default()));
-      stuff(&mut req);
-      let sub = Sub::new(Addrd(Req::from(req), test::x.x.x.x(0)));
-
-      let mut h = SubHash_TypePathQueryAccept::new();
-      h.subscription_hash(sub.req());
-      h.hasher().finish()
-    }
-
-    assert_ne!(req(|r| {
-                 r.set_path("a/b/c").ok();
-               }),
-               req(|_| {}));
-    assert_eq!(req(|r| {
-                 r.set_path("a/b/c").ok();
-               }),
-               req(|r| {
-                 r.set_path("a/b/c").ok();
-               }));
-    assert_ne!(req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-               }),
-               req(|r| {
-                 r.set_path("a/b/c").ok();
-               }));
-    assert_eq!(req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-               }),
-               req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-                 r.set_content_format(ContentFormat::Json).ok();
-               }));
-    assert_ne!(req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-                 r.set_accept(ContentFormat::Json).ok();
-               }),
-               req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-                 r.set_accept(ContentFormat::Text).ok();
-               }));
-    assert_eq!(req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-                 r.set_accept(ContentFormat::Json).ok();
-               }),
-               req(|r| {
-                 r.set_path("a/b/c").ok();
-                 r.add_query("filter[temp](less_than)=123").ok();
-                 r.set_accept(ContentFormat::Json).ok();
-               }));
-  }
 }

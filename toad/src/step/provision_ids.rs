@@ -5,7 +5,7 @@ use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
 use no_std_net::SocketAddr;
 use tinyvec::ArrayVec;
-use toad_array::Array;
+use toad_array::{Array, Indexed};
 use toad_len::Len;
 use toad_map::{InsertError, Map};
 use toad_msg::Id;
@@ -291,7 +291,7 @@ impl<P, Inner, Ids> ProvisionIds<P, Inner, Ids>
              log::Level::Trace,
              "Saw new {:?}",
              id);
-        ids.push(Stamped(IdWithDefault(id), now));
+        ids.append(Stamped(IdWithDefault(id), now));
       },
     }
   }

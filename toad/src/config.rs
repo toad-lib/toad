@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use embedded_time::duration::Milliseconds;
 
 use crate::retry::{Attempts, Strategy};

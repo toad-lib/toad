@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use no_std_net::SocketAddr;
-use toad_array::Array;
+use toad_array::{Array, Indexed};
 use toad_len::Len;
 use toad_map::Map;
 use toad_msg::{Token, Type};
@@ -131,7 +131,7 @@ impl<P: PlatformTypes,
                "polled for response to {:?}, got response with token {:?}",
                token,
                resp.data().token()).ok();
-        effects.push(Effect::Log(log::Level::Info, msg));
+        effects.append(Effect::Log(log::Level::Info, msg));
         self.store(resp);
 
         match try_remove_from_buffer(Type::Ack).or_else(|| try_remove_from_buffer(Type::Con))

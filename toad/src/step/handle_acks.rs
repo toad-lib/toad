@@ -1,7 +1,7 @@
 use core::fmt::Write;
 
 use naan::prelude::ResultExt;
-use toad_array::Array;
+use toad_array::Indexed;
 use toad_len::Len;
 use toad_map::{InsertError, Map};
 use toad_msg::{Token, Type};

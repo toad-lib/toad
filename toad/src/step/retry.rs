@@ -1,6 +1,6 @@
 use embedded_time::duration::Milliseconds;
 use embedded_time::Instant;
-use toad_array::Array;
+use toad_array::{Array, Indexed};
 use toad_msg::{CodeKind, Token, Type};
 use toad_stem::Stem;
 use toad_string::{format, String};
@@ -71,7 +71,7 @@ pub trait Buf<P>
                               dbg.msg_short,
                               dbg.msg_should_be,
                               dbg.since_last_attempt);
-                         effects.push(Effect::Send(msg.clone()));
+                         effects.append(Effect::Send(msg.clone()));
                        },
                        | _ => log!(retry::Buf::attempt_all,
                                    effects,
@@ -222,10 +222,10 @@ pub trait Buf<P>
         let timer = RetryTimer::new(now,
                                     config.msg.con.unacked_retry_strategy,
                                     config.msg.con.max_attempts);
-        self.push((State::ConPreAck { timer,
-                                      post_ack_strategy: config.msg.con.acked_retry_strategy,
-                                      post_ack_max_attempts: config.msg.con.max_attempts },
-                   msg.clone()));
+        self.append((State::ConPreAck { timer,
+                                        post_ack_strategy: config.msg.con.acked_retry_strategy,
+                                        post_ack_max_attempts: config.msg.con.max_attempts },
+                     msg.clone()));
 
         log!(retry::Buf::store_retryables,
              effects,
@@ -244,7 +244,7 @@ pub trait Buf<P>
         let timer = RetryTimer::new(now,
                                     config.msg.non.retry_strategy,
                                     config.msg.non.max_attempts);
-        self.push((State::Just(timer), msg.clone()));
+        self.append((State::Just(timer), msg.clone()));
 
         Ok(())
       },

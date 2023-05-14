@@ -6,7 +6,7 @@ use naan::prelude::MonadOnce;
 use no_std_net::SocketAddr;
 #[cfg(feature = "alloc")]
 use std_alloc::vec::Vec;
-use toad_array::{AppendCopy, Array};
+use toad_array::{AppendCopy, Array, Indexed};
 
 use crate::config::Config;
 use crate::net::{Addrd, Socket};
@@ -232,11 +232,11 @@ pub trait Platform<Steps>
              | Ok(()) => nb::block!(self.exec_1(&eff)).map_err(|e| {
                            let mut effs: <Self::Types as PlatformTypes>::Effects =
                              Default::default();
-                           effs.push(eff);
+                           effs.append(eff);
                            (effs, e)
                          }),
              | Err((mut effs, e)) => {
-               effs.push(eff);
+               effs.append(eff);
                Err((effs, e))
              },
            })
@@ -339,6 +339,22 @@ pub enum Effect<P>
   Send(Addrd<self::toad_msg::Message<P>>),
   Log(log::Level, String<1000>),
   Nop,
+}
+
+impl<P> Effect<P> where P: PlatformTypes
+{
+  /// Is this [`Effect::Send`]?
+  pub fn is_send(&self) -> bool {
+    self.get_send().is_some()
+  }
+
+  /// If this is [`Effect::Send`], yields a reference to the message
+  pub fn get_send(&self) -> Option<&Addrd<self::toad_msg::Message<P>>> {
+    match self {
+      | Self::Send(r) => Some(r),
+      | _ => None,
+    }
+  }
 }
 
 impl<P> Default for Effect<P> where P: PlatformTypes
