@@ -11,21 +11,8 @@ jobs:
     runs-on: 'ubuntu-latest'
     steps:
     - uses: 'actions/checkout@v2'
-    - uses: 'actions/setup-java@v3'
-      with:
-        distribution: 'liberica'
-        java-version: '20'
-    - uses: 'actions/cache@v2'
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.cargo/bin
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: rust-${{ runner.os }}
-
-    - uses: dorny/paths-filter@v2
+    - uses: 'https://github.com/asdf-vm/actions/install@v2.1.0'
+    - uses: 'https://github.com/dorny/paths-filter@v2'
       id: package_changed
       with:
         filters: |
@@ -43,13 +30,7 @@ jobs:
           toad-writable: ['toad-writable/**']
           toad: ['toad/**']
 
-    - run: |
-        if [ ! -f ~/.cargo/bin/cargo-make ];
-        then
-          cargo install cargo-make
-        else
-          echo 'cargo-make already available.'
-        fi
+    - run: cargo install cargo-make
 
     - name: 'check toad-msg'
       run: 'cargo make ci'
