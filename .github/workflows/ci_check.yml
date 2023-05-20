@@ -15,17 +15,7 @@ jobs:
       with:
         distribution: 'liberica'
         java-version: '20'
-    - uses: 'actions/cache@v2'
-      with:
-        path: |
-          ~/.rustup/toolchains
-          ~/.cargo/bin
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: rust-${{ runner.os }}
-
-    - uses: dorny/paths-filter@v2
+    - uses: https://github.com/dorny/paths-filter@v2
       id: package_changed
       with:
         filters: |
