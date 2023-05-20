@@ -7,27 +7,16 @@ jobs:
   release:
     if: |
           !startsWith(github.event.head_commit.message, '[NO_CI]')
-
-    runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v3
-        id: release
+      - uses: 'https://github.com/google-github-actions/release-please-action@v3'
+        id: 'release'
         with:
-          token: ${{secrets.RELEASE_PLEASE_GITHUB_TOKEN}}
+          token: ${{secrets.RELEASE_PLEASE_GITEA_TOKEN}}
           sequential-calls: true
           command: manifest
 
       - uses: actions/checkout@v2
         if: ${{ steps.release.outputs.releases_created }}
-
-      - uses: actions/cache@v2
-        if: ${{ steps.release.outputs.releases_created }}
-        with:
-          path: |
-            ~/.rustup
-            ~/.cargo
-            target
-          key: ${{ runner.os }}-cargo
 
       - name: 'publish toad-msg'
         if: ${{ steps.release.outputs['toad-msg--release_created'] }}
